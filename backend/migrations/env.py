@@ -7,7 +7,9 @@ from backend.shared.config.database import Base
 from backend.shared.config.settings import settings
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Escape '%' for configparser interpolation (passwords with special chars
+# get URL-encoded by settings.database_url, e.g. '@' -> '%40').
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
