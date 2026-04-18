@@ -1,0 +1,119 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv*/
+venv*/
+env/
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Jupyter Notebooks
+# ========================
+.ipynb_checkpoints/
+*.ipynb_output/
+
+# ========================
+# ML / Data Science
+# ========================
+# Large model weights & checkpoints
+*.pt
+*.pth
+*.bin
+*.onnx
+*.safetensors
+*.ckpt
+models/**/checkpoint-*/
+models/**/runs/
+
+# HuggingFace cache
+.cache/
+
+# Large datasets (keep .gitkeep placeholders)
+data/synthetic/*.csv
+data/synthetic/*.json
+data/synthetic/*.parquet
+data/processed/*.csv
+data/processed/*.json
+data/processed/*.parquet
+
+# ========================
+# Node.js / Frontend
+# ========================
+node_modules/
+.next/
+.nuxt/
+dist/
+*.tsbuildinfo
+.npm
+.yarn/
+
+# ========================
+# Docker
+# ========================
+docker-compose.override.yml
+
+# ========================
+# IDE & Editors
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ========================
+# macOS
+# ========================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ========================
+# Windows
+# ========================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ========================
+# Linux
+# ========================
+*~
+
+# ========================
+# Testing & Coverage
+# ========================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
