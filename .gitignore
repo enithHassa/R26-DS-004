@@ -1,0 +1,192 @@
+# ============================================================
+# AI Tax Advisory System — .gitignore
+# Monorepo: Python (FastAPI + Alembic + ML) + Node/React frontend
+# ============================================================
+
+# ---------- Secrets & environment ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials.json
+service-account*.json
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+pip-wheel-metadata/
+.Python
+develop-eggs/
+downloads/
+sdist/
+parts/
+var/
+lib64/
+share/python-wheels/
+MANIFEST
+
+# Virtual environments (project-specific)
+.venv/
+.venv-backend/
+.venv-ml/
+venv/
+env/
+ENV/
+.python-version
+
+# Python tooling caches
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+*.cover
+*.py,cover
+
+# ---------- Alembic / DB ----------
+# Keep migration scripts; ignore local dumps & SQLite
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+
+# ---------- Jupyter / IPython ----------
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+notebooks/**/.ipynb_checkpoints/
+
+# ---------- Node / Frontend ----------
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/.nuxt/
+frontend/.svelte-kit/
+frontend/.vite/
+frontend/coverage/
+frontend/.turbo/
+frontend/.cache/
+frontend/.parcel-cache/
+frontend/.eslintcache
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# ---------- Data & ML artifacts ----------
+# Ignore raw/large datasets; keep folder structure via .gitkeep
+data/raw/
+data/processed/*
+!data/processed/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep
+data/external/
+data/interim/
+
+# Model binaries & checkpoints (keep configs / .gitkeep)
+models/**/*.bin
+models/**/*.pt
+models/**/*.pth
+models/**/*.ckpt
+models/**/*.safetensors
+models/**/*.onnx
+models/**/*.h5
+models/**/*.pb
+models/**/*.tflite
+models/**/*.joblib
+models/**/*.pkl
+models/**/*.pickle
+models/**/*.npz
+models/**/*.npy
+models/**/checkpoints/
+models/**/runs/
+models/**/logs/
+
+# Experiment tracking
+mlruns/
+wandb/
+.neptune/
+lightning_logs/
+tb_logs/
+tensorboard/
+outputs/
+
+# HuggingFace / Torch caches
+.cache/
+.huggingface/
+.torch/
+
+# ---------- Docker ----------
+docker/**/.env
+docker/**/*.local.yml
+*.pid
+
+# ---------- Logs & temp ----------
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ---------- OS files ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ---------- IDE / Editor ----------
+.idea/
+.vscode/
+!.vscode/settings.json.example
+!.vscode/extensions.json
+*.iml
+*.sublime-project
+*.sublime-workspace
+.history/
+.fleet/
+.zed/
+
+# ---------- Cursor ----------
+.cursor/
+.cursorignore.local
+
+# ---------- Misc ----------
+*.orig
+*.rej
+.direnv/
