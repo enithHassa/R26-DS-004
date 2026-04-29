@@ -37,6 +37,14 @@ ai-tax-advisory-system/
 └── README.md
 ```
 
+## Phase 1 Team Boundary Guide
+
+Before adding new code in shared folders or component folders, follow:
+
+- `docs/PHASE1_STRUCTURE.md`
+
+This keeps model-specific and common code separated while avoiding breaking changes for teammates.
+
 ## Recommended Common Environment (for all users)
 
 - OS: macOS, Linux, or Windows (WSL2 preferred for Windows)
