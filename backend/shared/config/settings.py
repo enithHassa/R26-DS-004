@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+    #: Emit newline-delimited JSON logs (aggregation / audit pipelines).
+    LOG_JSON: bool = False
 
     @property
     def database_url(self) -> str:
