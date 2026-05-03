@@ -6,7 +6,11 @@
 # ---------- Secrets & environment ----------
 .env
 .env.*
+# Keep checked-in templates (root and packages like frontend/)
 !.env.example
+!**/.env.example
+!.env.sample
+!**/.env.sample
 *.pem
 *.key
 *.crt
