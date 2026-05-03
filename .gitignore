@@ -149,6 +149,11 @@ docker/**/.env
 docker/**/*.local.yml
 *.pid
 
+# ---------- Local migration staging (do not commit) ----------
+# Holds Component 3 frontend implementation files while rebasing onto `main`.
+# See docs/migrations/component3-frontend-merge.md for the workflow.
+migration/component3-frontend-hold/
+
 # ---------- Logs & temp ----------
 logs/
 *.log
