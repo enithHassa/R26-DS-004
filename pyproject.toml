@@ -1,0 +1,86 @@
+[project]
+name = "ai-tax-advisory-system"
+version = "0.1.0"
+description = "R26-DS-004 Final-Year Research: Intelligent, Explainable Tax Advisory"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    ".venv-backend",
+    ".venv-ml",
+    "frontend",
+    "notebooks",
+    "backend/migrations/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "B008",  # allow FastAPI Depends() in defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+"backend/migrations/**" = ["E402", "F401"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = '''
+(
+  /(
+    \.venv-backend
+    | \.venv-ml
+    | frontend
+    | notebooks
+    | backend/migrations/versions
+  )/
+)
+'''
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+plugins = ["pydantic.mypy"]
+exclude = [
+    "\\.venv-backend",
+    "\\.venv-ml",
+    "frontend",
+    "notebooks",
+    "backend/migrations/versions",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --tb=short"
+testpaths = [
+    "backend",
+    "models",
+    "scripts",
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "ignore::DeprecationWarning:passlib.*",
+]
+markers = [
+    "integration: tests that hit external services (Postgres, MLflow, etc.)",
+    "slow: tests that take more than a second",
+]

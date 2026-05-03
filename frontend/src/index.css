@@ -17,6 +17,10 @@
   --color-border-accent: #d6c099;
 
   --shadow-card: 0 10px 28px rgba(88, 64, 50, 0.08);
+
+  /* Used by Component 3 module chrome (financial-module-layout) */
+  --tax-accent: var(--color-brand-gold);
+  --primary: var(--color-brand-maroon);
 }
 
 * {
@@ -95,5 +99,39 @@ body {
 
   .btn-primary:hover {
     background: #7a3339;
+  }
+}
+
+/* Component 3 dashboard: map shadcn-style Tailwind tokens to the presentation palette */
+@theme inline {
+  --color-background: var(--color-bg-canvas);
+  --color-foreground: var(--color-text-primary);
+  --color-card: var(--color-surface-panel);
+  --color-card-foreground: var(--color-text-primary);
+  --color-popover: var(--color-surface-panel);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-primary: var(--color-brand-maroon);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-surface-muted);
+  --color-secondary-foreground: var(--color-text-primary);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-accent: var(--color-brand-cream);
+  --color-accent-foreground: var(--color-text-primary);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-border-soft);
+  --color-input: var(--color-border-soft);
+  --color-ring: var(--color-brand-gold);
+  --radius-lg: 0.75rem;
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-sm: calc(var(--radius-lg) - 4px);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
   }
 }

@@ -56,7 +56,7 @@ def verify_connection() -> None:
             __import__("sqlalchemy").text("SELECT version()")
         )
         version = result.scalar()
-        print(f"Connected successfully!")
+        print("Connected successfully!")
         print(f"  Host:     {settings.DATABASE_HOST}")
         print(f"  Database: {settings.DATABASE_NAME}")
         print(f"  Postgres: {version}")

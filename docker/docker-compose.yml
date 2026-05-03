@@ -1,0 +1,45 @@
+version: "3.9"
+
+# Local Postgres for offline development, so work isn't blocked when the
+# Azure Postgres server is stopped to conserve credits. Set
+# `DATABASE_MODE=local` in .env to route the backend to this instance.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tax_advisory_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LOCAL_DATABASE_USER:-tax_advisory}
+      POSTGRES_PASSWORD: ${LOCAL_DATABASE_PASSWORD:-tax_advisory}
+      POSTGRES_DB: ${LOCAL_DATABASE_NAME:-tax_advisory}
+    ports:
+      - "${LOCAL_DATABASE_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOCAL_DATABASE_USER:-tax_advisory} -d ${LOCAL_DATABASE_NAME:-tax_advisory}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.11.1
+    container_name: tax_advisory_mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    profiles:
+      - ml
+
+volumes:
+  postgres_data:
+  mlflow_data:
