@@ -1,3 +1,4 @@
+import importlib
 import importlib.util
 import sys
 from logging.config import fileConfig
@@ -14,8 +15,31 @@ from backend.shared.config.settings import settings
 # inside hyphenated directories (e.g. ``comp-transaction-sementic``) which
 # cannot be regular Python packages, so we load them via importlib.
 import backend.shared.db  # noqa: F401  -- registers shared models
+import backend.shared.db  # noqa: F401
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+def _register_component_models() -> None:
+    """Import every component's ``app.models`` package so its tables register
+    on ``Base.metadata``.
+
+    Each component uses its own ``app/`` package. We load them one at a time,
+    putting that component's directory at the front of ``sys.path`` while we
+    import, then purging ``app.*`` from ``sys.modules`` so the next component
+    can load its own ``app`` cleanly.
+    """
+    for comp_dir in sorted(_BACKEND_DIR.glob("comp-*")):
+        models_init = comp_dir / "app" / "models" / "__init__.py"
+        if not models_init.exists():
+            continue
+        sys.path.insert(0, str(comp_dir))
+        try:
+            importlib.import_module("app.models")
+        finally:
+            sys.path.pop(0)
+            for key in [k for k in sys.modules if k == "app" or k.startswith("app.")]:
+                del sys.modules[key]
 
 
 def _register_component_db(component_dir: str, alias: str) -> None:
@@ -40,6 +64,7 @@ def _register_component_db(component_dir: str, alias: str) -> None:
     spec.loader.exec_module(module)
 
 
+_register_component_models()
 _register_component_db("comp-transaction-sementic", "comp_transaction_sementic_db")
 
 
