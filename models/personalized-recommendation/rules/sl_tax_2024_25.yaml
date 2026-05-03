@@ -1,0 +1,43 @@
+# Sri Lanka APIT (Advance Personal Income Tax) — assessment year 2024/25.
+#
+# Numbers below are aligned with the Inland Revenue Department circulars
+# published for FY 2024/25. Reliefs and deduction caps are kept conservative
+# so the synthetic generator can stay self-consistent. Update the version
+# string when slabs/reliefs change so downstream artifacts can be regenerated.
+
+version: "2024_25"
+currency: LKR
+
+# Annual personal (tax-free) relief.
+personal_relief_annual: 1_200_000
+
+# Progressive APIT slabs applied to taxable income *after* personal relief.
+# Each bracket: { upper: <inclusive upper bound or null>, rate: <fraction> }.
+apit_slabs:
+  - upper: 500_000          # Next 500k after relief: 6%
+    rate: 0.06
+  - upper: 500_000          # Next 500k: 18%
+    rate: 0.18
+  - upper: 500_000          # Next 500k: 24%
+    rate: 0.24
+  - upper: 500_000          # Next 500k: 30%
+    rate: 0.30
+  - upper: null             # Balance: 36%
+    rate: 0.36
+
+# Statutory deductions/reliefs (annual caps).
+deductions:
+  rent_relief_pct: 0.25
+  rent_relief_cap_annual: 300_000
+  charitable_donations_cap_pct_of_taxable: 0.33
+  life_insurance_premium_cap_annual: 100_000
+  health_insurance_premium_cap_annual: 75_000
+  home_loan_interest_cap_annual: 600_000
+  retirement_contribution_cap_pct_of_income: 0.15
+  retirement_contribution_cap_annual: 600_000
+
+# EPF/ETF baseline rates (employer + employee shares of basic salary).
+provident:
+  epf_employee_rate: 0.08
+  epf_employer_rate: 0.12
+  etf_employer_rate: 0.03

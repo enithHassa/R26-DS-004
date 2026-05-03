@@ -1,4 +1,4 @@
+from backend.shared.config.database import Base, SessionLocal, engine, get_db
 from backend.shared.config.settings import settings
-from backend.shared.config.database import engine, SessionLocal, Base, get_db
 
-__all__ = ["settings", "engine", "SessionLocal", "Base", "get_db"]
+__all__ = ["Base", "SessionLocal", "engine", "get_db", "settings"]

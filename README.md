@@ -116,3 +116,46 @@ az postgres flexible-server stop \
   --resource-group tax-advisory-rg \
   --name tax-advisory-db
 ```
+
+### Local Postgres fallback (when Azure is stopped)
+
+A `docker/docker-compose.yml` ships a local Postgres (and optional MLflow)
+so development isn't blocked when the Azure server is off.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d postgres
+# then in .env
+# DATABASE_MODE=local
+```
+
+## Running the services
+
+```bash
+source .venv-backend/bin/activate
+
+# Component 3 (Personalized Recommendation)
+PYTHONPATH=. uvicorn app.main:app \
+  --app-dir backend/comp-personalized-recommendation \
+  --reload --port 8003
+
+# API Gateway (proxies /api/v1/recommendation/** to the component above)
+PYTHONPATH=. uvicorn app.main:app \
+  --app-dir backend/api-gateway \
+  --reload --port 8000
+```
+
+```bash
+# Dashboard
+cd frontend && npm install && npm run dev     # http://localhost:5173
+```
+
+## Quality gates
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files                 # ruff + black + mypy + standard hooks
+
+PYTHONPATH=. pytest                         # run all backend tests
+cd frontend && npm run typecheck && npm run lint
+```
