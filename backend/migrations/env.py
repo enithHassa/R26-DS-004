@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 import importlib
+=======
 import importlib.util
+>>>>>>> origin/main
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -10,8 +13,38 @@ from sqlalchemy import engine_from_config, pool
 from backend.shared.config.database import Base
 from backend.shared.config.settings import settings
 
-# Register shared SQLAlchemy models (transactions, pipeline tables, etc.)
-import backend.shared.db  # noqa: F401
+<<<<<<< HEAD
+
+def _register_component_models() -> None:
+    """Import every component's ``app.models`` package so its tables register
+    on ``Base.metadata``.
+
+    Each component uses its own ``app/`` package. We load them one at a time,
+    putting that component's directory at the front of ``sys.path`` while we
+    import, then purging ``app.*`` from ``sys.modules`` so the next component
+    can load its own ``app`` cleanly.
+    """
+    backend_dir = Path(__file__).resolve().parent.parent
+    for comp_dir in sorted(backend_dir.glob("comp-*")):
+        models_init = comp_dir / "app" / "models" / "__init__.py"
+        if not models_init.exists():
+            continue
+        sys.path.insert(0, str(comp_dir))
+        try:
+            importlib.import_module("app.models")
+        finally:
+            sys.path.pop(0)
+            for key in [k for k in sys.modules if k == "app" or k.startswith("app.")]:
+                del sys.modules[key]
+
+
+_register_component_models()
+=======
+# Register all SQLAlchemy ORM models with Base.metadata so autogenerate can
+# see them. Shared tables import normally; component-specific packages live
+# inside hyphenated directories (e.g. ``comp-transaction-sementic``) which
+# cannot be regular Python packages, so we load them via importlib.
+import backend.shared.db  # noqa: F401  -- registers shared models
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -19,8 +52,8 @@ _BACKEND_DIR = Path(__file__).resolve().parents[1]
 def _register_component_db(component_dir: str, alias: str) -> None:
     """Load ``backend/<component_dir>/db/`` and register its models.
 
-    Hyphenated component folders are not regular Python packages; we load via
-    importlib. No-ops if the component has no ``db/__init__.py`` yet.
+    No-ops if the component hasn't created its ``db/`` package yet, so adding
+    a new component is a one-line change here.
     """
     pkg_root = _BACKEND_DIR / component_dir / "db"
     init_file = pkg_root / "__init__.py"
@@ -38,28 +71,8 @@ def _register_component_db(component_dir: str, alias: str) -> None:
     spec.loader.exec_module(module)
 
 
-def _register_component_models() -> None:
-    """Import each ``comp-*/app/models`` package onto ``Base.metadata``.
-
-    Components ship a FastAPI ``app`` package under their hyphenated folder;
-    we load ``app.models`` one directory at a time and purge ``app.*`` from
-    ``sys.modules`` so the next component loads cleanly.
-    """
-    for comp_dir in sorted(_BACKEND_DIR.glob("comp-*")):
-        models_init = comp_dir / "app" / "models" / "__init__.py"
-        if not models_init.exists():
-            continue
-        sys.path.insert(0, str(comp_dir))
-        try:
-            importlib.import_module("app.models")
-        finally:
-            sys.path.pop(0)
-            for key in [k for k in list(sys.modules) if k == "app" or k.startswith("app.")]:
-                del sys.modules[key]
-
-
 _register_component_db("comp-transaction-sementic", "comp_transaction_sementic_db")
-_register_component_models()
+>>>>>>> origin/main
 
 config = context.config
 # Let callers override the URL (tests, CI, offline sqlite runs); otherwise
