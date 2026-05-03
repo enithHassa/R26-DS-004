@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     APP_ENV: Literal["development", "staging", "production"] = "development"
     APP_DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+    #: Emit newline-delimited JSON logs (aggregation / audit pipelines).
+    LOG_JSON: bool = False
 
     # ---------- Gateway + component service discovery ----------
     # Component teams add their own *_URL entries as their services come online.
