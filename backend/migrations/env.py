@@ -10,6 +10,11 @@ from sqlalchemy import engine_from_config, pool
 from backend.shared.config.database import Base
 from backend.shared.config.settings import settings
 
+# Register all SQLAlchemy ORM models with Base.metadata so autogenerate can
+# see them. Shared tables import normally; component-specific packages live
+# inside hyphenated directories (e.g. ``comp-transaction-sementic``) which
+# cannot be regular Python packages, so we load them via importlib.
+import backend.shared.db  # noqa: F401  -- registers shared models
 import backend.shared.db  # noqa: F401
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -61,6 +66,7 @@ def _register_component_db(component_dir: str, alias: str) -> None:
 
 _register_component_models()
 _register_component_db("comp-transaction-sementic", "comp_transaction_sementic_db")
+
 
 config = context.config
 # Let callers override the URL (tests, CI, offline sqlite runs); otherwise

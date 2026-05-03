@@ -1,3 +1,8 @@
+"""Shared Pydantic contracts used across APIs and pipelines.
+
+Includes framework primitives (pagination, errors) and canonical JSON shapes
+for cross-component data (e.g. transactions). Component-specific schemas live
+under ``backend/<component>/app/schemas/``.
 """Shared Pydantic contracts across components.
 
 Generic primitives live in ``common.py`` (pagination, errors, currency, etc.).
