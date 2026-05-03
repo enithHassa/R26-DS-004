@@ -1,11 +1,11 @@
-<<<<<<< HEAD
-"""Generic, framework-wide schema primitives shared across all 4 research components.
+"""Shared Pydantic contracts across components.
 
-IMPORTANT: Do NOT add component-specific contracts (profile, strategy,
-recommendation, impact, transaction, etc.) here. Each component owns its
-Pydantic schemas under ``backend/<comp-folder>/app/schemas/``.
+Generic primitives live in ``common.py`` (pagination, errors, currency, etc.).
+Transaction/analysis shapes support Component 1; component domains stay under
+``backend/<comp>/app/schemas/``.
 """
 
+from backend.shared.schemas.analyze import AnalyzeTransactionRequest, AnalyzeTransactionResponse
 from backend.shared.schemas.common import (
     Currency,
     ErrorDetail,
@@ -15,19 +15,6 @@ from backend.shared.schemas.common import (
     RiskTolerance,
     TimestampedSchema,
 )
-
-__all__ = [
-    "Currency",
-    "ErrorDetail",
-    "ErrorResponse",
-    "ORMBase",
-    "PaginatedResponse",
-    "RiskTolerance",
-    "TimestampedSchema",
-=======
-"""Shared Pydantic contracts — canonical JSON shapes between pipeline stages and APIs."""
-
-from backend.shared.schemas.analyze import AnalyzeTransactionRequest, AnalyzeTransactionResponse
 from backend.shared.schemas.confidence import ConfidenceReport
 from backend.shared.schemas.enums import LabelSource, TaxabilityStatus, TxnDirection
 from backend.shared.schemas.evidence import EvidenceChain, EvidenceStep
@@ -38,13 +25,19 @@ __all__ = [
     "AnalyzeTransactionRequest",
     "AnalyzeTransactionResponse",
     "ConfidenceReport",
+    "Currency",
+    "ErrorDetail",
+    "ErrorResponse",
     "EvidenceChain",
     "EvidenceStep",
     "LabelSource",
     "NormalizedTransaction",
+    "ORMBase",
+    "PaginatedResponse",
+    "RiskTolerance",
     "TaxabilityOutput",
     "TaxabilityStatus",
+    "TimestampedSchema",
     "Transaction",
     "TxnDirection",
->>>>>>> origin/main
 ]
