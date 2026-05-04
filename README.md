@@ -2,6 +2,50 @@
 
 Standardized monorepo scaffold for final-year research on intelligent, explainable tax advisory.
 
+## Git workflow for collaborators
+
+Run these from the repository root (`bash` / `zsh`; Git Bash or WSL on Windows).
+
+### Check status
+
+git status
+
+### See differences
+
+git diff
+
+git diff --staged
+
+### Switch branch or create a new one
+
+git switch main
+
+git switch your-branch-name
+
+git switch -c your-branch-name
+
+### Update `main` from GitHub
+
+git pull origin main
+
+### Update your branch with the latest `main`
+
+git fetch origin main
+
+git merge origin/main
+
+### Save changes and push
+
+git add .
+
+git commit -m "Describe your change"
+
+git push origin your-branch-name
+
+git push -u origin your-branch-name
+
+Use `-u` only the first time you push a new branch so later you can run `git push` with no arguments.
+
 ## Research Components
 
 1. Financial Transaction Semantic Reasoning and Taxable Income Inference
