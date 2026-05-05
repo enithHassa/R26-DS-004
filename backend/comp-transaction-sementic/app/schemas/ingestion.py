@@ -1,0 +1,84 @@
+"""Ingestion API schemas (upload, status, extracted rows)."""
+
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from backend.shared.schemas.enums import TxnDirection
+
+
+class UploadedDocumentSummary(BaseModel):
+    document_id: UUID
+    filename: str
+    status: str
+    size_bytes: int
+    bank_detected: str | None = None
+    selected_parser: str | None = None
+    extracted_row_count: int = 0
+
+
+class DocumentUploadResponse(BaseModel):
+    document: UploadedDocumentSummary
+    extraction_run_id: UUID
+    metadata_extraction_run_id: UUID | None = None
+    router_extraction_run_id: UUID | None = None
+    message: str = "Document uploaded; routed and extracted (Phase 3)."
+
+
+class DocumentBatchUploadResponse(BaseModel):
+    documents: list[UploadedDocumentSummary] = Field(default_factory=list)
+    extraction_run_ids: list[UUID] = Field(default_factory=list)
+    uploaded_count: int
+
+
+class DocumentStatusResponse(BaseModel):
+    document_id: UUID
+    filename: str
+    content_type: str | None
+    status: str
+    bank_detected: str | None
+    size_bytes: int
+    uploaded_at: datetime
+    updated_at: datetime
+    latest_run_id: UUID | None = None
+    latest_run_parser_name: str | None = None
+    latest_run_status: str | None = None
+    latest_run_started_at: datetime | None = None
+    latest_run_finished_at: datetime | None = None
+    selected_parser: str | None = None
+    bank_detection_confidence: float | None = None
+    extracted_row_count: int = 0
+    extraction_run_status: str | None = None
+    extraction_run_parser: str | None = None
+    extraction_error: str | None = None
+    extraction_warnings: list[str] = Field(default_factory=list)
+
+
+class ExtractedTransactionItem(BaseModel):
+    """One row from ``extracted_transactions`` for a document."""
+
+    id: UUID
+    document_id: UUID
+    page_no: int | None = None
+    row_no: int | None = None
+    tx_date: date
+    description: str
+    reference_no: str | None = None
+    debit: Decimal | None = None
+    credit: Decimal | None = None
+    balance: Decimal | None = None
+    amount_lkr: Decimal
+    direction: TxnDirection
+    confidence: float | None = None
+    raw_row_json: dict | None = None
+    is_flagged: bool = False
+
+
+class ExtractedTransactionsPageResponse(BaseModel):
+    document_id: UUID
+    total: int
+    limit: int
+    offset: int
+    transactions: list[ExtractedTransactionItem] = Field(default_factory=list)
