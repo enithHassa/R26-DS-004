@@ -1,14 +1,16 @@
 """Transaction Semantic component — FastAPI entry point.
 
-Phase 0 stub: `/health` and `/v1/transactions/analyze` return mocked structured
-output until WP9 wires in the real pipeline.
+Phase 0 stub: `/health`, `/v1/transactions/analyze`, and
+``GET /api/v1/users/{user_id}/income-snapshot`` (aggregate stub for Component B Option B).
 """
+
+from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -24,6 +26,7 @@ from backend.shared.schemas import (
     ConfidenceReport,
     EvidenceChain,
     EvidenceStep,
+    IncomeSnapshotV1,
     TaxabilityOutput,
     TaxabilityStatus,
     Transaction,
@@ -381,3 +384,37 @@ def document_status(document_id: UUID, db: Session = Depends(get_db)) -> Documen
         extraction_error=(extract_run.error_message if extract_run else None),
         extraction_warnings=extraction_warnings,
     )
+
+
+api_v1 = APIRouter(prefix="/api/v1")
+
+
+@api_v1.get("/users/{user_id}/income-snapshot", response_model=IncomeSnapshotV1)
+def income_snapshot(
+    user_id: str,
+    assessment_year: str = Query(
+        ...,
+        pattern=r"^\d{4}_\d{2}$",
+        description="Assessment year label (e.g. 2024_25).",
+    ),
+) -> IncomeSnapshotV1:
+    """Stub aggregate for Option B — replace with DB-backed rollups from taxability outputs."""
+    logger.bind(user_id=user_id, assessment_year=assessment_year).info("income_snapshot_stub_served")
+    return IncomeSnapshotV1(
+        user_id=user_id,
+        assessment_year=assessment_year,
+        annual_gross_income=Decimal("2400000"),
+        estimated_annual_taxable_income=Decimal("1800000"),
+        charity_outflows_annual=None,
+        source="component1_stub",
+        derivation_summary=(
+            "Stub aggregate: fixed demo LKR amounts. Live service will sum "
+            "taxable_amount on classified inflows for the window, apply exclusions, "
+            "and attach audit metadata."
+        ),
+        pipeline_version="stub-0.1.0",
+        transaction_count=42,
+    )
+
+
+app.include_router(api_v1)

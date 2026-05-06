@@ -6,7 +6,7 @@ owned by that component's team.
 
 ## Adding a new component
 
-1. Create `src/features/<your-component>/` (e.g. `transaction-semantic`, `tax-optimization`, `language-model`).
+1. Create `src/features/<your-component>/` (e.g. `transaction-semantic`, `tax-optimization`, `language-model`). **Tax optimization** (`tax-optimization`) is registered for Component B compliance.
 2. Build out `pages/`, `api.ts`, and any component-local hooks.
 3. Export a `FeatureModule` as the default from `index.tsx`:
 

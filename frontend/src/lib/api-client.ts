@@ -21,11 +21,19 @@ export function createApiClient(prefix: string): AxiosInstance {
   client.interceptors.response.use(
     (r) => r,
     (error) => {
+      const status = error?.response?.status;
       const detail =
         error?.response?.data?.detail ??
         error?.response?.data?.error ??
         error?.message ??
         "Unknown error";
+      if (status === 404 && prefix.includes("optimization")) {
+        return Promise.reject(
+          new Error(
+            `${detail} — Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`,
+          ),
+        );
+      }
       return Promise.reject(new Error(detail));
     },
   );
