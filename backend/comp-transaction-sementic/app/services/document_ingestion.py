@@ -15,14 +15,14 @@ from pathlib import Path
 from typing import NamedTuple
 
 from fastapi import UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from backend.shared.config.settings import PROJECT_ROOT
 from backend.shared.db.enums import TxnDirection as DBTxnDirection
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
 
-from .bank_detection import detect_bank
+from .bank_detection import BankDetectionResult, detect_bank
 from .document_extractor import (
     UnsupportedDocumentTypeError,
     extract_transactions_from_document,
@@ -75,6 +75,14 @@ _SYSTEM_PARSER_NAMES = frozenset({METADATA_PARSER_NAME, ROUTER_PARSER_NAME})
 class IngestionResult(NamedTuple):
     document: Document
     metadata_run: ExtractionRun
+    router_run: ExtractionRun
+    extract_run: ExtractionRun
+    selected_parser: str
+    extracted_count: int
+
+
+class ReExtractResult(NamedTuple):
+    document: Document
     router_run: ExtractionRun
     extract_run: ExtractionRun
     selected_parser: str
@@ -197,6 +205,131 @@ def ingest_document_metadata(
     )
 
 
+def list_statement_totals_for_document(
+    db: Session,
+    document_id: uuid.UUID,
+) -> list[StatementTotal] | None:
+    """Return stored statement summaries, or None if the document does not exist."""
+    if db.get(Document, document_id) is None:
+        return None
+    return list(
+        db.scalars(
+            select(StatementTotal)
+            .where(StatementTotal.document_id == document_id)
+            .order_by(StatementTotal.period_start.asc().nulls_last(), StatementTotal.id.asc()),
+        ).all(),
+    )
+
+
+def re_extract_document(
+    *,
+    db: Session,
+    document_id: uuid.UUID,
+    bank_code_override: str | None = None,
+) -> ReExtractResult | None:
+    """Re-run routing + extraction from the stored file; replaces parsed rows and pages.
+
+    Keeps the original document record and file on disk; appends new router/extract runs.
+    """
+    document = db.get(Document, document_id)
+    if document is None:
+        return None
+
+    path = Path(document.storage_path)
+    if not path.is_file():
+        raise FileNotFoundError(document.storage_path)
+
+    content = path.read_bytes()
+    if not content:
+        raise ValueError("Stored file is empty.")
+
+    try:
+        document.status = DocumentStatus.PROCESSING
+        document.updated_at = datetime.now(timezone.utc)
+        db.flush()
+
+        _clear_document_parse_artifacts(db, document.id)
+
+        pages = _extract_document_pages(document.content_type, content, document.id)
+        for page in pages:
+            db.add(page)
+
+        text_probe = _build_text_probe(
+            filename=document.filename,
+            content_type=document.content_type,
+            content=content,
+            pages=pages,
+        )
+        if bank_code_override and bank_code_override.strip():
+            hint = bank_code_override.strip().upper()[:32]
+            detection = BankDetectionResult(
+                bank_code=hint,
+                confidence=1.0,
+                signals=["bank_code_override"],
+            )
+        else:
+            detection = detect_bank(
+                filename=document.filename,
+                text_probe=text_probe,
+                raw_bytes_probe=content,
+            )
+
+        document.bank_detected = detection.bank_code
+        file_format = resolve_file_format(document.filename, document.content_type)
+        selected_parser, router_notes = select_parser(detection=detection, file_format=file_format)
+
+        router_run = ExtractionRun(
+            document_id=document.id,
+            parser_name=ROUTER_PARSER_NAME,
+            parser_version=ROUTER_PARSER_VERSION,
+            status=ExtractionRunStatus.COMPLETED,
+            warnings=None,
+            metrics={
+                "selected_parser": selected_parser,
+                "bank_code": detection.bank_code,
+                "bank_confidence": detection.confidence,
+                "signals": detection.signals,
+                "file_format": file_format,
+                "re_extract": True,
+                **router_notes,
+            },
+            finished_at=datetime.now(timezone.utc),
+        )
+        db.add(router_run)
+
+        extract_run, extracted_count = _persist_extraction_phase(
+            db=db,
+            document=document,
+            content=content,
+            selected_parser=selected_parser,
+        )
+
+        document.status = DocumentStatus.COMPLETED
+        document.updated_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(document)
+    db.refresh(router_run)
+    db.refresh(extract_run)
+    return ReExtractResult(
+        document=document,
+        router_run=router_run,
+        extract_run=extract_run,
+        selected_parser=selected_parser,
+        extracted_count=extracted_count,
+    )
+
+
+def _clear_document_parse_artifacts(db: Session, document_id: uuid.UUID) -> None:
+    db.execute(delete(ExtractedTransaction).where(ExtractedTransaction.document_id == document_id))
+    db.execute(delete(StatementTotal).where(StatementTotal.document_id == document_id))
+    db.execute(delete(DocumentPage).where(DocumentPage.document_id == document_id))
+    db.flush()
+
+
 def list_document_extracted_transactions(
     db: Session,
     document_id: uuid.UUID,
@@ -245,7 +378,10 @@ def get_document_status_snapshot(db: Session, document_id: uuid.UUID) -> Documen
     )
     latest_run = runs[0] if runs else None
     router_run = next((r for r in runs if r.parser_name == ROUTER_PARSER_NAME), None)
-    extract_run = next((r for r in runs if r.parser_name not in _SYSTEM_PARSER_NAMES), None)
+    extract_run = next(
+        (r for r in runs if r.parser_name not in _SYSTEM_PARSER_NAMES),
+        None,
+    )
 
     row_count = db.scalar(
         select(func.count()).select_from(ExtractedTransaction).where(

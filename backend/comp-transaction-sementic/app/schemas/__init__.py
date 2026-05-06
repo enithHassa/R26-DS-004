@@ -5,6 +5,9 @@ from .ingestion import (
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
+    ReExtractDocumentResponse,
+    StatementTotalsResponse,
+    StatementTotalItem,
     UploadedDocumentSummary,
 )
 
@@ -16,5 +19,8 @@ __all__ = [
     "ExtractedTransactionInput",
     "ExtractedTransactionItem",
     "ExtractedTransactionsPageResponse",
+    "ReExtractDocumentResponse",
+    "StatementTotalsResponse",
+    "StatementTotalItem",
     "UploadedDocumentSummary",
 ]
