@@ -7,11 +7,14 @@ Phase 0 stub: `/health`, `/v1/transactions/analyze`, and
 from __future__ import annotations
 
 from datetime import date
+import csv
+import io
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -35,23 +38,32 @@ from backend.shared.schemas import (
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
 from .schemas import DocumentExtractResponse
 from .schemas import (
+    DocumentPreviewResponse,
     DocumentBatchUploadResponse,
     DocumentStatusResponse,
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
+    ExportPreviewResponse,
+    ExportPreviewRow,
+    PreviewExtractedTransactionItem,
+    PreviewStatementTotalItem,
     ReExtractDocumentResponse,
     StatementTotalsResponse,
     StatementTotalItem,
     UploadedDocumentSummary,
 )
 from .services import (
+    ExportFilter,
     UnsupportedDocumentTypeError,
     extract_transactions_from_document,
     get_document_status_snapshot,
     ingest_document_metadata,
+    list_extracted_transactions_for_export,
     list_document_extracted_transactions,
     list_statement_totals_for_document,
+    preview_extracted_transactions_for_export,
+    preview_document_extraction,
     re_extract_document,
 )
 
@@ -253,6 +265,75 @@ async def upload_document(
     )
 
 
+@app.post("/v1/documents/preview", response_model=DocumentPreviewResponse)
+async def preview_document(
+    file: UploadFile = File(...),
+    bank_code: str | None = Query(
+        default=None,
+        max_length=32,
+        description="Optional bank code (e.g. NTB) to force parser routing for preview.",
+    ),
+) -> DocumentPreviewResponse:
+    """Extract statement rows without persisting document, runs, or rows."""
+    payload = await file.read()
+    try:
+        preview = preview_document_extraction(
+            filename=file.filename or "uploaded_document",
+            content_type=file.content_type,
+            content=payload,
+            bank_code_override=bank_code,
+        )
+    except UnsupportedDocumentTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_preview_failed")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {exc}") from exc
+
+    transactions = [
+        PreviewExtractedTransactionItem(
+            row_no=row.row_index,
+            tx_date=date.fromisoformat(row.tx_date),
+            description=row.raw_desc,
+            amount_lkr=row.amount_lkr,
+            direction=SchemaTxnDirection(row.direction.value),
+            debit=(row.amount_lkr if row.direction.value == "DR" else None),
+            credit=(row.amount_lkr if row.direction.value == "CR" else None),
+            confidence=row.parse_confidence,
+        )
+        for row in preview.extracted_rows
+    ]
+    totals: list[PreviewStatementTotalItem] = []
+    if (
+        preview.total_debit is not None
+        or preview.total_credit is not None
+        or preview.period_start is not None
+        or preview.period_end is not None
+    ):
+        totals = [
+            PreviewStatementTotalItem(
+                total_debit=preview.total_debit,
+                total_credit=preview.total_credit,
+                currency="LKR",
+                period_start=preview.period_start,
+                period_end=preview.period_end,
+            )
+        ]
+
+    return DocumentPreviewResponse(
+        filename=preview.filename,
+        content_type=preview.content_type,
+        file_type=preview.file_type,
+        bank_detected=preview.bank_detected,
+        selected_parser=preview.selected_parser,
+        extracted_count=len(transactions),
+        warnings=preview.warnings,
+        transactions=transactions,
+        statement_totals=totals,
+    )
+
+
 @app.post("/v1/documents/upload-batch", response_model=DocumentBatchUploadResponse)
 async def upload_document_batch(
     files: list[UploadFile] = File(...),
@@ -300,6 +381,57 @@ def _flatten_extraction_warnings(warnings: dict | None) -> list[str]:
         if isinstance(raw, list):
             out.extend(str(x) for x in raw)
     return out[:50]
+
+
+def _build_export_csv_response(
+    filename: str,
+    rows: list[tuple[object, object]],
+) -> StreamingResponse:
+    buff = io.StringIO()
+    writer = csv.writer(buff)
+    writer.writerow(
+        [
+            "document_id",
+            "filename",
+            "bank_detected",
+            "tx_id",
+            "tx_date",
+            "row_no",
+            "description",
+            "direction",
+            "amount_lkr",
+            "debit",
+            "credit",
+            "balance",
+            "confidence",
+            "is_flagged",
+        ]
+    )
+    for tx, doc in rows:
+        writer.writerow(
+            [
+                str(doc.id),
+                doc.filename,
+                doc.bank_detected or "",
+                str(tx.id),
+                tx.tx_date.isoformat(),
+                tx.row_no if tx.row_no is not None else "",
+                tx.description,
+                tx.direction.value,
+                str(tx.amount_lkr),
+                str(tx.debit) if tx.debit is not None else "",
+                str(tx.credit) if tx.credit is not None else "",
+                str(tx.balance) if tx.balance is not None else "",
+                f"{tx.confidence:.4f}" if tx.confidence is not None else "",
+                "true" if tx.is_flagged else "false",
+            ]
+        )
+    buff.seek(0)
+    return StreamingResponse(
+        iter([buff.getvalue().encode("utf-8")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get(
@@ -350,6 +482,96 @@ def list_extracted_transactions_for_document(
         offset=offset,
         transactions=items,
     )
+
+
+@app.get("/v1/documents/{document_id}/export.csv")
+def export_single_document_csv(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = list_extracted_transactions_for_export(db, document_id=document_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="No extracted rows found for this document.")
+    return _build_export_csv_response(f"document_{document_id}_extracted.csv", rows)
+
+
+@app.get("/v1/documents/export.csv")
+def export_filtered_documents_csv(
+    db: Session = Depends(get_db),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    bank_code: str | None = Query(default=None, max_length=32),
+    direction: str | None = Query(default=None, pattern="^(CR|DR)$"),
+    min_amount: Decimal | None = Query(default=None, ge=0),
+    max_amount: Decimal | None = Query(default=None, ge=0),
+    text_query: str | None = Query(default=None, max_length=200),
+) -> StreamingResponse:
+    if min_amount is not None and max_amount is not None and min_amount > max_amount:
+        raise HTTPException(status_code=400, detail="min_amount must be <= max_amount")
+    filters = ExportFilter(
+        date_from=date_from,
+        date_to=date_to,
+        bank_code=bank_code,
+        direction=direction,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        text_query=text_query,
+    )
+    rows = list_extracted_transactions_for_export(db, filters=filters)
+    if not rows:
+        raise HTTPException(status_code=404, detail="No extracted rows match the provided filters.")
+    return _build_export_csv_response("documents_filtered_export.csv", rows)
+
+
+@app.get("/v1/documents/export/preview", response_model=ExportPreviewResponse)
+def preview_filtered_export(
+    db: Session = Depends(get_db),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    bank_code: str | None = Query(default=None, max_length=32),
+    direction: str | None = Query(default=None, pattern="^(CR|DR)$"),
+    min_amount: Decimal | None = Query(default=None, ge=0),
+    max_amount: Decimal | None = Query(default=None, ge=0),
+    text_query: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> ExportPreviewResponse:
+    if min_amount is not None and max_amount is not None and min_amount > max_amount:
+        raise HTTPException(status_code=400, detail="min_amount must be <= max_amount")
+    filters = ExportFilter(
+        date_from=date_from,
+        date_to=date_to,
+        bank_code=bank_code,
+        direction=direction,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        text_query=text_query,
+    )
+    rows, total = preview_extracted_transactions_for_export(
+        db,
+        filters=filters,
+        limit=limit,
+        offset=offset,
+    )
+    result_rows = [
+        ExportPreviewRow(
+            document_id=doc.id,
+            filename=doc.filename,
+            bank_detected=doc.bank_detected,
+            tx_id=tx.id,
+            tx_date=tx.tx_date,
+            row_no=tx.row_no,
+            description=tx.description,
+            direction=SchemaTxnDirection(tx.direction.value),
+            amount_lkr=tx.amount_lkr,
+            debit=tx.debit,
+            credit=tx.credit,
+            balance=tx.balance,
+            confidence=tx.confidence,
+        )
+        for tx, doc in rows
+    ]
+    return ExportPreviewResponse(total=total, limit=limit, offset=offset, rows=result_rows)
 
 
 @app.get(

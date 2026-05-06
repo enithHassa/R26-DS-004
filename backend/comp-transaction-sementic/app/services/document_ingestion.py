@@ -11,6 +11,7 @@ import importlib.util
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from os import getenv
 from pathlib import Path
 from typing import NamedTuple
 
@@ -18,7 +19,6 @@ from fastapi import UploadFile
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from backend.shared.config.settings import PROJECT_ROOT
 from backend.shared.db.enums import TxnDirection as DBTxnDirection
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
 
@@ -30,7 +30,8 @@ from .document_extractor import (
 from .parser_router import resolve_file_format, select_parser
 
 
-UPLOAD_ROOT = PROJECT_ROOT / "data" / "uploads" / "comp-transaction-sementic"
+_DEFAULT_UPLOAD_ROOT = Path.home() / ".ai-tax-advisory" / "uploads" / "comp-transaction-sementic"
+UPLOAD_ROOT = Path(getenv("COMP_TRANSACTION_UPLOAD_ROOT", str(_DEFAULT_UPLOAD_ROOT))).expanduser()
 _DB_ROOT = Path(__file__).resolve().parents[2] / "db"
 _DB_ALIAS = "comp_transaction_sementic_db_runtime"
 
@@ -90,12 +91,38 @@ class ReExtractResult(NamedTuple):
 
 
 @dataclass
+class PreviewExtractionResult:
+    filename: str
+    content_type: str | None
+    bank_detected: str | None
+    selected_parser: str
+    file_type: str
+    warnings: list[str]
+    extracted_rows: list
+    total_debit: Decimal | None
+    total_credit: Decimal | None
+    period_start: date | None
+    period_end: date | None
+
+
+@dataclass
 class DocumentStatusSnapshot:
     document: Document
     latest_run: ExtractionRun | None
     router_run: ExtractionRun | None
     extract_run: ExtractionRun | None
     extracted_row_count: int
+
+
+@dataclass
+class ExportFilter:
+    date_from: date | None = None
+    date_to: date | None = None
+    bank_code: str | None = None
+    direction: str | None = None
+    min_amount: Decimal | None = None
+    max_amount: Decimal | None = None
+    text_query: str | None = None
 
 
 def ingest_document_metadata(
@@ -202,6 +229,64 @@ def ingest_document_metadata(
         extract_run=extract_run,
         selected_parser=selected_parser,
         extracted_count=extracted_count,
+    )
+
+
+def preview_document_extraction(
+    *,
+    filename: str,
+    content_type: str | None,
+    content: bytes,
+    bank_code_override: str | None = None,
+) -> PreviewExtractionResult:
+    """Extract rows and routing metadata without persisting files or DB records."""
+    if not content:
+        raise ValueError("Uploaded file is empty.")
+
+    if bank_code_override and bank_code_override.strip():
+        detection = BankDetectionResult(
+            bank_code=bank_code_override.strip().upper()[:32],
+            confidence=1.0,
+            signals=["bank_code_override"],
+        )
+    else:
+        text_probe = content[:8000].decode("utf-8", errors="ignore")
+        detection = detect_bank(
+            filename=filename,
+            text_probe=text_probe,
+            raw_bytes_probe=content,
+        )
+
+    file_format = resolve_file_format(filename, content_type)
+    selected_parser, _ = select_parser(detection=detection, file_format=file_format)
+
+    outcome = extract_transactions_from_document(
+        filename=filename,
+        content_type=content_type,
+        payload=content,
+        bank_code_hint=detection.bank_code,
+    )
+    total_debit = sum(
+        (r.amount_lkr for r in outcome.rows if r.direction == SchemaTxnDirection.DR),
+        Decimal("0"),
+    )
+    total_credit = sum(
+        (r.amount_lkr for r in outcome.rows if r.direction == SchemaTxnDirection.CR),
+        Decimal("0"),
+    )
+    ctx = outcome.statement_context
+    return PreviewExtractionResult(
+        filename=filename,
+        content_type=content_type,
+        bank_detected=detection.bank_code,
+        selected_parser=selected_parser,
+        file_type=outcome.file_type,
+        warnings=outcome.warnings,
+        extracted_rows=outcome.rows,
+        total_debit=(total_debit if total_debit > 0 else None),
+        total_credit=(total_credit if total_credit > 0 else None),
+        period_start=(ctx.period_start if ctx else None),
+        period_end=(ctx.period_end if ctx else None),
     )
 
 
@@ -362,6 +447,76 @@ def list_document_extracted_transactions(
         ).all(),
     )
     return rows, total_i
+
+
+def list_extracted_transactions_for_export(
+    db: Session,
+    *,
+    document_id: uuid.UUID | None = None,
+    filters: ExportFilter | None = None,
+) -> list[tuple[ExtractedTransaction, Document]]:
+    """Fetch extracted rows + owning document metadata for CSV export."""
+    filters = filters or ExportFilter()
+    stmt = _build_export_stmt(document_id=document_id, filters=filters)
+    return list(db.execute(stmt).all())
+
+
+def preview_extracted_transactions_for_export(
+    db: Session,
+    *,
+    filters: ExportFilter | None = None,
+    limit: int = 200,
+    offset: int = 0,
+) -> tuple[list[tuple[ExtractedTransaction, Document]], int]:
+    """Fetch filtered rows + total count for preview before CSV download."""
+    filters = filters or ExportFilter()
+    count_stmt = select(func.count()).select_from(ExtractedTransaction).join(
+        Document,
+        Document.id == ExtractedTransaction.document_id,
+    )
+    count_stmt = _apply_export_filters(count_stmt, filters=filters, document_id=None)
+    total = int(db.scalar(count_stmt) or 0)
+    rows_stmt = _build_export_stmt(document_id=None, filters=filters).offset(offset).limit(limit)
+    rows = list(db.execute(rows_stmt).all())
+    return rows, total
+
+
+def _build_export_stmt(
+    *,
+    document_id: uuid.UUID | None,
+    filters: ExportFilter | None,
+):
+    stmt = (
+        select(ExtractedTransaction, Document)
+        .join(Document, Document.id == ExtractedTransaction.document_id)
+        .order_by(
+            ExtractedTransaction.tx_date.asc(),
+            ExtractedTransaction.row_no.asc().nulls_last(),
+            ExtractedTransaction.id.asc(),
+        )
+    )
+    return _apply_export_filters(stmt, filters=filters or ExportFilter(), document_id=document_id)
+
+
+def _apply_export_filters(stmt, *, filters: ExportFilter, document_id: uuid.UUID | None):
+    if document_id is not None:
+        stmt = stmt.where(ExtractedTransaction.document_id == document_id)
+    if filters.date_from is not None:
+        stmt = stmt.where(ExtractedTransaction.tx_date >= filters.date_from)
+    if filters.date_to is not None:
+        stmt = stmt.where(ExtractedTransaction.tx_date <= filters.date_to)
+    if filters.bank_code:
+        stmt = stmt.where(Document.bank_detected == filters.bank_code.upper())
+    if filters.direction:
+        stmt = stmt.where(ExtractedTransaction.direction == DBTxnDirection(filters.direction))
+    if filters.min_amount is not None:
+        stmt = stmt.where(ExtractedTransaction.amount_lkr >= filters.min_amount)
+    if filters.max_amount is not None:
+        stmt = stmt.where(ExtractedTransaction.amount_lkr <= filters.max_amount)
+    if filters.text_query:
+        q = f"%{filters.text_query.strip()}%"
+        stmt = stmt.where(ExtractedTransaction.description.ilike(q))
+    return stmt
 
 
 def get_document_status_snapshot(db: Session, document_id: uuid.UUID) -> DocumentStatusSnapshot | None:

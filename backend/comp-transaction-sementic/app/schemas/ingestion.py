@@ -112,3 +112,57 @@ class ReExtractDocumentResponse(BaseModel):
     router_extraction_run_id: UUID
     extraction_run_id: UUID
     message: str = "Re-processed from stored file; transaction list and totals were replaced."
+
+
+class PreviewExtractedTransactionItem(BaseModel):
+    row_no: int | None = None
+    tx_date: date
+    description: str
+    amount_lkr: Decimal
+    direction: TxnDirection
+    debit: Decimal | None = None
+    credit: Decimal | None = None
+    confidence: float | None = None
+
+
+class PreviewStatementTotalItem(BaseModel):
+    total_debit: Decimal | None = None
+    total_credit: Decimal | None = None
+    currency: str | None = "LKR"
+    period_start: date | None = None
+    period_end: date | None = None
+
+
+class DocumentPreviewResponse(BaseModel):
+    filename: str
+    content_type: str | None = None
+    file_type: str
+    bank_detected: str | None = None
+    selected_parser: str
+    extracted_count: int
+    warnings: list[str] = Field(default_factory=list)
+    transactions: list[PreviewExtractedTransactionItem] = Field(default_factory=list)
+    statement_totals: list[PreviewStatementTotalItem] = Field(default_factory=list)
+
+
+class ExportPreviewRow(BaseModel):
+    document_id: UUID
+    filename: str
+    bank_detected: str | None = None
+    tx_id: UUID
+    tx_date: date
+    row_no: int | None = None
+    description: str
+    direction: TxnDirection
+    amount_lkr: Decimal
+    debit: Decimal | None = None
+    credit: Decimal | None = None
+    balance: Decimal | None = None
+    confidence: float | None = None
+
+
+class ExportPreviewResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    rows: list[ExportPreviewRow] = Field(default_factory=list)
