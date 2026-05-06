@@ -82,3 +82,33 @@ class ExtractedTransactionsPageResponse(BaseModel):
     limit: int
     offset: int
     transactions: list[ExtractedTransactionItem] = Field(default_factory=list)
+
+
+class StatementTotalItem(BaseModel):
+    """Statement-level roll-up extracted with the document (e.g. PDF period + totals)."""
+
+    id: UUID
+    document_id: UUID
+    opening_balance: Decimal | None = None
+    closing_balance: Decimal | None = None
+    total_debit: Decimal | None = None
+    total_credit: Decimal | None = None
+    currency: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+
+
+class StatementTotalsResponse(BaseModel):
+    document_id: UUID
+    totals: list[StatementTotalItem] = Field(default_factory=list)
+
+
+class ReExtractDocumentResponse(BaseModel):
+    document_id: UUID
+    status: str
+    bank_detected: str | None
+    selected_parser: str
+    extracted_row_count: int
+    router_extraction_run_id: UUID
+    extraction_run_id: UUID
+    message: str = "Re-processed from stored file; transaction list and totals were replaced."

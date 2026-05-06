@@ -8,6 +8,8 @@ from .document_ingestion import (
     get_document_status_snapshot,
     ingest_document_metadata,
     list_document_extracted_transactions,
+    list_statement_totals_for_document,
+    re_extract_document,
 )
 
 __all__ = [
@@ -18,4 +20,6 @@ __all__ = [
     "get_document_status_snapshot",
     "ingest_document_metadata",
     "list_document_extracted_transactions",
+    "list_statement_totals_for_document",
+    "re_extract_document",
 ]
