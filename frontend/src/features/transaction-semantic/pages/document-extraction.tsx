@@ -6,12 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  exportFilteredDocumentsCsv,
+  exportSingleDocumentCsv,
   getDocumentStatus,
   getExtractedTransactions,
   getStatementTotals,
+  previewFilteredDocuments,
+  previewDocument,
   reExtractDocument,
   uploadDocument,
   type DocumentStatusResponse,
+  type DocumentPreviewResponse,
+  type ExportPreviewRow,
   type ExtractedTransactionItem,
   type StatementTotalItem,
 } from "@/features/transaction-semantic/api";
@@ -35,23 +41,46 @@ export function TransactionDocumentExtractionPage() {
   const [transactions, setTransactions] = useState<ExtractedTransactionItem[]>([]);
   const [statementTotals, setStatementTotals] = useState<StatementTotalItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReExtracting, setIsReExtracting] = useState(false);
+  const [isExportingDoc, setIsExportingDoc] = useState(false);
+  const [isExportingFiltered, setIsExportingFiltered] = useState(false);
+  const [isPreviewingFiltered, setIsPreviewingFiltered] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [previewMeta, setPreviewMeta] = useState<DocumentPreviewResponse | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterBank, setFilterBank] = useState("");
+  const [filterDirection, setFilterDirection] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+  const [filterText, setFilterText] = useState("");
+  const [exportPreviewRows, setExportPreviewRows] = useState<ExportPreviewRow[]>([]);
+  const [exportPreviewTotal, setExportPreviewTotal] = useState(0);
 
   const hasLoadedDocument = documentId.trim().length > 0;
 
   const summaryCards = useMemo(
     () => [
       { label: "Document ID", value: status?.document_id ?? "-" },
-      { label: "Status", value: status?.status ?? "-" },
-      { label: "Detected Bank", value: status?.bank_detected ?? "unknown" },
-      { label: "Selected Parser", value: status?.selected_parser ?? "-" },
-      { label: "Extracted Rows", value: String(status?.extracted_row_count ?? 0) },
-      { label: "Extraction Run", value: status?.extraction_run_status ?? "-" },
+      { label: "Status", value: status?.status ?? (previewMeta ? "preview_only" : "-") },
+      {
+        label: "Detected Bank",
+        value: status?.bank_detected ?? previewMeta?.bank_detected ?? "unknown",
+      },
+      {
+        label: "Selected Parser",
+        value: status?.selected_parser ?? previewMeta?.selected_parser ?? "-",
+      },
+      {
+        label: "Extracted Rows",
+        value: String(status?.extracted_row_count ?? previewMeta?.extracted_count ?? 0),
+      },
+      { label: "Extraction Run", value: status?.extraction_run_status ?? (previewMeta ? "preview" : "-") },
     ],
-    [status],
+    [previewMeta, status],
   );
 
   async function refreshAll(id: string): Promise<void> {
@@ -66,6 +95,7 @@ export function TransactionDocumentExtractionPage() {
       setStatus(statusResp);
       setTransactions(txResp.transactions);
       setStatementTotals(totalsResp.totals);
+      setPreviewMeta(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load document details.";
       setError(msg);
@@ -86,12 +116,65 @@ export function TransactionDocumentExtractionPage() {
       const resp = await uploadDocument(file);
       setDocumentId(resp.document.document_id);
       setSuccess(resp.message);
+      setPreviewMeta(null);
       await refreshAll(resp.document.document_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed.";
       setError(msg);
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function handlePreview(): Promise<void> {
+    if (!file) {
+      setError("Choose a file first.");
+      return;
+    }
+    setIsPreviewing(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const preview = await previewDocument(file, bankCodeOverride);
+      setPreviewMeta(preview);
+      setStatus(null);
+      setDocumentId("");
+      setTransactions(
+        preview.transactions.map((row, idx) => ({
+          id: `preview-${idx}`,
+          document_id: "preview",
+          page_no: null,
+          row_no: row.row_no,
+          tx_date: row.tx_date,
+          description: row.description,
+          debit: row.debit,
+          credit: row.credit,
+          balance: null,
+          amount_lkr: row.amount_lkr,
+          direction: row.direction,
+          confidence: row.confidence,
+          is_flagged: false,
+        })),
+      );
+      setStatementTotals(
+        preview.statement_totals.map((row, idx) => ({
+          id: `preview-total-${idx}`,
+          document_id: "preview",
+          opening_balance: null,
+          closing_balance: null,
+          total_debit: row.total_debit,
+          total_credit: row.total_credit,
+          currency: row.currency,
+          period_start: row.period_start,
+          period_end: row.period_end,
+        })),
+      );
+      setSuccess("Preview generated. Click 'Save Extracted Data' to persist.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Preview failed.";
+      setError(msg);
+    } finally {
+      setIsPreviewing(false);
     }
   }
 
@@ -122,6 +205,104 @@ export function TransactionDocumentExtractionPage() {
     } finally {
       setIsReExtracting(false);
     }
+  }
+
+  function triggerDownload(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleExportCurrentDocument(): Promise<void> {
+    if (!hasLoadedDocument) {
+      setError("Load a document first.");
+      return;
+    }
+    setIsExportingDoc(true);
+    setError(null);
+    try {
+      const blob = await exportSingleDocumentCsv(documentId.trim());
+      triggerDownload(blob, `document_${documentId.trim()}_extracted.csv`);
+      setSuccess("Current document export downloaded.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Document export failed.";
+      setError(msg);
+    } finally {
+      setIsExportingDoc(false);
+    }
+  }
+
+  async function handleExportFiltered(): Promise<void> {
+    setIsExportingFiltered(true);
+    setError(null);
+    try {
+      const blob = await exportFilteredDocumentsCsv({
+        date_from: filterDateFrom || undefined,
+        date_to: filterDateTo || undefined,
+        bank_code: filterBank || undefined,
+        direction: (filterDirection as "CR" | "DR") || undefined,
+        min_amount: filterMinAmount || undefined,
+        max_amount: filterMaxAmount || undefined,
+        text_query: filterText || undefined,
+      });
+      triggerDownload(blob, "documents_filtered_export.csv");
+      setSuccess("Filtered export downloaded.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Filtered export failed.";
+      setError(msg);
+    } finally {
+      setIsExportingFiltered(false);
+    }
+  }
+
+  async function handlePreviewFilteredExport(): Promise<void> {
+    setIsPreviewingFiltered(true);
+    setError(null);
+    try {
+      const preview = await previewFilteredDocuments({
+        date_from: filterDateFrom || undefined,
+        date_to: filterDateTo || undefined,
+        bank_code: filterBank || undefined,
+        direction: (filterDirection as "CR" | "DR") || undefined,
+        min_amount: filterMinAmount || undefined,
+        max_amount: filterMaxAmount || undefined,
+        text_query: filterText || undefined,
+        limit: 100,
+        offset: 0,
+      });
+      setExportPreviewRows(preview.rows);
+      setExportPreviewTotal(preview.total);
+      setSuccess(`Preview loaded: ${preview.total} matching row(s).`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Preview failed.";
+      setError(msg);
+    } finally {
+      setIsPreviewingFiltered(false);
+    }
+  }
+
+  function handleClearFilters(): void {
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterBank("");
+    setFilterDirection("");
+    setFilterMinAmount("");
+    setFilterMaxAmount("");
+    setFilterText("");
+    setExportPreviewRows([]);
+    setExportPreviewTotal(0);
+    setError(null);
+    setSuccess("Filters cleared.");
+  }
+
+  function handleHidePreview(): void {
+    setExportPreviewRows([]);
+    setExportPreviewTotal(0);
+    setError(null);
+    setSuccess("Preview hidden.");
   }
 
   return (
@@ -155,8 +336,11 @@ export function TransactionDocumentExtractionPage() {
               />
             </div>
             <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={() => void handlePreview()} disabled={isPreviewing || !file}>
+                {isPreviewing ? "Previewing..." : "Preview Extract"}
+              </Button>
               <Button onClick={() => void handleUpload()} disabled={isUploading || !file}>
-                {isUploading ? "Uploading..." : "Upload & Extract"}
+                {isUploading ? "Saving..." : "Save Extracted Data"}
               </Button>
             </div>
           </div>
@@ -316,6 +500,101 @@ export function TransactionDocumentExtractionPage() {
               {isReExtracting ? "Re-processing..." : "Re-extract Document"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Export</CardTitle>
+          <CardDescription>
+            Preview filtered rows first, then download CSV when it looks correct.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void handleExportCurrentDocument()}
+              disabled={!hasLoadedDocument || isExportingDoc}
+            >
+              {isExportingDoc ? "Exporting..." : "Export Current Document CSV"}
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="space-y-1">
+              <Label htmlFor="f-date-from">From date</Label>
+              <Input id="f-date-from" type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="f-date-to">To date</Label>
+              <Input id="f-date-to" type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="f-bank">Bank</Label>
+              <Input id="f-bank" value={filterBank} onChange={(e) => setFilterBank(e.target.value)} placeholder="NTB / SAMPATH" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="f-direction">Direction</Label>
+              <Input id="f-direction" value={filterDirection} onChange={(e) => setFilterDirection(e.target.value.toUpperCase())} placeholder="CR or DR" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="f-min">Min amount</Label>
+              <Input id="f-min" value={filterMinAmount} onChange={(e) => setFilterMinAmount(e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="f-max">Max amount</Label>
+              <Input id="f-max" value={filterMaxAmount} onChange={(e) => setFilterMaxAmount(e.target.value)} placeholder="500000.00" />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label htmlFor="f-text">Description contains</Label>
+              <Input id="f-text" value={filterText} onChange={(e) => setFilterText(e.target.value)} placeholder="CEFTS / salary / refund ..." />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void handlePreviewFilteredExport()} disabled={isPreviewingFiltered}>
+              {isPreviewingFiltered ? "Previewing..." : "Preview Filtered Data"}
+            </Button>
+            <Button onClick={() => void handleExportFiltered()} disabled={isExportingFiltered}>
+              {isExportingFiltered ? "Exporting..." : "Export Filtered CSV"}
+            </Button>
+            <Button variant="secondary" onClick={handleClearFilters}>
+              Clear Filters
+            </Button>
+            <Button variant="ghost" onClick={handleHidePreview} disabled={exportPreviewRows.length === 0}>
+              Hide Preview
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Preview rows shown: {exportPreviewRows.length} / total matches: {exportPreviewTotal}
+          </p>
+          {exportPreviewRows.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="p-2">Document</th>
+                    <th className="p-2">Date</th>
+                    <th className="p-2">Description</th>
+                    <th className="p-2">Dir</th>
+                    <th className="p-2">Amount</th>
+                    <th className="p-2">Bank</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportPreviewRows.map((row) => (
+                    <tr key={row.tx_id} className="border-b align-top">
+                      <td className="p-2">{row.filename}</td>
+                      <td className="p-2">{row.tx_date}</td>
+                      <td className="p-2 max-w-[480px] whitespace-normal">{row.description}</td>
+                      <td className="p-2">{row.direction}</td>
+                      <td className="p-2">{formatMoney(row.amount_lkr)}</td>
+                      <td className="p-2">{row.bank_detected ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
