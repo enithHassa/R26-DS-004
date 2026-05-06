@@ -185,12 +185,17 @@ docker compose -f docker/docker-compose.yml up -d postgres
 ```bash
 source .venv-backend/bin/activate
 
+# Component 2 (Tax Strategy Optimization — Function 1 compliance)
+PYTHONPATH=. uvicorn tax_opt_b_app.main:app \
+  --app-dir backend/comp-tax-optimization \
+  --reload --port 8002
+
 # Component 3 (Personalized Recommendation)
 PYTHONPATH=. uvicorn app.main:app \
   --app-dir backend/comp-personalized-recommendation \
   --reload --port 8003
 
-# API Gateway (proxies /api/v1/recommendation/** to the component above)
+# API Gateway (proxies /api/v1/recommendation/** and /api/v1/optimization/**)
 PYTHONPATH=. uvicorn app.main:app \
   --app-dir backend/api-gateway \
   --reload --port 8000

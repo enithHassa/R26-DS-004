@@ -17,4 +17,5 @@ if str(GATEWAY_ROOT) not in sys.path:
 def client() -> TestClient:
     from app.main import create_app
 
-    return TestClient(create_app())
+    with TestClient(create_app()) as test_client:
+        yield test_client

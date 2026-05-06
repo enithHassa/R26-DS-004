@@ -18,6 +18,7 @@ from backend.shared.schemas.common import (
 from backend.shared.schemas.confidence import ConfidenceReport
 from backend.shared.schemas.enums import LabelSource, TaxabilityStatus, TxnDirection
 from backend.shared.schemas.evidence import EvidenceChain, EvidenceStep
+from backend.shared.schemas.income_snapshot import IncomeSnapshotV1
 from backend.shared.schemas.taxability import TaxabilityOutput
 from backend.shared.schemas.transaction import NormalizedTransaction, Transaction
 
@@ -30,6 +31,7 @@ __all__ = [
     "ErrorResponse",
     "EvidenceChain",
     "EvidenceStep",
+    "IncomeSnapshotV1",
     "LabelSource",
     "NormalizedTransaction",
     "ORMBase",
