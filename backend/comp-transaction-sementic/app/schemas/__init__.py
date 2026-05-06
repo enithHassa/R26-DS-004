@@ -1,10 +1,15 @@
 from .document_extract import DocumentExtractResponse, ExtractedTransactionInput
 from .ingestion import (
+    DocumentPreviewResponse,
     DocumentBatchUploadResponse,
     DocumentStatusResponse,
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
+    ExportPreviewResponse,
+    ExportPreviewRow,
+    PreviewExtractedTransactionItem,
+    PreviewStatementTotalItem,
     ReExtractDocumentResponse,
     StatementTotalsResponse,
     StatementTotalItem,
@@ -13,12 +18,17 @@ from .ingestion import (
 
 __all__ = [
     "DocumentBatchUploadResponse",
+    "DocumentPreviewResponse",
     "DocumentExtractResponse",
     "DocumentStatusResponse",
     "DocumentUploadResponse",
     "ExtractedTransactionInput",
     "ExtractedTransactionItem",
     "ExtractedTransactionsPageResponse",
+    "ExportPreviewResponse",
+    "ExportPreviewRow",
+    "PreviewExtractedTransactionItem",
+    "PreviewStatementTotalItem",
     "ReExtractDocumentResponse",
     "StatementTotalsResponse",
     "StatementTotalItem",

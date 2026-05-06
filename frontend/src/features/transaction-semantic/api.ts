@@ -103,6 +103,72 @@ export interface ReExtractResponse {
   message: string;
 }
 
+export interface PreviewExtractedTransactionItem {
+  row_no: number | null;
+  tx_date: string;
+  description: string;
+  amount_lkr: string;
+  direction: "CR" | "DR";
+  debit: string | null;
+  credit: string | null;
+  confidence: number | null;
+}
+
+export interface PreviewStatementTotalItem {
+  total_debit: string | null;
+  total_credit: string | null;
+  currency: string | null;
+  period_start: string | null;
+  period_end: string | null;
+}
+
+export interface DocumentPreviewResponse {
+  filename: string;
+  content_type: string | null;
+  file_type: string;
+  bank_detected: string | null;
+  selected_parser: string;
+  extracted_count: number;
+  warnings: string[];
+  transactions: PreviewExtractedTransactionItem[];
+  statement_totals: PreviewStatementTotalItem[];
+}
+
+export interface ExportFilters {
+  date_from?: string;
+  date_to?: string;
+  bank_code?: string;
+  direction?: "CR" | "DR";
+  min_amount?: string;
+  max_amount?: string;
+  text_query?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ExportPreviewRow {
+  document_id: string;
+  filename: string;
+  bank_detected: string | null;
+  tx_id: string;
+  tx_date: string;
+  row_no: number | null;
+  description: string;
+  direction: "CR" | "DR";
+  amount_lkr: string;
+  debit: string | null;
+  credit: string | null;
+  balance: string | null;
+  confidence: number | null;
+}
+
+export interface ExportPreviewResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  rows: ExportPreviewRow[];
+}
+
 export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
@@ -110,6 +176,23 @@ export async function uploadDocument(file: File): Promise<DocumentUploadResponse
     "/documents/upload",
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+}
+
+export async function previewDocument(
+  file: File,
+  bankCode?: string,
+): Promise<DocumentPreviewResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await transactionSemanticApi.post<DocumentPreviewResponse>(
+    "/documents/preview",
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      params: bankCode?.trim() ? { bank_code: bankCode.trim().toUpperCase() } : undefined,
+    },
   );
   return data;
 }
@@ -148,6 +231,31 @@ export async function reExtractDocument(
     `/documents/${documentId}/re-extract`,
     undefined,
     { params: bankCode?.trim() ? { bank_code: bankCode.trim().toUpperCase() } : undefined },
+  );
+  return data;
+}
+
+export async function exportSingleDocumentCsv(documentId: string): Promise<Blob> {
+  const { data } = await transactionSemanticApi.get(`/documents/${documentId}/export.csv`, {
+    responseType: "blob",
+  });
+  return data as Blob;
+}
+
+export async function exportFilteredDocumentsCsv(filters: ExportFilters): Promise<Blob> {
+  const { data } = await transactionSemanticApi.get("/documents/export.csv", {
+    params: filters,
+    responseType: "blob",
+  });
+  return data as Blob;
+}
+
+export async function previewFilteredDocuments(
+  filters: ExportFilters,
+): Promise<ExportPreviewResponse> {
+  const { data } = await transactionSemanticApi.get<ExportPreviewResponse>(
+    "/documents/export/preview",
+    { params: filters },
   );
   return data;
 }
