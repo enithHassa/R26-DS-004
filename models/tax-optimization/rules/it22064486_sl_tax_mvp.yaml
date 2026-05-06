@@ -1,0 +1,111 @@
+# Component B (it22064486) — MVP Sri Lankan APIT-style rule pack.
+# Progressive slabs + personal relief + deduction caps live under ``thresholds``.
+# Evaluator (Function 1) uses profile + strategy claims only; slabs are for
+# documentation / future tax computation — cite IR materials in dissertation.
+# Large IR PDFs stay out of git.
+
+schema_version: "1"
+assessment_year: "2024_25"
+currency: LKR
+
+sources:
+  - act: "Inland Revenue Act (research MVP slice)"
+    year: "2023"
+    section_note: "Personal relief, APIT slabs, statutory deduction caps — verify against current IR notices."
+  - act: "Advance Personal Income Tax circulars (FY 2024/25 style)"
+    year: "2024"
+    section_note: "Aligned with team scaffold sl_tax_2024_25.yaml for consistency."
+
+thresholds:
+  personal_relief_annual: 1_200_000
+
+  # Applied to taxable income *after* personal relief (full computation deferred).
+  apit_slabs:
+    - upper: 500_000
+      rate: 0.06
+    - upper: 500_000
+      rate: 0.18
+    - upper: 500_000
+      rate: 0.24
+    - upper: 500_000
+      rate: 0.30
+    - upper: null
+      rate: 0.36
+
+  deductions:
+    life_insurance_premium_cap_annual: 100_000
+    health_insurance_premium_cap_annual: 75_000
+    home_loan_interest_cap_annual: 600_000
+    rent_relief_cap_annual: 300_000
+    rent_relief_pct: 0.25
+    charitable_donations_cap_pct_of_taxable: 0.33
+    retirement_contribution_cap_pct_of_income: 0.15
+    retirement_contribution_cap_annual: 600_000
+
+allowed_relief_codes:
+  - life_insurance_premium
+  - health_insurance_premium
+  - home_loan_interest
+  - rent_relief
+  - charitable_donations
+  - retirement_contribution
+
+rules:
+  - rule_id: it22064486_optb_year_001
+    type: tax_year_match
+    description: "Profile assessment year must match the rules bundle assessment_year."
+    reference: "Rules bundle is scoped to assessment_year; profile.tax_year must match."
+
+  - rule_id: it22064486_optb_unknown_relief_001
+    type: unknown_relief_code
+    description: "Each claimed relief_code must be listed in allowed_relief_codes."
+    reference: "Each strategy.claims.relief_code must appear in allowed_relief_codes."
+
+  - rule_id: it22064486_optb_cap_life_ins_001
+    type: deduction_cap
+    description: "Annual life insurance premium claimed must not exceed the statutory cap."
+    relief_code: life_insurance_premium
+    cap_field: life_insurance_premium_cap_annual
+    message: "Life insurance premium claimed exceeds the MVP annual cap."
+    reference: "APIT deduction schedule — life insurance (MVP cap; verify against IR notices)."
+
+  - rule_id: it22064486_optb_cap_health_ins_001
+    type: deduction_cap
+    description: "Annual health insurance premium claimed must not exceed the statutory cap."
+    relief_code: health_insurance_premium
+    cap_field: health_insurance_premium_cap_annual
+    message: "Health insurance premium claimed exceeds the MVP annual cap."
+    reference: "APIT deduction schedule — health insurance (MVP cap)."
+
+  - rule_id: it22064486_optb_cap_home_loan_001
+    type: deduction_cap
+    description: "Annual housing loan interest claimed must not exceed the statutory cap."
+    relief_code: home_loan_interest
+    cap_field: home_loan_interest_cap_annual
+    message: "Home loan interest claimed exceeds the MVP annual cap."
+    reference: "APIT deduction schedule — housing loan interest (MVP cap)."
+
+  - rule_id: it22064486_optb_cap_rent_relief_001
+    type: deduction_cap
+    description: "Rent relief claimed must not exceed the MVP annual cap (full rent formula deferred)."
+    relief_code: rent_relief
+    cap_field: rent_relief_cap_annual
+    message: "Rent relief claimed exceeds the MVP annual cap."
+    reference: "APIT — rent relief cap (MVP; full rent formula deferred)."
+
+  - rule_id: it22064486_optb_cap_donations_001
+    type: charitable_donation_cap
+    description: "Charitable donations must not exceed the configured percentage of taxable basis."
+    relief_code: charitable_donations
+    cap_pct_field: charitable_donations_cap_pct_of_taxable
+    message: "Charitable donations claimed exceed the MVP cap (% of taxable basis: estimated taxable income if provided, else gross income)."
+    reference: "APIT — donations as proportion of taxable income (MVP)."
+
+  - rule_id: it22064486_optb_cap_retirement_001
+    type: retirement_contribution_cap
+    description: "Retirement contribution must not exceed min(% of gross income, annual ceiling)."
+    relief_code: retirement_contribution
+    cap_pct_field: retirement_contribution_cap_pct_of_income
+    cap_annual_field: retirement_contribution_cap_annual
+    message: "Retirement contribution claimed exceeds the MVP cap (min of % of gross and annual ceiling)."
+    reference: "APIT — approved pension / retirement fund limits (MVP)."
