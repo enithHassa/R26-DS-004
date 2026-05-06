@@ -10,8 +10,10 @@ on its own port.
 | ------------------------------ | ---------------------------- | --------------------- |
 | `/api/v1/recommendation/**`    | `COMP_RECOMMENDATION_URL`    | wired (Component 3)   |
 | `/api/v1/transaction/**`       | tbd                          | placeholder           |
-| `/api/v1/optimization/**`      | tbd                          | placeholder           |
+| `/api/v1/optimization/**`      | `COMP_OPTIMIZATION_URL`      | wired (Component 2)   |
 | `/api/v1/llm/**`               | tbd                          | placeholder           |
+
+`GET /ready` probes `GET {COMP_RECOMMENDATION_URL}/health` and `GET {COMP_OPTIMIZATION_URL}/health`; returns `checks.recommendation` and `checks.optimization` booleans.
 
 ## Run
 
@@ -31,3 +33,15 @@ running gateway the explicit pin is required).
 ```bash
 PYTHONPATH=. pytest backend/api-gateway
 ```
+
+## Component 2 — Compliance via gateway
+
+With optimization on **8002** and gateway on **8000** (see `../comp-tax-optimization/README.md`):
+
+```bash
+curl.exe -s -X POST "http://127.0.0.1:8000/api/v1/optimization/compliance/check" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"profile\":{\"tax_year\":\"2024_25\",\"employment_type\":\"employee\",\"dependents\":0,\"annual_gross_income\":\"2400000\",\"estimated_annual_taxable_income\":\"1800000\"},\"strategy\":{\"claims\":[{\"relief_code\":\"life_insurance_premium\",\"claimed_amount_annual\":\"50000\"}]}}"
+```
+
+Proxied paths are not listed in the gateway Swagger UI (`include_in_schema=False`); use **curl**, the dashboard, or the optimization service’s **http://localhost:8002/docs** for an interactive schema.

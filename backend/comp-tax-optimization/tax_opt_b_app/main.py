@@ -1,0 +1,63 @@
+"""FastAPI entrypoint for Tax Strategy Optimization (Component B)."""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from tax_opt_b_app import __version__
+from tax_opt_b_app.config import component_settings
+from tax_opt_b_app.routers import health, tax_opt_b_compliance
+from tax_opt_b_app.services.tax_opt_b_rules_loader import load_tax_opt_b_rules
+from backend.shared.config.settings import settings
+from backend.shared.utils.logging import configure_logging, logger
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    configure_logging(service_name="comp-tax-optimization")
+    rules_path = component_settings.COMP_OPTIMIZATION_RULES_PATH
+    logger.info("Loading tax optimization rules from {}", rules_path)
+    app.state.tax_opt_b_rules = load_tax_opt_b_rules(rules_path)
+    logger.info(
+        "Tax optimization component started (version={}, assessment_year={})",
+        __version__,
+        app.state.tax_opt_b_rules.assessment_year,
+    )
+    yield
+    logger.info("Tax optimization component shutting down")
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="AI Tax Advisory — Tax Strategy Optimization",
+        description=(
+            "Component B (R26-DS-004). Function 1: rule-backed compliance gate "
+            "for Sri Lankan APIT-style MVP thresholds."
+        ),
+        version=__version__,
+        lifespan=lifespan,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    api = "/api/v1"
+    app.include_router(health.router, tags=["health"])
+    app.include_router(tax_opt_b_compliance.router, prefix=f"{api}/compliance")
+
+    return app
+
+
+app = create_app()
