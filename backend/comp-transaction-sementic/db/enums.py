@@ -25,6 +25,19 @@ class ReviewStatus(str, enum.Enum):
     DISMISSED = "dismissed"
 
 
+class DocumentStatus(str, enum.Enum):
+    UPLOADED = "uploaded"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ExtractionRunStatus(str, enum.Enum):
+    STARTED = "started"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 def _values(obj: type[enum.Enum]) -> list[str]:
     return [e.value for e in obj]
 
@@ -46,6 +59,20 @@ taxability_status_enum = ENUM(
 review_status_enum = ENUM(
     ReviewStatus,
     name="review_status",
+    create_type=True,
+    values_callable=_values,
+)
+
+document_status_enum = ENUM(
+    DocumentStatus,
+    name="document_status",
+    create_type=True,
+    values_callable=_values,
+)
+
+extraction_run_status_enum = ENUM(
+    ExtractionRunStatus,
+    name="extraction_run_status",
     create_type=True,
     values_callable=_values,
 )

@@ -1,26 +1,70 @@
 """Transaction Semantic component — FastAPI entry point.
 
-Phase 0 stub: `/health` and `/v1/transactions/analyze` return mocked structured
-output until WP9 wires in the real pipeline.
+Phase 0 stub: `/health`, `/v1/transactions/analyze`, and
+``GET /api/v1/users/{user_id}/income-snapshot`` (aggregate stub for Component B Option B).
 """
 
-from decimal import Decimal
-from uuid import uuid4
+from __future__ import annotations
 
-from fastapi import FastAPI
+from datetime import date
+import csv
+import io
+from decimal import Decimal
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from loguru import logger
+from sqlalchemy.orm import Session
 
 from backend.shared.config.settings import settings
+from backend.shared.config.database import get_db
 from backend.shared.logging import configure_logging
 from backend.shared.middleware.request_id import RequestIDMiddleware
+from backend.shared.db.enums import TxnDirection as DBTxnDirection
+from backend.shared.db.transaction import Transaction as TransactionModel
 from backend.shared.schemas import (
     AnalyzeTransactionRequest,
     AnalyzeTransactionResponse,
     ConfidenceReport,
     EvidenceChain,
     EvidenceStep,
+    IncomeSnapshotV1,
     TaxabilityOutput,
     TaxabilityStatus,
+    Transaction,
+)
+from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
+from .schemas import DocumentExtractResponse
+from .schemas import (
+    DocumentPreviewResponse,
+    DocumentBatchUploadResponse,
+    DocumentStatusResponse,
+    DocumentUploadResponse,
+    ExtractedTransactionItem,
+    ExtractedTransactionsPageResponse,
+    ExportPreviewResponse,
+    ExportPreviewRow,
+    PreviewExtractedTransactionItem,
+    PreviewStatementTotalItem,
+    ReExtractDocumentResponse,
+    StatementTotalsResponse,
+    StatementTotalItem,
+    UploadedDocumentSummary,
+)
+from .services import (
+    ExportFilter,
+    UnsupportedDocumentTypeError,
+    extract_transactions_from_document,
+    get_document_status_snapshot,
+    ingest_document_metadata,
+    list_extracted_transactions_for_export,
+    list_document_extracted_transactions,
+    list_statement_totals_for_document,
+    preview_extracted_transactions_for_export,
+    preview_document_extraction,
+    re_extract_document,
 )
 
 configure_logging(settings)
@@ -31,6 +75,13 @@ app = FastAPI(
     version="0.1.0",
 )
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -85,3 +136,588 @@ def analyze_transaction(payload: AnalyzeTransactionRequest) -> AnalyzeTransactio
             is_ood=False,
         ),
     )
+
+
+@app.post("/v1/documents/extract", response_model=DocumentExtractResponse)
+async def extract_document_transactions(
+    file: UploadFile = File(...),
+    bank_code: str | None = Query(default=None, max_length=16),
+    persist: bool = Query(default=True),
+    db: Session = Depends(get_db),
+) -> DocumentExtractResponse:
+    """Extract transaction rows from uploaded bank documents and optionally persist."""
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    try:
+        outcome = extract_transactions_from_document(
+            filename=file.filename or "uploaded_document",
+            content_type=file.content_type,
+            payload=payload,
+            bank_code_hint=bank_code,
+        )
+        extracted = outcome.rows
+        warnings = outcome.warnings
+        file_type = outcome.file_type
+        ocr_pending = outcome.ocr_pending
+    except UnsupportedDocumentTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    persisted_models: list[TransactionModel] = []
+    if persist and extracted:
+        for row in extracted:
+            model = TransactionModel(
+                raw_desc=row.raw_desc,
+                normalized_desc=None,
+                amount_lkr=row.amount_lkr,
+                tx_date=date.fromisoformat(row.tx_date),
+                direction=DBTxnDirection(row.direction.value),
+                bank_code=row.bank_code or bank_code,
+                source_type="document_upload",
+                raw_payload={
+                    "source_filename": file.filename,
+                    "content_type": file.content_type,
+                    "row_index": row.row_index,
+                    "parse_confidence": row.parse_confidence,
+                },
+            )
+            db.add(model)
+            persisted_models.append(model)
+        db.commit()
+        for model in persisted_models:
+            db.refresh(model)
+
+    logger.bind(
+        document=file.filename,
+        extracted_count=len(extracted),
+        persisted_count=len(persisted_models),
+        ocr_pending=ocr_pending,
+    ).info("document_extraction_completed")
+
+    if persisted_models:
+        transactions = [Transaction.model_validate(model) for model in persisted_models]
+    else:
+        # Preview normalized extraction rows even when persist=false for quick QA.
+        transactions = [
+            Transaction(
+                id=None,
+                raw_desc=row.raw_desc,
+                normalized_desc=None,
+                amount_lkr=row.amount_lkr,
+                tx_date=date.fromisoformat(row.tx_date),
+                direction=row.direction,
+                bank_code=row.bank_code or bank_code,
+                source_type="document_upload_preview",
+                raw_payload={
+                    "source_filename": file.filename,
+                    "content_type": file.content_type,
+                    "row_index": row.row_index,
+                    "parse_confidence": row.parse_confidence,
+                },
+            )
+            for row in extracted
+        ]
+
+    return DocumentExtractResponse(
+        document_name=file.filename or "uploaded_document",
+        content_type=file.content_type,
+        file_type=file_type,
+        bank_code_hint=bank_code,
+        ocr_pending=ocr_pending,
+        extracted_count=len(extracted),
+        persisted_count=len(persisted_models),
+        warnings=warnings,
+        transactions=transactions,
+    )
+
+
+@app.post("/v1/documents/upload", response_model=DocumentUploadResponse)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> DocumentUploadResponse:
+    payload = await file.read()
+    try:
+        result = ingest_document_metadata(db=db, upload=file, content=payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_upload_failed")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {exc}") from exc
+
+    document = result.document
+    return DocumentUploadResponse(
+        document=UploadedDocumentSummary(
+            document_id=document.id,
+            filename=document.filename,
+            status=document.status.value,
+            size_bytes=document.size_bytes,
+            bank_detected=document.bank_detected,
+            selected_parser=result.selected_parser,
+            extracted_row_count=result.extracted_count,
+        ),
+        extraction_run_id=result.extract_run.id,
+        metadata_extraction_run_id=result.metadata_run.id,
+        router_extraction_run_id=result.router_run.id,
+    )
+
+
+@app.post("/v1/documents/preview", response_model=DocumentPreviewResponse)
+async def preview_document(
+    file: UploadFile = File(...),
+    bank_code: str | None = Query(
+        default=None,
+        max_length=32,
+        description="Optional bank code (e.g. NTB) to force parser routing for preview.",
+    ),
+) -> DocumentPreviewResponse:
+    """Extract statement rows without persisting document, runs, or rows."""
+    payload = await file.read()
+    try:
+        preview = preview_document_extraction(
+            filename=file.filename or "uploaded_document",
+            content_type=file.content_type,
+            content=payload,
+            bank_code_override=bank_code,
+        )
+    except UnsupportedDocumentTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_preview_failed")
+        raise HTTPException(status_code=500, detail=f"Preview failed: {exc}") from exc
+
+    transactions = [
+        PreviewExtractedTransactionItem(
+            row_no=row.row_index,
+            tx_date=date.fromisoformat(row.tx_date),
+            description=row.raw_desc,
+            amount_lkr=row.amount_lkr,
+            direction=SchemaTxnDirection(row.direction.value),
+            debit=(row.amount_lkr if row.direction.value == "DR" else None),
+            credit=(row.amount_lkr if row.direction.value == "CR" else None),
+            confidence=row.parse_confidence,
+        )
+        for row in preview.extracted_rows
+    ]
+    totals: list[PreviewStatementTotalItem] = []
+    if (
+        preview.total_debit is not None
+        or preview.total_credit is not None
+        or preview.period_start is not None
+        or preview.period_end is not None
+    ):
+        totals = [
+            PreviewStatementTotalItem(
+                total_debit=preview.total_debit,
+                total_credit=preview.total_credit,
+                currency="LKR",
+                period_start=preview.period_start,
+                period_end=preview.period_end,
+            )
+        ]
+
+    return DocumentPreviewResponse(
+        filename=preview.filename,
+        content_type=preview.content_type,
+        file_type=preview.file_type,
+        bank_detected=preview.bank_detected,
+        selected_parser=preview.selected_parser,
+        extracted_count=len(transactions),
+        warnings=preview.warnings,
+        transactions=transactions,
+        statement_totals=totals,
+    )
+
+
+@app.post("/v1/documents/upload-batch", response_model=DocumentBatchUploadResponse)
+async def upload_document_batch(
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+) -> DocumentBatchUploadResponse:
+    if not files:
+        raise HTTPException(status_code=400, detail="No files received.")
+
+    docs: list[UploadedDocumentSummary] = []
+    run_ids: list[UUID] = []
+    for file in files:
+        payload = await file.read()
+        try:
+            result = ingest_document_metadata(db=db, upload=file, content=payload)
+        except ValueError as exc:
+            logger.warning(f"batch_upload_skipped filename={file.filename} reason={exc}")
+            continue
+        document = result.document
+        docs.append(
+            UploadedDocumentSummary(
+                document_id=document.id,
+                filename=document.filename,
+                status=document.status.value,
+                size_bytes=document.size_bytes,
+                bank_detected=document.bank_detected,
+                selected_parser=result.selected_parser,
+                extracted_row_count=result.extracted_count,
+            ),
+        )
+        run_ids.append(result.extract_run.id)
+
+    return DocumentBatchUploadResponse(
+        documents=docs,
+        extraction_run_ids=run_ids,
+        uploaded_count=len(docs),
+    )
+
+
+def _flatten_extraction_warnings(warnings: dict | None) -> list[str]:
+    if not warnings:
+        return []
+    out: list[str] = []
+    for key in ("messages", "notes"):
+        raw = warnings.get(key)
+        if isinstance(raw, list):
+            out.extend(str(x) for x in raw)
+    return out[:50]
+
+
+def _build_export_csv_response(
+    filename: str,
+    rows: list[tuple[object, object]],
+) -> StreamingResponse:
+    buff = io.StringIO()
+    writer = csv.writer(buff)
+    writer.writerow(
+        [
+            "document_id",
+            "filename",
+            "bank_detected",
+            "tx_id",
+            "tx_date",
+            "row_no",
+            "description",
+            "direction",
+            "amount_lkr",
+            "debit",
+            "credit",
+            "balance",
+            "confidence",
+            "is_flagged",
+        ]
+    )
+    for tx, doc in rows:
+        writer.writerow(
+            [
+                str(doc.id),
+                doc.filename,
+                doc.bank_detected or "",
+                str(tx.id),
+                tx.tx_date.isoformat(),
+                tx.row_no if tx.row_no is not None else "",
+                tx.description,
+                tx.direction.value,
+                str(tx.amount_lkr),
+                str(tx.debit) if tx.debit is not None else "",
+                str(tx.credit) if tx.credit is not None else "",
+                str(tx.balance) if tx.balance is not None else "",
+                f"{tx.confidence:.4f}" if tx.confidence is not None else "",
+                "true" if tx.is_flagged else "false",
+            ]
+        )
+    buff.seek(0)
+    return StreamingResponse(
+        iter([buff.getvalue().encode("utf-8")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get(
+    "/v1/documents/{document_id}/extracted-transactions",
+    response_model=ExtractedTransactionsPageResponse,
+)
+def list_extracted_transactions_for_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> ExtractedTransactionsPageResponse:
+    """Return persisted rows from Phase 3 extraction for this document."""
+    result = list_document_extracted_transactions(
+        db,
+        document_id,
+        limit=limit,
+        offset=offset,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    rows, total = result
+    items = [
+        ExtractedTransactionItem(
+            id=r.id,
+            document_id=r.document_id,
+            page_no=r.page_no,
+            row_no=r.row_no,
+            tx_date=r.tx_date,
+            description=r.description,
+            reference_no=r.reference_no,
+            debit=r.debit,
+            credit=r.credit,
+            balance=r.balance,
+            amount_lkr=r.amount_lkr,
+            direction=SchemaTxnDirection(r.direction.value),
+            confidence=r.confidence,
+            raw_row_json=r.raw_row_json,
+            is_flagged=r.is_flagged,
+        )
+        for r in rows
+    ]
+    return ExtractedTransactionsPageResponse(
+        document_id=document_id,
+        total=total,
+        limit=limit,
+        offset=offset,
+        transactions=items,
+    )
+
+
+@app.get("/v1/documents/{document_id}/export.csv")
+def export_single_document_csv(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    rows = list_extracted_transactions_for_export(db, document_id=document_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="No extracted rows found for this document.")
+    return _build_export_csv_response(f"document_{document_id}_extracted.csv", rows)
+
+
+@app.get("/v1/documents/export.csv")
+def export_filtered_documents_csv(
+    db: Session = Depends(get_db),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    bank_code: str | None = Query(default=None, max_length=32),
+    direction: str | None = Query(default=None, pattern="^(CR|DR)$"),
+    min_amount: Decimal | None = Query(default=None, ge=0),
+    max_amount: Decimal | None = Query(default=None, ge=0),
+    text_query: str | None = Query(default=None, max_length=200),
+) -> StreamingResponse:
+    if min_amount is not None and max_amount is not None and min_amount > max_amount:
+        raise HTTPException(status_code=400, detail="min_amount must be <= max_amount")
+    filters = ExportFilter(
+        date_from=date_from,
+        date_to=date_to,
+        bank_code=bank_code,
+        direction=direction,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        text_query=text_query,
+    )
+    rows = list_extracted_transactions_for_export(db, filters=filters)
+    if not rows:
+        raise HTTPException(status_code=404, detail="No extracted rows match the provided filters.")
+    return _build_export_csv_response("documents_filtered_export.csv", rows)
+
+
+@app.get("/v1/documents/export/preview", response_model=ExportPreviewResponse)
+def preview_filtered_export(
+    db: Session = Depends(get_db),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    bank_code: str | None = Query(default=None, max_length=32),
+    direction: str | None = Query(default=None, pattern="^(CR|DR)$"),
+    min_amount: Decimal | None = Query(default=None, ge=0),
+    max_amount: Decimal | None = Query(default=None, ge=0),
+    text_query: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> ExportPreviewResponse:
+    if min_amount is not None and max_amount is not None and min_amount > max_amount:
+        raise HTTPException(status_code=400, detail="min_amount must be <= max_amount")
+    filters = ExportFilter(
+        date_from=date_from,
+        date_to=date_to,
+        bank_code=bank_code,
+        direction=direction,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        text_query=text_query,
+    )
+    rows, total = preview_extracted_transactions_for_export(
+        db,
+        filters=filters,
+        limit=limit,
+        offset=offset,
+    )
+    result_rows = [
+        ExportPreviewRow(
+            document_id=doc.id,
+            filename=doc.filename,
+            bank_detected=doc.bank_detected,
+            tx_id=tx.id,
+            tx_date=tx.tx_date,
+            row_no=tx.row_no,
+            description=tx.description,
+            direction=SchemaTxnDirection(tx.direction.value),
+            amount_lkr=tx.amount_lkr,
+            debit=tx.debit,
+            credit=tx.credit,
+            balance=tx.balance,
+            confidence=tx.confidence,
+        )
+        for tx, doc in rows
+    ]
+    return ExportPreviewResponse(total=total, limit=limit, offset=offset, rows=result_rows)
+
+
+@app.get(
+    "/v1/documents/{document_id}/statement-totals",
+    response_model=StatementTotalsResponse,
+)
+def get_statement_totals(document_id: UUID, db: Session = Depends(get_db)) -> StatementTotalsResponse:
+    """Return statement-level summary rows (period, computed debit/credit totals when available)."""
+    rows = list_statement_totals_for_document(db, document_id)
+    if rows is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    items = [
+        StatementTotalItem(
+            id=r.id,
+            document_id=r.document_id,
+            opening_balance=r.opening_balance,
+            closing_balance=r.closing_balance,
+            total_debit=r.total_debit,
+            total_credit=r.total_credit,
+            currency=r.currency,
+            period_start=r.period_start,
+            period_end=r.period_end,
+        )
+        for r in rows
+    ]
+    return StatementTotalsResponse(document_id=document_id, totals=items)
+
+
+@app.post(
+    "/v1/documents/{document_id}/re-extract",
+    response_model=ReExtractDocumentResponse,
+)
+def post_re_extract_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    bank_code: str | None = Query(
+        default=None,
+        max_length=32,
+        description="Optional bank code (e.g. NTB) to force parser routing and extraction hint.",
+    ),
+) -> ReExtractDocumentResponse:
+    """Re-run bank routing and row extraction from the stored file without a new upload."""
+    try:
+        result = re_extract_document(db=db, document_id=document_id, bank_code_override=bank_code)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Stored source file is missing: {exc}",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("re_extract_failed")
+        raise HTTPException(status_code=500, detail=f"Re-extract failed: {exc}") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    doc = result.document
+    return ReExtractDocumentResponse(
+        document_id=doc.id,
+        status=doc.status.value,
+        bank_detected=doc.bank_detected,
+        selected_parser=result.selected_parser,
+        extracted_row_count=result.extracted_count,
+        router_extraction_run_id=result.router_run.id,
+        extraction_run_id=result.extract_run.id,
+    )
+
+
+@app.get("/v1/documents/{document_id}/status", response_model=DocumentStatusResponse)
+def document_status(document_id: UUID, db: Session = Depends(get_db)) -> DocumentStatusResponse:
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    document = snap.document
+    latest_run = snap.latest_run
+
+    selected_parser: str | None = None
+    bank_detection_confidence: float | None = None
+    if snap.router_run is not None:
+        metrics = snap.router_run.metrics or {}
+        raw_sel = metrics.get("selected_parser")
+        raw_conf = metrics.get("bank_confidence")
+        if isinstance(raw_sel, str):
+            selected_parser = raw_sel
+        if isinstance(raw_conf, (int, float)):
+            bank_detection_confidence = float(raw_conf)
+
+    extract_run = snap.extract_run
+    extraction_warnings = _flatten_extraction_warnings(extract_run.warnings if extract_run else None)
+
+    return DocumentStatusResponse(
+        document_id=document.id,
+        filename=document.filename,
+        content_type=document.content_type,
+        status=document.status.value,
+        bank_detected=document.bank_detected,
+        size_bytes=document.size_bytes,
+        uploaded_at=document.uploaded_at,
+        updated_at=document.updated_at,
+        latest_run_id=(latest_run.id if latest_run else None),
+        latest_run_parser_name=(latest_run.parser_name if latest_run else None),
+        latest_run_status=(latest_run.status.value if latest_run else None),
+        latest_run_started_at=(latest_run.started_at if latest_run else None),
+        latest_run_finished_at=(latest_run.finished_at if latest_run else None),
+        selected_parser=selected_parser,
+        bank_detection_confidence=bank_detection_confidence,
+        extracted_row_count=snap.extracted_row_count,
+        extraction_run_status=(extract_run.status.value if extract_run else None),
+        extraction_run_parser=(extract_run.parser_name if extract_run else None),
+        extraction_error=(extract_run.error_message if extract_run else None),
+        extraction_warnings=extraction_warnings,
+    )
+
+
+api_v1 = APIRouter(prefix="/api/v1")
+
+
+@api_v1.get("/users/{user_id}/income-snapshot", response_model=IncomeSnapshotV1)
+def income_snapshot(
+    user_id: str,
+    assessment_year: str = Query(
+        ...,
+        pattern=r"^\d{4}_\d{2}$",
+        description="Assessment year label (e.g. 2024_25).",
+    ),
+) -> IncomeSnapshotV1:
+    """Stub aggregate for Option B — replace with DB-backed rollups from taxability outputs."""
+    logger.bind(user_id=user_id, assessment_year=assessment_year).info("income_snapshot_stub_served")
+    return IncomeSnapshotV1(
+        user_id=user_id,
+        assessment_year=assessment_year,
+        annual_gross_income=Decimal("2400000"),
+        estimated_annual_taxable_income=Decimal("1800000"),
+        charity_outflows_annual=None,
+        source="component1_stub",
+        derivation_summary=(
+            "Stub aggregate: fixed demo LKR amounts. Live service will sum "
+            "taxable_amount on classified inflows for the window, apply exclusions, "
+            "and attach audit metadata."
+        ),
+        pipeline_version="stub-0.1.0",
+        transaction_count=42,
+    )
+
+
+app.include_router(api_v1)
