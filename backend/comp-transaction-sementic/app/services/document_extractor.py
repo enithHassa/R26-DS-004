@@ -10,7 +10,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from schemas import ExtractedTransactionInput
+from ..schemas import ExtractedTransactionInput
 from backend.shared.schemas.enums import TxnDirection
 
 

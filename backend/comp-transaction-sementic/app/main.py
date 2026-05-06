@@ -9,6 +9,7 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -29,21 +30,26 @@ from backend.shared.schemas import (
     Transaction,
 )
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
-from schemas import DocumentExtractResponse
-from schemas import (
+from .schemas import DocumentExtractResponse
+from .schemas import (
     DocumentBatchUploadResponse,
     DocumentStatusResponse,
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
+    ReExtractDocumentResponse,
+    StatementTotalsResponse,
+    StatementTotalItem,
     UploadedDocumentSummary,
 )
-from services import (
+from .services import (
     UnsupportedDocumentTypeError,
     extract_transactions_from_document,
     get_document_status_snapshot,
     ingest_document_metadata,
     list_document_extracted_transactions,
+    list_statement_totals_for_document,
+    re_extract_document,
 )
 
 configure_logging(settings)
@@ -54,6 +60,13 @@ app = FastAPI(
     version="0.1.0",
 )
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -333,6 +346,74 @@ def list_extracted_transactions_for_document(
         limit=limit,
         offset=offset,
         transactions=items,
+    )
+
+
+@app.get(
+    "/v1/documents/{document_id}/statement-totals",
+    response_model=StatementTotalsResponse,
+)
+def get_statement_totals(document_id: UUID, db: Session = Depends(get_db)) -> StatementTotalsResponse:
+    """Return statement-level summary rows (period, computed debit/credit totals when available)."""
+    rows = list_statement_totals_for_document(db, document_id)
+    if rows is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    items = [
+        StatementTotalItem(
+            id=r.id,
+            document_id=r.document_id,
+            opening_balance=r.opening_balance,
+            closing_balance=r.closing_balance,
+            total_debit=r.total_debit,
+            total_credit=r.total_credit,
+            currency=r.currency,
+            period_start=r.period_start,
+            period_end=r.period_end,
+        )
+        for r in rows
+    ]
+    return StatementTotalsResponse(document_id=document_id, totals=items)
+
+
+@app.post(
+    "/v1/documents/{document_id}/re-extract",
+    response_model=ReExtractDocumentResponse,
+)
+def post_re_extract_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    bank_code: str | None = Query(
+        default=None,
+        max_length=32,
+        description="Optional bank code (e.g. NTB) to force parser routing and extraction hint.",
+    ),
+) -> ReExtractDocumentResponse:
+    """Re-run bank routing and row extraction from the stored file without a new upload."""
+    try:
+        result = re_extract_document(db=db, document_id=document_id, bank_code_override=bank_code)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Stored source file is missing: {exc}",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("re_extract_failed")
+        raise HTTPException(status_code=500, detail=f"Re-extract failed: {exc}") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    doc = result.document
+    return ReExtractDocumentResponse(
+        document_id=doc.id,
+        status=doc.status.value,
+        bank_detected=doc.bank_detected,
+        selected_parser=result.selected_parser,
+        extracted_row_count=result.extracted_count,
+        router_extraction_run_id=result.router_run.id,
+        extraction_run_id=result.extract_run.id,
     )
 
 
