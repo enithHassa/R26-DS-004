@@ -1,10 +1,8 @@
 """Bulk-load synthetic financial profiles into Postgres.
 
-Reads ``data/synthetic/profiles.parquet`` (produced by
-``scripts.generate_synthetic_profiles``) and inserts each row into the
+Reads a synthetic dataset (CSV or parquet) and inserts each row into the
 ``users`` + ``financial_profiles`` tables via SQLAlchemy core. Existing
-synthetic users (matched by email prefix ``synthetic-<profile_id>``) are
-skipped so the script is idempotent.
+profiles are skipped so the script is idempotent.
 
 Usage:
 
@@ -14,7 +12,7 @@ Usage:
     alembic upgrade head
     python -m scripts.seed_profiles_from_synthetic --limit 5000
 
-Pass ``--limit -1`` to seed every row in the parquet.
+Pass ``--limit -1`` to seed every row.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -46,10 +45,10 @@ from app.models.user import User  # noqa: E402
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--parquet",
+        "--dataset",
         type=Path,
-        default=REPO_ROOT / "data" / "synthetic" / "profiles.parquet",
-        help="Path to profiles.parquet emitted by the generator.",
+        default=REPO_ROOT / "data" / "synthetic" / "profiles.csv",
+        help="Path to synthetic profiles dataset (.csv or .parquet).",
     )
     parser.add_argument(
         "--limit",
@@ -64,6 +63,56 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Rows per INSERT batch (per table).",
     )
     return parser.parse_args(argv)
+
+
+_PROVINCE_TO_DISTRICT: dict[str, str] = {
+    "Western": "Colombo",
+    "Central": "Kandy",
+    "Southern": "Galle",
+    "Northern": "Jaffna",
+    "Eastern": "Trincomalee",
+    "North Western": "Kurunegala",
+    "North Central": "Anuradhapura",
+    "Uva": "Badulla",
+    "Sabaragamuwa": "Ratnapura",
+}
+
+
+def _parse_age_band_midpoint(age_band: str) -> int:
+    cleaned = age_band.strip()
+    if cleaned.endswith("+"):
+        return int(cleaned[:-1])
+    if "-" in cleaned:
+        lower, upper = cleaned.split("-", 1)
+        return (int(lower) + int(upper)) // 2
+    return int(cleaned)
+
+
+def _derive_date_of_birth(row: dict) -> date:
+    if row.get("date_of_birth"):
+        return pd.to_datetime(row["date_of_birth"]).date()
+    # Verified synthetic dataset stores age bands, not full DOB.
+    age_mid = _parse_age_band_midpoint(str(row.get("age_band", "35-39")))
+    tax_year = str(row.get("tax_year", "2024_25"))
+    snapshot_year = int(tax_year.split("_", 1)[0]) + 1
+    return date(snapshot_year - age_mid, 6, 30)
+
+
+def _derive_district(row: dict) -> str:
+    district = str(row.get("district") or "").strip()
+    if district:
+        return district
+    province = str(row.get("province") or "").strip()
+    return _PROVINCE_TO_DISTRICT.get(province, "Colombo")
+
+
+def _load_dataset(dataset_path: Path) -> pd.DataFrame:
+    suffix = dataset_path.suffix.lower()
+    if suffix == ".parquet":
+        return pd.read_parquet(dataset_path)
+    if suffix == ".csv":
+        return pd.read_csv(dataset_path)
+    raise ValueError(f"Unsupported dataset format: {dataset_path.suffix}")
 
 
 def _row_to_user(row: dict) -> dict:
@@ -81,9 +130,9 @@ def _row_to_profile(row: dict, *, user_id: UUID) -> dict:
         "id": UUID(row["profile_id"]),
         "user_id": user_id,
         "full_name": row["full_name"],
-        "date_of_birth": pd.to_datetime(row["date_of_birth"]).date(),
+        "date_of_birth": _derive_date_of_birth(row),
         "gender": row["gender"],
-        "district": row["district"],
+        "district": _derive_district(row),
         "marital_status": row["marital_status"],
         "occupation": row["occupation"],
         "dependents": int(row["dependents"]),
@@ -118,12 +167,12 @@ def _existing_profile_ids(db: Session, candidate_ids: list[UUID]) -> set[UUID]:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    parquet_path = args.parquet
-    if not parquet_path.exists():
-        print(f"[seed] Parquet not found at {parquet_path}. Run scripts.generate_synthetic_profiles first.")
+    dataset_path = args.dataset
+    if not dataset_path.exists():
+        print(f"[seed] Dataset not found at {dataset_path}.")
         return 1
 
-    df = pd.read_parquet(parquet_path)
+    df = _load_dataset(dataset_path)
     if args.limit != -1:
         df = df.head(args.limit)
 
