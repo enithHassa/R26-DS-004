@@ -1,0 +1,308 @@
+# Declarative tax strategy catalog for Sri Lanka resident individual profiles.
+# Intended for Phase 3 (WP5): strategy generation + feasibility pre-checks.
+#
+# Legal references used to shape strategy families and constraints:
+# - Inland Revenue Act No. 24 of 2017
+# - Amendments No. 10 of 2021, No. 45 of 2022, No. 4 of 2023, No. 14 of 2023
+# - Consolidated Inland Revenue text (incl. 2025 changes)
+#
+# NOTE:
+# This catalog is for DSS recommendation logic and simulation.
+# Final tax treatment must always follow current IRD guidance/circulars.
+
+schema_version: "1.0"
+country: "LK"
+currency: "LKR"
+rules_pack_ref: "sl_tax_2024_25.yaml"
+rules_pack_version: "2024_25"
+effective_from: "2024-04-01"
+maintainer: "comp-personalized-recommendation"
+
+defaults:
+  estimation:
+    confidence_default: "medium"
+    annual_horizon_years: 1
+  feasibility_thresholds:
+    min_months_buffer_after_action: 1.5
+    high_risk_dti_guardrail: 0.65
+    general_dti_guardrail: 0.55
+
+# Context variable names expected from feature builder / profile adapter.
+context_variables:
+  - annual_income
+  - annual_tax_before_strategy
+  - gross_monthly_income_lkr
+  - monthly_expenses_lkr
+  - monthly_debt_service_lkr
+  - liquid_savings_lkr
+  - total_debt_lkr
+  - debt_to_income
+  - savings_rate
+  - occupation
+  - risk_tolerance
+  - has_health_insurance
+  - life_insurance_premium_annual_lkr
+  - health_insurance_premium_annual_lkr
+  - home_loan_interest_annual_lkr
+  - donations_annual_lkr
+  - rent_paid_annual_lkr
+  - retirement_contribution_annual_lkr
+  - epf_balance_lkr
+  - years_employed
+  - age_band
+
+# Conflict graph (strategy_id arrays): strategies that should not be jointly
+# recommended in the same cycle unless an override policy is applied.
+conflict_rules:
+  S003_charity_optimisation:
+    - S006_cashflow_stabilise_before_deductions
+  S004_rent_relief_capture:
+    - S005_home_loan_interest_optimisation
+
+strategies:
+  - strategy_id: "S001_health_life_premium_optimisation"
+    name: "Insurance Relief Optimisation"
+    description: >
+      Improve qualifying health and life insurance premium allocation within
+      statutory annual deduction caps to reduce taxable income.
+    category: "deduction_optimisation"
+    priority_hint: 1
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "occupation in ['employee','professional','business_owner','self_employed']"
+        - any:
+            - expr: "has_health_insurance == true"
+            - expr: "life_insurance_premium_annual_lkr > 0"
+    constraints:
+      min_liquidity_lkr: 0
+      max_debt_to_income: 0.80
+      required_docs:
+        - "insurance_premium_receipts"
+      profile_fields_required:
+        - "annual_income"
+        - "life_insurance_premium_annual_lkr"
+        - "health_insurance_premium_annual_lkr"
+      conflicts_with: []
+    estimation_method:
+      type: "deduction_cap_gap"
+      formula_ref: >
+        savings = tax(annual_income) - tax(annual_income - delta_deductible),
+        where delta_deductible is additional eligible premium up to
+        life_insurance_premium_cap_annual + health_insurance_premium_cap_annual
+        in rules pack.
+      required_inputs:
+        - "annual_income"
+        - "life_insurance_premium_annual_lkr"
+        - "health_insurance_premium_annual_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
+
+  - strategy_id: "S002_retirement_contribution_topup"
+    name: "Retirement Contribution Top-up"
+    description: >
+      Increase qualifying retirement contributions within permitted annual caps
+      to reduce taxable income while improving long-term savings adequacy.
+    category: "long_term_tax_efficiency"
+    priority_hint: 2
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "age_band not in ['65-70','70+']"
+        - expr: "debt_to_income <= 0.70"
+    constraints:
+      min_liquidity_lkr_expr: "monthly_expenses_lkr * 2.0"
+      max_debt_to_income: 0.70
+      required_docs:
+        - "retirement_contribution_proof"
+      profile_fields_required:
+        - "annual_income"
+        - "retirement_contribution_annual_lkr"
+      conflicts_with: []
+    estimation_method:
+      type: "deduction_cap_gap"
+      formula_ref: >
+        deductible_cap = min(retirement_contribution_cap_annual,
+        annual_income * retirement_contribution_cap_pct_of_income).
+        savings = tax(annual_income) - tax(annual_income - additional_deductible).
+      required_inputs:
+        - "annual_income"
+        - "retirement_contribution_annual_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
+
+  - strategy_id: "S003_charity_optimisation"
+    name: "Charitable Donation Timing & Sizing"
+    description: >
+      Recommend donation amount and timing within annual allowable limits to
+      maximise deduction impact without harming household liquidity.
+    category: "deduction_optimisation"
+    priority_hint: 3
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "risk_tolerance in ['low','medium','high']"
+        - expr: "liquid_savings_lkr >= monthly_expenses_lkr"
+    constraints:
+      min_liquidity_lkr_expr: "monthly_expenses_lkr * 1.5"
+      max_debt_to_income: 0.65
+      required_docs:
+        - "approved_donation_receipts"
+      profile_fields_required:
+        - "annual_income"
+        - "donations_annual_lkr"
+      conflicts_with:
+        - "S006_cashflow_stabilise_before_deductions"
+    estimation_method:
+      type: "deduction_cap_pct_taxable"
+      formula_ref: >
+        donation_deductible_cap = annual_income * charitable_donations_cap_pct_of_taxable.
+        savings = tax(annual_income) - tax(annual_income - additional_eligible_donation).
+      required_inputs:
+        - "annual_income"
+        - "donations_annual_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
+
+  - strategy_id: "S004_rent_relief_capture"
+    name: "Rental Relief Capture"
+    description: >
+      Apply statutory rental relief for eligible resident individuals where rent
+      evidence is available and no conflicting housing-interest strategy is active.
+    category: "deduction_optimisation"
+    priority_hint: 4
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "rent_paid_annual_lkr > 0"
+        - expr: "home_loan_interest_annual_lkr <= 0"
+    constraints:
+      min_liquidity_lkr: 0
+      max_debt_to_income: 0.80
+      required_docs:
+        - "rental_agreement"
+        - "rental_payment_proofs"
+      profile_fields_required:
+        - "annual_income"
+        - "rent_paid_annual_lkr"
+      conflicts_with:
+        - "S005_home_loan_interest_optimisation"
+    estimation_method:
+      type: "rent_relief_formula"
+      formula_ref: >
+        rent_relief = min(rent_paid_annual_lkr * rent_relief_pct, rent_relief_cap_annual).
+        savings = tax(annual_income) - tax(annual_income - rent_relief).
+      required_inputs:
+        - "annual_income"
+        - "rent_paid_annual_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "high"
+
+  - strategy_id: "S005_home_loan_interest_optimisation"
+    name: "Home Loan Interest Relief Optimisation"
+    description: >
+      Use eligible annual home-loan interest deductions up to statutory caps,
+      balancing tax benefit and debt burden sustainability.
+    category: "housing_tax_efficiency"
+    priority_hint: 5
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "home_loan_interest_annual_lkr > 0"
+      any:
+        - expr: "occupation in ['employee','professional','business_owner']"
+        - expr: "years_employed >= 1"
+    constraints:
+      min_liquidity_lkr_expr: "monthly_expenses_lkr * 1.0"
+      max_debt_to_income: 0.85
+      required_docs:
+        - "home_loan_interest_certificate"
+      profile_fields_required:
+        - "annual_income"
+        - "home_loan_interest_annual_lkr"
+      conflicts_with:
+        - "S004_rent_relief_capture"
+    estimation_method:
+      type: "deduction_cap_fixed"
+      formula_ref: >
+        deductible = min(home_loan_interest_annual_lkr, home_loan_interest_cap_annual).
+        savings = tax(annual_income) - tax(annual_income - deductible).
+      required_inputs:
+        - "annual_income"
+        - "home_loan_interest_annual_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "high"
+
+  - strategy_id: "S006_cashflow_stabilise_before_deductions"
+    name: "Cashflow Stabilisation Before Deduction Expansion"
+    description: >
+      Defensive strategy for high debt-stress profiles: prioritise debt-service
+      reduction and liquidity restoration before adding discretionary deductible
+      payments.
+    category: "feasibility_guardrail"
+    priority_hint: 0
+    eligibility_rules:
+      any:
+        - expr: "debt_to_income > 0.65"
+        - expr: "savings_rate < 0.05"
+        - expr: "liquid_savings_lkr < (monthly_expenses_lkr * 1.0)"
+    constraints:
+      min_liquidity_lkr_expr: "monthly_expenses_lkr * 1.0"
+      max_debt_to_income: 10.0
+      required_docs: []
+      profile_fields_required:
+        - "debt_to_income"
+        - "savings_rate"
+        - "liquid_savings_lkr"
+        - "monthly_expenses_lkr"
+      conflicts_with:
+        - "S003_charity_optimisation"
+    estimation_method:
+      type: "indirect_tax_savings_flag"
+      formula_ref: >
+        expected_tax_savings_lkr is set to 0 in current year; strategy improves
+        feasibility and adoption probability for future tax-saving actions.
+      required_inputs:
+        - "debt_to_income"
+        - "savings_rate"
+      output:
+        expected_tax_savings_lkr: "0"
+        confidence: "high"
+
+  - strategy_id: "S007_employment_withholding_reconciliation"
+    name: "APIT/Withholding Reconciliation Check"
+    description: >
+      Identify potential over/under-withholding against expected annual tax for
+      salaried profiles and suggest correction actions.
+    category: "compliance_optimisation"
+    priority_hint: 6
+    eligibility_rules:
+      all:
+        - expr: "occupation == 'employee'"
+        - expr: "annual_income > 0"
+    constraints:
+      min_liquidity_lkr: 0
+      max_debt_to_income: 1.00
+      required_docs:
+        - "monthly_pay_slips"
+        - "APIT_withholding_statement"
+      profile_fields_required:
+        - "annual_income"
+        - "occupation"
+      conflicts_with: []
+    estimation_method:
+      type: "withholding_gap_estimate"
+      formula_ref: >
+        compare expected annual tax from rules engine against declared annual
+        withholding; estimate recoverable/refundable amount or top-up needed.
+      required_inputs:
+        - "annual_income"
+        - "annual_tax_before_strategy"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
