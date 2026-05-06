@@ -1,10 +1,10 @@
 """Thin async reverse-proxy gateway for the AI Tax Advisory System.
 
-Routing map (only Component 3 is wired for now; others are placeholders):
+Routing map (representative):
 
     /api/v1/recommendation/**  ->  COMP_RECOMMENDATION_URL
-    /api/v1/transaction/**     ->  (TBD, Component 1)
-    /api/v1/optimization/**    ->  (TBD, Component 2)
+    /api/v1/optimization/**    ->  COMP_OPTIMIZATION_URL
+    /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
     /api/v1/llm/**             ->  (TBD, Component 4)
 """
 
@@ -64,6 +64,8 @@ def create_app() -> FastAPI:
     )
     app.include_router(_system_router())
     _register_proxy(app, prefix="/api/v1/recommendation", upstream=settings.COMP_RECOMMENDATION_URL)
+    _register_proxy(app, prefix="/api/v1/optimization", upstream=settings.COMP_OPTIMIZATION_URL)
+    _register_proxy(app, prefix="/api/v1/transaction", upstream=settings.COMP_TRANSACTION_URL)
     return app
 
 
@@ -83,6 +85,16 @@ def _system_router() -> APIRouter:
             checks["recommendation"] = r.status_code == 200
         except Exception:
             checks["recommendation"] = False
+        try:
+            r = await client.get(f"{settings.COMP_OPTIMIZATION_URL}/health", timeout=5.0)
+            checks["optimization"] = r.status_code == 200
+        except Exception:
+            checks["optimization"] = False
+        try:
+            r = await client.get(f"{settings.COMP_TRANSACTION_URL}/health", timeout=5.0)
+            checks["transaction"] = r.status_code == 200
+        except Exception:
+            checks["transaction"] = False
         return {"status": "ok" if all(checks.values()) else "degraded", "checks": checks}
 
     return router

@@ -11,6 +11,11 @@ cannot be a regular Python package.
 """
 
 from . import enums  # noqa: F401
+from . import document  # noqa: F401
+from . import document_page  # noqa: F401
+from . import extracted_transaction  # noqa: F401
+from . import extraction_run  # noqa: F401
 from . import review_queue  # noqa: F401
+from . import statement_total  # noqa: F401
 from . import taxability_output  # noqa: F401
 from . import transaction_label  # noqa: F401
