@@ -39,7 +39,7 @@ ROUTER_PARSER_NAME = "parser_router_v2"
 ROUTER_PARSER_VERSION = "2.0.0"
 METADATA_PARSER_NAME = "ingestion_metadata_v1"
 EXTRACTION_PARSER_VERSION = "1.0.0"
-SKIP_EXTRACT_PARSERS = frozenset({"image_ocr_pending_v1", "generic_unknown_v1"})
+SKIP_EXTRACT_PARSERS = frozenset({"generic_unknown_v1"})
 
 
 def _load_db_package() -> None:
