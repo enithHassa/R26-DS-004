@@ -45,8 +45,17 @@ def select_parser(
     }
 
     if file_format in {"jpg", "jpeg", "png"}:
-        notes["router_reason"] = "image_requires_ocr"
-        return "image_ocr_pending_v1", notes
+        if detection.bank_code == "NTB":
+            notes["router_reason"] = "raster_ntb"
+            return "ntb_pdf_v1", notes
+        if detection.bank_code == "SAMPATH":
+            notes["router_reason"] = "raster_sampath"
+            return "sampath_pdf_v1", notes
+        if detection.confidence >= 0.35 and detection.bank_code:
+            notes["router_reason"] = "raster_bank_template"
+            return f"{detection.bank_code.lower()}_pdf_v1", notes
+        notes["router_reason"] = "raster_generic"
+        return "generic_pdf_v1", notes
 
     if file_format == "csv":
         notes["router_reason"] = "tabular_csv"
