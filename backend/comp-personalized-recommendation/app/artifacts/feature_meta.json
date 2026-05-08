@@ -1,0 +1,41 @@
+{
+  "num_features": [
+    "dependents",
+    "years_employed",
+    "gross_monthly_income_lkr",
+    "monthly_expenses_lkr",
+    "monthly_debt_service_lkr",
+    "liquid_savings_lkr",
+    "existing_investments_lkr",
+    "total_debt_lkr",
+    "epf_balance_lkr",
+    "etf_balance_lkr",
+    "life_insurance_premium_annual_lkr",
+    "home_loan_interest_annual_lkr",
+    "donations_annual_lkr",
+    "gross_annual_taxable_income_lkr",
+    "baseline_tax_liability_lkr",
+    "effective_tax_rate",
+    "disposable_income_monthly_lkr",
+    "savings_rate",
+    "debt_to_income",
+    "expense_ratio",
+    "debt_service_ratio",
+    "liquidity_months",
+    "src_employment_share",
+    "src_business_share",
+    "src_dividend_share",
+    "src_interest_share",
+    "src_rental_share",
+    "src_other_share"
+  ],
+  "cat_features": [
+    "gender",
+    "marital_status",
+    "occupation",
+    "risk_tolerance",
+    "archetype",
+    "age_band",
+    "province"
+  ]
+}

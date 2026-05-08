@@ -58,18 +58,28 @@ class StrategyCandidate(ORMBase):
     estimated_annual_cost: Decimal = Field(ge=0, default=Decimal("0"))
     eligibility_checks: list[EligibilityCheck]
     feasibility_score: float = Field(ge=0, le=1)
+    is_eligible: bool = True
+    ineligibility_reasons: list[str] = Field(default_factory=list)
+    required_docs: list[str] = Field(default_factory=list)
+    estimation_method_type: str | None = None
+    estimation_formula_ref: str | None = None
 
 
 class StrategyGenerationRequest(BaseModel):
     profile_id: str
     include_categories: list[StrategyCategory] | None = None
     exclude_codes: list[str] = Field(default_factory=list)
+    context_overrides: dict[str, float | int | str | bool] = Field(default_factory=dict)
 
 
 class StrategyGenerationResponse(BaseModel):
     profile_id: str
     candidates: list[StrategyCandidate]
     generated_at: str
+    rules_pack_version: str | None = None
+    strategy_catalog_version: str | None = None
+    total_strategies_evaluated: int = 0
+    eligible_count: int = 0
 
 
 __all__ = [

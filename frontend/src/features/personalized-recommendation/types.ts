@@ -82,6 +82,71 @@ export interface PaginatedProfiles {
   page_size: number;
 }
 
+export interface ScoreBreakdown {
+  tax_savings_norm: number;
+  adoption_prob: number;
+  feasibility: number;
+  risk_penalty: number;
+  final_score: number;
+}
+
+export interface FeatureAttribution {
+  feature: string;
+  shap_value: number;
+  direction: "positive" | "negative";
+}
+
+export interface RecommendationExplanation {
+  top_reasons: FeatureAttribution[];
+  bottom_reasons: FeatureAttribution[];
+  narrative: string | null;
+}
+
+export interface StrategySummary {
+  id: string;
+  created_at: string;
+  updated_at: string | null;
+  code: string;
+  name: string;
+  category: string;
+  description: string;
+  legal_reference: string | null;
+  min_income: string | null;
+  max_income: string | null;
+  min_age: number | null;
+  max_age: number | null;
+  min_liquidity: string | null;
+  risk_profile: string;
+  effort_score: number;
+  is_active: boolean;
+}
+
+export interface RecommendationItem {
+  id: string;
+  rank: number;
+  strategy: StrategySummary;
+  estimated_annual_savings: string;
+  adoption_probability: number;
+  risk_score: number;
+  confidence: number;
+  scores: ScoreBreakdown;
+  explanation: RecommendationExplanation | null;
+}
+
+export interface RecommendationResponse {
+  id: string;
+  profile_id: string;
+  generated_at: string;
+  model_version: string;
+  items: RecommendationItem[];
+}
+
+export interface RecommendationRequest {
+  profile_id: string;
+  top_k: number;
+  regenerate_candidates?: boolean;
+}
+
 export const SL_DISTRICTS = [
   "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
   "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
