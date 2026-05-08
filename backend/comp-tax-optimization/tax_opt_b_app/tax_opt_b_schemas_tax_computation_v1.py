@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from tax_opt_b_app.tax_opt_b_schemas_compliance_v1 import TaxOptBComplianceResultV1
+from tax_opt_b_app.tax_opt_b_schemas_explainability_v1 import TaxOptBExplanationBundleV1
 
 
 class TaxOptBSlabTaxSliceV1(BaseModel):
@@ -52,6 +53,13 @@ class TaxOptBComputeTaxResponseV1(BaseModel):
         description="Present only when compliance passed; otherwise null.",
     )
     research_disclaimer: str
+    explanations: TaxOptBExplanationBundleV1 | None = Field(
+        default=None,
+        description=(
+            "Optional FR5 template narrative from nested ``compliance`` and ``tax_computation`` "
+            "(violations, reliefs, slabs); not generated for POST /check unless extended later."
+        ),
+    )
 
 
 __all__ = [

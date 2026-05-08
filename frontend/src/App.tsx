@@ -2,7 +2,12 @@ import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { features } from "@/features";
-import { CompliancePage, TaxOptimizationStandalone } from "@/features/tax-optimization";
+import {
+  ComparePage,
+  CompliancePage,
+  ExplorerPage,
+  TaxOptimizationStandalone,
+} from "@/features/tax-optimization";
 
 function buildOutletChildren(): RouteObject[] {
   return features.flatMap((feature) => {
@@ -25,6 +30,8 @@ export default function App() {
       children: [
         { index: true, element: <Navigate to="compliance" replace /> },
         { path: "compliance", element: <CompliancePage /> },
+        { path: "compare", element: <ComparePage /> },
+        { path: "explorer", element: <ExplorerPage /> },
       ],
     },
   ];

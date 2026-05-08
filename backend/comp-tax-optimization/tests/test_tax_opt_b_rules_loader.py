@@ -123,6 +123,17 @@ def test_parse_minimal_pack_roundtrip() -> None:
     assert pack.assessment_year == "2024_25"
     assert pack.allowed_relief_codes == frozenset({"life_insurance_premium"})
     assert pack.thresholds.deductions["life_insurance_premium_cap_annual"] == Decimal("100000")
+    assert pack.relief_display_names == ()
+    assert pack.search_explanation_templates == ()
+
+
+def test_parse_optional_relief_display_names_and_templates() -> None:
+    raw = _minimal_valid_raw()
+    raw["relief_display_names"] = {"life_insurance_premium": "Life insurance"}
+    raw["search_explanation_templates"] = {"row_summary": "Hello {rank}"}
+    pack = parse_tax_opt_b_rules_dict(raw, path=None)
+    assert dict(pack.relief_display_names) == {"life_insurance_premium": "Life insurance"}
+    assert dict(pack.search_explanation_templates) == {"row_summary": "Hello {rank}"}
 
 
 def test_load_tax_opt_b_rules_rejects_non_mapping_yaml(tmp_path: Path) -> None:
