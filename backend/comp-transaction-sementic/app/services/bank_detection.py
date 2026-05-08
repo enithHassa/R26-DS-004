@@ -59,7 +59,7 @@ _BANK_RULES: list[tuple[str, list[str], float]] = [
 
 _FILENAME_HINTS: list[tuple[str, list[str], float]] = [
     ("NTB", ["ntb", "nations_trust", "nationstrust"], 0.45),
-    ("SAMPATH", ["sampath"], 0.4),
+    ("SAMPATH", ["sampath", "smb_estatement", "smb_est"], 0.4),
     ("BOC", ["boc", "bank_of_ceylon"], 0.4),
     ("COMMERCIAL", ["commercial", "combank"], 0.35),
     ("HNB", ["hnb", "hatton"], 0.35),

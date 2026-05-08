@@ -310,8 +310,8 @@ export function TransactionDocumentExtractionPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Transaction Document Extractor</h1>
         <p className="text-sm text-muted-foreground">
-          Upload a bank statement soft copy, extract rows, review statement totals, and re-process if
-          needed.
+          Upload a bank statement (PDF, CSV, Excel, text, or PNG/JPG via OCR), extract rows, review
+          statement totals, and re-process if needed.
         </p>
       </div>
 
@@ -332,6 +332,7 @@ export function TransactionDocumentExtractionPage() {
               <Input
                 id="statement-file"
                 type="file"
+                accept=".pdf,.csv,.xlsx,.xls,.txt,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf,text/csv"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>

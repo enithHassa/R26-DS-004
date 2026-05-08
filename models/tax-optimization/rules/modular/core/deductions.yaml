@@ -1,0 +1,10 @@
+thresholds:
+  deductions:
+    life_insurance_premium_cap_annual: 100_000
+    health_insurance_premium_cap_annual: 75_000
+    home_loan_interest_cap_annual: 600_000
+    rent_relief_cap_annual: 300_000
+    rent_relief_pct: 0.25
+    charitable_donations_cap_pct_of_taxable: 0.33
+    retirement_contribution_cap_pct_of_income: 0.15
+    retirement_contribution_cap_annual: 600_000
