@@ -65,15 +65,7 @@ def extract_transactions_from_document(
         )
 
     if file_type in {"jpg", "jpeg", "png"}:
-        return DocumentExtractionOutcome(
-            rows=[],
-            warnings=[
-                "Image OCR pipeline is not implemented yet; file accepted for future OCR flow.",
-            ],
-            file_type=file_type,
-            ocr_pending=True,
-            statement_context=None,
-        )
+        return _parse_raster_image(payload, bank_code_hint, file_type)
 
     if file_type == "csv":
         rows, warnings = _parse_csv(payload, bank_code_hint)
@@ -153,10 +145,11 @@ def _parse_xlsx(payload: bytes, bank_code_hint: str | None) -> tuple[list[Extrac
 
 def _parse_txt(payload: bytes, bank_code_hint: str | None) -> tuple[list[ExtractedTransactionInput], list[str]]:
     lines = payload.decode("utf-8", errors="ignore").splitlines()
+    ctx = _build_statement_context(lines, bank_code_hint)
     rows: list[ExtractedTransactionInput] = []
     warnings: list[str] = []
     for idx, line in enumerate(lines, start=1):
-        parsed = _parse_free_text_line(idx, line, bank_code_hint)
+        parsed = _parse_free_text_line(idx, line, ctx)
         if parsed is None:
             continue
         rows.append(parsed)
@@ -177,24 +170,345 @@ def _parse_pdf(payload: bytes, bank_code_hint: str | None) -> DocumentExtraction
         text = page.extract_text() or ""
         lines.extend(text.splitlines())
 
+    return _parse_statement_lines_from_text(lines, bank_code_hint, file_type="pdf")
+
+
+def _parse_raster_image(
+    payload: bytes,
+    bank_code_hint: str | None,
+    file_type: str,
+) -> DocumentExtractionOutcome:
+    lines, ocr_warnings = _ocr_image_bytes_to_lines(payload)
+    if not lines:
+        return DocumentExtractionOutcome(
+            rows=[],
+            warnings=ocr_warnings,
+            file_type=file_type,
+            ocr_pending=True,
+            statement_context=None,
+        )
+    merged_lines = _merge_split_ocr_lines(lines)
+    outcome = _parse_statement_lines_from_text(
+        merged_lines,
+        bank_code_hint,
+        file_type=file_type,
+        preamble_warnings=ocr_warnings,
+    )
+    return DocumentExtractionOutcome(
+        outcome.rows,
+        outcome.warnings,
+        outcome.file_type,
+        False,
+        outcome.statement_context,
+    )
+
+
+def _parse_statement_lines_from_text(
+    lines: list[str],
+    bank_code_hint: str | None,
+    *,
+    file_type: str,
+    preamble_warnings: list[str] | None = None,
+) -> DocumentExtractionOutcome:
     context = _build_statement_context(lines, bank_code_hint)
+    warnings: list[str] = list(preamble_warnings or [])
+
     if context.bank_code == "NTB":
-        rows, warnings = _parse_pdf_ntb(lines, context)
+        rows, w_ntb = _parse_pdf_ntb(lines, context)
+        warnings.extend(w_ntb)
         if rows:
-            return DocumentExtractionOutcome(rows, warnings, "pdf", False, context)
+            return DocumentExtractionOutcome(rows, warnings, file_type, False, context)
+
+    if context.bank_code == "SAMPATH":
+        rows, w_s = _parse_sampath_statement_lines(lines, context)
+        warnings.extend(w_s)
+        if rows:
+            return DocumentExtractionOutcome(rows, warnings, file_type, False, context)
 
     rows: list[ExtractedTransactionInput] = []
-    warnings: list[str] = []
     for idx, line in enumerate(lines, start=1):
         parsed = _parse_free_text_line(idx, line, context)
         if parsed:
             rows.append(parsed)
     if not rows:
         warnings.append(
-            "No transaction rows detected in PDF text extraction. "
-            "If the statement is scanned/image-based, OCR is required.",
+            "No transaction rows detected in extracted text. "
+            "For PDFs, the file may be image-only; for PNG/JPG, check Tesseract setup and scan quality.",
         )
-    return DocumentExtractionOutcome(rows, warnings, "pdf", False, context)
+    return DocumentExtractionOutcome(rows, warnings, file_type, False, context)
+
+
+def _line_is_pure_compact_statement_date(s: str) -> bool:
+    """True if *s* is only a DDMonYY / DDMonYYYY token (common table date column from OCR)."""
+    t = re.sub(r"\s+", "", s.strip())
+    return bool(re.fullmatch(r"\d{1,2}[A-Za-z]{2,5}\d{2,4}", t, re.IGNORECASE))
+
+
+def _merge_split_ocr_lines(lines: list[str]) -> list[str]:
+    """Join OCR lines when a statement date was read alone and amounts/description on the next line.
+
+    Bank-agnostic: many statement screenshots put the date in one table cell and the rest of the
+    row on the following OCR line (opening balance row, or narrow columns).
+    """
+    normalized = [re.sub(r"\s+", " ", ln).strip() for ln in lines]
+    merged: list[str] = []
+    i = 0
+    while i < len(normalized):
+        s = normalized[i]
+        if not s:
+            i += 1
+            continue
+        if _line_is_pure_compact_statement_date(s):
+            j = i + 1
+            while j < len(normalized) and not normalized[j]:
+                j += 1
+            if j < len(normalized):
+                nxt = normalized[j]
+                if (
+                    not _line_is_pure_compact_statement_date(nxt)
+                    and re.search(r"\d[\d,]*\.\d{2}", nxt)
+                    and not re.match(
+                        r"^\d{1,2}\s*[A-Za-z]{2,5}\s*\d{2,4}\s+\S",
+                        nxt,
+                        re.IGNORECASE,
+                    )
+                ):
+                    merged.append(f"{s} {nxt}")
+                    i = j + 1
+                    continue
+        merged.append(s)
+        i += 1
+    return merged
+
+
+def _ocr_image_bytes_to_lines(payload: bytes) -> tuple[list[str], list[str]]:
+    """Run Tesseract OCR; return text lines and human-readable warnings."""
+    warnings: list[str] = []
+    try:
+        from PIL import Image
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("Pillow is required for image OCR") from exc
+    try:
+        import pytesseract
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("pytesseract is required for image OCR") from exc
+
+    try:
+        from PIL import ImageOps
+
+        img = Image.open(io.BytesIO(payload))
+        img = img.convert("RGB")
+        w, h = img.size
+        if w < 1400:
+            scale = 1400 / w
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+        # Grayscale + contrast helps striped backgrounds and light watermarks (many bank PDFs).
+        ocr_img = ImageOps.autocontrast(img.convert("L"), cutoff=1)
+    except Exception as exc:
+        return [], [f"Could not decode image: {exc}"]
+
+    config = "--oem 3 --psm 6"
+    try:
+        text = pytesseract.image_to_string(ocr_img, config=config)
+    except Exception as exc:
+        err_name = type(exc).__name__
+        msg = str(exc).lower()
+        if "tesseract" in msg or err_name == "TesseractNotFoundError":
+            warnings.append(
+                "Tesseract OCR is not installed or not on PATH. "
+                "On macOS: brew install tesseract. On Ubuntu: apt install tesseract-ocr.",
+            )
+        else:
+            warnings.append(f"OCR failed ({err_name}): {exc}")
+        return [], warnings
+
+    if not text.strip():
+        warnings.append("OCR returned no text; try a higher-resolution export.")
+        return [], warnings
+
+    return text.splitlines(), warnings
+
+
+_MONTH_ABBREVS: tuple[str, ...] = (
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+)
+
+# Two-letter month tokens OCR often mangles (e.g. "Apr" → "Ar").
+_OCR_MONTH_SHORT_FIX: dict[str, str] = {
+    "ar": "apr",
+    "ap": "apr",
+    "mr": "mar",
+    "ma": "mar",
+    "my": "may",
+    "jn": "jun",
+    "ju": "jul",
+    "jl": "jul",
+    "au": "aug",
+    "se": "sep",
+    "oc": "oct",
+    "no": "nov",
+    "de": "dec",
+    "ja": "jan",
+    "fe": "feb",
+}
+
+
+def _normalize_sampath_compact_date(raw: str) -> str:
+    """Normalize Sampath-style compact dates for :func:`_parse_date` (fixes OCR month typos)."""
+    compact = re.sub(r"\s+", "", str(raw).strip())
+    m = re.fullmatch(r"(\d{1,2})([A-Za-z]{2,5})(\d{2}|\d{4})", compact, re.IGNORECASE)
+    if not m:
+        return compact
+    day_s, mon_raw, yr_s = m.group(1), m.group(2).lower(), m.group(3)
+    mon3: str
+    if len(mon_raw) >= 3 and mon_raw[:3] in _MONTH_ABBREVS:
+        mon3 = mon_raw[:3]
+    elif mon_raw in _OCR_MONTH_SHORT_FIX:
+        mon3 = _OCR_MONTH_SHORT_FIX[mon_raw]
+    else:
+        hits = [a for a in _MONTH_ABBREVS if a.startswith(mon_raw) or mon_raw.startswith(a[:2])]
+        mon3 = hits[0] if len(hits) == 1 else mon_raw[: min(3, len(mon_raw))]
+
+    # %d%b%y / %d%b%Y expect Title-case month (Apr).
+    return f"{day_s}{mon3.title()}{yr_s}"
+
+
+def _parse_sampath_statement_lines(
+    lines: list[str],
+    context: StatementContext,
+) -> tuple[list[ExtractedTransactionInput], list[str]]:
+    """Parse Sampath-style statement rows (PDF text or OCR from PNG/JPG)."""
+    rows: list[ExtractedTransactionInput] = []
+    warnings: list[str] = []
+    prev_balance: Decimal | None = None
+    row_idx = 0
+
+    header_starts = (
+        "date ",
+        "particulars",
+        "debit",
+        "credit",
+        "balance",
+        "statement of account",
+        "account name",
+        "account no",
+        "branch",
+        "www.",
+        "page ",
+    )
+
+    for raw in lines:
+        line = re.sub(r"\s+", " ", raw).strip()
+        if len(line) < 8:
+            continue
+        low = line.lower()
+        if any(low.startswith(p) for p in header_starts):
+            continue
+        if "statement period" in low:
+            continue
+
+        m = re.match(
+            r"^(?P<d>\d{1,2}\s*[A-Za-z]{2,5}\s*\d{2,4})\s+(?P<rest>.+)$",
+            line,
+            re.IGNORECASE,
+        )
+        if not m:
+            continue
+
+        date_raw = re.sub(r"\s+", "", m.group("d"))
+        date_for_parse = _normalize_sampath_compact_date(date_raw)
+        rest = m.group("rest").replace("|", " ").strip()
+
+        if re.match(r"^(c/f|b/f)\b", rest, re.IGNORECASE):
+            continue
+
+        nums = list(re.finditer(r"[-+]?\d[\d,]*\.\d{2}", rest))
+        if len(nums) == 1:
+            lone = _parse_decimal(nums[0].group(0))
+            low_rest = rest.lower()
+            head = rest[: nums[0].start()].strip(" -|")
+            tail = rest[nums[0].end() :].strip(" -|").lower()
+            is_opening_keywords = any(
+                x in low_rest for x in ("balance", "b/f", "brought forward", "opening", "forward")
+            )
+            amount_only_tail = (not head) and (
+                tail in {"", "cr", "dr", "cr.", "dr."}
+                or tail.startswith("cr")
+                or tail.startswith("dr")
+            )
+            if lone is not None and prev_balance is None and (
+                is_opening_keywords or amount_only_tail
+            ):
+                prev_balance = lone
+                tx_o = _parse_date(date_for_parse, context)
+                if tx_o is not None:
+                    desc_open = head or "Opening / brought forward balance"
+                    row_idx += 1
+                    rows.append(
+                        ExtractedTransactionInput(
+                            row_index=row_idx,
+                            tx_date=tx_o.isoformat(),
+                            raw_desc=desc_open,
+                            amount_lkr=lone.quantize(Decimal("0.01")),
+                            direction=TxnDirection.CR,
+                            bank_code=context.bank_code or "SAMPATH",
+                            parse_confidence=0.68,
+                        ),
+                    )
+            continue
+        if len(nums) < 2:
+            continue
+
+        amt_tok = nums[-2]
+        bal_tok = nums[-1]
+        amount = _parse_decimal(amt_tok.group(0))
+        balance = _parse_decimal(bal_tok.group(0))
+        if amount is None or balance is None:
+            continue
+
+        desc = rest[: amt_tok.start()].strip(" -|")
+        if len(desc) < 2:
+            continue
+        low_desc = desc.lower()
+        if "total debits" in low_desc or "total credits" in low_desc:
+            continue
+        if low_desc.startswith("total ") and ("debit" in low_desc or "credit" in low_desc):
+            continue
+
+        tx_date = _parse_date(date_for_parse, context)
+        if tx_date is None:
+            continue
+
+        direction = _infer_direction_from_balance(prev_balance, balance, desc)
+        prev_balance = balance
+
+        row_idx += 1
+        rows.append(
+            ExtractedTransactionInput(
+                row_index=row_idx,
+                tx_date=tx_date.isoformat(),
+                raw_desc=desc,
+                amount_lkr=abs(amount).quantize(Decimal("0.01")),
+                direction=direction,
+                bank_code=context.bank_code or "SAMPATH",
+                parse_confidence=0.72,
+            ),
+        )
+
+    if not rows:
+        warnings.append("Sampath layout parser found no rows (OCR noise or non-Sampath layout).")
+    return rows, warnings
 
 
 def _parse_pdf_ntb(
@@ -417,8 +731,20 @@ def _parse_date(value: object | None, context: StatementContext | None = None) -
     if re.fullmatch(r"\d{1,2}-[A-Za-z]{3}", text):
         year = context.period_end.year if context and context.period_end else date.today().year
         text = f"{text}-{year}"
-    if re.fullmatch(r"\d{1,2}[A-Za-z]{3}\d{2}", text):
-        text = datetime.strptime(text, "%d%b%y").date().isoformat()
+
+    if re.fullmatch(r"\d{1,2}[A-Za-z]{3}\d{4}", text, re.IGNORECASE):
+        try:
+            parsed = datetime.strptime(text.title(), "%d%b%Y").date()
+            return _anchor_to_statement_period(parsed, context)
+        except ValueError:
+            pass
+
+    if re.fullmatch(r"\d{1,2}[A-Za-z]{3}\d{2}", text, re.IGNORECASE):
+        try:
+            parsed = datetime.strptime(text.title(), "%d%b%y").date()
+            return _anchor_to_statement_period(parsed, context)
+        except ValueError:
+            pass
 
     for fmt in _DATE_FORMATS:
         try:

@@ -1,0 +1,11 @@
+# Not merged into the compliance rule pack (engine loads compliance YAML only).
+# Use this file to record law → YAML trace rows while you review AI extractions.
+# Suggested row shape (informational):
+# trace:
+#   - rule_id: it22064486_optb_cap_life_ins_001
+#     pdf: IR_Act_No._10_2021_E.pdf
+#     page_hint: null
+#     quote_verified_by: human
+#     notes: ""
+
+trace: []
