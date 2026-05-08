@@ -53,6 +53,8 @@ The MVP pack uses **`thresholds`** (personal relief, `apit_slabs`, `deductions` 
 
 At runtime the YAML is validated and parsed into a **`TaxOptBRulePack`** (immutable dataclasses in `tax_opt_b_rules_loader.py`). The compliance engine only reads that pack — no disk I/O during `evaluate_compliance`. In tests, build a pack with **`parse_tax_opt_b_rules_dict(...)`** and pass it to **`evaluate_compliance`** without HTTP.
 
+**FR5 (explainability):** responses may embed a template-based explanation bundle (`include_explanations`) with trace refs to rules and scenarios — not LLM output; policy stays in YAML. Short thesis note: [`docs/component-b-fr5-explainability.md`](../../docs/component-b-fr5-explainability.md).
+
 ## Tests
 
 ```bash

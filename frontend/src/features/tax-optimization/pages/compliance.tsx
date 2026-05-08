@@ -1,4 +1,5 @@
-import { useCallback, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,21 +15,27 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import {
+  postCompareStrategiesFromFinancialInputs,
   postComplianceCheck,
   postComplianceCheckFromFinancialInputs,
   postComplianceCheckFromTransactions,
   postComputeTax,
   postComputeTaxFromFinancialInputs,
 } from "../api";
+import { CompareStrategiesTable } from "../components/compare-strategies-table";
+import { ExplanationPanel } from "../components/explanation-panel";
 import type {
   ComplianceCheckRequest,
   ComplianceResult,
+  TaxOptBCompareFromFinancialInputsRequestV1,
   TaxOptBComplianceFromFinancialInputsRequestV1,
   TaxOptBComputeTaxResponseV1,
   TaxOptBDeductionLineV1,
   TaxOptBEmploymentTypeV1,
   TaxOptBInvestmentLineV1,
   TaxOptBInvestmentTaxTreatmentV1,
+  TaxOptBStrategyVariantV1,
+  TaxOptBCompareStrategiesResponseV1,
 } from "../types";
 import { TAX_OPT_B_MVP_RELIEF_CODES } from "../types";
 
@@ -38,6 +45,14 @@ const DEFAULT_STRATEGY_JSON = `{
   ],
   "notes": null
 }`;
+
+const DEFAULT_COMPARE_EXTRA_VARIANTS_JSON = `[
+  {
+    "variant_id": "no_relief",
+    "label": "No statutory reliefs",
+    "strategy": { "claims": [] }
+  }
+]`;
 
 function nextRowId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -104,6 +119,31 @@ export function CompliancePage() {
   const [taxLoading, setTaxLoading] = useState(false);
   const [openRefs, setOpenRefs] = useState<Record<string, boolean>>({});
 
+  const [compareExtraVariantsJson, setCompareExtraVariantsJson] = useState(
+    DEFAULT_COMPARE_EXTRA_VARIANTS_JSON,
+  );
+  const [compareIncludeMapped, setCompareIncludeMapped] = useState(true);
+  const [compareBaselineId, setCompareBaselineId] = useState("from_intake");
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [compareResult, setCompareResult] = useState<TaxOptBCompareStrategiesResponseV1 | null>(null);
+  const [compareExpanded, setCompareExpanded] = useState<Record<string, boolean>>({});
+  const [includeExplanations, setIncludeExplanations] = useState(true);
+  const [explanationDetail, setExplanationDetail] = useState<"summary" | "detailed">("summary");
+
+  useEffect(() => {
+    setTaxCompute((prev) =>
+      prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
+    );
+    setCompareResult((prev) =>
+      prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
+    );
+  }, [explanationDetail, includeExplanations]);
+
+  const toggleCompareExpand = useCallback((variantId: string) => {
+    setCompareExpanded((prev) => ({ ...prev, [variantId]: !prev[variantId] }));
+  }, []);
+
   const toggleRef = useCallback((id: string) => {
     setOpenRefs((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
@@ -150,6 +190,46 @@ export function CompliancePage() {
     deductionRows,
     investmentRows,
   ]);
+
+  const runCompareScenarios = async () => {
+    setCompareError(null);
+    setCompareResult(null);
+    let variants: TaxOptBStrategyVariantV1[];
+    try {
+      const raw = JSON.parse(compareExtraVariantsJson) as unknown;
+      if (!Array.isArray(raw)) {
+        throw new Error("Extra scenarios must be a JSON array of strategy variants.");
+      }
+      variants = raw as TaxOptBStrategyVariantV1[];
+    } catch (e) {
+      setCompareError(e instanceof Error ? e.message : "Invalid JSON for extra scenarios.");
+      return;
+    }
+    setCompareLoading(true);
+    try {
+      const base = buildFinancialPayload();
+      let baseline: string | null = compareBaselineId.trim() || null;
+      if (baseline === "from_intake" && !compareIncludeMapped) {
+        baseline = null;
+      }
+      const body: TaxOptBCompareFromFinancialInputsRequestV1 = {
+        ...base,
+        strategy_variants: variants,
+        include_mapped_strategy: compareIncludeMapped,
+        baseline_variant_id: baseline,
+        include_result_detail: true,
+        include_explanations: includeExplanations,
+        explanation_detail: explanationDetail,
+      };
+      const data = await postCompareStrategiesFromFinancialInputs(body);
+      setCompareResult(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCompareError(msg);
+    } finally {
+      setCompareLoading(false);
+    }
+  };
 
   const runStructured = async () => {
     setError(null);
@@ -221,7 +301,11 @@ export function CompliancePage() {
     setError(null);
     setTaxLoading(true);
     try {
-      const data = await postComputeTaxFromFinancialInputs(buildFinancialPayload());
+      const data = await postComputeTaxFromFinancialInputs({
+        ...buildFinancialPayload(),
+        include_explanations: includeExplanations,
+        explanation_detail: explanationDetail,
+      });
       setTaxCompute(data);
       setResult(data.compliance);
     } catch (err) {
@@ -237,7 +321,11 @@ export function CompliancePage() {
     setTaxLoading(true);
     try {
       const body = buildManualRequest(taxYear, employmentType, dependents, gross, taxable, strategyJson);
-      const data = await postComputeTax(body);
+      const data = await postComputeTax({
+        ...body,
+        include_explanations: includeExplanations,
+        explanation_detail: explanationDetail,
+      });
       setTaxCompute(data);
       setResult(data.compliance);
     } catch (err) {
@@ -308,6 +396,42 @@ export function CompliancePage() {
             Advanced (JSON)
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/15 px-4 py-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="rounded border-input"
+            checked={includeExplanations}
+            onChange={(e) => setIncludeExplanations(e.target.checked)}
+          />
+          Include explanations (FR5) on <strong className="font-medium">estimate tax</strong> &{" "}
+          <strong className="font-medium">compare</strong>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor={`${formId}-explain-detail`} className="text-sm text-muted-foreground">
+            Detail
+          </Label>
+          <Select
+            id={`${formId}-explain-detail`}
+            value={explanationDetail}
+            disabled={!includeExplanations}
+            onChange={(e) => setExplanationDetail(e.target.value as "summary" | "detailed")}
+            className="h-9 w-36"
+          >
+            <option value="summary">summary</option>
+            <option value="detailed">detailed</option>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Changing detail or turning explanations off clears the narrative until you run{" "}
+          <strong>Estimate tax (MVP)</strong> or <strong>Compare scenarios</strong> again.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Compliance-only runs do not return narratives — use <strong>Estimate tax (MVP)</strong> or{" "}
+          <strong>Compare scenarios</strong>.
+        </p>
       </div>
 
       {!advancedMode ? (
@@ -936,9 +1060,97 @@ export function CompliancePage() {
                 Compliance did not pass, so no tax figure was produced. Fix violations and try again.
               </p>
             )}
+            <ExplanationPanel
+              bundle={taxCompute.explanations}
+              title="Narrative — tax estimate (FR5)"
+            />
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Compare scenarios (FR6)</CardTitle>
+          <CardDescription>
+            Uses your structured intake above plus optional extra strategies. Enable{" "}
+            <strong>Mapped intake</strong> to include <span className="font-mono">from_intake</span>{" "}
+            (deductions from this form). Edit JSON to add more variants.{" "}
+            <Link to="/tax-optimization/compare" className="text-primary underline">
+              Manual profile JSON
+            </Link>
+            . For enumerated max-cap search (Function 2), use the{" "}
+            <Link to="/tax-optimization/explorer" className="text-primary underline">
+              Strategy explorer
+            </Link>
+            .
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded border-input"
+                checked={compareIncludeMapped}
+                onChange={(e) => setCompareIncludeMapped(e.target.checked)}
+              />
+              Include mapped intake (<span className="font-mono">from_intake</span>)
+            </label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={`${formId}-baseline`} className="text-xs">
+                Baseline variant id (optional)
+              </Label>
+              <Input
+                id={`${formId}-baseline`}
+                value={compareBaselineId}
+                onChange={(e) => setCompareBaselineId(e.target.value)}
+                placeholder="e.g. from_intake"
+                className="h-9 w-48 font-mono text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={compareLoading}
+              onClick={() => void runCompareScenarios()}
+              className="mt-auto"
+            >
+              {compareLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Comparing…
+                </>
+              ) : (
+                "Compare scenarios"
+              )}
+            </Button>
+          </div>
+          <div>
+            <Label htmlFor={`${formId}-compare-extras`} className="text-xs">
+              Extra strategy variants (JSON array)
+            </Label>
+            <textarea
+              id={`${formId}-compare-extras`}
+              value={compareExtraVariantsJson}
+              onChange={(e) => setCompareExtraVariantsJson(e.target.value)}
+              spellCheck={false}
+              rows={8}
+              className="mt-1 w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          {compareError ? (
+            <p className="text-sm text-destructive">{compareError}</p>
+          ) : null}
+          <CompareStrategiesTable
+            data={compareResult}
+            expanded={compareExpanded}
+            onToggleExpand={toggleCompareExpand}
+          />
+          <ExplanationPanel
+            bundle={compareResult?.explanations}
+            title="Narrative — scenario comparison (FR5)"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
