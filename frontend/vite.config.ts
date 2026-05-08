@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      /** Strategy explorer (Component B) — primary dissertation UI for this module. */
+      open: "/tax-optimization/explorer",
       proxy: {
         // Longer prefix first: hit Component B directly so new routes work without restarting the gateway.
         // Strips the gateway-only ``/optimization`` segment (upstream app mounts at ``/api/v1/compliance/...``).

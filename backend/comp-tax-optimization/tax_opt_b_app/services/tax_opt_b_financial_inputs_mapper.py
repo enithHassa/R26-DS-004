@@ -10,7 +10,10 @@ from tax_opt_b_app.tax_opt_b_schemas_financial_inputs_v1 import (
     TaxOptBInvestmentTaxTreatmentV1,
 )
 from tax_opt_b_app.tax_opt_b_schemas_profile_v1 import TaxOptBProfileV1
-from tax_opt_b_app.tax_opt_b_schemas_strategy_v1 import TaxOptBReliefClaimV1, TaxOptBStrategyProposalV1
+from tax_opt_b_app.tax_opt_b_schemas_strategy_v1 import (
+    TaxOptBReliefClaimV1,
+    TaxOptBStrategyProposalV1,
+)
 
 
 def _aggregate_claims(fin: TaxOptBFinancialInputsV1) -> dict[str, Decimal]:
@@ -66,7 +69,22 @@ def validate_relief_codes_used(
     return sorted(set(bad))
 
 
+def validate_strategy_relief_codes(
+    strategy: TaxOptBStrategyProposalV1,
+    allowed: Collection[str],
+) -> list[str]:
+    """Return unknown relief codes on ``strategy.claims`` (sorted unique)."""
+    allowed_set = frozenset(allowed)
+    bad: list[str] = []
+    for claim in strategy.claims:
+        c = claim.relief_code.strip()
+        if c not in allowed_set:
+            bad.append(c)
+    return sorted(set(bad))
+
+
 __all__ = [
     "map_financial_inputs_to_profile_and_strategy",
     "validate_relief_codes_used",
+    "validate_strategy_relief_codes",
 ]

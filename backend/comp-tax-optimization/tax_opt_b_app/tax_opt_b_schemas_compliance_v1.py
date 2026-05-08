@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from tax_opt_b_app.tax_opt_b_schemas_explainability_v1 import TaxOptBExplainRequestFlagsV1
 from tax_opt_b_app.tax_opt_b_schemas_financial_inputs_v1 import TaxOptBFinancialInputsV1
 from tax_opt_b_app.tax_opt_b_schemas_profile_v1 import TaxOptBEmploymentTypeV1, TaxOptBProfileV1
 from tax_opt_b_app.tax_opt_b_schemas_strategy_v1 import TaxOptBStrategyProposalV1
@@ -55,12 +56,12 @@ class TaxOptBComplianceResultV1(BaseModel):
     )
 
 
-class TaxOptBComplianceCheckRequestV1(BaseModel):
+class TaxOptBComplianceCheckRequestV1(TaxOptBExplainRequestFlagsV1):
     profile: TaxOptBProfileV1
     strategy: TaxOptBStrategyProposalV1
 
 
-class TaxOptBComplianceFromFinancialInputsRequestV1(TaxOptBFinancialInputsV1):
+class TaxOptBComplianceFromFinancialInputsRequestV1(TaxOptBFinancialInputsV1, TaxOptBExplainRequestFlagsV1):
     """Structured intake; profile always uses gross-only basis (no estimated taxable field)."""
 
 
