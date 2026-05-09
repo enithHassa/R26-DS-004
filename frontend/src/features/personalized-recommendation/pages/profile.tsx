@@ -27,7 +27,7 @@ import {
   getProfileFeatures,
   listProfiles,
 } from "../api/profiles";
-import { SL_DISTRICTS, type FinancialProfileCreate } from "../types";
+import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
 
 const decimalString = z
   .string()
@@ -36,18 +36,11 @@ const decimalString = z
 
 const profileSchema = z.object({
   full_name: z.string().min(1).max(200),
-  date_of_birth: z.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), "Invalid date"),
-  gender: z.enum(["male", "female", "other"]),
-  district: z.string().min(1),
-  marital_status: z.enum(["single", "married", "divorced", "widowed"]),
-  occupation: z.enum([
-    "employee",
-    "self_employed",
-    "business_owner",
-    "investor",
-    "professional",
-    "other",
-  ]),
+  age_band: z.enum(["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-70", "70+"]),
+  gender: z.enum(["male", "female"]),
+  province: z.enum(["Western", "Central", "Southern", "North Western"]),
+  marital_status: z.enum(["single", "married", "divorced"]),
+  occupation: z.enum(["employee", "business_owner", "professional"]),
   dependents: z.coerce.number().int().min(0).max(20),
   years_employed: z.coerce.number().int().min(0).max(60),
   gross_monthly_income: decimalString,
@@ -126,10 +119,10 @@ function withTaxYearSanitize<T extends keyof ProfileForm>(
 }
 
 const defaultValues: ProfileForm = {
-  full_name: "Nuwan Perera",
-  date_of_birth: "1990-04-15",
+  full_name: "Suppi Perera",
+  age_band: "30-34",
   gender: "male",
-  district: "Colombo",
+  province: "Western",
   marital_status: "married",
   occupation: "employee",
   dependents: 2,
@@ -209,12 +202,18 @@ export function ProfilePage() {
     },
   });
 
+  const occupationIncomeKind: Record<string, string> = {
+    employee: "employment",
+    business_owner: "business",
+    professional: "business",
+  };
+
   const onSubmit = (values: ProfileForm) => {
     const payload: FinancialProfileCreate = {
       ...values,
       income_sources: [
         {
-          kind: values.occupation === "business_owner" ? "business" : "employment",
+          kind: occupationIncomeKind[values.occupation] ?? "employment",
           monthly_amount: values.gross_monthly_income,
           currency: "LKR",
           is_taxable: true,
@@ -249,14 +248,17 @@ export function ProfilePage() {
                 <Field label="Full name" error={errors.full_name?.message}>
                   <Input {...register("full_name")} />
                 </Field>
-                <Field label="Date of birth" error={errors.date_of_birth?.message}>
-                  <Input type="date" {...register("date_of_birth")} />
+                <Field label="Age band" error={errors.age_band?.message}>
+                  <Select {...register("age_band")}>
+                    {AGE_BANDS.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </Select>
                 </Field>
                 <Field label="Gender">
                   <Select {...register("gender")}>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                    <option value="other">Other</option>
                   </Select>
                 </Field>
                 <Field label="Marital status">
@@ -264,15 +266,12 @@ export function ProfilePage() {
                     <option value="single">Single</option>
                     <option value="married">Married</option>
                     <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
                   </Select>
                 </Field>
-                <Field label="District">
-                  <Select {...register("district")}>
-                    {SL_DISTRICTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
+                <Field label="Province">
+                  <Select {...register("province")}>
+                    {SL_PROVINCES.map((p) => (
+                      <option key={p} value={p}>{p}</option>
                     ))}
                   </Select>
                 </Field>
@@ -290,11 +289,8 @@ export function ProfilePage() {
                 <Field label="Occupation">
                   <Select {...register("occupation")}>
                     <option value="employee">Employee</option>
-                    <option value="self_employed">Self-employed</option>
                     <option value="business_owner">Business owner</option>
-                    <option value="investor">Investor</option>
                     <option value="professional">Professional</option>
-                    <option value="other">Other</option>
                   </Select>
                 </Field>
                 <Field label="Years employed" error={errors.years_employed?.message}>
