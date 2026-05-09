@@ -2,13 +2,64 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from backend.shared.schemas.common import Currency, ORMBase, RiskTolerance, TimestampedSchema
+
+
+_PROVINCE_TO_DISTRICT: dict[str, str] = {
+    "Western": "Colombo",
+    "Central": "Kandy",
+    "Southern": "Galle",
+    "Northern": "Jaffna",
+    "Eastern": "Trincomalee",
+    "North Western": "Kurunegala",
+    "North Central": "Anuradhapura",
+    "Uva": "Badulla",
+    "Sabaragamuwa": "Ratnapura",
+}
+
+
+def _age_band_midpoint(age_band: str) -> int:
+    cleaned = age_band.strip()
+    if cleaned.endswith("+"):
+        return int(cleaned[:-1])
+    if "-" in cleaned:
+        lo, hi = cleaned.split("-", 1)
+        return (int(lo) + int(hi)) // 2
+    return int(cleaned)
+
+
+def _normalize_profile_payload(data: object) -> object:
+    """Accept both API-native and corrected synthetic CSV field names."""
+    if not isinstance(data, dict):
+        return data
+    d = dict(data)
+
+    # Province → district fallback.
+    if ("district" not in d or not d.get("district")) and d.get("province"):
+        d["district"] = _PROVINCE_TO_DISTRICT.get(str(d["province"]), "Colombo")
+
+    # age_band → date_of_birth derivation.
+    if not d.get("date_of_birth"):
+        if d.get("age_band"):
+            age_mid = _age_band_midpoint(str(d["age_band"]))
+            snapshot_year = int(str(d.get("tax_year", "2024_25")).split("_", 1)[0]) + 1
+            d["date_of_birth"] = date(snapshot_year - age_mid, 6, 30).isoformat()
+
+    # Accept income_sources_json string and map to income_sources list.
+    if "income_sources" not in d and d.get("income_sources_json"):
+        try:
+            d["income_sources"] = json.loads(str(d["income_sources_json"]))
+        except json.JSONDecodeError:
+            d["income_sources"] = []
+
+    return d
 
 
 class Occupation(StrEnum):
@@ -70,6 +121,11 @@ class FinancialProfileBase(BaseModel):
 
     tax_year: str = Field(default="2024_25", pattern=r"^\d{4}_\d{2}$")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_input(cls, data: object) -> object:
+        return _normalize_profile_payload(data)
+
 
 class FinancialProfileCreate(FinancialProfileBase):
     pass
@@ -99,6 +155,11 @@ class FinancialProfileUpdate(BaseModel):
     investment_horizon_years: int | None = Field(default=None, ge=0, le=50)
     income_sources: list[IncomeSource] | None = None
     tax_year: str | None = Field(default=None, pattern=r"^\d{4}_\d{2}$")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_input(cls, data: object) -> object:
+        return _normalize_profile_payload(data)
 
 
 class FinancialProfile(TimestampedSchema, FinancialProfileBase):
