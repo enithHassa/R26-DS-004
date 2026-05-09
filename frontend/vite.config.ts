@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
         "/api/v1/optimization": {
           target: optimizationUrl,
           changeOrigin: true,
+          /** ML ranking can run >30s; align with axios timeout on `postSearchStrategiesMlRank`. */
+          timeout: 180_000,
+          proxyTimeout: 180_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/optimization/, "/api/v1"),
         },
         "/api": {

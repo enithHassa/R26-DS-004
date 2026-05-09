@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from tax_opt_b_app import __version__
 from tax_opt_b_app.config import component_settings
-from tax_opt_b_app.routers import health, tax_opt_b_compliance
+from tax_opt_b_app.routers import health, tax_opt_b_compliance, tax_opt_b_strategies_ml
 from tax_opt_b_app.services.tax_opt_b_rules_loader import load_tax_opt_b_rules
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
     api = "/api/v1"
     app.include_router(health.router, tags=["health"])
     app.include_router(tax_opt_b_compliance.router, prefix=f"{api}/compliance")
+    app.include_router(tax_opt_b_strategies_ml.router, prefix=f"{api}/strategies")
 
     return app
 
