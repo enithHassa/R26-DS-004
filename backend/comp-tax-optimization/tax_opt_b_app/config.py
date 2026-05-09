@@ -29,6 +29,14 @@ class ComponentSettings(BaseSettings):
         description="Optional override label echoed in API responses for traceability.",
     )
 
+    COMP_ML_ARTIFACTS_PATH: Path = Field(
+        default=PROJECT_ROOT / "models" / "tax-optimization" / "artifacts",
+        description=(
+            "Directory containing best_model_summary.json and trained joblib "
+            "(Function 3 ML-assisted ranking)."
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",

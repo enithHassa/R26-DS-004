@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from tax_opt_b_app.services.tax_opt_b_rules_loader import TaxOptBRulePack, TaxOptBRuleSpec
+from tax_opt_b_app.services.tax_opt_b_rules_scope import rules_pack_for_tax_year
 from tax_opt_b_app.tax_opt_b_schemas_compliance_v1 import (
     TaxOptBComplianceResultV1,
     TaxOptBRuleViolationV1,
@@ -41,6 +42,14 @@ def evaluate_compliance(
     *,
     rules_version_label: str | None = None,
 ) -> TaxOptBComplianceResultV1:
+    # Align rules pack with profile.tax_year (personal relief schedule + assessment_year label).
+    # Ensures older API layers that pass only the YAML-default pack still evaluate correctly.
+    if profile.tax_year != pack.assessment_year:
+        try:
+            pack = rules_pack_for_tax_year(pack, profile.tax_year)
+        except ValueError:
+            pass
+
     violations: list[TaxOptBRuleViolationV1] = []
     applied: dict[str, Any] = {}
 
@@ -57,8 +66,9 @@ def evaluate_compliance(
                 rule_id=meta_year.rule_id if meta_year else "it22064486_optb_year_001",
                 severity=TaxOptBViolationSeverityV1.ERROR,
                 message=(
-                    f"Profile tax_year {profile.tax_year!r} does not match rules "
-                    f"assessment_year {assessment_year!r}."
+                    "The assessment year you selected does not match the rules bundle "
+                    f"for this request (profile: {profile.tax_year!r}, rules: {assessment_year!r}). "
+                    "Choose an assessment year from the supported list and try again."
                 ),
                 reference=meta_year.reference if meta_year else "",
             )
@@ -71,7 +81,10 @@ def evaluate_compliance(
                 TaxOptBRuleViolationV1(
                     rule_id=meta_unknown.rule_id if meta_unknown else "it22064486_optb_unknown_relief_001",
                     severity=TaxOptBViolationSeverityV1.ERROR,
-                    message=f"Unknown or disallowed relief_code: {code!r}.",
+                    message=(
+                        f"This relief type is not allowed under the current rules: {code!r}. "
+                        "Remove it or pick a relief from the supported list."
+                    ),
                     reference=meta_unknown.reference if meta_unknown else "",
                 )
             )
