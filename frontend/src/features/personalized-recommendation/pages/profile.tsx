@@ -126,7 +126,7 @@ function withTaxYearSanitize<T extends keyof ProfileForm>(
 }
 
 const defaultValues: ProfileForm = {
-  full_name: "Suppi Perera",
+  full_name: "Nuwan Perera",
   date_of_birth: "1990-04-15",
   gender: "male",
   district: "Colombo",
