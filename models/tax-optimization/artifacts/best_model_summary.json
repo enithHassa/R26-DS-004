@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "model_id": "research_sklearn_random_forest_v1",
+  "feature_version": "v1",
+  "training_timestamp": "2026-05-09T05:22:57Z",
+  "model_joblib": "tax_opt_best_model_v1.joblib",
+  "feature_pipeline_joblib": "tax_opt_feature_pipeline_v1.joblib",
+  "artifact_sha256": "8ea1ed43f7c8f3907b0478dc26ec0d8a4315a4160d3dd6890f07b91cccc010e8",
+  "synthetic_training_data_disclaimer": "Research model from train_tax_opt_models_v1.py; rules engine remains authoritative.",
+  "target_name": "savings_vs_baseline_lkr",
+  "inference_matrix_layout": "v1_11_no_savings"
+}

@@ -20,7 +20,7 @@ export function TaxOptimizationStandalone() {
           <Wallet className="h-6 w-6 shrink-0" />
           <div>
             <div className="font-semibold leading-tight">AI Tax Advisory</div>
-            <div className="text-xs text-muted-foreground">Decision Support</div>
+            <div className="text-xs text-muted-foreground">Sri Lanka Income Tax · 2024/25</div>
           </div>
         </div>
 
@@ -35,15 +35,15 @@ export function TaxOptimizationStandalone() {
         <nav className="flex flex-col gap-1" aria-label="Tax optimization pages">
           <NavLink to="/tax-optimization/compliance" className={navLinkClass} end>
             <ShieldCheck className="h-4 w-4 shrink-0" />
-            Compliance
+            Check my tax
           </NavLink>
           <NavLink to="/tax-optimization/compare" className={navLinkClass} end>
             <GitCompareArrows className="h-4 w-4 shrink-0" />
-            Compare
+            Compare strategies
           </NavLink>
           <NavLink to="/tax-optimization/explorer" className={navLinkClass} end>
             <LayoutList className="h-4 w-4 shrink-0" />
-            Strategy explorer
+            Find best strategy
           </NavLink>
         </nav>
 

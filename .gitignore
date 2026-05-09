@@ -175,6 +175,9 @@ temp/
 *.swo
 *~
 
+# ---------- Microsoft Office (lock files while workbook is open) ----------
+~$*
+
 # ---------- OS files ----------
 .DS_Store
 .DS_Store?

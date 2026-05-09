@@ -77,22 +77,59 @@ def test_golden_fail_life_insurance_message_and_rule_id(client: TestClient) -> N
     assert "life insurance" in v0["message"].lower()
 
 
-def test_golden_fail_tax_year_first_in_order(client: TestClient) -> None:
+def test_unsupported_tax_year_returns_422(client: TestClient) -> None:
     body = {
-        "profile": _base_profile(tax_year="2025_26"),
+        "profile": _base_profile(tax_year="2017_18"),
         "strategy": {
             "claims": [
-                {"relief_code": "magic_deduction", "claimed_amount_annual": "1"},
+                {"relief_code": "life_insurance_premium", "claimed_amount_annual": "1"},
             ],
+        },
+    }
+    resp = client.post("/api/v1/compliance/check", json=body)
+    assert resp.status_code == 422
+    assert "Unsupported assessment_year" in resp.json()["detail"]
+
+
+def test_compute_tax_from_financial_inputs_2023_24_passes(client: TestClient) -> None:
+    body = {
+        "tax_year": "2023_24",
+        "employment_type": "employee",
+        "dependents": 0,
+        "annual_salary_income": "2000000",
+        "annual_business_income": "400000",
+        "annual_other_income": "0",
+        "deductions": [
+            {"relief_code": "life_insurance_premium", "amount_annual": "50000", "description": None},
+        ],
+        "investments": [],
+        "strategy_notes": None,
+        "include_explanations": False,
+        "explanation_detail": "summary",
+    }
+    resp = client.post("/api/v1/compliance/compute-tax-from-financial-inputs", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["compliance"]["passed"] is True
+    assert data["tax_computation"] is not None
+    assert data["tax_computation"]["personal_relief_annual"] == "1200000"
+
+
+def test_supported_tax_year_2021_22_passes_same_as_mvp(client: TestClient) -> None:
+    body = {
+        "profile": _base_profile(tax_year="2021_22"),
+        "strategy": {
+            "claims": [
+                {"relief_code": "life_insurance_premium", "claimed_amount_annual": "50000"},
+            ],
+            "notes": None,
         },
     }
     resp = client.post("/api/v1/compliance/check", json=body)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["passed"] is False
-    ids = [v["rule_id"] for v in data["violations"]]
-    assert ids[0] == "it22064486_optb_year_001"
-    assert "it22064486_optb_unknown_relief_001" in ids
+    assert data["passed"] is True
+    assert "life_insurance_premium" in data["applied_relief"]
 
 
 def test_golden_unknown_relief_code_message(client: TestClient) -> None:
