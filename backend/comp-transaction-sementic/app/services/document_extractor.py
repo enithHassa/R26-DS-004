@@ -213,6 +213,18 @@ def _parse_statement_lines_from_text(
     context = _build_statement_context(lines, bank_code_hint)
     warnings: list[str] = list(preamble_warnings or [])
 
+    if context.bank_code == "DIALOG_FINANCE":
+        rows, w_df = _parse_dialog_finance_statement_lines(lines, context)
+        warnings.extend(w_df)
+        if rows:
+            return DocumentExtractionOutcome(rows, warnings, file_type, False, context)
+
+    if context.bank_code == "FRIMI":
+        rows, w_fm = _parse_frimi_statement_lines(lines, context)
+        warnings.extend(w_fm)
+        if rows:
+            return DocumentExtractionOutcome(rows, warnings, file_type, False, context)
+
     if context.bank_code == "NTB":
         rows, w_ntb = _parse_pdf_ntb(lines, context)
         warnings.extend(w_ntb)
@@ -511,6 +523,350 @@ def _parse_sampath_statement_lines(
     return rows, warnings
 
 
+# pypdf often omits the space between closing balance and transaction date — allow \s* there.
+_DIALOG_ROW_HEAD = re.compile(
+    r"^([\d,]+\.\d{2})\s*(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(.*)$",
+)
+_DIALOG_FULL_ROW = re.compile(
+    r"^([\d,]+\.\d{2})\s*(\d{1,2}-[A-Za-z]{3}-\d{4})\s+(\d{1,2}-[A-Za-z]{3}-\d{4})\s+"
+    r"(.+?)\s+(\S+)\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s*$",
+)
+_DIALOG_AMOUNTS = re.compile(r"^(\S+)\s+(\d[\d,]*\.\d{2})\s+(\d[\d,]*\.\d{2})\s*$")
+
+
+def _dialog_finance_skip_meta_line(line: str) -> bool:
+    s = line.strip()
+    if not s:
+        return True
+    low = s.lower()
+    if re.match(r"^--\s*\d+\s+of\s+\d+\s*--$", s):
+        return True
+    if low.startswith("consolidated individual monthly statement"):
+        return True
+    if "statement period" in low and "to" in low and re.search(r"\d{2}[-/]\d{2}[-/]\d{4}", s):
+        return True
+    if "www.dialogfinance.lk" in low:
+        return True
+    if "financialservice@dialog.lk" in low:
+        return True
+    if "weekdays" in low and "am" in low and "pm" in low:
+        return True
+    if re.match(r"^0\d{2}\s+\d\s+\d{3}\s+\d{3}", s):
+        return True
+    if "transaction date" in low and "value date" in low and "transaction details" in low:
+        return True
+    if "account number" in low and "opening balance" in low and "total deposits" in low:
+        return True
+    if low.startswith("savings account summary"):
+        return True
+    if low.startswith("individual account"):
+        return True
+    if re.match(r"^b/f\s+[\d,]+\.\d{2}$", low):
+        return True
+    if re.match(r"^total\s+[\d,]+\.\d{2}", low):
+        return True
+    if "total deposits" in low and "total withdrawals" in low:
+        return True
+    return False
+
+
+def _dialog_finance_emit_row(
+    row_idx: int,
+    txn_date_raw: str,
+    description: str,
+    ref: str,
+    deposit: Decimal,
+    withdrawal: Decimal,
+    context: StatementContext,
+    warnings: list[str],
+) -> tuple[int, ExtractedTransactionInput | None]:
+    desc = re.sub(r"\s+", " ", description).strip()
+    if not desc or re.match(r"^b/f\b", desc, re.IGNORECASE):
+        return row_idx, None
+    low = desc.lower()
+    if low.startswith("total ") and "from_dfp" not in low:
+        return row_idx, None
+
+    tx_date = _parse_date(txn_date_raw.title(), context)
+    if tx_date is None:
+        return row_idx, None
+
+    if deposit > 0 and withdrawal > 0:
+        warnings.append(
+            f"Dialog Finance: row has both deposit and withdrawal; using deposit: {desc[:60]}",
+        )
+        direction = TxnDirection.CR
+        amount = deposit
+    elif deposit > 0:
+        direction = TxnDirection.CR
+        amount = deposit
+    elif withdrawal > 0:
+        direction = TxnDirection.DR
+        amount = withdrawal
+    else:
+        return row_idx, None
+
+    if ref and ref not in desc:
+        desc = f"{desc} ({ref})"
+
+    row_idx += 1
+    return row_idx, ExtractedTransactionInput(
+        row_index=row_idx,
+        tx_date=tx_date.isoformat(),
+        raw_desc=desc,
+        amount_lkr=amount.quantize(Decimal("0.01")),
+        direction=direction,
+        bank_code=context.bank_code or "DIALOG_FINANCE",
+        parse_confidence=0.78,
+    )
+
+
+def _parse_dialog_finance_statement_lines(
+    lines: list[str],
+    context: StatementContext,
+) -> tuple[list[ExtractedTransactionInput], list[str]]:
+    """Parse Dialog Finance consolidated PDFs (balance column leads each row; details span lines)."""
+    rows: list[ExtractedTransactionInput] = []
+    warnings: list[str] = []
+    row_idx = 0
+    current: dict[str, object] | None = None
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = re.sub(r"\s+", " ", lines[i]).strip()
+        i += 1
+
+        if line.startswith("Investments Summary"):
+            if current:
+                warnings.append(
+                    "Dialog Finance: dropped incomplete row at investments section: "
+                    f"{current.get('txn_date')!s}",
+                )
+                current = None
+            break
+
+        if _dialog_finance_skip_meta_line(line):
+            continue
+
+        if current is None:
+            fm = _DIALOG_FULL_ROW.match(line)
+            if fm:
+                dep = _parse_decimal(fm.group(6)) or Decimal("0")
+                wd = _parse_decimal(fm.group(7)) or Decimal("0")
+                row_idx, emitted = _dialog_finance_emit_row(
+                    row_idx,
+                    fm.group(2),
+                    fm.group(4).strip(),
+                    fm.group(5),
+                    dep,
+                    wd,
+                    context,
+                    warnings,
+                )
+                if emitted:
+                    rows.append(emitted)
+                continue
+
+            hm = _DIALOG_ROW_HEAD.match(line)
+            if hm:
+                tail = (hm.group(4) or "").strip()
+                current = {
+                    "txn_date": hm.group(2),
+                    "value_date": hm.group(3),
+                    "desc_parts": [tail] if tail else [],
+                }
+            continue
+
+        am = _DIALOG_AMOUNTS.match(line)
+        if am:
+            dep = _parse_decimal(am.group(2)) or Decimal("0")
+            wd = _parse_decimal(am.group(3)) or Decimal("0")
+            parts = current.get("desc_parts") if current else None
+            desc = " ".join(str(p) for p in parts) if isinstance(parts, list) else ""
+            txn_date = str(current.get("txn_date")) if current else ""
+            row_idx, emitted = _dialog_finance_emit_row(
+                row_idx,
+                txn_date,
+                desc,
+                am.group(1),
+                dep,
+                wd,
+                context,
+                warnings,
+            )
+            if emitted:
+                rows.append(emitted)
+            current = None
+            continue
+
+        hm = _DIALOG_ROW_HEAD.match(line)
+        if hm and current:
+            warnings.append(
+                "Dialog Finance: incomplete row before new header; dropping partial description.",
+            )
+            current = None
+            i -= 1
+            continue
+
+        if current:
+            parts = current.get("desc_parts")
+            if isinstance(parts, list):
+                parts.append(line)
+
+    if current:
+        warnings.append("Dialog Finance: trailing incomplete row at EOF.")
+
+    if not rows:
+        warnings.append("Dialog Finance layout parser found no rows.")
+    return rows, warnings
+
+
+_FRIMI_LINE_DATE = re.compile(r"^\d{1,2}-[A-Za-z]{3}-\d{4}\s*$")
+
+
+def _frimi_is_amount_token(s: str) -> bool:
+    t = s.strip().replace(",", "")
+    return bool(re.match(r"^\d+\.\d{2}$", t))
+
+
+def _frimi_skip_footer_and_page_break(raw: list[str], idx: int, n: int) -> int:
+    """Skip FriMi PDF footer blocks. pypdf often omits ``-- 1 of N --``; next page starts with ``Entry``."""
+    while idx < n:
+        low = raw[idx].strip().lower()
+        if "frimi.lk" in low:
+            idx += 1
+            guard = 0
+            while idx < n and guard < 40:
+                guard += 1
+                s = raw[idx].strip()
+                if s == "Entry":
+                    return idx
+                if s.startswith("--") and (" of " in s or "end of statement" in s.lower()):
+                    idx += 1
+                    return idx
+                idx += 1
+            return idx
+        s = raw[idx].strip()
+        if s.startswith("--") and (" of " in s or "end of statement" in s.lower()):
+            idx += 1
+            continue
+        break
+    return idx
+
+
+def _parse_frimi_statement_lines(
+    lines: list[str],
+    context: StatementContext,
+) -> tuple[list[ExtractedTransactionInput], list[str]]:
+    """Parse FriMi PDFs where pypdf emits one token per line (columnar layout lost)."""
+    raw = [ln.rstrip("\n") for ln in lines]
+    n = len(raw)
+    rows: list[ExtractedTransactionInput] = []
+    warnings: list[str] = []
+    row_idx = 0
+    i = 0
+
+    while i < n - 2:
+        i = _frimi_skip_footer_and_page_break(raw, i, n)
+        if i >= n - 2:
+            break
+
+        t0, t1 = raw[i].strip(), raw[i + 1].strip()
+        header_noise = {
+            "entry",
+            "date",
+            "value",
+            "transaction",
+            "details",
+            "references",
+            "debits",
+            "credits",
+            "balance",
+        }
+        if t0.lower() in header_noise or t1.lower() in header_noise:
+            i += 1
+            continue
+
+        if not (_FRIMI_LINE_DATE.match(t0) and _FRIMI_LINE_DATE.match(t1)):
+            i += 1
+            continue
+
+        body_start = i + 2
+        triple_at: int | None = None
+        j = body_start
+        while j < n - 2:
+            tj = raw[j].strip()
+            if _FRIMI_LINE_DATE.match(tj) and j + 1 < n and _FRIMI_LINE_DATE.match(raw[j + 1].strip()):
+                break
+            if _frimi_is_amount_token(raw[j]) and _frimi_is_amount_token(raw[j + 1]) and _frimi_is_amount_token(
+                raw[j + 2],
+            ):
+                triple_at = j
+                break
+            j += 1
+
+        if triple_at is None:
+            if j < n and _FRIMI_LINE_DATE.match(raw[j].strip()) and j + 1 < n and _FRIMI_LINE_DATE.match(
+                raw[j + 1].strip(),
+            ):
+                i = j
+            else:
+                i += 1
+            continue
+
+        ref_line = raw[triple_at - 1].strip() if triple_at > body_start else ""
+        desc_parts = [raw[k].strip() for k in range(body_start, triple_at - 1) if raw[k].strip()]
+        desc = " ".join(desc_parts)
+        debit = _parse_decimal(raw[triple_at]) or Decimal("0")
+        credit = _parse_decimal(raw[triple_at + 1]) or Decimal("0")
+
+        i = triple_at + 3
+
+        if not desc:
+            continue
+        low_d = desc.lower()
+        if low_d.startswith("b/f") or "b/f balance" in low_d:
+            continue
+
+        tx_date = _parse_date(t0.title(), context)
+        if tx_date is None:
+            continue
+
+        if credit > 0 and debit > 0:
+            warnings.append(f"FriMi: both debit and credit non-zero; using credit: {desc[:50]}")
+            direction = TxnDirection.CR
+            amount = credit
+        elif credit > 0:
+            direction = TxnDirection.CR
+            amount = credit
+        elif debit > 0:
+            direction = TxnDirection.DR
+            amount = debit
+        else:
+            continue
+
+        if ref_line and ref_line not in desc:
+            desc = f"{desc} ({ref_line})"
+
+        row_idx += 1
+        rows.append(
+            ExtractedTransactionInput(
+                row_index=row_idx,
+                tx_date=tx_date.isoformat(),
+                raw_desc=desc,
+                amount_lkr=amount.quantize(Decimal("0.01")),
+                direction=direction,
+                bank_code=context.bank_code or "FRIMI",
+                parse_confidence=0.76,
+            ),
+        )
+
+    if not rows:
+        warnings.append("FriMi layout parser found no rows (check PDF text extraction).")
+    return rows, warnings
+
+
 def _parse_pdf_ntb(
     lines: list[str],
     context: StatementContext,
@@ -779,21 +1135,48 @@ def _infer_direction_from_text(text: str) -> TxnDirection:
 def _build_statement_context(lines: list[str], bank_code_hint: str | None) -> StatementContext:
     context = StatementContext(bank_code=(bank_code_hint.upper() if bank_code_hint else None))
     period_re = re.compile(
-        r"Statement Period:\s*(\d{2}[-/]\d{2}[-/]\d{4})\s*to\s*(\d{2}[-/]\d{2}[-/]\d{4})",
+        r"Statement Period\s*:\s*(\d{2}[-/]\d{2}[-/]\d{4})\s*to\s*(\d{2}[-/]\d{2}[-/]\d{4})",
         re.IGNORECASE,
     )
-    for raw in lines:
+    frimi_period_inline = re.compile(
+        r"(\d{1,2}-[A-Za-z]{3}-\d{4})\s+To\s+(\d{1,2}-[A-Za-z]{3}-\d{4})",
+        re.IGNORECASE,
+    )
+    for idx, raw in enumerate(lines):
         line = raw.strip()
         if context.bank_code is None:
-            if "Nations Trust Bank" in line:
+            low = line.lower()
+            if "frimi.lk" in low:
+                context.bank_code = "FRIMI"
+            elif "dialogfinance.lk" in low or "financialservice@dialog.lk" in low:
+                context.bank_code = "DIALOG_FINANCE"
+            elif "nations trust bank" in low:
                 context.bank_code = "NTB"
-            elif "SampathBank" in line or "Sampath Bank" in line:
+            elif "sampathbank" in low or "sampath bank" in low:
                 context.bank_code = "SAMPATH"
         m = period_re.search(line)
         if m:
             context.period_start = datetime.strptime(m.group(1), "%d-%m-%Y").date()
             context.period_end = datetime.strptime(m.group(2), "%d-%m-%Y").date()
-            break
+        fm = frimi_period_inline.search(line)
+        if fm:
+            try:
+                context.period_start = datetime.strptime(fm.group(1), "%d-%b-%Y").date()
+                context.period_end = datetime.strptime(fm.group(2), "%d-%b-%Y").date()
+            except ValueError:
+                pass
+        if (
+            context.period_start is None
+            and _FRIMI_LINE_DATE.match(line)
+            and idx + 2 < len(lines)
+            and lines[idx + 1].strip().lower() == "to"
+            and _FRIMI_LINE_DATE.match(lines[idx + 2].strip())
+        ):
+            try:
+                context.period_start = datetime.strptime(line, "%d-%b-%Y").date()
+                context.period_end = datetime.strptime(lines[idx + 2].strip(), "%d-%b-%Y").date()
+            except ValueError:
+                pass
     return context
 
 
