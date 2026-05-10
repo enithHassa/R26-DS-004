@@ -162,6 +162,20 @@ function formatPct(v: number): string {
   return `${(v * 100).toFixed(2)}%`;
 }
 
+function ageBandFromYears(age: number): string {
+  if (age <= 24) return "18-24";
+  if (age <= 29) return "25-29";
+  if (age <= 34) return "30-34";
+  if (age <= 39) return "35-39";
+  if (age <= 44) return "40-44";
+  if (age <= 49) return "45-49";
+  if (age <= 54) return "50-54";
+  if (age <= 59) return "55-59";
+  if (age <= 64) return "60-64";
+  if (age <= 70) return "65-70";
+  return "70+";
+}
+
 export function ProfilePage() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -215,8 +229,9 @@ export function ProfilePage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteProfile(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    onSuccess: async (_, id) => {
+      await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      await queryClient.invalidateQueries({ queryKey: ["profiles-count"] });
       if (selectedId === id) setSelectedId(null);
     },
   });
@@ -637,7 +652,7 @@ function DerivedFeaturesCard({
         {features && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <Stat label="Age" value={`${features.age_years} years`} />
+              <Stat label="Age band" value={ageBandFromYears(features.age_years)} />
               <Stat
                 label="Annual taxable income"
                 value={formatLkr(features.gross_annual_taxable_income)}

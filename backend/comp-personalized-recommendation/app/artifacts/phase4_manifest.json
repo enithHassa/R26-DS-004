@@ -1,0 +1,9 @@
+{
+  "schema_version": "phase4_v1",
+  "pair_feature_meta": "pair_feature_meta.json",
+  "user_feature_meta": "user_feature_meta.json",
+  "adoption_model": "phase4_adoption_model.joblib",
+  "ranker_model": "phase4_lambdarank_model.joblib",
+  "strategy_ids": "strategy_ids.joblib",
+  "scoring_weights": "scoring_weights.yaml"
+}
