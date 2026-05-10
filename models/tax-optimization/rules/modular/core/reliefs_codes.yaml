@@ -1,0 +1,7 @@
+allowed_relief_codes:
+  - life_insurance_premium
+  - health_insurance_premium
+  - home_loan_interest
+  - rent_relief
+  - charitable_donations
+  - retirement_contribution

@@ -1,0 +1,11 @@
+schema_version: "1"
+assessment_year: "2024_25"
+currency: LKR
+
+sources:
+  - act: "Inland Revenue Act (research MVP slice)"
+    year: "2023"
+    section_note: "Personal relief, APIT slabs, statutory deduction caps — verify against current IR notices."
+  - act: "Advance Personal Income Tax circulars (FY 2024/25 style)"
+    year: "2024"
+    section_note: "Aligned with team scaffold sl_tax_2024_25.yaml for consistency."
