@@ -33,12 +33,21 @@ class TaxOptBMlBundleSummaryV1(BaseModel):
     )
     synthetic_training_data_disclaimer: str = Field(min_length=1)
     target_name: str = Field(default="savings_vs_baseline_lkr")
-    inference_matrix_layout: Literal["v1_12_full", "v1_11_no_savings"] = Field(
+    inference_matrix_layout: Literal["v1_12_full", "v1_11_no_savings", "v2_14_utility"] = Field(
         default="v1_12_full",
         description=(
             "v1_12_full: same columns as ML_FEATURE_COLUMN_NAMES_V1 (includes savings). "
-            "v1_11_no_savings: research-trained regressors excluding savings_vs_baseline_lkr from X."
+            "v1_11_no_savings: research-trained regressors excluding savings_vs_baseline_lkr from X. "
+            "v2_14_utility: 14-column layout with liquidity cost features; target is utility_score."
         ),
+    )
+    utility_alpha: float | None = Field(
+        default=None,
+        description="Alpha used when training utility_score target (v2 only). Stored for auditability.",
+    )
+    ordered_codes: list[str] | None = Field(
+        default=None,
+        description="Ordered relief codes matching the training bitmask (v2 only).",
     )
     metrics_v1_path: str | None = Field(
         default=None,
