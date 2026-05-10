@@ -1,7 +1,16 @@
-"""Ranking layer (Phase 4).
+"""Ranking layer (Phase 4 / WP6).
 
-* ``trainer.py``   — LightGBM LambdaMART + adoption-probability classifier
-* ``fusion.py``    — multi-objective score fusion (savings, adoption, risk)
-* ``explain.py``   — SHAP feature attribution wrapper
-* ``inference.py`` — pure-python predict() used by the FastAPI service
+- ``fusion`` — multi-objective score fusion
+- ``relevance`` — graded relevance labels for LambdaMART training
+- ``scoring_weights.yaml`` — default fusion weights (copy into artifact dir)
 """
+
+from .fusion import FusionWeights, fuse_scores, min_max_norm
+from .relevance import relevance_from_evaluation
+
+__all__ = [
+    "FusionWeights",
+    "fuse_scores",
+    "min_max_norm",
+    "relevance_from_evaluation",
+]
