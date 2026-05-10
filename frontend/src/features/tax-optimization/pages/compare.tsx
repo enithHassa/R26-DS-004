@@ -1,5 +1,5 @@
 import { useCallback, useId, useMemo, useState } from "react";
-import { Check, CheckCircle2, Loader2 } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import { postCompareStrategies } from "../api";
+import { ExplanationPanel } from "../components/explanation-panel";
 import type {
   TaxOptBCompareStrategiesRequestV1,
   TaxOptBCompareStrategiesResponseV1,
@@ -35,6 +36,7 @@ type StrategyCardDef = {
   variantId: string;
   title: string;
   description: string;
+  bestFor?: string;
   isBaseline: boolean;
   buildStrategy: (estimatedTaxableAnnual: number) => TaxOptBStrategyProposalV1;
 };
@@ -65,21 +67,6 @@ function formatLkrAmount(value: unknown): string {
   return `LKR ${n.toLocaleString("en-LK")}`;
 }
 
-function extractAdvisoryNarrative(
-  bundle: TaxOptBCompareStrategiesResponseV1["explanations"],
-): string | null {
-  if (!bundle) return null;
-  const parts: string[] = [];
-  if (bundle.summary?.trim()) parts.push(bundle.summary.trim());
-  for (const sec of bundle.sections) {
-    for (const b of sec.bullets) {
-      if (b.text?.trim()) parts.push(b.text.trim());
-      if (b.detail_text?.trim()) parts.push(b.detail_text.trim());
-    }
-  }
-  const text = parts.join("\n\n").trim();
-  return text.length > 0 ? text : null;
-}
 
 function charitableClaimAnnual(estimatedTaxableAnnual: number): string {
   return String(Math.max(0, Math.floor(estimatedTaxableAnnual * 0.33)));
@@ -99,6 +86,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_life",
     title: "Life insurance premium",
     description: "Claim life insurance up to LKR 100,000/year",
+    bestFor: "Best for: employees with an active life insurance policy",
     isBaseline: false,
     buildStrategy: () => ({
       claims: [{ relief_code: "life_insurance_premium", claimed_amount_annual: "100000" }],
@@ -109,6 +97,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_health",
     title: "Health insurance premium",
     description: "Claim health insurance up to LKR 75,000/year",
+    bestFor: "Best for: those paying private health insurance premiums",
     isBaseline: false,
     buildStrategy: () => ({
       claims: [{ relief_code: "health_insurance_premium", claimed_amount_annual: "75000" }],
@@ -119,6 +108,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_home",
     title: "Home loan interest",
     description: "Deduct housing loan interest up to LKR 600,000/year",
+    bestFor: "Best for: individuals repaying a housing loan",
     isBaseline: false,
     buildStrategy: () => ({
       claims: [{ relief_code: "home_loan_interest", claimed_amount_annual: "600000" }],
@@ -129,6 +119,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_charitable",
     title: "Charitable donations",
     description: "Donations relief up to 33% of taxable income",
+    bestFor: "Best for: those who make significant charitable donations",
     isBaseline: false,
     buildStrategy: (taxable) => ({
       claims: [
@@ -144,6 +135,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_retirement",
     title: "Retirement contribution",
     description: "Pension/EPF contributions up to LKR 600,000/year",
+    bestFor: "Best for: self-employed or those making EPF/pension contributions",
     isBaseline: false,
     buildStrategy: () => ({
       claims: [{ relief_code: "retirement_contribution", claimed_amount_annual: "600000" }],
@@ -154,6 +146,7 @@ const STRATEGY_CARDS: readonly StrategyCardDef[] = [
     variantId: "strat_all",
     title: "All reliefs combined",
     description: "Maximum benefit from all available deductions",
+    bestFor: "Best for: seeing the theoretical maximum combined relief",
     isBaseline: false,
     buildStrategy: (taxable) => ({
       claims: [
@@ -228,6 +221,7 @@ export function ComparePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TaxOptBCompareStrategiesResponseV1 | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const grossAnnual = useMemo(() => {
     return parseAmount(salary) + parseAmount(business) + parseAmount(otherIncome);
@@ -258,6 +252,7 @@ export function ComparePage() {
   const onRun = async () => {
     setError(null);
     setData(null);
+    setExpandedRow(null);
     setLoading(true);
     try {
       const variants = buildVariants(selectedOptional, estimatedTaxableAnnual);
@@ -312,8 +307,6 @@ export function ComparePage() {
       rankOneIsBaseline: rankOne?.variant_id === BASELINE_VARIANT_ID,
     };
   }, [data]);
-
-  const advisoryText = extractAdvisoryNarrative(data?.explanations);
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -472,6 +465,9 @@ export function ComparePage() {
                       ) : null}
                     </div>
                     <p className="text-xs leading-relaxed text-muted-foreground">{def.description}</p>
+                    {def.bestFor ? (
+                      <p className="mt-1.5 text-[11px] font-medium text-primary/70">{def.bestFor}</p>
+                    ) : null}
                   </div>
                 </div>
               </button>
@@ -561,6 +557,7 @@ export function ComparePage() {
                       <th className="px-4 py-3 text-right">Total tax (LKR)</th>
                       <th className="px-4 py-3 text-right">Saves vs baseline</th>
                       <th className="px-4 py-3">Compliant?</th>
+                      <th className="px-4 py-3 w-8" />
                     </tr>
                   </thead>
                   <tbody>
@@ -569,12 +566,26 @@ export function ComparePage() {
                       const isBaselineRow = row.variant_id === BASELINE_VARIANT_ID;
                       const saves = formatSavesVsBaseline(isBaselineRow, row.delta_total_tax_vs_baseline);
                       const isTop = row.rank === 1;
+                      const appliedRelief = row.result?.compliance?.applied_relief;
+                      const isExpandable =
+                        row.passed &&
+                        appliedRelief != null &&
+                        Object.keys(appliedRelief).length > 0;
+                      const isExpanded = expandedRow === row.variant_id;
                       return (
                         <tr
                           key={row.variant_id}
+                          onClick={() => {
+                            if (isExpandable) {
+                              setExpandedRow((prev) =>
+                                prev === row.variant_id ? null : row.variant_id,
+                              );
+                            }
+                          }}
                           className={[
                             "border-b border-border/70 last:border-0",
                             isTop ? "bg-amber-500/10" : "",
+                            isExpandable ? "cursor-pointer hover:bg-muted/30" : "",
                           ].join(" ")}
                         >
                           <td className="px-4 py-3 tabular-nums text-muted-foreground">
@@ -603,9 +614,69 @@ export function ComparePage() {
                               <span className="font-medium text-destructive">No</span>
                             )}
                           </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {isExpandable ? (
+                              <ChevronDown
+                                className={[
+                                  "h-4 w-4 transition-transform",
+                                  isExpanded ? "rotate-180" : "",
+                                ].join(" ")}
+                              />
+                            ) : null}
+                          </td>
                         </tr>
                       );
                     })}
+                    {expandedRow != null && (() => {
+                      const row = sortedRows.find((r) => r.variant_id === expandedRow);
+                      const appliedRelief = row?.result?.compliance?.applied_relief;
+                      if (!row || !appliedRelief) return null;
+                      return (
+                        <tr key={`${expandedRow}-detail`} className="bg-muted/20 border-b border-border/70">
+                          <td />
+                          <td colSpan={4} className="px-4 pb-4 pt-2">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Applied reliefs
+                            </p>
+                            <ul className="space-y-1.5 text-sm">
+                              {Object.entries(appliedRelief).map(([code, value]) => {
+                                const v = value as {
+                                  claimed_amount_annual?: unknown;
+                                  allowed_amount_annual?: unknown;
+                                  cap_amount_annual?: unknown;
+                                };
+                                const label = code
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (c) => c.toUpperCase());
+                                const claimed =
+                                  v.claimed_amount_annual != null
+                                    ? formatLkrAmount(v.claimed_amount_annual)
+                                    : null;
+                                const allowed =
+                                  v.allowed_amount_annual != null
+                                    ? formatLkrAmount(v.allowed_amount_annual)
+                                    : null;
+                                const cap =
+                                  v.cap_amount_annual != null
+                                    ? formatLkrAmount(v.cap_amount_annual)
+                                    : null;
+                                return (
+                                  <li
+                                    key={code}
+                                    className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground"
+                                  >
+                                    <span className="font-medium text-foreground">{label}</span>
+                                    {claimed ? <span>Claimed: {claimed}</span> : null}
+                                    {allowed ? <span>Allowed: {allowed}</span> : null}
+                                    {cap ? <span>Cap: {cap}</span> : null}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -640,14 +711,14 @@ export function ComparePage() {
             </Card>
           ) : null}
 
-          {advisoryText ? (
-            <div className="rounded-xl border border-border bg-card border-l-4 border-l-emerald-600/70 pl-5 pr-6 py-6 shadow-sm">
-              <h3 className="text-base font-semibold text-foreground">Advisory note</h3>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {advisoryText}
-              </p>
-            </div>
+          {data?.explanations ? (
+            <ExplanationPanel
+              bundle={data.explanations}
+              title="Why this strategy won"
+              presentation="advisory"
+            />
           ) : null}
+
         </>
       ) : null}
 
