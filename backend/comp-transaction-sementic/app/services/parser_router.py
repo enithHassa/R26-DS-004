@@ -45,6 +45,12 @@ def select_parser(
     }
 
     if file_format in {"jpg", "jpeg", "png"}:
+        if detection.bank_code == "FRIMI":
+            notes["router_reason"] = "raster_frimi"
+            return "frimi_pdf_v1", notes
+        if detection.bank_code == "DIALOG_FINANCE":
+            notes["router_reason"] = "raster_dialog_finance"
+            return "dialog_finance_pdf_v1", notes
         if detection.bank_code == "NTB":
             notes["router_reason"] = "raster_ntb"
             return "ntb_pdf_v1", notes
@@ -70,6 +76,12 @@ def select_parser(
         return "generic_txt_v1", notes
 
     if file_format == "pdf":
+        if detection.bank_code == "FRIMI":
+            notes["router_reason"] = "bank_template_frimi"
+            return "frimi_pdf_v1", notes
+        if detection.bank_code == "DIALOG_FINANCE":
+            notes["router_reason"] = "bank_template_dialog_finance"
+            return "dialog_finance_pdf_v1", notes
         if detection.bank_code == "NTB":
             notes["router_reason"] = "bank_template_ntb"
             return "ntb_pdf_v1", notes

@@ -290,6 +290,8 @@ class TaxOptBSearchMlMetaV1(BaseModel):
         description="Fixed research disclosure that ML did not bypass compliance.",
     )
     inference_latency_ms: float = Field(ge=0.0)
+    utility_alpha: float | None = Field(default=None, description="Alpha used for Pareto utility (v2 only).")
+    optimization_objective_label: str | None = Field(default=None, description="Human-readable label for UI display.")
 
 
 class TaxOptBSearchTraceabilityV1(BaseModel):

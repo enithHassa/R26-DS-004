@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-05-09T20:15:10Z",
+  "train_table": "D:/R26-DS-004/R26-DS-004/models/tax-optimization/datasets/ml/training_v2.parquet",
+  "train_table_sha256": "4c5721f559b7028b47e9c33168cf5c22d79a9852c1937020a863e7b0cb9a495e",
+  "feature_version": "v2",
+  "protocol": {
+    "split": "group_by_taxpayer_id",
+    "split_method": "group_shuffle_sklearn",
+    "train_frac": 0.7,
+    "val_frac": 0.15,
+    "test_frac": 0.15,
+    "random_state": 42,
+    "max_taxpayers_cap": null,
+    "sklearn_ensemble_n_jobs": 1,
+    "rf_n_estimators": 200,
+    "et_n_estimators": 200,
+    "forest_max_depth": null,
+    "feature_matrix_dtype": "float32",
+    "rows_total": 320000,
+    "rows_train": 224000,
+    "rows_val": 48000,
+    "rows_test": 48000,
+    "unique_taxpayers": 5000
+  },
+  "target": "utility_score",
+  "targets_documentation": {
+    "savings_vs_baseline_lkr": {
+      "paradigm": "regression",
+      "unit": "LKR",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr"
+      ],
+      "notes": "X excludes savings_vs_baseline_lkr; matches API inference_matrix_layout v1_11_no_savings."
+    },
+    "rule_rank_among_passing": {
+      "paradigm": "regression_surrogate_on_ordinal_ranks",
+      "unit": "dimensionless_rank",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr"
+      ],
+      "caveats": "rule_rank_among_passing is discrete and ordinal within taxpayer; MSE/MAE/R2 treat it as real-valued. Prefer learning-to-rank or per-group models for research conclusions; this zoo entry is for coarse comparison only."
+    },
+    "utility_score": {
+      "paradigm": "regression",
+      "unit": "dimensionless (normalized LKR ratio)",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr",
+        "liquidity_cost_lkr",
+        "liquidity_to_income_ratio",
+        "n_high_cost_reliefs"
+      ],
+      "notes": "Multi-objective Pareto utility = alpha*norm_savings - (1-alpha)*norm_liquidity_cost. alpha=0.7. Liquidity cost computed from candidate_mask + income fields using rules-derived caps. Matches API inference_matrix_layout v2_14_utility."
+    }
+  },
+  "feature_columns_X": [
+    "annual_gross_income",
+    "annual_salary_income",
+    "annual_business_income",
+    "annual_other_income",
+    "dependents",
+    "employment_type_code",
+    "n_ordered_relief_codes",
+    "n_included_relief_codes",
+    "candidate_mask",
+    "total_tax_lkr",
+    "baseline_tax_lkr",
+    "liquidity_cost_lkr",
+    "liquidity_to_income_ratio",
+    "n_high_cost_reliefs"
+  ],
+  "models": [
+    {
+      "model": "sklearn_random_forest",
+      "val_mae": 2.6039574843426033e-05,
+      "val_rmse": 0.00014496011484808427,
+      "val_r2": 0.9999894053217222,
+      "test_mae": 3.5683512145626584e-05,
+      "test_rmse": 0.0005283325450932047,
+      "test_r2": 0.9998735097245978
+    },
+    {
+      "model": "sklearn_extra_trees",
+      "val_mae": 2.8422892321544952e-05,
+      "val_rmse": 0.00010138343672151332,
+      "val_r2": 0.9999948176738437,
+      "test_mae": 2.8215099815106935e-05,
+      "test_rmse": 0.00017391062930390054,
+      "test_r2": 0.9999862945069551
+    },
+    {
+      "model": "sklearn_gradient_boosting",
+      "val_mae": 0.0014036467363963035,
+      "val_rmse": 0.0018964962192342704,
+      "val_r2": 0.9981865955089491,
+      "test_mae": 0.0014698179787987894,
+      "test_rmse": 0.001978878979335764,
+      "test_r2": 0.9982254800722072
+    }
+  ],
+  "best_model_by_val_mae": "sklearn_random_forest",
+  "best_validation_spearman": 0.999998126477415,
+  "models_excluded": {
+    "xgboost": "not installed; add xgboost to models/requirements-ml.txt to enable XGBRegressor.",
+    "lightgbm": "lightgbm not importable; use models/requirements-ml.txt environment."
+  }
+}
