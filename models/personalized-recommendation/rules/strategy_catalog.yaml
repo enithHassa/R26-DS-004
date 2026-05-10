@@ -306,3 +306,123 @@ strategies:
       output:
         expected_tax_savings_lkr: "non_negative_float"
         confidence: "medium"
+
+  - strategy_id: "S008_epf_voluntary_topup"
+    name: "EPF Voluntary Top-up"
+    description: >
+      Increase voluntary EPF contributions beyond the mandatory 8% employee
+      share to reduce assessable income through qualifying payment deductions
+      under IRA No. 24 of 2017, Section 53.
+    category: "long_term_tax_efficiency"
+    priority_hint: 7
+    eligibility_rules:
+      all:
+        - expr: "occupation == 'employee'"
+        - expr: "annual_income > 0"
+        - expr: "years_employed >= 1"
+        - expr: "age_band not in ['65-70','70+']"
+        - expr: "debt_to_income <= 0.65"
+    constraints:
+      min_liquidity_lkr_expr: "monthly_expenses_lkr * 2.0"
+      max_debt_to_income: 0.65
+      required_docs:
+        - "epf_membership_certificate"
+        - "employer_epf_statement"
+      profile_fields_required:
+        - "annual_income"
+        - "epf_balance_lkr"
+        - "years_employed"
+      conflicts_with: []
+    estimation_method:
+      type: "deduction_cap_gap"
+      formula_ref: >
+        Additional voluntary EPF contribution qualifies as a deductible qualifying
+        payment under IRA s.53. savings = tax(annual_income) - tax(annual_income
+        - additional_epf_contribution), capped at statutory qualifying payment limit.
+      required_inputs:
+        - "annual_income"
+        - "epf_balance_lkr"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
+
+  - strategy_id: "S009_business_expense_deduction"
+    name: "Business Expense Deduction Optimisation"
+    description: >
+      Identify and claim all allowable business expenses under IRA No. 24 of
+      2017, Sections 17–18, to reduce assessable income for self-employed
+      professionals and business owners.
+    category: "deduction_optimisation"
+    priority_hint: 8
+    eligibility_rules:
+      all:
+        - expr: "annual_income > 0"
+        - expr: "occupation in ['business_owner','professional','self_employed']"
+    constraints:
+      min_liquidity_lkr: 0
+      max_debt_to_income: 0.80
+      required_docs:
+        - "business_expense_invoices"
+        - "business_registration_document"
+      profile_fields_required:
+        - "annual_income"
+        - "occupation"
+      conflicts_with: []
+    estimation_method:
+      type: "deduction_cap_gap"
+      formula_ref: >
+        Allowable business expenses under IRA ss.17-18 reduce gross assessable
+        income. savings = tax(annual_income) - tax(annual_income - claimable_expenses).
+        Claimable expenses estimated as a proportion of gross business income
+        based on sector benchmarks.
+      required_inputs:
+        - "annual_income"
+        - "occupation"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "medium"
+
+  - strategy_id: "S010_terminal_benefit_planning"
+    name: "Terminal Benefit & Gratuity Planning"
+    description: >
+      Plan retirement or resignation timing to maximise tax exemptions on
+      EPF/ETF terminal benefits and employer gratuity under IRA No. 24 of
+      2017, Section 6 (exempt amounts).
+    category: "long_term_tax_efficiency"
+    priority_hint: 9
+    eligibility_rules:
+      all:
+        - expr: "occupation == 'employee'"
+        - expr: "years_employed >= 5"
+        - expr: "epf_balance_lkr > 0"
+      any:
+        - expr: "age_band in ['50-54','55-59','60-64','65-70','70+']"
+        - expr: "epf_balance_lkr >= 500000"
+    constraints:
+      min_liquidity_lkr: 0
+      max_debt_to_income: 1.00
+      required_docs:
+        - "epf_statement"
+        - "etf_statement"
+        - "employment_letter"
+      profile_fields_required:
+        - "annual_income"
+        - "epf_balance_lkr"
+        - "etf_balance_lkr"
+        - "years_employed"
+      conflicts_with: []
+    estimation_method:
+      type: "exempt_benefit_gap"
+      formula_ref: >
+        Terminal benefits (EPF lump sum, ETF, gratuity) exempt under IRA s.6
+        up to statutory thresholds. savings = tax that would apply on the
+        terminal payout minus exemption amount, optimised by aligning exit
+        timing to maximise the exempt proportion.
+      required_inputs:
+        - "annual_income"
+        - "epf_balance_lkr"
+        - "etf_balance_lkr"
+        - "years_employed"
+      output:
+        expected_tax_savings_lkr: "non_negative_float"
+        confidence: "low"
