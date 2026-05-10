@@ -132,7 +132,7 @@ export function ExplorerPage() {
     const cap = base.max_candidates ?? 500;
     return {
       ...base,
-      feature_version: "v1",
+      feature_version: "v2",
       max_ml_candidates: Math.min(50_000, Math.max(cap, 2048)),
       model_bundle_path: null,
     };
@@ -437,11 +437,11 @@ export function ExplorerPage() {
               </div>
               <div className="rounded-xl border border-emerald-600/35 bg-card p-5 shadow-sm ring-1 ring-emerald-600/15">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-emerald-600/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-900 dark:text-emerald-100">
+                  <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
                     Recommended
                   </span>
                   {data.ml_meta ? (
-                    <span className="rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100">
+                    <span className="rounded-full bg-violet-600 px-2.5 py-0.5 text-xs font-semibold text-white">
                       AI-assisted
                     </span>
                   ) : null}
@@ -475,6 +475,16 @@ export function ExplorerPage() {
             <CardTitle className="text-base font-semibold">Why this strategy?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-6 pt-0">
+            {data.ml_meta?.utility_alpha != null ? (
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100">
+                  Ranked by Pareto utility (α={data.ml_meta.utility_alpha})
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(data.ml_meta.utility_alpha * 100)}% savings · {Math.round((1 - data.ml_meta.utility_alpha) * 100)}% liquidity
+                </span>
+              </div>
+            ) : null}
             <div className="rounded-lg border border-emerald-700/25 bg-emerald-50 px-4 py-3 text-sm font-medium leading-relaxed text-emerald-950 dark:border-emerald-600/40 dark:bg-emerald-950/55 dark:text-emerald-50">
               {sanitizeExplorerExplanationText(data.top_rank_explanation.headline)}
             </div>
@@ -493,13 +503,36 @@ export function ExplorerPage() {
         </Card>
       ) : null}
 
+      {data?.ml_meta?.utility_alpha != null ? (
+        <Card className="rounded-xl border border-violet-600/30 bg-violet-50/40 dark:bg-violet-950/20 shadow-sm">
+          <CardContent className="px-6 py-4">
+            <div className="flex flex-wrap items-start gap-3">
+              <span className="mt-0.5 rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100 shrink-0">
+                AI Ranking Method
+              </span>
+              <p className="text-sm leading-relaxed text-foreground">
+                <span className="font-semibold">
+                  {data.ml_meta.optimization_objective_label ?? `Pareto utility (α=${data.ml_meta.utility_alpha})`}
+                </span>
+                {" — "}
+                This model balances{" "}
+                <span className="font-medium">{Math.round(data.ml_meta.utility_alpha * 100)}% weight on tax savings</span>
+                {" and "}
+                <span className="font-medium">{Math.round((1 - data.ml_meta.utility_alpha) * 100)}% on financial practicality</span>
+                {" "}(how much upfront cash each strategy requires). A strategy needing less cash may rank higher than one with slightly more savings.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {data && baselineRow && bestRow ? (
         <Card className="rounded-xl border border-border/80 bg-card p-6 shadow-sm">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-base font-semibold">Tax comparison</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ExplorerCharts data={data} baselineRow={baselineRow} bestRow={bestRow} />
+            <ExplorerCharts data={data} baselineRow={baselineRow} bestRow={bestRow} mlAssisted={!!data.ml_meta} />
           </CardContent>
         </Card>
       ) : null}

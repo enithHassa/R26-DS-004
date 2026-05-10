@@ -79,6 +79,7 @@ except ImportError:
 
 PRIMARY_TARGET = "savings_vs_baseline_lkr"
 SECONDARY_TARGET = "rule_rank_among_passing"
+UTILITY_TARGET = "utility_score"  # v2: multi-objective Pareto utility (savings vs. liquidity cost)
 
 # Same order as backend ML_FEATURE_COLUMN_NAMES_V1 without savings (inference v1_11_no_savings).
 FEATURE_COLUMNS_V1_11: tuple[str, ...] = (
@@ -94,6 +95,98 @@ FEATURE_COLUMNS_V1_11: tuple[str, ...] = (
     "total_tax_lkr",
     "baseline_tax_lkr",
 )
+
+# v2 feature columns — matches backend ML_FEATURE_COLUMN_NAMES_V2 (14 columns, no target leakage).
+FEATURE_COLUMNS_V2_14: tuple[str, ...] = (
+    "annual_gross_income",
+    "annual_salary_income",
+    "annual_business_income",
+    "annual_other_income",
+    "dependents",
+    "employment_type_code",
+    "n_ordered_relief_codes",
+    "n_included_relief_codes",
+    "candidate_mask",
+    "total_tax_lkr",
+    "baseline_tax_lkr",
+    "liquidity_cost_lkr",
+    "liquidity_to_income_ratio",
+    "n_high_cost_reliefs",
+)
+
+# How much of the claimed cap is real upfront cash outflow (must match backend RELIEF_LIQUIDITY_WEIGHT).
+_LIQUIDITY_WEIGHT: dict[str, float] = {
+    "retirement_contribution": 1.0,
+    "life_insurance_premium": 1.0,
+    "charitable_donations": 1.0,
+    "health_insurance_premium": 0.8,
+    "home_loan_interest": 0.1,
+    "rent_relief": 0.0,
+}
+
+# Fixed-cap relief amounts from rules/compiled/it22064486_2024_25.yaml (LKR).
+# Income-dependent caps (charitable, retirement) are computed per-row from income fields.
+_FIXED_CAP_LKR: dict[str, float] = {
+    "life_insurance_premium": 100_000.0,
+    "health_insurance_premium": 75_000.0,
+    "home_loan_interest": 600_000.0,
+    "rent_relief": 300_000.0,
+}
+_CHARITABLE_CAP_PCT = 0.33          # 33% of taxable income (approx gross - personal_relief)
+_RETIREMENT_CAP_PCT = 0.15          # 15% of gross income
+_RETIREMENT_CAP_ANNUAL = 600_000.0  # annual ceiling
+_PERSONAL_RELIEF = 1_200_000.0      # personal relief subtracted before taxable basis
+
+
+def compute_utility_score(
+    savings_lkr: float,
+    liquidity_cost_lkr: float,
+    gross_income: float,
+    alpha: float = 0.7,
+) -> float:
+    """Multi-objective utility: alpha * norm_savings - (1-alpha) * norm_liquidity_cost.
+
+    Both dimensions are normalized by gross income so they are on the same 0..1 scale.
+    alpha=1.0 collapses to pure savings ranking (same as v1).
+    alpha=0.7 is the default research value — tune with --alpha in experiments.
+    """
+    if gross_income <= 0.0:
+        return 0.0
+    norm_savings = savings_lkr / gross_income
+    norm_cost = liquidity_cost_lkr / gross_income
+    return alpha * norm_savings - (1.0 - alpha) * norm_cost
+
+
+def _relief_codes_from_mask(mask: int, ordered_codes: list[str]) -> list[str]:
+    """Decode a bitmask integer into the list of included relief codes."""
+    return [code for i, code in enumerate(ordered_codes) if (mask >> i) & 1]
+
+
+def _compute_liquidity_cost_from_mask(
+    mask: int,
+    gross_income: float,
+    ordered_codes: list[str],
+) -> tuple[float, int]:
+    """Compute (liquidity_cost_lkr, n_high_cost) from a candidate mask and gross income."""
+    taxable_approx = max(gross_income - _PERSONAL_RELIEF, 0.0)
+    total = 0.0
+    n_high = 0
+    for i, code in enumerate(ordered_codes):
+        if not ((mask >> i) & 1):
+            continue
+        if code in _FIXED_CAP_LKR:
+            cap = _FIXED_CAP_LKR[code]
+        elif code == "charitable_donations":
+            cap = taxable_approx * _CHARITABLE_CAP_PCT
+        elif code == "retirement_contribution":
+            cap = min(gross_income * _RETIREMENT_CAP_PCT, _RETIREMENT_CAP_ANNUAL)
+        else:
+            cap = 0.0
+        weight = _LIQUIDITY_WEIGHT.get(code, 0.5)
+        total += cap * weight
+        if weight >= 0.8:
+            n_high += 1
+    return total, n_high
 
 _EMP_MAP = {
     "employee": 0.0,
@@ -153,9 +246,16 @@ def subsample_taxpayers_df(df: pd.DataFrame, max_taxpayers: int | None, random_s
 def build_xy_with_frame(
     df: pd.DataFrame,
     *,
-    target: Literal["savings_vs_baseline_lkr", "rule_rank_among_passing"],
+    target: Literal["savings_vs_baseline_lkr", "rule_rank_among_passing", "utility_score"],
+    alpha: float = 0.7,
+    ordered_codes: list[str] | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
-    """Aligned filtered frame and arrays (same row order)."""
+    """Aligned filtered frame and arrays (same row order).
+
+    For ``target="utility_score"`` (v2), ``ordered_codes`` must be provided so that
+    bitmask decoding is correct. The function computes ``liquidity_cost_lkr`` on the fly
+    from candidate_mask + income fields using rules-derived cap constants.
+    """
 
     d = df
     need = {
@@ -169,8 +269,13 @@ def build_xy_with_frame(
         "candidate_mask",
         "total_tax_lkr",
         "baseline_tax_lkr",
-        target,
     }
+    if target == PRIMARY_TARGET:
+        need.add("savings_vs_baseline_lkr")
+    elif target == SECONDARY_TARGET:
+        need.add("rule_rank_among_passing")
+    # utility_score is computed below — no extra column required in the table
+
     missing = need - set(d.columns)
     if missing:
         msg = f"Training table missing columns: {sorted(missing)}"
@@ -187,30 +292,88 @@ def build_xy_with_frame(
     else:
         n_ord = pd.Series(np.nan, index=d.index, dtype=float)
     n_inc = pd.to_numeric(d["n_included_relief_codes"], errors="coerce").fillna(0.0)
-    mask = pd.to_numeric(d["candidate_mask"], errors="coerce").fillna(0.0)
+    mask_col = pd.to_numeric(d["candidate_mask"], errors="coerce").fillna(0.0)
     tax = d["total_tax_lkr"].map(_parse_money)
     base = d["baseline_tax_lkr"].map(_parse_money)
 
     if target == PRIMARY_TARGET:
         y = d["savings_vs_baseline_lkr"].map(_parse_money).to_numpy(dtype=np.float64)
-    else:
+        X = np.column_stack(
+            [
+                gross.to_numpy(dtype=np.float64),
+                sal.to_numpy(dtype=np.float64),
+                bus.to_numpy(dtype=np.float64),
+                oth.to_numpy(dtype=np.float64),
+                dep.to_numpy(dtype=np.float64),
+                et_code.to_numpy(dtype=np.float64),
+                n_ord.to_numpy(dtype=np.float64),
+                n_inc.to_numpy(dtype=np.float64),
+                mask_col.to_numpy(dtype=np.float64),
+                tax.to_numpy(dtype=np.float64),
+                base.to_numpy(dtype=np.float64),
+            ]
+        )
+    elif target == SECONDARY_TARGET:
         y = pd.to_numeric(d["rule_rank_among_passing"], errors="coerce").to_numpy(dtype=np.float64)
+        X = np.column_stack(
+            [
+                gross.to_numpy(dtype=np.float64),
+                sal.to_numpy(dtype=np.float64),
+                bus.to_numpy(dtype=np.float64),
+                oth.to_numpy(dtype=np.float64),
+                dep.to_numpy(dtype=np.float64),
+                et_code.to_numpy(dtype=np.float64),
+                n_ord.to_numpy(dtype=np.float64),
+                n_inc.to_numpy(dtype=np.float64),
+                mask_col.to_numpy(dtype=np.float64),
+                tax.to_numpy(dtype=np.float64),
+                base.to_numpy(dtype=np.float64),
+            ]
+        )
+    else:
+        # UTILITY_TARGET: compute v2 features + utility_score on the fly
+        codes = ordered_codes or []
+        gross_arr = gross.to_numpy(dtype=np.float64)
+        base_arr = base.to_numpy(dtype=np.float64)
+        tax_arr = tax.to_numpy(dtype=np.float64)
+        mask_arr = mask_col.to_numpy(dtype=np.float64)
 
-    X = np.column_stack(
-        [
-            gross.to_numpy(dtype=np.float64),
-            sal.to_numpy(dtype=np.float64),
-            bus.to_numpy(dtype=np.float64),
-            oth.to_numpy(dtype=np.float64),
-            dep.to_numpy(dtype=np.float64),
-            et_code.to_numpy(dtype=np.float64),
-            n_ord.to_numpy(dtype=np.float64),
-            n_inc.to_numpy(dtype=np.float64),
-            mask.to_numpy(dtype=np.float64),
-            tax.to_numpy(dtype=np.float64),
-            base.to_numpy(dtype=np.float64),
-        ]
-    )
+        n_rows = len(d)
+        liq_cost_arr = np.zeros(n_rows, dtype=np.float64)
+        n_high_arr = np.zeros(n_rows, dtype=np.float64)
+        for j in range(n_rows):
+            lc, nh = _compute_liquidity_cost_from_mask(int(mask_arr[j]), gross_arr[j], codes)
+            liq_cost_arr[j] = lc
+            n_high_arr[j] = float(nh)
+
+        liq_ratio_arr = np.where(gross_arr > 0.0, liq_cost_arr / gross_arr, 0.0)
+        savings_arr = np.maximum(base_arr - tax_arr, 0.0)
+        y = np.array(
+            [
+                compute_utility_score(savings_arr[j], liq_cost_arr[j], gross_arr[j], alpha)
+                for j in range(n_rows)
+            ],
+            dtype=np.float64,
+        )
+        X = np.column_stack(
+            [
+                gross_arr,
+                sal.to_numpy(dtype=np.float64),
+                bus.to_numpy(dtype=np.float64),
+                oth.to_numpy(dtype=np.float64),
+                dep.to_numpy(dtype=np.float64),
+                et_code.to_numpy(dtype=np.float64),
+                n_ord.to_numpy(dtype=np.float64),
+                n_inc.to_numpy(dtype=np.float64),
+                mask_arr,
+                tax_arr,
+                base_arr,
+                liq_cost_arr,
+                liq_ratio_arr,
+                n_high_arr,
+            ]
+        )
+
     groups = d["taxpayer_id"].astype(str).to_numpy()
     valid = np.isfinite(y) & np.isfinite(X).all(axis=1)
     d_sub = d.loc[valid].reset_index(drop=True)
@@ -220,10 +383,18 @@ def build_xy_with_frame(
 def build_xy_arrays(
     df: pd.DataFrame,
     *,
-    target: Literal["savings_vs_baseline_lkr", "rule_rank_among_passing"],
+    target: Literal["savings_vs_baseline_lkr", "rule_rank_among_passing", "utility_score"],
+    alpha: float = 0.7,
+    ordered_codes: list[str] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return ``X`` (n, 11), ``y`` (n,), ``groups`` (n,) taxpayer ids as strings."""
-    _d_sub, X, y, groups = build_xy_with_frame(df, target=target)
+    """Return ``X``, ``y``, ``groups`` arrays.
+
+    v1 targets (savings / rank): X is (n, 11).
+    v2 target (utility_score): X is (n, 14) and ``ordered_codes`` is required.
+    """
+    _d_sub, X, y, groups = build_xy_with_frame(
+        df, target=target, alpha=alpha, ordered_codes=ordered_codes
+    )
     return X, y, groups
 
 
@@ -425,11 +596,36 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="JSON path (default: <artifacts-dir>/model_zoo_leaderboard_v1.json)",
     )
-    ap.add_argument("--feature-version", type=str, default="v1")
+    ap.add_argument(
+        "--feature-version",
+        type=str,
+        default=None,
+        help="Override feature version label written to artifacts (default: 'v2' for utility_score, 'v1' otherwise).",
+    )
     ap.add_argument(
         "--target",
-        choices=(PRIMARY_TARGET, SECONDARY_TARGET),
+        choices=(PRIMARY_TARGET, SECONDARY_TARGET, UTILITY_TARGET),
         default=PRIMARY_TARGET,
+    )
+    ap.add_argument(
+        "--alpha",
+        type=float,
+        default=0.7,
+        help=(
+            "Utility score weight on savings vs. liquidity cost (0..1). "
+            "Only used when --target=utility_score. "
+            "alpha=1.0 collapses to pure savings; alpha=0.5 weights both equally."
+        ),
+    )
+    ap.add_argument(
+        "--ordered-codes",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated ordered relief codes matching the training table bitmask "
+            "(e.g. 'charitable_donations,health_insurance_premium,...'). "
+            "Required when --target=utility_score."
+        ),
     )
     ap.add_argument("--train-frac", type=float, default=0.70)
     ap.add_argument("--val-frac", type=float, default=0.15)
@@ -485,9 +681,27 @@ def main(argv: list[str] | None = None) -> int:
     if not np.isclose(args.train_frac + args.val_frac + args.test_frac, 1.0):
         print("error: train/val/test fractions must sum to 1", file=sys.stderr)
         return 1
-    if args.promote_best and args.target != PRIMARY_TARGET:
-        print("error: --promote-best requires --target savings_vs_baseline_lkr", file=sys.stderr)
+    if args.promote_best and args.target not in (PRIMARY_TARGET, UTILITY_TARGET):
+        print(
+            f"error: --promote-best requires --target {PRIMARY_TARGET} or {UTILITY_TARGET}",
+            file=sys.stderr,
+        )
         return 1
+    if args.target == UTILITY_TARGET and not args.ordered_codes:
+        print(
+            "error: --ordered-codes is required when --target=utility_score\n"
+            "  Example: --ordered-codes charitable_donations,health_insurance_premium,"
+            "home_loan_interest,life_insurance_premium,rent_relief,retirement_contribution",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Resolve feature version label
+    fv_label = args.feature_version or ("v2" if args.target == UTILITY_TARGET else "v1")
+
+    ordered_codes: list[str] | None = None
+    if args.target == UTILITY_TARGET:
+        ordered_codes = [c.strip() for c in args.ordered_codes.split(",") if c.strip()]
 
     df = load_training_table(args.train_table)
     n_before = len(df)
@@ -498,7 +712,12 @@ def main(argv: list[str] | None = None) -> int:
             f"(max_taxpayers={args.max_taxpayers})",
             file=sys.stderr,
         )
-    X, y, groups = build_xy_arrays(df, target=args.target)
+    X, y, groups = build_xy_arrays(
+        df,
+        target=args.target,
+        alpha=args.alpha,
+        ordered_codes=ordered_codes,
+    )
     X = np.ascontiguousarray(X, dtype=np.float32)
     y = np.ascontiguousarray(y, dtype=np.float32)
     if len(y) < 50:
@@ -597,6 +816,17 @@ def main(argv: list[str] | None = None) -> int:
                 "for research conclusions; this zoo entry is for coarse comparison only."
             ),
         },
+        UTILITY_TARGET: {
+            "paradigm": "regression",
+            "unit": "dimensionless (normalized LKR ratio)",
+            "x_columns": list(FEATURE_COLUMNS_V2_14),
+            "notes": (
+                "Multi-objective Pareto utility = alpha*norm_savings - (1-alpha)*norm_liquidity_cost. "
+                f"alpha={args.alpha}. "
+                "Liquidity cost computed from candidate_mask + income fields using rules-derived caps. "
+                "Matches API inference_matrix_layout v2_14_utility."
+            ),
+        },
     }
 
     board = {
@@ -604,7 +834,7 @@ def main(argv: list[str] | None = None) -> int:
         "generated_at_utc": ts.isoformat().replace("+00:00", "Z"),
         "train_table": str(args.train_table.resolve().as_posix()),
         "train_table_sha256": _sha256_file(args.train_table),
-        "feature_version": args.feature_version,
+        "feature_version": fv_label,
         "protocol": {
             "split": "group_by_taxpayer_id",
             "split_method": args.split_method,
@@ -626,7 +856,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         "target": args.target,
         "targets_documentation": targets_doc,
-        "feature_columns_X": list(FEATURE_COLUMNS_V1_11),
+        "feature_columns_X": list(FEATURE_COLUMNS_V2_14) if args.target == UTILITY_TARGET else list(FEATURE_COLUMNS_V1_11),
         "models": sorted(rows, key=lambda r: r["val_mae"]),
         "best_model_by_val_mae": best_name,
         "best_validation_spearman": spearman_note,
@@ -648,23 +878,42 @@ def main(argv: list[str] | None = None) -> int:
         X_fit = np.vstack([X_tr, X_va])
         y_fit = np.concatenate([y_tr, y_va])
         best_pipe.fit(X_fit, y_fit)
-        model_path = out_dir / "tax_opt_best_model_v1.joblib"
+
+        is_v2 = args.target == UTILITY_TARGET
+        model_filename = "tax_opt_best_model_v2.joblib" if is_v2 else "tax_opt_best_model_v1.joblib"
+        model_path = out_dir / model_filename
         joblib.dump(best_pipe, model_path)
         digest = _sha256_file(model_path)
         summary_path = out_dir / "best_model_summary.json"
+
+        if is_v2:
+            inference_layout = "v2_14_utility"
+            target_name = UTILITY_TARGET
+            pipeline_joblib = "tax_opt_feature_pipeline_v2.joblib"
+            model_id = f"research_{best_name}_v2_utility_alpha{args.alpha}"
+            disclaimer = (
+                f"Research model (v2 Pareto utility, alpha={args.alpha}) from "
+                "train_tax_opt_models_v1.py; rules engine remains authoritative."
+            )
+        else:
+            inference_layout = "v1_11_no_savings"
+            target_name = PRIMARY_TARGET
+            pipeline_joblib = "tax_opt_feature_pipeline_v1.joblib"
+            model_id = f"research_{best_name}_v1"
+            disclaimer = "Research model from train_tax_opt_models_v1.py; rules engine remains authoritative."
+
         summary = {
             "schema_version": 1,
-            "model_id": f"research_{best_name}_v1",
-            "feature_version": args.feature_version,
+            "model_id": model_id,
+            "feature_version": fv_label,
             "training_timestamp": ts.isoformat().replace("+00:00", "Z"),
             "model_joblib": model_path.name,
-            "feature_pipeline_joblib": "tax_opt_feature_pipeline_v1.joblib",
+            "feature_pipeline_joblib": pipeline_joblib,
             "artifact_sha256": digest,
-            "synthetic_training_data_disclaimer": (
-                "Research model from train_tax_opt_models_v1.py; rules engine remains authoritative."
-            ),
-            "target_name": PRIMARY_TARGET,
-            "inference_matrix_layout": "v1_11_no_savings",
+            "synthetic_training_data_disclaimer": disclaimer,
+            "target_name": target_name,
+            "inference_matrix_layout": inference_layout,
+            **({"utility_alpha": args.alpha, "ordered_codes": ordered_codes} if is_v2 else {}),
         }
         summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
         print(f"wrote {model_path}")

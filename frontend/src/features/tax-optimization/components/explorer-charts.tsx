@@ -5,6 +5,8 @@ import {
   Cell,
   Label,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -20,13 +22,14 @@ type Props = {
   data: TaxOptBSearchStrategiesResponseV1;
   baselineRow: TaxOptBSearchStrategyRowV1;
   bestRow: TaxOptBSearchStrategyRowV1;
+  mlAssisted?: boolean;
 };
 
 function displayStrategyName(raw: string): string {
   return raw.replace(/\bcap_subset_\d+\b/gi, "").replace(/\s+/g, " ").trim();
 }
 
-export function ExplorerCharts({ data, baselineRow, bestRow }: Props) {
+export function ExplorerCharts({ data, baselineRow, bestRow, mlAssisted = false }: Props) {
   const baselineTax = parseDecimalSafe(baselineRow.total_tax);
   const bestTax = parseDecimalSafe(bestRow.total_tax);
 
@@ -37,6 +40,27 @@ export function ExplorerCharts({ data, baselineRow, bestRow }: Props) {
           { name: "Best strategy", tax: bestTax },
         ]
       : [];
+
+  // Pareto scatter: derive savings_norm and liquidity_norm from ml_score
+  // utility = 0.7 * savings_norm - 0.3 * liquidity_norm  => liquidity_norm = (0.7 * savings_norm - ml_score) / 0.3
+  const paretoPoints = mlAssisted
+    ? data.rows
+        .filter((r) => r.ml_score != null && r.delta_total_tax_vs_baseline != null)
+        .map((r) => {
+          const gross = parseDecimalSafe(r.breakdown?.gross_income_lkr) ?? 1;
+          const savings = -(parseDecimalSafe(r.delta_total_tax_vs_baseline) ?? 0);
+          const savingsNorm = gross > 0 ? savings / gross : 0;
+          const mlScore = parseDecimalSafe(r.ml_score) ?? 0;
+          const liquidityNorm = Math.max(0, (0.7 * savingsNorm - mlScore) / 0.3);
+          return {
+            savingsPct: +(savingsNorm * 100).toFixed(2),
+            liquidityPct: +(liquidityNorm * 100).toFixed(2),
+            isAiTop: r.rank === 1,
+            isRuleTop: r.rule_only_rank === 1,
+            name: r.display_name,
+          };
+        })
+    : [];
 
   const topN = Math.min(5, data.rows.length);
   const rankRows = data.rows.slice(0, topN).map((r) => {
@@ -49,7 +73,7 @@ export function ExplorerCharts({ data, baselineRow, bestRow }: Props) {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className={`grid gap-6 ${mlAssisted && paretoPoints.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
       <div className="min-h-[260px] rounded-xl border border-border/80 bg-card p-5 shadow-sm">
         <h3 className="text-base font-semibold text-foreground">Baseline vs best</h3>
         <p className="mt-1 text-xs text-muted-foreground">Total tax payable (LKR).</p>
@@ -121,6 +145,71 @@ export function ExplorerCharts({ data, baselineRow, bestRow }: Props) {
           </div>
         ) : null}
       </div>
+
+      {mlAssisted && paretoPoints.length > 0 && (
+        <div className="min-h-[260px] rounded-xl border border-border/80 bg-card p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-foreground">Savings vs. Liquidity Cost</h3>
+          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Pareto trade-off (% of income)</span>
+            <span className="flex items-center gap-1">
+              <svg width="10" height="10"><circle cx="5" cy="5" r="5" fill="#16a34a" /></svg>
+              AI top-1
+            </span>
+            <span className="flex items-center gap-1">
+              <svg width="10" height="10"><circle cx="5" cy="5" r="5" fill="#ea580c" /></svg>
+              Rule top-1
+            </span>
+          </div>
+          <div className="mt-4 h-[240px] w-full min-h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 12, right: 16, left: 8, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+                <XAxis
+                  type="number"
+                  dataKey="liquidityPct"
+                  name="Liquidity cost"
+                  tick={{ fontSize: 10 }}
+                  label={{ value: "Liquidity cost (% income)", position: "insideBottom", offset: -12, fontSize: 10 }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="savingsPct"
+                  name="Tax savings"
+                  tick={{ fontSize: 10 }}
+                  width={44}
+                  label={{ value: "Savings (%)", angle: -90, position: "insideLeft", fontSize: 10 }}
+                />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  formatter={(v: number, name: string) => [`${v.toFixed(2)}%`, name]}
+                  contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                />
+                {/* grey background dots first */}
+                <Scatter
+                  data={paretoPoints.filter((p) => !p.isAiTop && !p.isRuleTop)}
+                  shape={(props: { cx?: number; cy?: number }) => (
+                    <circle cx={props.cx ?? 0} cy={props.cy ?? 0} r={4} fill="#9ca3af" fillOpacity={0.5} />
+                  )}
+                />
+                {/* orange rule top-1 on top */}
+                <Scatter
+                  data={paretoPoints.filter((p) => p.isRuleTop && !p.isAiTop)}
+                  shape={(props: { cx?: number; cy?: number }) => (
+                    <circle cx={props.cx ?? 0} cy={props.cy ?? 0} r={8} fill="#ea580c" fillOpacity={0.9} />
+                  )}
+                />
+                {/* green AI top-1 on top of everything */}
+                <Scatter
+                  data={paretoPoints.filter((p) => p.isAiTop)}
+                  shape={(props: { cx?: number; cy?: number }) => (
+                    <circle cx={props.cx ?? 0} cy={props.cy ?? 0} r={8} fill="#16a34a" fillOpacity={0.9} />
+                  )}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

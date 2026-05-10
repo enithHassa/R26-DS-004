@@ -333,6 +333,8 @@ export interface TaxOptBSearchMlMetaV1 {
   synthetic_training_data_disclaimer: string;
   compliance_assertion: string;
   inference_latency_ms: number;
+  utility_alpha?: number | null;
+  optimization_objective_label?: string | null;
 }
 
 export interface TaxOptBSearchTraceabilityV1 {
