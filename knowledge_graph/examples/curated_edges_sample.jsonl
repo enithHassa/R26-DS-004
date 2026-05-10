@@ -1,0 +1,2 @@
+{"rel_type":"DEFINES","from_label":"Section","from_key":"section_uid","from_id":"ira2017::sec::section_45","to_label":"Concept","to_key":"concept_id","to_id":"relief_personal","confidence":0.85,"review_status":"manual_seed","source_note":"example only — ensure Section and Concept nodes exist before load"}
+{"rel_type":"MENTIONS","from_label":"TextChunk","from_key":"chunk_id","from_id":"fixture::relief","to_label":"Concept","to_key":"concept_id","to_id":"relief_personal","confidence":0.4,"review_status":"auto_alias_match","source_note":"heuristic export example"}

@@ -5,7 +5,7 @@ Routing map (representative):
     /api/v1/recommendation/**  ->  COMP_RECOMMENDATION_URL
     /api/v1/optimization/**    ->  COMP_OPTIMIZATION_URL
     /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
-    /api/v1/llm/**             ->  (TBD, Component 4)
+    /api/v1/llm/**             ->  COMP_LLM_URL (Component 4; strips ``llm`` segment)
 """
 
 from __future__ import annotations
@@ -66,6 +66,7 @@ def create_app() -> FastAPI:
     _register_proxy(app, prefix="/api/v1/recommendation", upstream=settings.COMP_RECOMMENDATION_URL)
     _register_proxy(app, prefix="/api/v1/optimization", upstream=settings.COMP_OPTIMIZATION_URL)
     _register_proxy(app, prefix="/api/v1/transaction", upstream=settings.COMP_TRANSACTION_URL)
+    _register_proxy(app, prefix="/api/v1/llm", upstream=settings.COMP_LLM_URL)
     return app
 
 
@@ -95,6 +96,11 @@ def _system_router() -> APIRouter:
             checks["transaction"] = r.status_code == 200
         except Exception:
             checks["transaction"] = False
+        try:
+            r = await client.get(f"{settings.COMP_LLM_URL}/health", timeout=5.0)
+            checks["language_model"] = r.status_code == 200
+        except Exception:
+            checks["language_model"] = False
         return {"status": "ok" if all(checks.values()) else "degraded", "checks": checks}
 
     return router

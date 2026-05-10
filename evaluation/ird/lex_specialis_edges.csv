@@ -1,0 +1,8 @@
+overriding_source_doc_id,relation,target_scope,target_detail,effective_from,notes
+ird-ira-amend-10-2021,MODIFIES_STATUTE,Inland Revenue Act No. 24 of 2017,Specific sections per Act No. 10 of 2021,TBD,Populate section-level edges after legal review.
+ird-ira-amend-45-2022,MODIFIES_STATUTE,Inland Revenue Act No. 24 of 2017 (as amended),Specific sections per Act No. 45 of 2022,TBD,Chain after 10/2021 where applicable.
+ird-ira-amend-04-2023,MODIFIES_STATUTE,Inland Revenue Act No. 24 of 2017 (as amended),Specific sections per Act No. 04 of 2023,TBD,
+ird-ira-amend-14-2023,MODIFIES_STATUTE,Inland Revenue Act No. 24 of 2017 (as amended),Specific sections per Act No. 14 of 2023,TBD,
+ird-ira-amend-02-2025,MODIFIES_STATUTE,Inland Revenue Act No. 24 of 2017 (as amended),Specific sections per Act No. 02 of 2025,TBD,
+ird-ira-consolidated-2025,DERIVED_VIEW,Consolidated IRA text,Cross-walk to underlying Acts and amendments,TBD,Consolidated is not a separate statute; use for navigation and cite underlying instruments for binding text.
+ird-ira-guide-draft,INTERPRETS,Inland Revenue Act No. 24 of 2017,General interpretive guidance,TBD,Lower authority; do not override statute.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
@@ -131,14 +131,14 @@ export function CompliancePage() {
   const [includeExplanations, setIncludeExplanations] = useState(true);
   const [explanationDetail, setExplanationDetail] = useState<"summary" | "detailed">("summary");
 
-  useEffect(() => {
+  const stripExplanationsFromCached = useCallback(() => {
     setTaxCompute((prev) =>
       prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
     );
     setCompareResult((prev) =>
       prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
     );
-  }, [explanationDetail, includeExplanations]);
+  }, []);
 
   const toggleCompareExpand = useCallback((variantId: string) => {
     setCompareExpanded((prev) => ({ ...prev, [variantId]: !prev[variantId] }));
@@ -404,7 +404,10 @@ export function CompliancePage() {
             type="checkbox"
             className="rounded border-input"
             checked={includeExplanations}
-            onChange={(e) => setIncludeExplanations(e.target.checked)}
+            onChange={(e) => {
+              setIncludeExplanations(e.target.checked);
+              stripExplanationsFromCached();
+            }}
           />
           Include explanations (FR5) on <strong className="font-medium">estimate tax</strong> &{" "}
           <strong className="font-medium">compare</strong>
@@ -417,7 +420,10 @@ export function CompliancePage() {
             id={`${formId}-explain-detail`}
             value={explanationDetail}
             disabled={!includeExplanations}
-            onChange={(e) => setExplanationDetail(e.target.value as "summary" | "detailed")}
+            onChange={(e) => {
+              setExplanationDetail(e.target.value as "summary" | "detailed");
+              stripExplanationsFromCached();
+            }}
             className="h-9 w-36"
           >
             <option value="summary">summary</option>

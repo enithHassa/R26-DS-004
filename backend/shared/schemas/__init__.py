@@ -20,6 +20,11 @@ from backend.shared.schemas.enums import LabelSource, TaxabilityStatus, TxnDirec
 from backend.shared.schemas.evidence import EvidenceChain, EvidenceStep
 from backend.shared.schemas.income_snapshot import IncomeSnapshotV1
 from backend.shared.schemas.taxability import TaxabilityOutput
+from backend.shared.schemas.traceability import (
+    EvidenceBackedAnswer,
+    EvidenceReference,
+    TraceabilityMetadata,
+)
 from backend.shared.schemas.transaction import NormalizedTransaction, Transaction
 
 __all__ = [
@@ -39,7 +44,10 @@ __all__ = [
     "RiskTolerance",
     "TaxabilityOutput",
     "TaxabilityStatus",
+    "TraceabilityMetadata",
     "TimestampedSchema",
     "Transaction",
     "TxnDirection",
+    "EvidenceReference",
+    "EvidenceBackedAnswer",
 ]

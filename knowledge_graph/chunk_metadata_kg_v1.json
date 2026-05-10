@@ -1,0 +1,40 @@
+{
+  "profile_version": "1.0.0",
+  "phase": "3a-step3",
+  "title": "Corpus chunk metadata profile for Knowledge Graph ETL",
+  "description": "Every TextChunk node in Neo4j should be loadable from a JSONL row that satisfies these fields. Use ird_corpus_lib.normalize_chunk_for_kg() before export when aliases are missing.",
+  "required_core": [
+    "chunk_id",
+    "source_doc_id"
+  ],
+  "required_when_strict_doc_meta": [
+    "tier",
+    "instrument_type"
+  ],
+  "recommended": [
+    "corpus_version",
+    "text",
+    "content_kind",
+    "effective_start_date",
+    "effective_end_date",
+    "section_ref",
+    "pdf_outline_breadcrumb"
+  ],
+  "kg_materialized_fields": [
+    {
+      "field": "effective_from",
+      "source": "effective_start_date (non-empty string) or explicit override on the record",
+      "notes": "Roadmap / Lex Specialis naming; empty manifest dates become null."
+    },
+    {
+      "field": "section_label",
+      "source": "first section_ref, else last pdf_outline_breadcrumb segment",
+      "notes": "Optional; null when no heuristic signal."
+    }
+  ],
+  "validators": {
+    "python_module": "scripts/ird_corpus_lib.py",
+    "functions": ["normalize_chunk_for_kg", "validate_kg_chunk_metadata"],
+    "cli": "scripts/validate_corpus_kg_metadata.py"
+  }
+}
