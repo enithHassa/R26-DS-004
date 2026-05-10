@@ -1,1 +1,1 @@
-colab-trained-v1
+local-retrained-v2
