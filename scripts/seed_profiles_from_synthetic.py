@@ -62,6 +62,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=500,
         help="Rows per INSERT batch (per table).",
     )
+    parser.add_argument(
+        "--upsert",
+        action="store_true",
+        help=(
+            "Update existing financial_profiles rows when profile_id already exists "
+            "(instead of skipping them)."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -179,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[seed] Loading {len(df):,} rows into Postgres (batch={args.batch_size})...")
 
     inserted = 0
+    updated = 0
     skipped = 0
     with SessionLocal() as db:
         for batch_start in range(0, len(df), args.batch_size):
@@ -186,22 +195,43 @@ def main(argv: list[str] | None = None) -> int:
             ids = [UUID(r["profile_id"]) for r in batch]
             already = _existing_profile_ids(db, ids)
             new_rows = [r for r in batch if UUID(r["profile_id"]) not in already]
-            skipped += len(batch) - len(new_rows)
+            existing_rows = [r for r in batch if UUID(r["profile_id"]) in already]
+            if not args.upsert:
+                skipped += len(existing_rows)
 
-            if not new_rows:
-                continue
+            if new_rows:
+                users = [_row_to_user(r) for r in new_rows]
+                db.execute(insert(User), users)
+                profile_rows = [
+                    _row_to_profile(r, user_id=u["id"]) for r, u in zip(new_rows, users, strict=True)
+                ]
+                db.execute(insert(FinancialProfile), profile_rows)
+                inserted += len(profile_rows)
 
-            users = [_row_to_user(r) for r in new_rows]
-            db.execute(insert(User), users)
-            profile_rows = [
-                _row_to_profile(r, user_id=u["id"]) for r, u in zip(new_rows, users, strict=True)
-            ]
-            db.execute(insert(FinancialProfile), profile_rows)
+            if args.upsert and existing_rows:
+                for r in existing_rows:
+                    pid = UUID(r["profile_id"])
+                    existing = db.get(FinancialProfile, pid)
+                    if existing is None:
+                        continue
+                    # Preserve existing user_id and profile id; refresh all profile fields.
+                    row_values = _row_to_profile(r, user_id=existing.user_id)
+                    row_values.pop("id", None)
+                    row_values.pop("user_id", None)
+                    for k, v in row_values.items():
+                        setattr(existing, k, v)
+                    updated += 1
+
             db.commit()
-            inserted += len(profile_rows)
-            print(f"[seed]  inserted {inserted:,} / {len(df):,} (skipped {skipped:,})")
+            print(
+                f"[seed]  inserted {inserted:,}, updated {updated:,} / {len(df):,} "
+                f"(skipped {skipped:,})"
+            )
 
-    print(f"[seed] Done. inserted={inserted:,}, skipped_existing={skipped:,}")
+    print(
+        f"[seed] Done. inserted={inserted:,}, updated={updated:,}, "
+        f"skipped_existing={skipped:,}"
+    )
     return 0
 
 

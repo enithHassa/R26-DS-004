@@ -17,7 +17,7 @@ export function ImpactPage() {
         <CardHeader>
           <CardTitle>Simulation for {strategyId}</CardTitle>
           <CardDescription>
-            Fan chart (recharts) and distribution histograms — implemented in Phase 5 + 7.
+            Fan chart and distribution histograms — implemented in Phase 5 + 7.
           </CardDescription>
         </CardHeader>
         <CardContent />
