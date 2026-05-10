@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aitax.local/schemas/tax_decision_contract_v1.json",
+  "title": "Component1TaxDecisionContractV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transaction_id",
+    "taxonomy_version",
+    "rulebook_version",
+    "model_version",
+    "predicted_class",
+    "calibrated_confidence",
+    "ood_flag",
+    "decision_mode",
+    "taxability_status",
+    "taxable_amount_lkr",
+    "tax_rule_code",
+    "rule_reference",
+    "explanation"
+  ],
+  "properties": {
+    "transaction_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "taxonomy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rulebook_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "predicted_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calibrated_confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "ood_flag": {
+      "type": "boolean"
+    },
+    "decision_mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "model_plus_llm_confirmed",
+        "human_required"
+      ]
+    },
+    "taxability_status": {
+      "type": "string",
+      "enum": [
+        "taxable",
+        "exempt",
+        "partially_taxable",
+        "unknown"
+      ]
+    },
+    "taxable_amount_lkr": {
+      "type": "number",
+      "minimum": 0
+    },
+    "tax_rule_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rule_reference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "condition_id_matched": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}
