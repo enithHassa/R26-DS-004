@@ -1,0 +1,27 @@
+{
+  "description": "Canonical relative paths from repo root for bundled transaction-semantic models. Bump version dirs when you retrain on new splits or taxonomy.",
+  "bundle_version": "v0.1.0",
+  "chosen_classifier": {
+    "model_key": "distilbert_multilingual",
+    "version": "v0.1.0",
+    "rationale": "Highest macro_f1_test and weighted_f1_test on the shared 598-row test split (see model_runs_compare.csv). TF-IDF kept as CPU fallback; XLM-R kept for A/B if DistilBERT regresses after label fixes.",
+    "metrics_csv": "models/transaction-semantic/evaluation/model_runs_compare.csv"
+  },
+  "artifacts": {
+    "tfidf_logreg": {
+      "version": "v0.1.0",
+      "pipeline": "models/transaction-semantic/artifacts/tfidf_logreg/v0.1.0/tfidf_logreg_pipeline.joblib",
+      "export": "models/transaction-semantic/artifacts/tfidf_logreg/v0.1.0/export"
+    },
+    "xlm_roberta": {
+      "version": "v0.1.0",
+      "hf_model": "models/transaction-semantic/artifacts/xlm_roberta/v0.1.0/hf_model",
+      "export": "models/transaction-semantic/artifacts/xlm_roberta/v0.1.0/export"
+    },
+    "distilbert_multilingual": {
+      "version": "v0.1.0",
+      "hf_model": "models/transaction-semantic/artifacts/distilbert_multilingual/v0.1.0/hf_model",
+      "export": "models/transaction-semantic/artifacts/distilbert_multilingual/v0.1.0/export"
+    }
+  }
+}
