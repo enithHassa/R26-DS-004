@@ -105,6 +105,12 @@ pnpm-debug.log*
 lerna-debug.log*
 .pnpm-store/
 
+# ---------- Research (local PDF text extracts; regenerate with scripts/extract_ir_pdf_text.py) ----------
+research/ir_extracts/
+
+# Compiled rule pack (run scripts/compose_tax_opt_b_rules.py after editing modular/)
+models/tax-optimization/rules/compiled/*.yaml
+
 # ---------- Data & ML artifacts ----------
 # Ignore raw/large datasets; keep folder structure via .gitkeep
 data/raw/
@@ -170,6 +176,9 @@ temp/
 *.swp
 *.swo
 *~
+
+# ---------- Microsoft Office (lock files while workbook is open) ----------
+~$*
 
 # ---------- OS files ----------
 .DS_Store

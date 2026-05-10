@@ -2,3 +2,4 @@
 # Reproduce locally; do not commit bulky or machine-specific outputs.
 **/*
 !.gitignore
+!README.md

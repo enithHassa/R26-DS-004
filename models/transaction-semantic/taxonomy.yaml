@@ -1,0 +1,148 @@
+version: "v1.0.0"
+jurisdiction: "LK"
+legal_basis: "Inland Revenue Act No. 24 of 2017 (and amendments)"
+owner_component: "comp-transaction-sementic"
+notes:
+  - "Classifier outputs IRD income taxonomy labels, not taxable/non-taxable."
+  - "Taxability decisions are produced by deterministic rule engine only."
+
+labels:
+  - key: "employment_income"
+    group: "employment"
+    description: "Salary, wages, overtime, fixed earnings."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement"]
+    tax_rule_code: "EMP_FULL_TAX"
+
+  - key: "employment_allowance_taxable"
+    group: "employment"
+    description: "Taxable allowances and benefits from employer."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement"]
+    tax_rule_code: "EMP_ALLOW_TAX"
+
+  - key: "employment_allowance_exempt"
+    group: "employment"
+    description: "Exempt reimbursements/allowances supported by policy."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement"]
+    tax_rule_code: "EMP_ALLOW_EXEMPT"
+
+  - key: "bonus_performance"
+    group: "employment"
+    description: "Bonus and incentive payments."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement"]
+    tax_rule_code: "EMP_BONUS_TAX"
+
+  - key: "epf_etf_contribution"
+    group: "deduction_signal"
+    description: "EPF/ETF related deduction signal from payroll."
+    default_direction: "DR"
+    expected_doc_types: ["payslip"]
+    tax_rule_code: "DEDUCT_EPF_ETF"
+
+  - key: "freelance_service"
+    group: "business_income"
+    description: "Consulting/freelance/gig service receipts."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "invoice"]
+    tax_rule_code: "BUS_SERVICE_TAX"
+
+  - key: "business_profit"
+    group: "business_income"
+    description: "Business trading income receipts."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "invoice"]
+    tax_rule_code: "BUS_PROFIT_TAX"
+
+  - key: "rental_income"
+    group: "investment_income"
+    description: "Rent receipts from property."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "lease_statement"]
+    tax_rule_code: "RENT_TAX"
+
+  - key: "interest_income"
+    group: "investment_income"
+    description: "Savings/fixed deposit interest receipts."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement"]
+    tax_rule_code: "INT_AIT_REPORTABLE"
+
+  - key: "dividend_income"
+    group: "investment_income"
+    description: "Dividend receipts."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "broker_statement"]
+    tax_rule_code: "DIV_AIT_REPORTABLE"
+
+  - key: "capital_gain"
+    group: "capital"
+    description: "Asset/property disposal proceeds."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "sale_document"]
+    tax_rule_code: "CAP_GAIN_DEFAULT_EXEMPT"
+
+  - key: "gift_received"
+    group: "capital_receipt"
+    description: "Gift receipts with conditional tax treatment."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "declaration"]
+    tax_rule_code: "GIFT_CONDITIONAL"
+
+  - key: "loan_received"
+    group: "financing"
+    description: "Loan principal inflow from bank/lender."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "loan_statement"]
+    tax_rule_code: "LOAN_PRINCIPAL_NON_TAX"
+
+  - key: "loan_repayment"
+    group: "financing"
+    description: "Loan repayment outflow."
+    default_direction: "DR"
+    expected_doc_types: ["bank_statement", "loan_statement"]
+    tax_rule_code: "LOAN_REPAY_NON_TAX"
+
+  - key: "reimbursement"
+    group: "employment"
+    description: "Expense reimbursement from employer."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement", "expense_claim"]
+    tax_rule_code: "REIMBURSEMENT_CONDITIONAL"
+
+  - key: "insurance_payout"
+    group: "exempt_receipt"
+    description: "Insurance claim receipts."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "insurance_statement"]
+    tax_rule_code: "INSURANCE_EXEMPT"
+
+  - key: "gratuity"
+    group: "retirement"
+    description: "Retirement gratuity receipts."
+    default_direction: "CR"
+    expected_doc_types: ["payslip", "bank_statement", "retirement_statement"]
+    tax_rule_code: "GRATUITY_EXEMPT"
+
+  - key: "qualifying_payment"
+    group: "deduction_signal"
+    description: "Eligible deduction outflows (donation, insurance premium)."
+    default_direction: "DR"
+    expected_doc_types: ["bank_statement", "receipt"]
+    tax_rule_code: "QUALIFYING_DEDUCTION"
+
+  - key: "inter_account_transfer"
+    group: "internal_movement"
+    description: "Own-account transfers and neutral movements."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement"]
+    tax_rule_code: "INTERNAL_TRANSFER_NON_TAX"
+
+  - key: "unknown"
+    group: "unresolved"
+    description: "Unable to classify reliably; requires review."
+    default_direction: "CR"
+    expected_doc_types: ["bank_statement", "payslip", "invoice", "other"]
+    tax_rule_code: "REVIEW_REQUIRED"
