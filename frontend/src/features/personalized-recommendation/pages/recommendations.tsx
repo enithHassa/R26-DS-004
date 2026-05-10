@@ -162,8 +162,9 @@ export function RecommendationsPage() {
                   <Metric label="Risk score" value={item.risk_score.toFixed(3)} />
                 </div>
                 {item.explanation?.narrative && (
-                  <div className="rounded border bg-muted/40 p-3 text-xs text-muted-foreground">
-                    {item.explanation.narrative}
+                  <div className="rounded-md border-l-4 border-l-emerald-500 border border-emerald-200 bg-emerald-50 p-4 text-sm">
+                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Why this applies to you</div>
+                    <span className="text-black">{item.explanation.narrative}</span>
                   </div>
                 )}
               </CardContent>
