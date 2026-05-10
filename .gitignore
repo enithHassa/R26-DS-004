@@ -140,6 +140,8 @@ models/**/checkpoints/
 models/**/runs/
 models/**/logs/
 
+# Component 1 local training outputs: see models/transaction-semantic/artifacts/.gitignore
+
 # Experiment tracking
 mlruns/
 wandb/
