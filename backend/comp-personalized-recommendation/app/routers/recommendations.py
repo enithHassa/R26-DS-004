@@ -5,24 +5,40 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy.orm import Session
 
+from app.deps import DBSession
 from app.schemas import (
     FeedbackCreate,
     RecommendationExplanation,
     RecommendationRequest,
     RecommendationResponse,
 )
+from app.services import (
+    ArtifactLoadError,
+    ProfileNotFoundError,
+    RecommendationGenerationError,
+    generate_recommendations,
+)
 
 router = APIRouter()
 
 
 @router.post("", response_model=RecommendationResponse)
-def rank(payload: RecommendationRequest) -> RecommendationResponse:
-    """Produce the top-K ranked strategies fused from LambdaMART + adoption probability."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Ranking engine is implemented in Phase 4 (WP6).",
-    )
+def rank(payload: RecommendationRequest, db: Session = DBSession) -> RecommendationResponse:
+    """Produce top-K strategies using trained matcher + rule feasibility filters."""
+    try:
+        return generate_recommendations(
+            db,
+            profile_id=payload.profile_id,
+            top_k=payload.top_k,
+        )
+    except ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ArtifactLoadError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except RecommendationGenerationError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
 @router.get("/{recommendation_item_id}/explain", response_model=RecommendationExplanation)

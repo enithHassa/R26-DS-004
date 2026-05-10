@@ -50,6 +50,22 @@ allowed_relief_codes:
   - charitable_donations
   - retirement_contribution
 
+# Strategy Explorer: deterministic display names and optional FR5 template overrides.
+relief_display_names:
+  life_insurance_premium: "Life insurance premium"
+  health_insurance_premium: "Health insurance premium"
+  home_loan_interest: "Home loan interest"
+  rent_relief: "Rent relief"
+  charitable_donations: "Charitable donations"
+  retirement_contribution: "Retirement contribution"
+
+search_explanation_templates:
+  passed_compliance: "Strategy passed all compliance checks for assessment year {assessment_year}."
+  capped_relief: "{relief_label} was evaluated against statutory cap LKR {cap}; allowed amount LKR {allowed}."
+  omitted_reliefs: "Reliefs not claimed in this strategy: {relief_list}."
+  savings_vs_baseline: "Tax saving vs baseline: LKR {savings} ({pct}% lower than baseline)."
+  row_summary: "Rank {rank}: {display_name} — final tax LKR {final_tax}."
+
 rules:
   - rule_id: it22064486_optb_year_001
     type: tax_year_match

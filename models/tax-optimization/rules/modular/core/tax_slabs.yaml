@@ -1,0 +1,14 @@
+# Progressive bands — cite IR Act / gazette in dissertation; yearly overrides in yearly/ya_*.
+thresholds:
+  personal_relief_annual: 1_200_000
+  apit_slabs:
+    - upper: 500_000
+      rate: 0.06
+    - upper: 500_000
+      rate: 0.18
+    - upper: 500_000
+      rate: 0.24
+    - upper: 500_000
+      rate: 0.30
+    - upper: null
+      rate: 0.36

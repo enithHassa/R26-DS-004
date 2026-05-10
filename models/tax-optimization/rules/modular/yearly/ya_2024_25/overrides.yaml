@@ -1,0 +1,4 @@
+# Amendment-only deltas for assessment year 2024_25. Append extra ``sources`` / ``rules`` here.
+# Empty sections are ignored by the composer.
+sources: []
+rules: []

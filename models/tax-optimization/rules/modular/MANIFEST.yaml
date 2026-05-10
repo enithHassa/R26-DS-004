@@ -1,0 +1,14 @@
+# Ordered merge: later files override scalars in ``thresholds``; ``deductions`` keys merge;
+# ``apit_slabs`` / ``personal_relief_annual`` last non-null wins; ``sources`` / ``rules`` append.
+# Run: python scripts/compose_tax_opt_b_rules.py --manifest models/tax-optimization/rules/modular/MANIFEST.yaml
+
+output: models/tax-optimization/rules/compiled/it22064486_2024_25.yaml
+
+includes:
+  - core/meta_sources.yaml
+  - core/tax_slabs.yaml
+  - core/deductions.yaml
+  - core/reliefs_codes.yaml
+  - core/compliance_rules.yaml
+  # Add when you split income / exemptions: core/employment_income.yaml, ...
+  - yearly/ya_2024_25/overrides.yaml

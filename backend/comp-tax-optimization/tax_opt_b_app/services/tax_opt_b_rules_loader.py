@@ -71,6 +71,9 @@ class TaxOptBRulePack:
     thresholds: TaxOptBThresholds
     allowed_relief_codes: frozenset[str]
     rules: tuple[TaxOptBRuleSpec, ...]
+    # Optional UI / Strategy Explorer: human labels and template strings (deterministic FR5).
+    relief_display_names: tuple[tuple[str, str], ...] = ()
+    search_explanation_templates: tuple[tuple[str, str], ...] = ()
 
 
 def _require_str(data: Mapping[str, Any], key: str, *, ctx: str) -> str:
@@ -179,6 +182,30 @@ def _parse_rules_list(rows: Any, *, ctx: str) -> tuple[TaxOptBRuleSpec, ...]:
     return tuple(_parse_rule_row(r, ctx=ctx, index=i) for i, r in enumerate(rows))
 
 
+def _parse_str_str_mapping(
+    raw: Any,
+    *,
+    ctx: str,
+    field: str,
+) -> tuple[tuple[str, str], ...]:
+    """Optional mapping of string keys to string values; sorted by key for stable packs."""
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        msg = f"{ctx}: {field} must be a mapping when present"
+        raise ValueError(msg)
+    pairs: list[tuple[str, str]] = []
+    for k, v in raw.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            msg = f"{ctx}.{field}: keys and values must be strings"
+            raise ValueError(msg)
+        ks, vs = k.strip(), v.strip()
+        if ks and vs:
+            pairs.append((ks, vs))
+    pairs.sort(key=lambda t: t[0])
+    return tuple(pairs)
+
+
 def parse_tax_opt_b_rules_dict(
     data: Mapping[str, Any],
     *,
@@ -207,6 +234,16 @@ def parse_tax_opt_b_rules_dict(
 
     rules = _parse_rules_list(data.get("rules"), ctx=ctx)
     sources = _parse_sources(data, ctx=ctx)
+    relief_names = _parse_str_str_mapping(
+        data.get("relief_display_names"),
+        ctx=ctx,
+        field="relief_display_names",
+    )
+    search_templates = _parse_str_str_mapping(
+        data.get("search_explanation_templates"),
+        ctx=ctx,
+        field="search_explanation_templates",
+    )
 
     return TaxOptBRulePack(
         path=path,
@@ -217,6 +254,8 @@ def parse_tax_opt_b_rules_dict(
         thresholds=thresholds,
         allowed_relief_codes=codes,
         rules=rules,
+        relief_display_names=relief_names,
+        search_explanation_templates=search_templates,
     )
 
 
