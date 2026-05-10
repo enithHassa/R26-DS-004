@@ -21,25 +21,22 @@ import uvicorn
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    app_dir = repo_root / "backend/comp-transaction-sementic/app"
+    component_dir = repo_root / "backend/comp-transaction-sementic"
 
-    # Future imports from ``backend.shared.*`` inside ``main.py`` need the repo root on sys.path.
-    root_str = str(repo_root)
-    if root_str not in sys.path:
-        sys.path.insert(0, root_str)
-    py_path = os.environ.get("PYTHONPATH", "")
-    if root_str not in py_path.split(os.pathsep):
-        os.environ["PYTHONPATH"] = (
-            root_str + (os.pathsep + py_path if py_path else "")
-        )
+    # Add both repo root (for backend.shared.*) and component dir (for app.* relative imports).
+    for path_str in [str(repo_root), str(component_dir)]:
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+        py_path = os.environ.get("PYTHONPATH", "")
+        if path_str not in py_path.split(os.pathsep):
+            os.environ["PYTHONPATH"] = path_str + (os.pathsep + py_path if py_path else "")
 
     uvicorn.run(
-        "main:app",
+        "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=True,
-        app_dir=str(app_dir),
-        reload_dirs=[str(app_dir)],
+        reload_dirs=[str(component_dir / "app")],
     )
 
 
