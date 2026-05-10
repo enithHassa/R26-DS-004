@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tax_opt_b_app.services.tax_opt_b_ml_features_v1 import build_ml_feature_matrix_v1
+from tax_opt_b_app.services.tax_opt_b_ml_features_v1 import (
+    build_ml_feature_matrix_v1,
+    build_ml_feature_matrix_v2,
+)
+from tax_opt_b_app.services.tax_opt_b_financial_strategy_presets import (
+    relief_max_claim_amounts_by_code,
+)
 from tax_opt_b_app.services.tax_opt_b_ml_ranking import (
     MlFeatureVersionMismatchError,
     file_sha256_hex,
@@ -82,12 +88,21 @@ def search_strategies_ml_rank(
     baseline_row = find_baseline_passing_row(passing_sorted, evaluation.baseline_candidate_id)
     baseline_tax = baseline_row[2] if baseline_row is not None else None
 
-    X = build_ml_feature_matrix_v1(
-        evaluation,
-        passing_sorted,
-        baseline_tax=baseline_tax,
-        matrix_layout=summary.inference_matrix_layout,
-    )
+    if summary.inference_matrix_layout == "v2_14_utility":
+        claimed_amounts = relief_max_claim_amounts_by_code(evaluation.profile, evaluation.pack)
+        X = build_ml_feature_matrix_v2(
+            evaluation,
+            passing_sorted,
+            baseline_tax=baseline_tax,
+            claimed_amounts=claimed_amounts,
+        )
+    else:
+        X = build_ml_feature_matrix_v1(
+            evaluation,
+            passing_sorted,
+            baseline_tax=baseline_tax,
+            matrix_layout=summary.inference_matrix_layout,
+        )
     scores_vec, latency_ms = measure_predict_latency_ms(estimator, X)
     score_by_id = {row[0].candidate_id: float(scores_vec[i]) for i, row in enumerate(passing_sorted)}
 
@@ -148,6 +163,12 @@ def search_strategies_ml_rank(
         synthetic_training_data_disclaimer=summary.synthetic_training_data_disclaimer,
         compliance_assertion=COMPLIANCE_ASSERTION,
         inference_latency_ms=latency_ms,
+        utility_alpha=summary.utility_alpha,
+        optimization_objective_label=(
+            f"Pareto utility (α={summary.utility_alpha}: {int(summary.utility_alpha * 100)}% tax savings, "
+            f"{int((1 - summary.utility_alpha) * 100)}% liquidity efficiency)"
+            if summary.utility_alpha is not None else None
+        ),
     )
 
     return assemble_search_strategies_response(
@@ -160,6 +181,10 @@ def search_strategies_ml_rank(
         baseline_tax=baseline_tax,
         rules_version_label=rules_version_label,
         optimization_mode="ml_assisted_grid_ranking",
-        optimization_objective=f"ml_assisted_priority;rule_tie_break={body.rank_by}",
+        optimization_objective=(
+            f"pareto_utility;alpha={summary.utility_alpha};rule_tie_break={body.rank_by}"
+            if summary.inference_matrix_layout == "v2_14_utility"
+            else f"ml_assisted_priority;rule_tie_break={body.rank_by}"
+        ),
         ml_meta=ml_meta,
     )

@@ -112,6 +112,11 @@ export function SearchStrategiesTable({
                 <th className="px-4 py-3">Strategy</th>
                 <th className="px-4 py-3 text-right">Tax (LKR)</th>
                 <th className="px-4 py-3 text-right">Saves vs baseline</th>
+                {mlAssisted && (
+                  <th className="px-4 py-3" title="How much upfront cash is needed to claim these reliefs">
+                    AI Ranking
+                  </th>
+                )}
                 <th className="px-4 py-3">Compliant</th>
                 <th className="px-4 py-3">Detail</th>
               </tr>
@@ -149,9 +154,6 @@ export function SearchStrategiesTable({
                       <div className="max-w-md font-medium leading-snug text-foreground">
                         {displayStrategyName(row.display_name)}
                       </div>
-                      {row.optimization_summary ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{row.optimization_summary}</p>
-                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-right align-top tabular-nums">
                       {formatLkrAmount(parseDecimalSafe(row.total_tax) ?? row.total_tax)}
@@ -166,6 +168,17 @@ export function SearchStrategiesTable({
                     >
                       {saves.text}
                     </td>
+                    {mlAssisted && (
+                      <td className="px-4 py-3 align-top">
+                        {row.ml_assist_rank != null && row.rule_only_rank != null && row.ml_assist_rank !== row.rule_only_rank ? (
+                          <span className="rounded-full bg-emerald-600/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-200">
+                            ↓ Lower cost
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-4 py-3 align-top">
                       {compliant ? (
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">Yes</span>
