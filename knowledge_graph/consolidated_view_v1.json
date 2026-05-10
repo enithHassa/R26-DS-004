@@ -1,0 +1,21 @@
+{
+  "spec_version": "1.0.0",
+  "phase": "3a-step10",
+  "title": "Consolidated edition — view anchors and trace edges",
+  "purpose": "A consolidated Act PDF merges amendments into one reading text. To keep traceability honest, introduce :ConsolidatedViewPassage anchors in the graph and link them to underlying :Section and :LawInstrument nodes (not only :TextChunk from the consolidated file).",
+  "ontology_ref": "knowledge_graph/ontology_v1.json (v1.2.0+)",
+  "anchor_id_formula": "{source_doc_id}::cv::{slug(consolidated_as_of)}::{slug(section_uid or chunk_id)} — see scripts/kg_consolidated_view_lib.py",
+  "relationships": [
+    "VIEW_IN_INSTRUMENT — anchor → consolidated LawInstrument",
+    "VIEW_TRACES_TO_SECTION — anchor → underlying Section (statute or amendment section node)",
+    "VIEW_TRACES_TO_INSTRUMENT — anchor → contributing amendment LawInstrument (optional)"
+  ],
+  "ingest": {
+    "anchors_jsonl": "scripts/neo4j_load_consolidated_anchors.py",
+    "trace_edges_jsonl": "scripts/neo4j_load_curated_edges.py (same format as Step 7)"
+  },
+  "examples": {
+    "anchors": "knowledge_graph/examples/consolidated_view_anchor_rows.jsonl",
+    "edges": "knowledge_graph/examples/consolidated_view_trace_edges_sample.jsonl"
+  }
+}

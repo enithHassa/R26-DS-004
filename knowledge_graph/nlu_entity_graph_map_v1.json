@@ -1,0 +1,100 @@
+{
+  "map_version": "1.0.0",
+  "phase": "3a-step11",
+  "title": "NLU entity type → Knowledge Graph resolution",
+  "description": "For each predicted NLU entity slot, defines the target Neo4j label, how to match extracted text to a node id, and what to do when resolution fails. Aligns with ontology_v1 node labels; extend when new entity types are added to Phase 2 benchmarks.",
+  "global_fallback_order": [
+    "Try primary match strategy on target label",
+    "Try secondary properties if configured",
+    "Apply fallback_behavior for this entity type"
+  ],
+  "fallback_behaviors_documented": {
+    "clarify": "Do not guess; ask the user a targeted follow-up (see fallback_user_hint).",
+    "skip": "Omit this entity from graph traversal; continue with other context.",
+    "nearest_concept": "Optional Phase 4: fuzzy match Concept.aliases under confidence floor (not implemented in v1)."
+  },
+  "entity_types": [
+    {
+      "nlu_entity_type": "relief_type",
+      "description": "Deduction / credit / exemption family (e.g. personal relief, donation relief).",
+      "target_node_label": "Relief",
+      "match": {
+        "strategy": "property_exact_ci",
+        "id_property": "relief_id",
+        "also_try_properties": ["display_name", "statutory_label"]
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "Which relief or deduction do you mean (e.g. personal relief, donation relief)?"
+    },
+    {
+      "nlu_entity_type": "income_category",
+      "description": "Broad income class (employment, business, investment, …).",
+      "target_node_label": "Concept",
+      "match": {
+        "strategy": "concept_alias_ci",
+        "id_property": "concept_id",
+        "alias_source": "Concept.aliases + canonical_name"
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "Which type of income are you asking about?"
+    },
+    {
+      "nlu_entity_type": "residence_status",
+      "description": "Resident vs non-resident / days-in-country style cues.",
+      "target_node_label": "Concept",
+      "match": {
+        "strategy": "concept_alias_ci",
+        "id_property": "concept_id",
+        "alias_source": "Concept.aliases + canonical_name"
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "Are you asking about tax residence in Sri Lanka specifically?"
+    },
+    {
+      "nlu_entity_type": "assessment_year",
+      "description": "Year of assessment / tax year (numeric or FY label).",
+      "target_node_label": null,
+      "match": {
+        "strategy": "metadata_only",
+        "notes": "No single canonical node; pass to symbolic engine / filter lex_effective_* windows in Phase 4."
+      },
+      "fallback_behavior": "skip",
+      "fallback_user_hint": null
+    },
+    {
+      "nlu_entity_type": "monetary_amount",
+      "description": "Currency amounts; rarely maps to one graph node without context.",
+      "target_node_label": null,
+      "match": {
+        "strategy": "metadata_only",
+        "notes": "Use with RateBand or procedural rules in Phase 5; do not MERGE a node from amount alone."
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "What should this amount be compared against (e.g. relief cap, tax band)?"
+    },
+    {
+      "nlu_entity_type": "statute_section_ref",
+      "description": "User cites 'Section N' or schedule reference string.",
+      "target_node_label": "Section",
+      "match": {
+        "strategy": "section_uid_from_context",
+        "id_property": "section_uid",
+        "notes": "Compose section_uid from resolved LawInstrument source_doc_id + normalized section_label; requires active instrument context from intent or retrieval."
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "Which Act or document should this section refer to (e.g. IRA 2017 consolidated)?"
+    },
+    {
+      "nlu_entity_type": "law_instrument_ref",
+      "description": "Named Act, amendment, or circular (short title).",
+      "target_node_label": "LawInstrument",
+      "match": {
+        "strategy": "property_exact_ci",
+        "id_property": "source_doc_id",
+        "also_try_properties": ["title", "version_label"]
+      },
+      "fallback_behavior": "clarify",
+      "fallback_user_hint": "Which official document edition do you mean (see IRD manifest source_doc_id)?"
+    }
+  ]
+}

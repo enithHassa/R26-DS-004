@@ -1,0 +1,44 @@
+{
+  "lex_version": "1.0.0",
+  "phase": "3a-step8",
+  "title": "Lex Specialis — node metadata for conflict resolution",
+  "description": "Nodes that can participate in legal conflict (LawInstrument, Section, TextChunk in pilot ETL) carry authority_class, authority_weight_numeric, specificity_rank, and lex-effective dates. Guides and drafts are weaker than statute; amendments/consolidated editions are modelled with higher specificity_rank. Phase 4+ can combine these with OVERRIDES/MODIFIES edges.",
+  "node_properties": {
+    "authority_class": "Closed vocabulary string inferred from tier, instrument_type, doc_type, is_draft (see scripts/kg_lex_specialis_lib.py).",
+    "authority_weight_numeric": "Float in [0, 1]. Uses manifest authority_weight when parseable; else default for authority_class.",
+    "specificity_rank": "Integer; higher means more specific for tie-breaking within the same time window.",
+    "lex_effective_from": "ISO-ish date string from effective_start_date / effective_from when present; null if unknown.",
+    "lex_effective_to": "From effective_end_date when non-empty; else null."
+  },
+  "precedence_order": [
+    "hub_summary",
+    "draft_guide",
+    "other",
+    "guide",
+    "circular",
+    "ruling",
+    "consolidated",
+    "statute",
+    "amendment"
+  ],
+  "notes": [
+    "When two rules overlap in time, prefer higher specificity_rank; if tied, prefer later entry in precedence_order.",
+    "OVERRIDES edges (Step 3c) can encode explicit 'beats' relationships; these fields support ranking when traversing without explicit override edges."
+  ],
+  "section_specificity_bonus": 5,
+  "classes": {
+    "hub_summary": { "default_weight": 0.35, "base_specificity_rank": 20 },
+    "draft_guide": { "default_weight": 0.3, "base_specificity_rank": 28 },
+    "other": { "default_weight": 0.4, "base_specificity_rank": 40 },
+    "guide": { "default_weight": 0.55, "base_specificity_rank": 45 },
+    "circular": { "default_weight": 0.65, "base_specificity_rank": 55 },
+    "ruling": { "default_weight": 0.68, "base_specificity_rank": 58 },
+    "consolidated": { "default_weight": 0.92, "base_specificity_rank": 88 },
+    "statute": { "default_weight": 1.0, "base_specificity_rank": 85 },
+    "amendment": { "default_weight": 0.98, "base_specificity_rank": 95 }
+  },
+  "implementations": {
+    "python_module": "scripts/kg_lex_specialis_lib.py",
+    "etl_integration": "scripts/kg_etl_lib.py"
+  }
+}

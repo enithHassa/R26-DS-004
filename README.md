@@ -89,6 +89,12 @@ Before adding new code in shared folders or component folders, follow:
 
 This keeps model-specific and common code separated while avoiding breaking changes for teammates.
 
+## Language model research — phase runbook (tests & corpus)
+
+**Component 4 (Intelligent Tax Advisory Language Model):** step-by-step commands for **Phase 1**, **Phase 1b**, and placeholders for later phases live in one file so you can copy-paste without hunting through chat history.
+
+- **[docs/PHASES_RUNBOOK.md](docs/PHASES_RUNBOOK.md)** — run tests, IRD corpus pipeline, SQLite/QA; Phase 2 **M5** [`evaluation/frozen/`](evaluation/frozen/); **Steps 6–8** leaderboard / CI smoke / handoff report; **Step 9** [`scripts/phase2_split_benchmark.py`](scripts/phase2_split_benchmark.py); **Step 10** held-out eval; **Step 11** dense retrieval ([`backend/requirements-retrieval-dense.txt`](backend/requirements-retrieval-dense.txt)); **Step 12** NLU API dense; **Step 13** retrieval MRR + [`scripts/phase2_merge_benchmark_splits.py`](scripts/phase2_merge_benchmark_splits.py); **Step 14** [`POST /api/v1/query`](docs/PHASES_RUNBOOK.md) (citations).
+
 ## Recommended Common Environment (for all users)
 
 - OS: macOS, Linux, or Windows (WSL2 preferred for Windows)
@@ -182,6 +188,77 @@ docker compose -f docker/docker-compose.yml up -d postgres
 
 ## Running the services
 
+### Component 4 — Language model backend + API gateway + frontend (this module)
+
+The **dashboard** (`frontend/`) sends browser calls to **`/api` → API gateway (`:8000`)**. Routes under **`/api/v1/llm/**`** are proxied to the **language-model service** (default **`http://127.0.0.1:8004`**, see `COMP_LLM_URL` in `backend/shared/config/settings.py` or `.env`). You need **three terminals** from the repo root (or use your IDE run configs).
+
+**Windows (PowerShell)**
+
+```powershell
+# Terminal 1 — Language model (Component 4), port 8004
+$env:PYTHONPATH = "backend/comp-language-model;$PWD"
+# Optional — Phase 2 retrieval + intent + citations (paths relative to repo root):
+# $env:COMP_LLM_CORPUS_JSONL = "data/processed/corpus_v1.jsonl"
+# $env:COMP_LLM_INTENT_BENCHMARK_JSONL = "evaluation/benchmark_seed_template.jsonl"
+# $env:COMP_LLM_RETRIEVAL_BACKEND = "tfidf"   # or "dense" after: pip install -r backend/requirements-retrieval-dense.txt
+.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
+  --app-dir backend/comp-language-model --reload --host 127.0.0.1 --port 8004
+```
+
+```powershell
+# Terminal 2 — API gateway, port 8000 (if the port is busy, stop the other process first)
+$env:PYTHONPATH = "backend/api-gateway;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
+  --app-dir backend/api-gateway --reload --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# Terminal 3 — Frontend (Vite)
+cd frontend
+npm install   # first time only
+npm run dev   # http://127.0.0.1:5173 (see terminal if another port is used)
+```
+
+**Linux / macOS / Git Bash**
+
+```bash
+cd /path/to/R26-DS-004
+source .venv-backend/bin/activate
+export PYTHONPATH="backend/comp-language-model:${PYTHONPATH:-.}"
+# Optional: export COMP_LLM_CORPUS_JSONL=... COMP_LLM_INTENT_BENCHMARK_JSONL=...
+uvicorn app.main:app --app-dir backend/comp-language-model --reload --host 127.0.0.1 --port 8004
+```
+
+```bash
+# Second terminal
+source .venv-backend/bin/activate
+export PYTHONPATH="backend/api-gateway:${PYTHONPATH:-.}"
+uvicorn app.main:app --app-dir backend/api-gateway --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
+# Third terminal
+cd frontend && npm install && npm run dev
+```
+
+**Quick URLs**
+
+| What | URL |
+|------|-----|
+| Language model OpenAPI | http://127.0.0.1:8004/docs |
+| Gateway health | http://127.0.0.1:8000/health |
+| NLU parse (via gateway) | `POST http://127.0.0.1:8000/api/v1/llm/nlu/parse` |
+| Query + citations (via gateway) | `POST http://127.0.0.1:8000/api/v1/llm/query` |
+| **Dashboard — Language Model** (after `npm run dev`) | http://127.0.0.1:5173/language-model/nlu and …/query |
+
+The sidebar section **Language Model** links to **NLU parse** and **Law query** pages (`frontend/src/features/language-model/`). They call the gateway at `/api/v1/llm/nlu/parse` and `/api/v1/llm/query`.
+
+Frontend dev server proxies **`/api`** to the gateway (`VITE_API_BASE_URL`, default `http://127.0.0.1:8000`). More detail: [docs/PHASES_RUNBOOK.md](docs/PHASES_RUNBOOK.md) (Dashboard + Phase 2 env vars).
+
+---
+
+### Other backends (optimization, recommendation) + gateway
+
 ```bash
 source .venv-backend/bin/activate
 
@@ -195,16 +272,13 @@ PYTHONPATH=. uvicorn app.main:app \
   --app-dir backend/comp-personalized-recommendation \
   --reload --port 8003
 
-# API Gateway (proxies /api/v1/recommendation/** and /api/v1/optimization/**)
+# API Gateway (proxies /api/v1/recommendation/**, /api/v1/optimization/**, /api/v1/llm/**, …)
 PYTHONPATH=. uvicorn app.main:app \
   --app-dir backend/api-gateway \
   --reload --port 8000
 ```
 
-```bash
-# Dashboard
-cd frontend && npm install && npm run dev     # http://localhost:5173
-```
+Use this block when you need the **tax optimization explorer** (direct Vite proxy to `:8002`) and related services; see the runbook **Dashboard** section for the full four-backend layout.
 
 ## Quality gates
 
