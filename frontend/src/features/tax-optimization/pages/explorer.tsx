@@ -81,11 +81,13 @@ export function ExplorerPage() {
   const [maxCandidates] = useState("500");
   const [includeExplanations, setIncludeExplanations] = useState(true);
   const [explanationDetail] = useState<"summary" | "detailed">("summary");
-  const [rankingMode, setRankingMode] = useState<"rule_only" | "ml_assisted">("rule_only");
+  const [includeAiAnalysis, setIncludeAiAnalysis] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<TaxOptBSearchStrategiesResponseV1 | null>(null);
+  const [mlError, setMlError] = useState<string | null>(null);
+  const [ruleData, setRuleData] = useState<TaxOptBSearchStrategiesResponseV1 | null>(null);
+  const [mlData, setMlData] = useState<TaxOptBSearchStrategiesResponseV1 | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = useCallback((candidateId: string) => {
@@ -140,59 +142,67 @@ export function ExplorerPage() {
 
   const onRun = async () => {
     setError(null);
-    setData(null);
+    setMlError(null);
+    setRuleData(null);
+    setMlData(null);
     setLoading(true);
     try {
-      const out =
-        rankingMode === "ml_assisted"
-          ? await postSearchStrategiesMlRank(buildMlPayload())
-          : await postSearchStrategiesFromFinancialInputs(buildPayload());
-      setData(out);
+      if (includeAiAnalysis) {
+        const [ruleResult, mlResult] = await Promise.allSettled([
+          postSearchStrategiesFromFinancialInputs(buildPayload()),
+          postSearchStrategiesMlRank(buildMlPayload()),
+        ]);
+        if (ruleResult.status === "rejected") {
+          setError(ruleResult.reason instanceof Error ? ruleResult.reason.message : String(ruleResult.reason));
+          return;
+        }
+        setRuleData(ruleResult.value);
+        if (mlResult.status === "rejected") {
+          setMlError(mlResult.reason instanceof Error ? mlResult.reason.message : String(mlResult.reason));
+        } else {
+          setMlData(mlResult.value);
+        }
+      } else {
+        const result = await postSearchStrategiesFromFinancialInputs(buildPayload());
+        setRuleData(result);
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const baselineRow = data?.rows.find((r) => r.candidate_id === data.baseline_candidate_id);
-  const bestRow = data?.rows[0];
+  const baselineRow = ruleData?.rows.find((r) => r.candidate_id === ruleData.baseline_candidate_id);
+  const ruleBestRow = ruleData?.rows[0];
+  const mlBestRow = mlData?.rows[0];
+  const strategiesAgree =
+    mlBestRow != null &&
+    ruleBestRow != null &&
+    mlBestRow.candidate_id === ruleBestRow.candidate_id;
+  const hybridBestRow = mlBestRow ?? ruleBestRow;
+  const hybridIsAi = mlBestRow != null;
 
-  const savingsPct =
-    baselineRow && bestRow
-      ? (() => {
-          const b = parseFloat(baselineRow.total_tax);
-          const t = parseFloat(bestRow.total_tax);
-          if (!Number.isFinite(b) || !Number.isFinite(t) || b <= 0) return null;
-          return (((b - t) / b) * 100).toFixed(1);
-        })()
-      : null;
-
-  const savingsLkr =
-    baselineRow && bestRow
-      ? (() => {
-          const b = parseDecimalSafe(baselineRow.total_tax);
-          const t = parseDecimalSafe(bestRow.total_tax);
-          if (b == null || t == null) return null;
-          return Math.max(0, b - t);
-        })()
-      : null;
+  function computeSavings(baseline: string | null | undefined, best: string | null | undefined) {
+    const b = parseDecimalSafe(baseline);
+    const t = parseDecimalSafe(best);
+    if (b == null || t == null || b <= 0) return { lkr: null, pct: null };
+    const lkr = Math.max(0, b - t);
+    const pct = (((b - t) / b) * 100).toFixed(1);
+    return { lkr, pct };
+  }
 
   const tableRankedBySubtitle = useMemo(
     () =>
-      rankingMode === "ml_assisted"
+      mlData
         ? "Ranked by AI recommendation among compliant strategies"
         : "Ranked by lowest total tax",
-    [rankingMode],
+    [mlData],
   );
 
   const rankingLine = useMemo(
-    () =>
-      `Assessment year ${LOCKED_TAX_YEAR_LABEL} · ${
-        rankingMode === "ml_assisted" ? "AI-assisted" : "Rule-based"
-      } ranking`,
-    [rankingMode],
+    () => `Assessment year ${LOCKED_TAX_YEAR_LABEL} · Rule-based${mlData ? " + AI analysis" : " ranking"}`,
+    [mlData],
   );
 
   return (
@@ -300,58 +310,31 @@ export function ExplorerPage() {
             <div className="hidden md:block" aria-hidden />
           </div>
 
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-foreground">Ranking method</span>
-            <div
-              className="flex flex-wrap gap-2 rounded-lg border border-border/80 bg-muted/20 p-1"
-              role="group"
-              aria-label="Ranking method"
-            >
-              <button
-                type="button"
-                onClick={() => setRankingMode("rule_only")}
-                className={`flex min-w-[140px] flex-1 flex-col rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                  rankingMode === "rule_only"
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Rule-based
-                <span className="mt-0.5 text-xs font-normal text-muted-foreground">
-                  Sort by lowest total tax
+          <div className="flex flex-col gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={includeExplanations}
+                onChange={(e) => setIncludeExplanations(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              Include explanation notes
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={includeAiAnalysis}
+                onChange={(e) => setIncludeAiAnalysis(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <span>
+                Include AI analysis{" "}
+                <span className="rounded bg-violet-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                  AI
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRankingMode("ml_assisted")}
-                className={`flex min-w-[140px] flex-1 flex-col rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                  rankingMode === "ml_assisted"
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-violet-500/30"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className="flex flex-wrap items-center gap-2">
-                  AI-assisted
-                  <span className="rounded bg-violet-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
-                    AI
-                  </span>
-                </span>
-                <span className="mt-0.5 text-xs font-normal text-muted-foreground">
-                  AI predicts the highest-saving strategy
-                </span>
-              </button>
-            </div>
+              </span>
+            </label>
           </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={includeExplanations}
-              onChange={(e) => setIncludeExplanations(e.target.checked)}
-              className="h-4 w-4 rounded border-input"
-            />
-            Include explanation notes
-          </label>
 
           <Button
             type="button"
@@ -385,31 +368,42 @@ export function ExplorerPage() {
         </Card>
       ) : null}
 
-      {data?.optimization_meta ? (
+      {mlError && !error ? (
+        <Card className="rounded-xl border border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/20">
+          <CardContent className="px-6 py-4">
+            <p className="text-sm text-amber-900 dark:text-amber-100">
+              <span className="font-semibold">AI analysis unavailable: </span>
+              The AI ranking service timed out or returned an error. Rule-based results are shown below.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {ruleData?.optimization_meta ? (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-muted/40 px-4 py-4">
               <p className="text-xs font-medium text-muted-foreground">Strategies evaluated</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                {data.optimization_meta.strategies_evaluated}
+                {ruleData.optimization_meta.strategies_evaluated}
               </p>
             </div>
             <div className="rounded-lg bg-muted/40 px-4 py-4">
               <p className="text-xs font-medium text-muted-foreground">Legal strategies</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                {data.optimization_meta.legal_strategies_count}
+                {ruleData.optimization_meta.legal_strategies_count}
               </p>
             </div>
             <div className="rounded-lg bg-muted/40 px-4 py-4">
               <p className="text-xs font-medium text-muted-foreground">Rejected</p>
               <p
                 className={`mt-1 text-2xl font-semibold tabular-nums ${
-                  data.optimization_meta.rejected_strategies_count > 0
+                  ruleData.optimization_meta.rejected_strategies_count > 0
                     ? "text-destructive"
                     : "text-muted-foreground"
                 }`}
               >
-                {data.optimization_meta.rejected_strategies_count}
+                {ruleData.optimization_meta.rejected_strategies_count}
               </p>
             </div>
           </div>
@@ -417,11 +411,12 @@ export function ExplorerPage() {
         </div>
       ) : null}
 
-      {data && baselineRow && bestRow ? (
+      {ruleData && baselineRow && hybridBestRow ? (
         <Card className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
           <div className="h-1 w-full bg-gradient-to-r from-emerald-600/80 via-primary to-emerald-800/60" aria-hidden />
-          <div className="p-6">
+          <div className="space-y-4 p-6">
             <div className="grid gap-4 md:grid-cols-2">
+              {/* Baseline — no relief */}
               <div className="rounded-xl border border-border/80 bg-muted/20 p-5">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Without any relief
@@ -435,66 +430,98 @@ export function ExplorerPage() {
                   </p>
                 ) : null}
               </div>
-              <div className="rounded-xl border border-emerald-600/35 bg-card p-5 shadow-sm ring-1 ring-emerald-600/15">
+
+              {/* Single hybrid recommendation */}
+              <div
+                className={`rounded-xl border p-5 shadow-sm ring-1 bg-card ${
+                  hybridIsAi
+                    ? "border-violet-600/35 ring-violet-600/15"
+                    : "border-amber-500/35 ring-amber-500/15"
+                }`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-                    Recommended
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${
+                      hybridIsAi ? "bg-violet-600" : "bg-amber-500"
+                    }`}
+                  >
+                    Recommended strategy
                   </span>
-                  {data.ml_meta ? (
-                    <span className="rounded-full bg-violet-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-                      AI-assisted
-                    </span>
-                  ) : null}
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      hybridIsAi
+                        ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                    }`}
+                  >
+                    {hybridIsAi ? "AI-powered" : "Rule-based"}
+                  </span>
                 </div>
                 <p className="mt-3 text-base font-semibold leading-snug text-foreground">
-                  {displayStrategyName(bestRow.display_name)}
+                  {displayStrategyName(hybridBestRow.display_name)}
                 </p>
                 <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-                  {formatLkrAmount(parseDecimalSafe(bestRow.total_tax) ?? bestRow.total_tax)}
+                  {formatLkrAmount(parseDecimalSafe(hybridBestRow.total_tax) ?? hybridBestRow.total_tax)}
                 </p>
-                {savingsLkr != null && savingsLkr > 0 ? (
-                  <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                    You save {formatLkrAmount(savingsLkr)}
-                    {savingsPct != null ? ` (${savingsPct}% less than no reliefs)` : ""}
-                  </p>
-                ) : null}
-                {formatEffectiveRate(bestRow.effective_rate) ? (
+                {(() => {
+                  const { lkr, pct } = computeSavings(baselineRow.total_tax, hybridBestRow.total_tax);
+                  return lkr != null && lkr > 0 ? (
+                    <p className="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                      You save {formatLkrAmount(lkr)}{pct != null ? ` (${pct}% less than no reliefs)` : ""}
+                    </p>
+                  ) : null;
+                })()}
+                {formatEffectiveRate(hybridBestRow.effective_rate) ? (
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Effective rate {formatEffectiveRate(bestRow.effective_rate)}
+                    Effective rate {formatEffectiveRate(hybridBestRow.effective_rate)}
                   </p>
                 ) : null}
               </div>
             </div>
+
+            {/* Context note */}
+            {hybridIsAi && !strategiesAgree && ruleBestRow ? (
+              <div className="rounded-lg border border-muted bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">How this was chosen: </span>
+                {mlData?.ml_meta?.utility_alpha != null
+                  ? `The AI weighted ${Math.round(mlData.ml_meta.utility_alpha * 100)}% on tax savings and ${Math.round((1 - mlData.ml_meta.utility_alpha) * 100)}% on upfront cash required.`
+                  : "The AI balanced tax savings against upfront cash required."}{" "}
+                A higher-deduction option ({displayStrategyName(ruleBestRow.display_name)}) achieves{" "}
+                {formatLkrAmount(parseDecimalSafe(ruleBestRow.total_tax) ?? ruleBestRow.total_tax)} tax but requires
+                more upfront cash outlay — compare strategies in the table below to decide what fits your situation.
+              </div>
+            ) : hybridIsAi && strategiesAgree ? (
+              <div className="rounded-lg border border-emerald-600/25 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-600/30 dark:bg-emerald-950/40 dark:text-emerald-50">
+                Both the AI and rule-based analysis agree — this strategy gives the lowest tax and is also the most practical choice.
+              </div>
+            ) : null}
           </div>
         </Card>
       ) : null}
 
-      {data?.top_rank_explanation ? (
+      {(mlData ?? ruleData)?.top_rank_explanation ? (
         <Card className="rounded-xl border border-border/80 bg-card shadow-sm">
           <CardHeader className="p-6 pb-2">
             <CardTitle className="text-base font-semibold">Why this strategy?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 px-6 pb-6 pt-0">
-            {data.ml_meta?.utility_alpha != null ? (
+            {mlData?.ml_meta?.utility_alpha != null ? (
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100">
-                  Ranked by Pareto utility (α={data.ml_meta.utility_alpha})
+                  Ranked by Pareto utility (α={mlData.ml_meta.utility_alpha})
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {Math.round(data.ml_meta.utility_alpha * 100)}% savings · {Math.round((1 - data.ml_meta.utility_alpha) * 100)}% liquidity
+                  {Math.round(mlData.ml_meta.utility_alpha * 100)}% savings · {Math.round((1 - mlData.ml_meta.utility_alpha) * 100)}% liquidity
                 </span>
               </div>
             ) : null}
             <div className="rounded-lg border border-emerald-700/25 bg-emerald-50 px-4 py-3 text-sm font-medium leading-relaxed text-emerald-950 dark:border-emerald-600/40 dark:bg-emerald-950/55 dark:text-emerald-50">
-              {sanitizeExplorerExplanationText(data.top_rank_explanation.headline)}
+              {sanitizeExplorerExplanationText((mlData ?? ruleData)!.top_rank_explanation!.headline)}
             </div>
             <ul className="space-y-3">
-              {data.top_rank_explanation.bullets.map((b, i) => (
+              {(mlData ?? ruleData)!.top_rank_explanation!.bullets.map((b, i) => (
                 <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground">
-                  <Check
-                    className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-                    aria-hidden
-                  />
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
                   <span>{sanitizeExplorerExplanationText(b)}</span>
                 </li>
               ))}
@@ -503,22 +530,22 @@ export function ExplorerPage() {
         </Card>
       ) : null}
 
-      {data?.ml_meta?.utility_alpha != null ? (
+      {mlData?.ml_meta?.utility_alpha != null ? (
         <Card className="rounded-xl border border-violet-600/30 bg-violet-50/40 dark:bg-violet-950/20 shadow-sm">
           <CardContent className="px-6 py-4">
             <div className="flex flex-wrap items-start gap-3">
-              <span className="mt-0.5 rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100 shrink-0">
+              <span className="mt-0.5 shrink-0 rounded-full bg-violet-600/15 px-2.5 py-0.5 text-xs font-semibold text-violet-900 dark:text-violet-100">
                 AI Ranking Method
               </span>
               <p className="text-sm leading-relaxed text-foreground">
                 <span className="font-semibold">
-                  {data.ml_meta.optimization_objective_label ?? `Pareto utility (α=${data.ml_meta.utility_alpha})`}
+                  {mlData.ml_meta.optimization_objective_label ?? `Pareto utility (α=${mlData.ml_meta.utility_alpha})`}
                 </span>
                 {" — "}
                 This model balances{" "}
-                <span className="font-medium">{Math.round(data.ml_meta.utility_alpha * 100)}% weight on tax savings</span>
+                <span className="font-medium">{Math.round(mlData.ml_meta.utility_alpha * 100)}% weight on tax savings</span>
                 {" and "}
-                <span className="font-medium">{Math.round((1 - data.ml_meta.utility_alpha) * 100)}% on financial practicality</span>
+                <span className="font-medium">{Math.round((1 - mlData.ml_meta.utility_alpha) * 100)}% on financial practicality</span>
                 {" "}(how much upfront cash each strategy requires). A strategy needing less cash may rank higher than one with slightly more savings.
               </p>
             </div>
@@ -526,28 +553,33 @@ export function ExplorerPage() {
         </Card>
       ) : null}
 
-      {data && baselineRow && bestRow ? (
+      {ruleData && baselineRow && ruleBestRow ? (
         <Card className="rounded-xl border border-border/80 bg-card p-6 shadow-sm">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-base font-semibold">Tax comparison</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ExplorerCharts data={data} baselineRow={baselineRow} bestRow={bestRow} mlAssisted={!!data.ml_meta} />
+            <ExplorerCharts
+              data={mlData ?? ruleData}
+              baselineRow={baselineRow}
+              bestRow={hybridBestRow}
+              mlAssisted={!!mlData?.ml_meta}
+            />
           </CardContent>
         </Card>
       ) : null}
 
       <SearchStrategiesTable
-        data={data}
+        data={mlData ?? ruleData}
         expanded={expanded}
         onToggleExpand={toggleExpand}
-        mlAssisted={Boolean(data?.ml_meta)}
-        baselineCandidateId={data?.baseline_candidate_id ?? null}
+        mlAssisted={Boolean(mlData?.ml_meta)}
+        baselineCandidateId={(mlData ?? ruleData)?.baseline_candidate_id ?? null}
         rankedBySubtitle={tableRankedBySubtitle}
       />
 
-      {data?.explanations ? (
-        <ExplanationPanel bundle={data.explanations} title="AI advisory narrative" presentation="advisory" />
+      {(mlData ?? ruleData)?.explanations ? (
+        <ExplanationPanel bundle={(mlData ?? ruleData)!.explanations!} title="AI advisory narrative" presentation="advisory" />
       ) : null}
 
       <p className="text-center text-xs text-muted-foreground">
