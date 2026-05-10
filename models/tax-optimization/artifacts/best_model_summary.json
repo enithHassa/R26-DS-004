@@ -1,12 +1,21 @@
 {
   "schema_version": 1,
-  "model_id": "research_sklearn_random_forest_v1",
-  "feature_version": "v1",
-  "training_timestamp": "2026-05-09T05:22:57Z",
-  "model_joblib": "tax_opt_best_model_v1.joblib",
-  "feature_pipeline_joblib": "tax_opt_feature_pipeline_v1.joblib",
-  "artifact_sha256": "8ea1ed43f7c8f3907b0478dc26ec0d8a4315a4160d3dd6890f07b91cccc010e8",
-  "synthetic_training_data_disclaimer": "Research model from train_tax_opt_models_v1.py; rules engine remains authoritative.",
-  "target_name": "savings_vs_baseline_lkr",
-  "inference_matrix_layout": "v1_11_no_savings"
+  "model_id": "research_sklearn_random_forest_v2_utility_alpha0.7",
+  "feature_version": "v2",
+  "training_timestamp": "2026-05-09T20:15:10Z",
+  "model_joblib": "tax_opt_best_model_v2.joblib",
+  "feature_pipeline_joblib": "tax_opt_feature_pipeline_v2.joblib",
+  "artifact_sha256": "7f08a6e5eb95401c0906809bc2514de81fb81fa4716c24e14785a2adf664fc39",
+  "synthetic_training_data_disclaimer": "Research model (v2 Pareto utility, alpha=0.7) from train_tax_opt_models_v1.py; rules engine remains authoritative.",
+  "target_name": "utility_score",
+  "inference_matrix_layout": "v2_14_utility",
+  "utility_alpha": 0.7,
+  "ordered_codes": [
+    "charitable_donations",
+    "health_insurance_premium",
+    "home_loan_interest",
+    "life_insurance_premium",
+    "rent_relief",
+    "retirement_contribution"
+  ]
 }
