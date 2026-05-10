@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -118,8 +118,12 @@ function withTaxYearSanitize<T extends keyof ProfileForm>(
   };
 }
 
+function taxpayerName(total: number): string {
+  return `Taxpayer_${String(total + 1).padStart(5, "0")}`;
+}
+
 const defaultValues: ProfileForm = {
-  full_name: "Suppi Perera",
+  full_name: taxpayerName(0),
   age_band: "30-34",
   gender: "male",
   province: "Western",
@@ -179,6 +183,18 @@ export function ProfilePage() {
     queryFn: () => listProfiles({ page, page_size: 10 }),
   });
 
+  const countQuery = useQuery({
+    queryKey: ["profiles-count"],
+    queryFn: () => listProfiles({ page: 1, page_size: 1 }),
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (countQuery.data !== undefined) {
+      form.setValue("full_name", taxpayerName(countQuery.data.total));
+    }
+  }, [countQuery.data, form]);
+
   const featuresQuery = useQuery({
     queryKey: ["profile-features", selectedId],
     queryFn: () => getProfileFeatures(selectedId!),
@@ -187,10 +203,13 @@ export function ProfilePage() {
 
   const createMutation = useMutation({
     mutationFn: (payload: FinancialProfileCreate) => createProfile(payload),
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      await queryClient.invalidateQueries({ queryKey: ["profiles-count"] });
       setSelectedId(created.id);
-      reset(defaultValues);
+      const fresh = queryClient.getQueryData<{ total: number }>(["profiles-count"]);
+      const nextTotal = fresh?.total ?? (countQuery.data?.total ?? 0);
+      reset({ ...defaultValues, full_name: taxpayerName(nextTotal) });
     },
   });
 
@@ -246,7 +265,7 @@ export function ProfilePage() {
             <CardContent className="space-y-6">
               <Section title="Personal">
                 <Field label="Full name" error={errors.full_name?.message}>
-                  <Input {...register("full_name")} />
+                  <Input {...register("full_name")} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" />
                 </Field>
                 <Field label="Age band" error={errors.age_band?.message}>
                   <Select {...register("age_band")}>
@@ -441,7 +460,7 @@ export function ProfilePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => reset(defaultValues)}
+                onClick={() => reset({ ...defaultValues, full_name: taxpayerName(countQuery.data?.total ?? 0) })}
                 disabled={isSubmitting}
               >
                 Reset
