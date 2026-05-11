@@ -1,0 +1,94 @@
+{
+  "etl_spec_version": "1.0.0",
+  "etl_bundle_version_current": "1.1.0",
+  "etl_bundle_version_notes": {
+    "1.1.0": "LawInstrument, Section, TextChunk include Lex Specialis fields (lex_specialis_v1.json, Phase 3 Step 8)."
+  },
+  "phase": "3a-step4",
+  "title": "ETL: corpus_v1 chunk row → Neo4j nodes and edges (pilot)",
+  "ontology_ref": "knowledge_graph/ontology_v1.json",
+  "chunk_profile_ref": "knowledge_graph/chunk_metadata_kg_v1.json",
+  "proof_map_rule": "Every chunk_id MUST materialize exactly one :TextChunk {chunk_id} so citations always resolve.",
+  "idempotency": "All loads use MERGE on natural keys (source_doc_id, chunk_id, section_uid). Re-running the same JSONL is safe.",
+  "load_order": [
+    "1. MERGE LawInstrument by source_doc_id (properties from any chunk of that document).",
+    "2. MERGE TextChunk by chunk_id (properties from the row; text optional or externalized).",
+    "3. If section_uid is derivable: MERGE Section, then MERGE (Section)-[:PART_OF]->(LawInstrument).",
+    "4. MERGE exactly one HAS_CHUNK parent for the TextChunk: Section when present, otherwise LawInstrument.",
+    "5. Later stages (3b+): MODIFIES, SUPERSEDES, OVERRIDES, Concept/Relief/RateBand — not emitted by this chunk-only pilot."
+  ],
+  "section_uid": {
+    "formula": "{source_doc_id}::sec::{slug(section_label)}",
+    "slug_rules": "trim; lowercase; replace runs of non-alphanumeric with single underscore; strip leading/trailing underscores; empty slug → no Section node",
+    "source_for_section_label": "normalize_chunk_for_kg().section_label (section_ref or outline tail)"
+  },
+  "node_merge_keys": {
+    "LawInstrument": "source_doc_id",
+    "TextChunk": "chunk_id",
+    "Section": "section_uid"
+  },
+  "property_mappings": {
+    "LawInstrument": {
+      "source_doc_id": "chunk.source_doc_id",
+      "title": "chunk.title",
+      "instrument_type": "chunk.instrument_type",
+      "doc_type": "chunk.doc_type",
+      "tier": "chunk.tier",
+      "authority_weight": "chunk.authority_weight",
+      "is_draft": "chunk.is_draft",
+      "publication_date": "chunk.publication_date",
+      "effective_start_date": "chunk.effective_start_date",
+      "effective_end_date": "chunk.effective_end_date",
+      "version_label": "chunk.version_label",
+      "source_url": "chunk.source_url",
+      "language": "chunk.language"
+    },
+    "TextChunk": {
+      "chunk_id": "chunk.chunk_id",
+      "source_doc_id": "chunk.source_doc_id",
+      "corpus_version": "chunk.corpus_version",
+      "content_kind": "chunk.content_kind",
+      "page": "chunk.page",
+      "chunk_index": "chunk.chunk_index",
+      "tier": "chunk.tier",
+      "instrument_type": "chunk.instrument_type",
+      "layout_hint": "chunk.layout_hint",
+      "effective_from": "normalize_chunk_for_kg.effective_from",
+      "section_label": "normalize_chunk_for_kg.section_label",
+      "text": "chunk.text (optional in Neo4j if stored elsewhere)"
+    },
+    "Section": {
+      "section_uid": "computed",
+      "source_doc_id": "chunk.source_doc_id",
+      "section_label": "normalize_chunk_for_kg.section_label",
+      "effective_start_date": "chunk.effective_start_date",
+      "effective_end_date": "chunk.effective_end_date",
+      "heading_text": "null in pilot (fill in curated ETL later)"
+    }
+  },
+  "relationships_emitted_per_chunk": {
+    "always": [
+      "(Section|LawInstrument)-[:HAS_CHUNK]->(TextChunk) — exactly one parent by pilot rule"
+    ],
+    "when_section_present": [
+      "(Section)-[:PART_OF]->(LawInstrument)"
+    ],
+    "not_in_pilot": [
+      "DEFINES",
+      "MENTIONS",
+      "MODIFIES",
+      "SUPERSEDES",
+      "OVERRIDES",
+      "CITES",
+      "APPLIES_TO",
+      "DERIVED_FROM",
+      "COVERS_RELIEF"
+    ]
+  },
+  "implementations": {
+    "python_module": "scripts/kg_etl_lib.py",
+    "preview_cli": "scripts/export_kg_etl_preview.py",
+    "neo4j_loader_step6": "scripts/neo4j_load_corpus_chunks.py",
+    "merge_order_helper": "kg_etl_lib.bundle_nodes_merge_order"
+  }
+}

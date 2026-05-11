@@ -21,6 +21,7 @@ packaging==26.0
 pluggy==1.6.0
 psycopg2-binary==2.9.11
 pypdf==5.5.0
+pdfplumber==0.11.8
 pydantic==2.12.5
 pydantic-settings==2.9.1
 pydantic_core==2.41.5
@@ -38,3 +39,6 @@ starlette==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.42.0
+joblib==1.5.3
+scikit-learn==1.8.0
+pandas==3.0.2
