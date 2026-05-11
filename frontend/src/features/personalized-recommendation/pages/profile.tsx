@@ -145,7 +145,7 @@ const defaultValues: ProfileForm = {
   donations_annual: "0",
   risk_tolerance: "medium",
   investment_horizon_years: 15,
-  tax_year: "2024_25",
+  tax_year: "2026_27",
 };
 
 function formatLkr(value: string | number): string {
