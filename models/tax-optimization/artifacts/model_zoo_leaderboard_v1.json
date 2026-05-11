@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-05-09T05:22:57Z",
-  "train_table": "D:/R26-DS-004/R26-DS-004/models/tax-optimization/datasets/ml/training_persona_v1.parquet",
-  "train_table_sha256": "acae2f0fd0038e99a4bceaca36b5494ed11f8522e9d0469ee89f3f7fd2d6b741",
-  "feature_version": "v1",
+  "generated_at_utc": "2026-05-11T00:00:46Z",
+  "train_table": "D:/R26-DS-004/R26-DS-004/models/tax-optimization/datasets/ml/training_v2.parquet",
+  "train_table_sha256": "4c5721f559b7028b47e9c33168cf5c22d79a9852c1937020a863e7b0cb9a495e",
+  "feature_version": "v2",
   "protocol": {
     "split": "group_by_taxpayer_id",
     "split_method": "group_shuffle_sklearn",
@@ -11,19 +11,19 @@
     "val_frac": 0.15,
     "test_frac": 0.15,
     "random_state": 42,
-    "max_taxpayers_cap": null,
+    "max_taxpayers_cap": 300,
     "sklearn_ensemble_n_jobs": 1,
-    "rf_n_estimators": 400,
-    "et_n_estimators": 500,
-    "forest_max_depth": null,
+    "rf_n_estimators": 50,
+    "et_n_estimators": 50,
+    "forest_max_depth": 12,
     "feature_matrix_dtype": "float32",
-    "rows_total": 320000,
-    "rows_train": 224000,
-    "rows_val": 48000,
-    "rows_test": 48000,
-    "unique_taxpayers": 5000
+    "rows_total": 19200,
+    "rows_train": 13440,
+    "rows_val": 2880,
+    "rows_test": 2880,
+    "unique_taxpayers": 300
   },
-  "target": "savings_vs_baseline_lkr",
+  "target": "utility_score",
   "targets_documentation": {
     "savings_vs_baseline_lkr": {
       "paradigm": "regression",
@@ -60,6 +60,27 @@
         "baseline_tax_lkr"
       ],
       "caveats": "rule_rank_among_passing is discrete and ordinal within taxpayer; MSE/MAE/R2 treat it as real-valued. Prefer learning-to-rank or per-group models for research conclusions; this zoo entry is for coarse comparison only."
+    },
+    "utility_score": {
+      "paradigm": "regression",
+      "unit": "dimensionless (normalized LKR ratio)",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr",
+        "liquidity_cost_lkr",
+        "liquidity_to_income_ratio",
+        "n_high_cost_reliefs"
+      ],
+      "notes": "Multi-objective Pareto utility = alpha*norm_savings - (1-alpha)*norm_liquidity_cost. alpha=1.0. Liquidity cost computed from candidate_mask + income fields using rules-derived caps. Matches API inference_matrix_layout v2_14_utility."
     }
   },
   "feature_columns_X": [
@@ -73,39 +94,42 @@
     "n_included_relief_codes",
     "candidate_mask",
     "total_tax_lkr",
-    "baseline_tax_lkr"
+    "baseline_tax_lkr",
+    "liquidity_cost_lkr",
+    "liquidity_to_income_ratio",
+    "n_high_cost_reliefs"
   ],
   "models": [
     {
       "model": "sklearn_random_forest",
-      "val_mae": 10320.35226125,
-      "val_rmse": 145428.61401664122,
-      "val_r2": 0.9961275126461611,
-      "test_mae": 21502.352835989586,
-      "test_rmse": 571547.5538833978,
-      "test_r2": 0.929610223989226
+      "val_mae": 0.0011387592972070982,
+      "val_rmse": 0.0021284504438484116,
+      "val_r2": 0.9987751115805222,
+      "test_mae": 0.001137043876967114,
+      "test_rmse": 0.0019430400438643523,
+      "test_r2": 0.9986942652604728
     },
     {
       "model": "sklearn_extra_trees",
-      "val_mae": 10759.12160925,
-      "val_rmse": 154505.13734104566,
-      "val_r2": 0.9956290471000862,
-      "test_mae": 12576.606291624996,
-      "test_rmse": 293768.69853601,
-      "test_r2": 0.9814041565705985
+      "val_mae": 0.0020022849700628343,
+      "val_rmse": 0.003102882552726064,
+      "val_r2": 0.9973968444651224,
+      "test_mae": 0.0019683250316140013,
+      "test_rmse": 0.003264444591540537,
+      "test_r2": 0.9963143842091116
     },
     {
       "model": "sklearn_gradient_boosting",
-      "val_mae": 35971.96588269521,
-      "val_rmse": 290862.990857121,
-      "val_r2": 0.9845094367664167,
-      "test_mae": 39678.55285842738,
-      "test_rmse": 500576.4273290089,
-      "test_r2": 0.9460059839643703
+      "val_mae": 0.0032997621055153243,
+      "val_rmse": 0.004955363823387075,
+      "val_r2": 0.9933607268824086,
+      "test_mae": 0.0030987614460360777,
+      "test_rmse": 0.00471973796717138,
+      "test_r2": 0.9922958056030461
     }
   ],
   "best_model_by_val_mae": "sklearn_random_forest",
-  "best_validation_spearman": 0.9992963879367146,
+  "best_validation_spearman": 0.9991922690984577,
   "models_excluded": {
     "xgboost": "not installed; add xgboost to models/requirements-ml.txt to enable XGBRegressor.",
     "lightgbm": "lightgbm not importable; use models/requirements-ml.txt environment."

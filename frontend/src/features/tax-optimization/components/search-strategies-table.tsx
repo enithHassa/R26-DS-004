@@ -62,14 +62,10 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
     { label: "Total reliefs (personal + statutory)", value: formatLkrAmount(b.total_reliefs_lkr) },
     { label: "Taxable (before slabs)", value: formatLkrAmount(b.taxable_income_lkr) },
     { label: "Total tax", value: formatLkrAmount(b.total_tax_lkr) },
-    {
-      label: "Effective rate",
-      value: b.effective_tax_rate ?? "—",
-    },
+    { label: "Effective rate", value: b.effective_tax_rate ?? "—" },
     {
       label: "Tax saving vs baseline",
-      value:
-        b.tax_savings_vs_baseline_lkr != null ? formatLkrAmount(b.tax_savings_vs_baseline_lkr) : "—",
+      value: b.tax_savings_vs_baseline_lkr != null ? formatLkrAmount(b.tax_savings_vs_baseline_lkr) : "—",
     },
   ];
   return (
@@ -97,215 +93,273 @@ export function SearchStrategiesTable({
 }: Props) {
   if (!data) return null;
 
+  const mlScores = data.rows.map((r) => parseDecimalSafe(r.ml_score ?? "") ?? 0);
+  const maxMlScore = Math.max(...mlScores, 0.0001);
+
   return (
     <Card className="rounded-xl border border-border/80 bg-card shadow-sm">
-      <CardHeader className="space-y-1 p-6 pb-2">
+      <CardHeader className="space-y-1 p-6 pb-4">
         <CardTitle className="text-base font-semibold">All evaluated strategies</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">{rankedBySubtitle}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4 p-6 pt-2">
-        <div className="overflow-x-auto rounded-lg border border-border/80">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-border text-xs font-medium text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3">Strategy</th>
-                <th className="px-4 py-3 text-right">Tax (LKR)</th>
-                <th className="px-4 py-3 text-right">Saves vs baseline</th>
-                {mlAssisted && (
-                  <th className="px-4 py-3" title="How much upfront cash is needed to claim these reliefs">
-                    AI Ranking
-                  </th>
-                )}
-                <th className="px-4 py-3">Compliant</th>
-                <th className="px-4 py-3">Detail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row) => {
-                const isBest = row.rank === 1;
-                const isBaseline = baselineCandidateId != null && row.candidate_id === baselineCandidateId;
-                const saves = formatSavesVsBaseline(isBaseline, row.delta_total_tax_vs_baseline);
-                const compliant = row.result?.compliance?.passed !== false;
-                return (
-                  <tr
-                    key={row.candidate_id}
-                    className={cn(
-                      "border-b border-border/60 transition-colors last:border-0",
-                      isBest && "bg-primary/[0.04]",
-                    )}
-                  >
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="tabular-nums text-muted-foreground">{row.rank}</span>
-                        {isBest ? (
-                          <span className="rounded-full bg-emerald-600/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-200">
-                            Best
-                          </span>
-                        ) : null}
-                        {mlAssisted && isBest ? (
-                          <span className="rounded-full bg-violet-600/15 px-2 py-0.5 text-[10px] font-semibold text-violet-800 dark:text-violet-200">
-                            AI pick
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="max-w-md font-medium leading-snug text-foreground">
-                        {displayStrategyName(row.display_name)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right align-top tabular-nums">
-                      {formatLkrAmount(parseDecimalSafe(row.total_tax) ?? row.total_tax)}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-4 py-3 text-right align-top text-sm tabular-nums",
-                        saves.tone === "better" && "font-medium text-emerald-600 dark:text-emerald-400",
-                        saves.tone === "worse" && "text-amber-800 dark:text-amber-200",
-                        saves.tone === "neutral" && "text-muted-foreground",
-                      )}
-                    >
-                      {saves.text}
-                    </td>
-                    {mlAssisted && (
-                      <td className="px-4 py-3 align-top">
-                        {row.ml_assist_rank != null && row.rule_only_rank != null && row.ml_assist_rank !== row.rule_only_rank ? (
-                          <span className="rounded-full bg-emerald-600/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-200">
-                            ↓ Lower cost
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 align-top">
-                      {compliant ? (
-                        <span className="font-medium text-emerald-600 dark:text-emerald-400">Yes</span>
-                      ) : (
-                        <span className="font-medium text-destructive">No</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <button
-                        type="button"
-                        onClick={() => onToggleExpand(row.candidate_id)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        {expanded[row.candidate_id] ? (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                        )}
-                        View breakdown
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <CardContent className="space-y-3 p-6 pt-0">
+
+        {/* Column header row */}
+        <div className="hidden grid-cols-[2.5rem_1fr_9rem_9rem_6rem_7rem] gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
+          <div>#</div>
+          <div>Strategy</div>
+          <div className="text-right">Tax you&apos;d pay</div>
+          <div className="text-right">You save</div>
+          <div className="text-center">IRD rules</div>
+          <div></div>
         </div>
 
-        {data.rows.map((row) =>
-          expanded[row.candidate_id] ? (
-            <div
-              key={`${row.candidate_id}-detail`}
-              className="space-y-5 rounded-xl border border-border/80 bg-muted/15 p-5 text-sm"
-            >
-              <div className="text-base font-semibold text-foreground">
-                {displayStrategyName(row.display_name)}
-              </div>
+        {data.rows.map((row) => {
+          const isBest = row.rank === 1;
+          const isBaseline = baselineCandidateId != null && row.candidate_id === baselineCandidateId;
+          const saves = formatSavesVsBaseline(isBaseline, row.delta_total_tax_vs_baseline);
+          const compliant = row.result?.compliance?.passed !== false;
+          const isExpanded = expanded[row.candidate_id];
 
-              <div>
-                <h4 className="mb-3 text-base font-semibold text-foreground">Income &amp; tax breakdown</h4>
-                {row.breakdown ? (
-                  <BreakdownMetricCards row={row} />
-                ) : (
-                  <p className="text-xs text-muted-foreground">No breakdown available for this row.</p>
+          return (
+            <div key={row.candidate_id}>
+              {/* Strategy card row */}
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-3 rounded-xl border px-4 py-3.5 transition-colors sm:grid-cols-[2.5rem_1fr_9rem_9rem_6rem_7rem] sm:items-center",
+                  isBest
+                    ? "border-primary/40 bg-primary/5"
+                    : isBaseline
+                      ? "border-border/60 bg-muted/20"
+                      : "border-border/50 bg-background hover:bg-muted/10",
                 )}
-              </div>
-
-              {(row.rule_summary?.length ?? 0) > 0 ? (
-                <div>
-                  <h4 className="mb-3 text-base font-semibold text-foreground">Compliance checks</h4>
-                  <ul className="space-y-2">
-                    {row.rule_summary.map((line, i) => (
-                      <li key={i} className="flex gap-2 text-foreground/90">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>{sanitizeConsumerLine(line)}</span>
-                      </li>
-                    ))}
-                  </ul>
+              >
+                {/* Rank + badges */}
+                <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-1">
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold",
+                      isBest
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {row.rank}
+                  </span>
+                  {isBest && (
+                    <span className="rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white sm:hidden">
+                      Best
+                    </span>
+                  )}
                 </div>
-              ) : null}
 
-              {(row.detailed_explanations?.length ?? 0) > 0 ? (
-                <div>
-                  <h4 className="mb-3 text-base font-semibold text-foreground">Strategy explanation</h4>
-                  <div className="space-y-2 leading-relaxed text-foreground/90">
-                    {row.detailed_explanations.map((para, i) => (
-                      <p key={i}>{para}</p>
-                    ))}
+                {/* Strategy name + badges (desktop) */}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("font-medium leading-snug text-foreground", isBest && "font-semibold")}>
+                      {displayStrategyName(row.display_name)}
+                    </span>
+                    {isBest && (
+                      <span className="hidden rounded-full bg-primary-600 px-2.5 py-0.5 text-[10px] font-semibold text-white sm:inline">
+                        Best pick
+                      </span>
+                    )}
+                    {mlAssisted && isBest && (
+                      <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                        AI recommended
+                      </span>
+                    )}
+                    {isBaseline && (
+                      <span className="rounded-full bg-slate-400 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                        No claims
+                      </span>
+                    )}
+                  </div>
+                  {mlAssisted && row.ml_score != null && !isBaseline && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-muted-foreground">AI score</span>
+                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            isBest ? "bg-primary" : "bg-slate-400",
+                          )}
+                          style={{
+                            width: `${Math.min(100, Math.max(4, ((parseDecimalSafe(row.ml_score) ?? 0) / maxMlScore) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[10px] tabular-nums text-muted-foreground">
+                        {(((parseDecimalSafe(row.ml_score) ?? 0) / maxMlScore) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tax amount */}
+                <div className="sm:text-right">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">
+                    Tax you&apos;d pay
+                  </div>
+                  <div className="tabular-nums font-semibold text-foreground">
+                    {formatLkrAmount(parseDecimalSafe(row.total_tax) ?? row.total_tax)}
                   </div>
                 </div>
-              ) : null}
 
-              {(row.rule_trace?.length ?? 0) > 0 ? (
-                <div>
-                  <h4 className="mb-3 text-base font-semibold text-foreground">Compliance verification</h4>
-                  <ul className="space-y-2">
-                    {row.rule_trace.map((t, idx) => {
-                      const passed = (t.outcome ?? "passed") === "passed";
-                      const reliefExtra = row.applied_relief_summary.find(
-                        (a) => a.relief_code && a.relief_code === t.relief_code,
-                      );
-                      const reliefLine = reliefExtra
-                        ? [
-                            reliefExtra.claimed != null && reliefExtra.claimed !== ""
-                              ? `Claimed: ${formatLkrAmount(reliefExtra.claimed)}`
-                              : null,
-                            reliefExtra.allowed != null && reliefExtra.allowed !== ""
-                              ? `Allowed: ${formatLkrAmount(reliefExtra.allowed)}`
-                              : null,
-                            reliefExtra.cap != null && reliefExtra.cap !== ""
-                              ? `Cap: ${formatLkrAmount(reliefExtra.cap)}`
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")
-                        : "";
-                      return (
-                        <li
-                          key={`trace-${idx}`}
-                          className="flex gap-2 rounded-lg border border-border/50 bg-background/60 p-3"
-                        >
-                          <span className="mt-0.5 shrink-0">
-                            {passed ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            )}
-                          </span>
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <p className="text-sm leading-relaxed text-foreground">
-                              {sanitizeConsumerLine(t.summary)}
-                            </p>
-                            {reliefLine ? (
-                              <p className="text-xs text-muted-foreground">{reliefLine}</p>
-                            ) : null}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                {/* Savings */}
+                <div className="sm:text-right">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:hidden">
+                    You save
+                  </div>
+                  <div
+                    className={cn(
+                      "tabular-nums font-semibold",
+                      saves.tone === "better" && "text-emerald-600 dark:text-emerald-400",
+                      saves.tone === "worse" && "text-red-600 dark:text-red-400",
+                      saves.tone === "neutral" && "text-muted-foreground",
+                    )}
+                  >
+                    {saves.text}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          ) : null,
-        )}
 
-        <p className="text-center text-xs text-muted-foreground">{data.research_disclaimer}</p>
+                {/* Compliant badge */}
+                <div className="sm:flex sm:justify-center">
+                  {compliant ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                      <Check className="h-3 w-3" />
+                      Compliant
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                      <XCircle className="h-3 w-3" />
+                      Fails IRD
+                    </span>
+                  )}
+                </div>
+
+                {/* Expand button */}
+                <div className="sm:flex sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onToggleExpand(row.candidate_id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                      isExpanded
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-border bg-background text-foreground hover:bg-muted/50",
+                    )}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    Details
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded breakdown */}
+              {isExpanded && (
+                <div className="mx-1 space-y-5 rounded-b-xl border border-t-0 border-border/60 bg-muted/10 p-5 text-sm">
+                  <div className="text-base font-semibold text-foreground">
+                    {displayStrategyName(row.display_name)}
+                  </div>
+
+                  <div>
+                    <h4 className="mb-3 text-sm font-semibold text-foreground">Income &amp; tax breakdown</h4>
+                    {row.breakdown ? (
+                      <BreakdownMetricCards row={row} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No breakdown available for this row.</p>
+                    )}
+                  </div>
+
+                  {(row.rule_summary?.length ?? 0) > 0 ? (
+                    <div>
+                      <h4 className="mb-3 text-sm font-semibold text-foreground">Compliance checks</h4>
+                      <ul className="space-y-2">
+                        {row.rule_summary.map((line, i) => (
+                          <li key={i} className="flex gap-2 text-foreground/90">
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            <span>{sanitizeConsumerLine(line)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {(row.detailed_explanations?.length ?? 0) > 0 ? (
+                    <div>
+                      <h4 className="mb-3 text-sm font-semibold text-foreground">Strategy explanation</h4>
+                      <div className="space-y-2 leading-relaxed text-foreground/90">
+                        {row.detailed_explanations.map((para, i) => (
+                          <p key={i}>{para}</p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(row.rule_trace?.length ?? 0) > 0 ? (
+                    <div>
+                      <h4 className="mb-3 text-sm font-semibold text-foreground">Compliance verification</h4>
+                      <ul className="space-y-2">
+                        {row.rule_trace.map((t, idx) => {
+                          const passed = (t.outcome ?? "passed") === "passed";
+                          const reliefExtra = row.applied_relief_summary.find(
+                            (a) => a.relief_code && a.relief_code === t.relief_code,
+                          );
+                          const reliefLine = reliefExtra
+                            ? [
+                                reliefExtra.claimed != null && reliefExtra.claimed !== ""
+                                  ? `Claimed: ${formatLkrAmount(reliefExtra.claimed)}`
+                                  : null,
+                                reliefExtra.allowed != null && reliefExtra.allowed !== ""
+                                  ? `Allowed: ${formatLkrAmount(reliefExtra.allowed)}`
+                                  : null,
+                                reliefExtra.cap != null && reliefExtra.cap !== ""
+                                  ? `Cap: ${formatLkrAmount(reliefExtra.cap)}`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                            : "";
+                          return (
+                            <li
+                              key={`trace-${idx}`}
+                              className="flex gap-2 rounded-lg border border-border/50 bg-background/60 p-3"
+                            >
+                              <span className="mt-0.5 shrink-0">
+                                {passed ? (
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                ) : (
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                )}
+                              </span>
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <p className="text-sm leading-relaxed text-foreground">
+                                  {sanitizeConsumerLine(t.summary)}
+                                </p>
+                                {reliefLine ? (
+                                  <p className="text-xs text-muted-foreground">{reliefLine}</p>
+                                ) : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <p className="pt-2 text-center text-xs text-muted-foreground">
+          Tax figures are calculated using IRD 2025/26 rates and relief thresholds. This is not legal or filing advice — verify all figures against current Inland Revenue notices before use.
+        </p>
       </CardContent>
     </Card>
   );

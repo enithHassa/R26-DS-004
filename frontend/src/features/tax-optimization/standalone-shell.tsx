@@ -33,15 +33,15 @@ export function TaxOptimizationStandalone() {
           Tax optimization
         </div>
         <nav className="flex flex-col gap-1" aria-label="Tax optimization pages">
-          <NavLink to="/tax-optimization/compliance" className={navLinkClass} end>
+          <NavLink to="/tax/compliance" className={navLinkClass} end>
             <ShieldCheck className="h-4 w-4 shrink-0" />
             Check my tax
           </NavLink>
-          <NavLink to="/tax-optimization/compare" className={navLinkClass} end>
+          <NavLink to="/tax/compare" className={navLinkClass} end>
             <GitCompareArrows className="h-4 w-4 shrink-0" />
             Compare strategies
           </NavLink>
-          <NavLink to="/tax-optimization/explorer" className={navLinkClass} end>
+          <NavLink to="/tax/explorer" className={navLinkClass} end>
             <LayoutList className="h-4 w-4 shrink-0" />
             Find best strategy
           </NavLink>
@@ -49,7 +49,7 @@ export function TaxOptimizationStandalone() {
 
         <div className="mt-auto space-y-4 pt-8">
           <NavLink
-            to="/profile"
+            to="/"
             className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />

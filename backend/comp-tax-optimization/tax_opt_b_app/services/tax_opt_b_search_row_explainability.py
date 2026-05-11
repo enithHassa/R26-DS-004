@@ -63,6 +63,7 @@ def build_search_tax_breakdown(
     return TaxOptBSearchTaxBreakdownV1(
         employment_income_lkr=str(fin.annual_salary_income),
         business_income_lkr=str(fin.annual_business_income),
+        investment_income_lkr=str(getattr(fin, "annual_investment_income", Decimal("0"))),
         other_income_lkr=str(fin.annual_other_income),
         gross_income_lkr=tc.annual_gross_income,
         assessable_income_lkr=tc.income_basis_before_personal_relief,
