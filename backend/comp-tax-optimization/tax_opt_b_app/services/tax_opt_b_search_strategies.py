@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from typing import TypeAlias
 
 from tax_opt_b_app.services.tax_opt_b_financial_strategy_presets import (
     profile_from_financial_inputs,
@@ -26,6 +28,7 @@ from tax_opt_b_app.tax_opt_b_schemas_profile_v1 import TaxOptBProfileV1
 from tax_opt_b_app.tax_opt_b_schemas_search_v1 import (
     SEARCH_GRID_VERSION,
     TaxOptBAppliedReliefSummaryEntryV1,
+    TaxOptBSearchMlMetaV1,
     TaxOptBSearchOptimizationMetaV1,
     TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
     TaxOptBSearchStrategiesResponseV1,
@@ -33,8 +36,16 @@ from tax_opt_b_app.tax_opt_b_schemas_search_v1 import (
     TaxOptBSearchTraceabilityV1,
     TaxOptBStrategyCandidateSpecV1,
     TaxOptBStrategySearchRankByV1,
+    TaxOptBTopRankExplanationV1,
 )
 from tax_opt_b_app.tax_opt_b_schemas_tax_computation_v1 import TaxOptBComputeTaxResponseV1
+
+# One evaluated grid point that passed compliance and received a tax computation.
+PassingRowTuple: TypeAlias = tuple[
+    TaxOptBStrategyCandidateSpecV1,
+    TaxOptBComputeTaxResponseV1,
+    Decimal,
+]
 
 
 def _q1(value: Decimal) -> Decimal:
@@ -142,12 +153,43 @@ def _sort_tuple(
     return (total_tax, tie)
 
 
-def search_strategies_from_financial_inputs(
+def rule_sort_key_for_passing_row(
+    row: PassingRowTuple,
+    rank_by: TaxOptBStrategySearchRankByV1,
+    gross: Decimal,
+) -> tuple[Decimal, Decimal, int] | tuple[Decimal, int]:
+    """Deterministic tie-break key for a passing row (same ordering as Function 2)."""
+
+    spec, _out, tax = row
+    return _sort_tuple(rank_by, total_tax=tax, gross=gross, candidate_id=spec.candidate_id)
+
+
+@dataclass(frozen=True, slots=True)
+class SearchPassingEvaluation:
+    """Single compliance+tax pass over the grid: legal candidates only (Function 2 core).
+
+    ``passing_rows`` preserves **enumeration order** (mask 0..2^n-1). Function 3 ML can
+    score this full set without re-running the engine; rule-based ranking sorts a copy.
+    """
+
+    financial_inputs: TaxOptBFinancialInputsV1
+    profile: TaxOptBProfileV1
+    pack: TaxOptBRulePack
+    ordered_relief_codes: tuple[str, ...]
+    search_space_id: str
+    yaml_labels: dict[str, str]
+    specs: list[TaxOptBStrategyCandidateSpecV1]
+    baseline_candidate_id: str
+    passing_rows: list[PassingRowTuple]
+
+
+def evaluate_search_passing_rows(
     body: TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
     pack: TaxOptBRulePack,
     *,
     rules_version_label: str | None = None,
-) -> TaxOptBSearchStrategiesResponseV1:
+) -> SearchPassingEvaluation:
+    """Enumerate candidates once, run ``run_compliance_and_compute_tax`` per spec, collect passing rows."""
     keys = set(TaxOptBFinancialInputsV1.model_fields.keys())
     fin = TaxOptBFinancialInputsV1.model_validate(body.model_dump(include=keys))
     profile = profile_from_financial_inputs(fin)
@@ -164,15 +206,10 @@ def search_strategies_from_financial_inputs(
     baseline_id = body.baseline_candidate_id or "cap_subset_0"
     grid_ids = {s.candidate_id for s in specs}
     if baseline_id not in grid_ids:
-        raise ValueError(f"baseline_candidate_id {baseline_id!r} is not in the search grid")
+        msg = f"baseline_candidate_id {baseline_id!r} is not in the search grid"
+        raise ValueError(msg)
 
-    passing: list[
-        tuple[
-            TaxOptBStrategyCandidateSpecV1,
-            TaxOptBComputeTaxResponseV1,
-            Decimal,
-        ]
-    ] = []
+    passing_rows: list[PassingRowTuple] = []
     for spec in specs:
         strategy = spec.to_strategy_proposal(amounts)
         out = run_compliance_and_compute_tax(
@@ -184,62 +221,123 @@ def search_strategies_from_financial_inputs(
         if not out.compliance.passed or out.tax_computation is None:
             continue
         tax = Decimal(out.tax_computation.total_tax)
-        passing.append((spec, out, tax))
+        passing_rows.append((spec, out, tax))
 
-    gross = profile.annual_gross_income
-    passing.sort(
+    return SearchPassingEvaluation(
+        financial_inputs=fin,
+        profile=profile,
+        pack=pack,
+        ordered_relief_codes=ordered,
+        search_space_id=space_id,
+        yaml_labels=yaml_labels,
+        specs=specs,
+        baseline_candidate_id=baseline_id,
+        passing_rows=passing_rows,
+    )
+
+
+def sort_passing_rows_rule_only(
+    passing_rows: list[PassingRowTuple],
+    *,
+    rank_by: TaxOptBStrategySearchRankByV1,
+    gross: Decimal,
+) -> list[PassingRowTuple]:
+    """Deterministic rule-only ordering (same key as legacy Function 2)."""
+    return sorted(
+        passing_rows,
         key=lambda row: _sort_tuple(
-            body.rank_by,
+            rank_by,
             total_tax=row[2],
             gross=gross,
             candidate_id=row[0].candidate_id,
         ),
     )
 
-    baseline_tax: Decimal | None = None
-    baseline_row: tuple[TaxOptBStrategyCandidateSpecV1, TaxOptBComputeTaxResponseV1, Decimal] | None = None
-    for spec, out, tax in passing:
-        if spec.candidate_id == baseline_id:
-            baseline_tax = tax
-            baseline_row = (spec, out, tax)
-            break
 
-    top = list(passing[: body.top_k])
+def find_baseline_passing_row(
+    passing_rows_sorted: list[PassingRowTuple],
+    baseline_candidate_id: str,
+) -> PassingRowTuple | None:
+    """First matching baseline in **sorted** passing list (legacy semantics)."""
+    for spec, out, tax in passing_rows_sorted:
+        if spec.candidate_id == baseline_candidate_id:
+            return (spec, out, tax)
+    return None
+
+
+def apply_top_k_with_baseline_sticky(
+    passing_rows_sorted: list[PassingRowTuple],
+    *,
+    top_k: int,
+    baseline_candidate_id: str,
+    baseline_row: PassingRowTuple | None,
+) -> list[PassingRowTuple]:
+    """First ``top_k`` by current order; ensure baseline stays visible when it would be dropped."""
+    top = list(passing_rows_sorted[:top_k])
     top_ids = {t[0].candidate_id for t in top}
     if (
         baseline_row is not None
-        and baseline_id not in top_ids
-        and len(top) == body.top_k
-        and body.top_k >= 1
+        and baseline_candidate_id not in top_ids
+        and len(top) == top_k
+        and top_k >= 1
     ):
         top = top[:-1] + [baseline_row]
-    top.sort(
+    return top
+
+
+def resort_passing_rows_rule_only(
+    rows: list[PassingRowTuple],
+    *,
+    rank_by: TaxOptBStrategySearchRankByV1,
+    gross: Decimal,
+) -> None:
+    """In-place sort (used after top_k slice, matching original Function 2)."""
+    rows.sort(
         key=lambda row: _sort_tuple(
-            body.rank_by,
+            rank_by,
             total_tax=row[2],
             gross=gross,
             candidate_id=row[0].candidate_id,
         ),
     )
+
+
+def build_search_response_rows(
+    top_passing_rows: list[PassingRowTuple],
+    *,
+    evaluation: SearchPassingEvaluation,
+    rank_by: TaxOptBStrategySearchRankByV1,
+    include_result_detail: bool,
+    baseline_tax: Decimal | None,
+    baseline_row: PassingRowTuple | None,
+) -> tuple[list[TaxOptBSearchStrategyRowV1], TaxOptBTopRankExplanationV1 | None]:
+    """Hydrate API rows from an ordered (e.g. top_k) passing list; deterministic explainability."""
+    fin = evaluation.financial_inputs
+    profile = evaluation.profile
+    pack = evaluation.pack
+    ordered = evaluation.ordered_relief_codes
+    yaml_labels = evaluation.yaml_labels
+    gross = profile.annual_gross_income
+
     rows_out: list[TaxOptBSearchStrategyRowV1] = []
-    for rank_idx, (spec, out, tax) in enumerate(top, start=1):
+    for rank_idx, (spec, out, tax) in enumerate(top_passing_rows, start=1):
         delta_str: str | None = None
         if baseline_tax is not None:
             delta_str = str(_q1(tax - baseline_tax))
         eff_s = _effective_rate_str(tax, gross)
-        detail = out if body.include_result_detail else None
+        detail = out if include_result_detail else None
         tc = out.tax_computation
         assert tc is not None
         applied = _applied_relief_summary(out.compliance)
         disp = display_name_for_subset(spec.included_relief_codes, ordered, yaml_labels)
         metrics = (
             build_search_metrics(tc, gross, tax, baseline_tax, eff_s)
-            if body.include_result_detail
+            if include_result_detail
             else None
         )
         breakdown = (
             build_search_tax_breakdown(fin, tc, baseline_tax, tax, gross)
-            if body.include_result_detail
+            if include_result_detail
             else None
         )
         opt_sum, rule_sum, detail_ex = build_row_explainability(
@@ -278,12 +376,61 @@ def search_strategies_from_financial_inputs(
             ),
         )
 
+    top_rank_explanation = None
+    if rows_out and rows_out[0].rank == 1:
+        _spec_first, tout_first, _tax_first = top_passing_rows[0]
+        top_tc = tout_first.tax_computation
+        assert top_tc is not None
+        baseline_tc = None
+        if baseline_row is not None:
+            _bspec, bout, _btax = baseline_row
+            baseline_tc = bout.tax_computation
+        top_rank_explanation = build_top_rank_explanation(
+            rank_by=rank_by,
+            display_name=rows_out[0].display_name,
+            top_tc=top_tc,
+            baseline_tc=baseline_tc,
+            applied_summary=rows_out[0].applied_relief_summary,
+            yaml_labels=yaml_labels,
+        )
+
+    return rows_out, top_rank_explanation
+
+
+def assemble_search_strategies_response(
+    *,
+    evaluation: SearchPassingEvaluation,
+    passing_sorted_rule: list[PassingRowTuple],
+    rows_out: list[TaxOptBSearchStrategyRowV1],
+    top_rank_explanation: TaxOptBTopRankExplanationV1 | None,
+    rank_by: TaxOptBStrategySearchRankByV1,
+    baseline_row: PassingRowTuple | None,
+    baseline_tax: Decimal | None,
+    rules_version_label: str | None,
+    optimization_mode: str | None = None,
+    optimization_objective: str | None = None,
+    ml_meta: TaxOptBSearchMlMetaV1 | None = None,
+) -> TaxOptBSearchStrategiesResponseV1:
+    """Wrap list endpoints + metadata (shared by rule-only and future ML-assisted paths)."""
+    profile = evaluation.profile
+    pack = evaluation.pack
+    ordered = evaluation.ordered_relief_codes
+    space_id = evaluation.search_space_id
+    specs = evaluation.specs
+    baseline_id = evaluation.baseline_candidate_id
+    passing = passing_sorted_rule
+
+    opt_mode = optimization_mode or "deterministic_grid_enumeration"
+    opt_obj = optimization_objective or (
+        "minimize_effective_tax_rate" if rank_by == "effective_rate" else "minimize_total_tax"
+    )
+
     best_id = rows_out[0].candidate_id if rows_out else None
 
     comparison_summary: str | None = None
     if rows_out and baseline_row is not None and baseline_tax is not None:
         bspec, _bout, _bt = baseline_row
-        baseline_name = display_name_for_subset(bspec.included_relief_codes, ordered, yaml_labels)
+        baseline_name = display_name_for_subset(bspec.included_relief_codes, ordered, evaluation.yaml_labels)
         comparison_summary = comparison_summary_text(
             baseline_name=baseline_name,
             best_name=rows_out[0].display_name,
@@ -304,31 +451,11 @@ def search_strategies_from_financial_inputs(
         strategies_evaluated=n_specs,
         legal_strategies_count=n_pass,
         rejected_strategies_count=n_specs - n_pass,
-        optimization_mode="deterministic_grid_enumeration",
+        optimization_mode=opt_mode,
         search_space_description="MVP max-cap subsets (2^n)",
-        optimization_objective=(
-            "minimize_effective_tax_rate" if body.rank_by == "effective_rate" else "minimize_total_tax"
-        ),
+        optimization_objective=opt_obj,
         reproducibility_id=space_id,
     )
-
-    top_rank_explanation = None
-    if rows_out and rows_out[0].rank == 1:
-        _spec_first, tout_first, _tax_first = top[0]
-        top_tc = tout_first.tax_computation
-        assert top_tc is not None
-        baseline_tc = None
-        if baseline_row is not None:
-            _bspec, bout, _btax = baseline_row
-            baseline_tc = bout.tax_computation
-        top_rank_explanation = build_top_rank_explanation(
-            rank_by=body.rank_by,
-            display_name=rows_out[0].display_name,
-            top_tc=top_tc,
-            baseline_tc=baseline_tc,
-            applied_summary=rows_out[0].applied_relief_summary,
-            yaml_labels=yaml_labels,
-        )
 
     return TaxOptBSearchStrategiesResponseV1(
         profile=profile,
@@ -346,11 +473,67 @@ def search_strategies_from_financial_inputs(
         research_disclaimer=RESEARCH_DISCLAIMER,
         rules_version_label=rules_version_label,
         explanations=None,
+        ml_meta=ml_meta,
+    )
+
+
+def search_strategies_from_financial_inputs(
+    body: TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
+    pack: TaxOptBRulePack,
+    *,
+    rules_version_label: str | None = None,
+) -> TaxOptBSearchStrategiesResponseV1:
+    """Rule-only ranking: full grid evaluation, deterministic sort, top_k + baseline sticky row."""
+    evaluation = evaluate_search_passing_rows(body, pack, rules_version_label=rules_version_label)
+    gross = evaluation.profile.annual_gross_income
+    passing_sorted = sort_passing_rows_rule_only(
+        list(evaluation.passing_rows),
+        rank_by=body.rank_by,
+        gross=gross,
+    )
+    baseline_row = find_baseline_passing_row(passing_sorted, evaluation.baseline_candidate_id)
+    baseline_tax = baseline_row[2] if baseline_row is not None else None
+
+    top = apply_top_k_with_baseline_sticky(
+        passing_sorted,
+        top_k=body.top_k,
+        baseline_candidate_id=evaluation.baseline_candidate_id,
+        baseline_row=baseline_row,
+    )
+    resort_passing_rows_rule_only(top, rank_by=body.rank_by, gross=gross)
+
+    rows_out, top_rank_explanation = build_search_response_rows(
+        top,
+        evaluation=evaluation,
+        rank_by=body.rank_by,
+        include_result_detail=body.include_result_detail,
+        baseline_tax=baseline_tax,
+        baseline_row=baseline_row,
+    )
+
+    return assemble_search_strategies_response(
+        evaluation=evaluation,
+        passing_sorted_rule=passing_sorted,
+        rows_out=rows_out,
+        top_rank_explanation=top_rank_explanation,
+        rank_by=body.rank_by,
+        baseline_row=baseline_row,
+        baseline_tax=baseline_tax,
+        rules_version_label=rules_version_label,
     )
 
 
 __all__ = [
+    "SearchPassingEvaluation",
+    "apply_top_k_with_baseline_sticky",
+    "assemble_search_strategies_response",
+    "build_search_response_rows",
     "enumerate_candidate_specs",
+    "evaluate_search_passing_rows",
+    "find_baseline_passing_row",
+    "rule_sort_key_for_passing_row",
+    "resort_passing_rows_rule_only",
     "search_space_id",
     "search_strategies_from_financial_inputs",
+    "sort_passing_rows_rule_only",
 ]

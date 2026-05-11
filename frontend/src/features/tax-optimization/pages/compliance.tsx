@@ -1,15 +1,8 @@
-import { useCallback, useId, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { ChevronDown, ChevronRight, Loader2, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { useCallback, useId, useMemo, useState, type FormEvent } from "react";
+import { AlertCircle, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -22,8 +15,6 @@ import {
   postComputeTax,
   postComputeTaxFromFinancialInputs,
 } from "../api";
-import { CompareStrategiesTable } from "../components/compare-strategies-table";
-import { ExplanationPanel } from "../components/explanation-panel";
 import type {
   ComplianceCheckRequest,
   ComplianceResult,
@@ -32,6 +23,7 @@ import type {
   TaxOptBComputeTaxResponseV1,
   TaxOptBDeductionLineV1,
   TaxOptBEmploymentTypeV1,
+  TaxOptBExplanationBundleV1,
   TaxOptBInvestmentLineV1,
   TaxOptBInvestmentTaxTreatmentV1,
   TaxOptBStrategyVariantV1,
@@ -39,6 +31,9 @@ import type {
 } from "../types";
 import { TAX_OPT_B_MVP_RELIEF_CODES } from "../types";
 
+/* eslint-disable @typescript-eslint/no-unused-vars --
+ * Advanced/compare/transaction handlers and related state are kept for API parity; this screen only wires the simplified form.
+ */
 const DEFAULT_STRATEGY_JSON = `{
   "claims": [
     { "relief_code": "life_insurance_premium", "claimed_amount_annual": "50000" }
@@ -54,8 +49,108 @@ const DEFAULT_COMPARE_EXTRA_VARIANTS_JSON = `[
   }
 ]`;
 
+const RELIEF_LABELS: Record<string, string> = {
+  life_insurance_premium: "Life insurance premium",
+  health_insurance_premium: "Health insurance premium",
+  home_loan_interest: "Home loan interest",
+  rent_relief: "Rent relief",
+  charitable_donations: "Charitable donations",
+  retirement_contribution: "Retirement contribution",
+};
+
+const EMPLOYMENT_LABELS: Record<TaxOptBEmploymentTypeV1, string> = {
+  employee: "Employee",
+  self_employed: "Self-employed",
+  business_owner: "Business owner",
+  other: "Other",
+};
+
+/** API values ``2018_19`` … ``2025_26`` (aligned with Component B). Labels: ``18/19`` … ``25/26``. */
+const ASSESSMENT_YEAR_OPTIONS: readonly { value: string; label: string }[] = Object.freeze(
+  Array.from({ length: 2025 - 2018 + 1 }, (_, i) => {
+    const y = 2018 + i;
+    const yy = (y + 1) % 100;
+    return {
+      value: `${y}_${String(yy).padStart(2, "0")}`,
+      label: `${String(y).slice(-2)}/${String(yy).padStart(2, "0")}`,
+    };
+  }),
+);
+
 function nextRowId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function parseAmount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/,/g, "").trim();
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+/** LKR amounts with comma grouping (en-LK). */
+function formatLkrAmount(value: unknown): string {
+  const n = parseAmount(value);
+  return `LKR ${n.toLocaleString("en-LK")}`;
+}
+
+function formatAssessmentYearLabel(apiValue: string): string {
+  const m = /^(\d{4})_(\d{2})$/.exec(apiValue.trim());
+  if (!m) return apiValue;
+  const y1 = Number(m[1]);
+  const y2 = Number(m[2]);
+  return `${String(y1).slice(-2)}/${String(y2).padStart(2, "0")}`;
+}
+
+/** Keep only digits in state; show thousands separators in the field. */
+function digitsOnly(s: string): string {
+  return s.replace(/\D/g, "");
+}
+
+function formatMoneyInputDisplay(digitString: string): string {
+  if (!digitString) return "";
+  const n = Number(digitString);
+  if (!Number.isFinite(n)) return digitString;
+  return n.toLocaleString("en-LK");
+}
+
+function reliefDisplayName(code: string): string {
+  return RELIEF_LABELS[code] ?? code.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function normalizeReliefEntry(value: unknown): { claimed: string; cap: string; allowed: string } {
+  const src = (value ?? {}) as Record<string, unknown>;
+  return {
+    claimed: String(src.claimed ?? src.claimed_amount ?? src.claimed_amount_annual ?? "0"),
+    cap: String(src.cap ?? src.cap_amount ?? src.cap_annual ?? "0"),
+    allowed: String(src.allowed ?? src.allowed_amount ?? src.allowed_amount_annual ?? "0"),
+  };
+}
+
+function formatSlabRate(rateStr: string): string {
+  const s = rateStr.trim();
+  const n = Number(s.replace(/%/g, ""));
+  if (!Number.isFinite(n)) return s;
+  if (n > 0 && n <= 1) return `${(n * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+  return `${n}%`;
+}
+
+function extractAdvisoryNarrative(bundle: TaxOptBExplanationBundleV1 | null | undefined): string | null {
+  if (!bundle) return null;
+  const parts: string[] = [];
+  if (bundle.summary?.trim()) parts.push(bundle.summary.trim());
+  for (const sec of bundle.sections) {
+    if (sec.title === "Tax computation walk") continue;
+    for (const b of sec.bullets) {
+      if (b.text?.trim()) parts.push(b.text.trim());
+      if (b.detail_text?.trim()) parts.push(b.detail_text.trim());
+    }
+  }
+  const text = parts.join("\n\n").trim();
+  return text.length > 0 ? text : null;
 }
 
 function parseStrategyJson(strategyJson: string): ComplianceCheckRequest["strategy"] {
@@ -130,15 +225,24 @@ export function CompliancePage() {
   const [compareExpanded, setCompareExpanded] = useState<Record<string, boolean>>({});
   const [includeExplanations, setIncludeExplanations] = useState(true);
   const [explanationDetail, setExplanationDetail] = useState<"summary" | "detailed">("summary");
+  const [showSlabDetails, setShowSlabDetails] = useState(false);
+  const [showCompareAdvanced, setShowCompareAdvanced] = useState(false);
 
-  const stripExplanationsFromCached = useCallback(() => {
-    setTaxCompute((prev) =>
-      prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
-    );
-    setCompareResult((prev) =>
-      prev?.explanations != null ? { ...prev, explanations: undefined } : prev,
-    );
-  }, []);
+  const taxComputeForDisplay = useMemo((): TaxOptBComputeTaxResponseV1 | null => {
+    if (!taxCompute) return null;
+    if (!includeExplanations) {
+      return taxCompute.explanations != null
+        ? { ...taxCompute, explanations: undefined }
+        : taxCompute;
+    }
+    if (
+      taxCompute.explanations &&
+      taxCompute.explanations.detail_level !== explanationDetail
+    ) {
+      return { ...taxCompute, explanations: undefined };
+    }
+    return taxCompute;
+  }, [taxCompute, includeExplanations, explanationDetail]);
 
   const toggleCompareExpand = useCallback((variantId: string) => {
     setCompareExpanded((prev) => ({ ...prev, [variantId]: !prev[variantId] }));
@@ -364,799 +468,430 @@ export function CompliancePage() {
     setInvestmentRows((prev) => prev.filter((r) => r._id !== id));
   };
 
+  const advisoryText = extractAdvisoryNarrative(taxComputeForDisplay?.explanations);
+  const isCalculating = taxLoading;
+  const tc = taxCompute?.tax_computation;
+  const grossForRate = tc ? parseAmount(tc.annual_gross_income) : 0;
+  const taxForRate = tc ? parseAmount(tc.total_tax) : 0;
+  const effectiveRatePct =
+    grossForRate > 0 ? ((taxForRate / grossForRate) * 100).toFixed(2) : null;
+
+  const assessmentYearLabel = formatAssessmentYearLabel(taxYear);
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Compliance check</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Component B — Function 1. Use structured inputs (salary, business, deductions, investments)
-          mapped to profile and relief claims, or switch to advanced mode for raw profile + strategy JSON
-          and the Component 1 snapshot path (
-          <code className="text-xs">/api/v1/optimization/compliance/…</code>).
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
-        <span className="text-sm font-medium">Input mode</span>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={!advancedMode ? "default" : "secondary"}
-            onClick={() => setAdvancedMode(false)}
-          >
-            Structured
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={advancedMode ? "default" : "secondary"}
-            onClick={() => setAdvancedMode(true)}
-          >
-            Advanced (JSON)
-          </Button>
+    <div className="flex flex-col gap-8 pb-10">
+      <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+        <div
+          className="h-1.5 w-full bg-gradient-to-r from-primary via-primary/90 to-emerald-800/80"
+          aria-hidden
+        />
+        <div className="px-6 py-5">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Check My Tax</h1>
+          <p className="mt-2 w-full text-sm leading-relaxed text-muted-foreground">
+            Enter your income details to check compliance and calculate your estimated tax for assessment
+            year <span className="font-medium text-foreground">{assessmentYearLabel}</span> (April–March).
+            Assessment years start at 2018/19 (years of assessment after 1 April 2018), per the IRD framework.
+          </p>
+          <p className="mt-2 w-full text-xs leading-relaxed text-muted-foreground">
+            Personal relief follows the published schedule for each assessment year (IRD Income Tax
+            summary). Other deduction caps and tax bands use the MVP YAML until separate per-year
+            files are added.
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/15 px-4 py-3">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="rounded border-input"
-            checked={includeExplanations}
-            onChange={(e) => {
-              setIncludeExplanations(e.target.checked);
-              stripExplanationsFromCached();
-            }}
-          />
-          Include explanations (FR5) on <strong className="font-medium">estimate tax</strong> &{" "}
-          <strong className="font-medium">compare</strong>
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <Label htmlFor={`${formId}-explain-detail`} className="text-sm text-muted-foreground">
-            Detail
-          </Label>
-          <Select
-            id={`${formId}-explain-detail`}
-            value={explanationDetail}
-            disabled={!includeExplanations}
-            onChange={(e) => {
-              setExplanationDetail(e.target.value as "summary" | "detailed");
-              stripExplanationsFromCached();
-            }}
-            className="h-9 w-36"
-          >
-            <option value="summary">summary</option>
-            <option value="detailed">detailed</option>
-          </Select>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Changing detail or turning explanations off clears the narrative until you run{" "}
-          <strong>Estimate tax (MVP)</strong> or <strong>Compare scenarios</strong> again.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Compliance-only runs do not return narratives — use <strong>Estimate tax (MVP)</strong> or{" "}
-          <strong>Compare scenarios</strong>.
-        </p>
-      </div>
+      <form
+        className="flex flex-col gap-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void runEstimateTaxStructured();
+        }}
+      >
+        <Card className="rounded-xl border border-border bg-card shadow-sm">
+          <CardContent className="space-y-6 p-6">
+            <h2 className="text-base font-semibold">Your income details</h2>
 
-      {!advancedMode ? (
-        <form onSubmit={onStructuredSubmit} className="space-y-8">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Income</CardTitle>
-                <CardDescription>
-                  Annual figures in LKR. Gross is salary + business + other; that total drives tax slabs,
-                  personal relief, and donation % caps (no separate &quot;estimated taxable&quot; field).
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-ty-s`}>Tax year</Label>
-                  <Input
-                    id={`${formId}-ty-s`}
-                    value={taxYear}
-                    onChange={(e) => setTaxYear(e.target.value)}
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-emp-s`}>Employment type</Label>
-                  <Select
-                    id={`${formId}-emp-s`}
-                    value={employmentType}
-                    onChange={(e) => setEmploymentType(e.target.value as TaxOptBEmploymentTypeV1)}
-                  >
-                    <option value="employee">employee</option>
-                    <option value="self_employed">self_employed</option>
-                    <option value="business_owner">business_owner</option>
-                    <option value="other">other</option>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-dep-s`}>Dependents</Label>
-                  <Input
-                    id={`${formId}-dep-s`}
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={dependents}
-                    onChange={(e) => setDependents(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-sal`}>Salary (annual)</Label>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-4 md:gap-y-2">
+              <Label htmlFor={`${formId}-emp-s`} className="md:col-start-1 md:row-start-1">
+                Employment type
+              </Label>
+              <Select
+                id={`${formId}-emp-s`}
+                value={employmentType}
+                onChange={(e) => setEmploymentType(e.target.value as TaxOptBEmploymentTypeV1)}
+                className="h-10 md:col-start-1 md:row-start-2"
+              >
+                {(Object.keys(EMPLOYMENT_LABELS) as TaxOptBEmploymentTypeV1[]).map((key) => (
+                  <option key={key} value={key}>
+                    {EMPLOYMENT_LABELS[key]}
+                  </option>
+                ))}
+              </Select>
+              <Label htmlFor={`${formId}-ty-s`} className="md:col-start-2 md:row-start-1">
+                Assessment year
+              </Label>
+              <Select
+                id={`${formId}-ty-s`}
+                value={taxYear}
+                onChange={(e) => setTaxYear(e.target.value)}
+                className="h-10 md:col-start-2 md:row-start-2"
+              >
+                {ASSESSMENT_YEAR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground md:col-start-2 md:row-start-3">
+                April–March period (e.g. 24/25)
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor={`${formId}-sal`}>Annual salary</Label>
+                <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                    LKR
+                  </span>
                   <Input
                     id={`${formId}-sal`}
-                    value={salary}
-                    onChange={(e) => setSalary(e.target.value)}
-                    className="font-mono text-sm"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={formatMoneyInputDisplay(salary)}
+                    onChange={(e) => setSalary(digitsOnly(e.target.value))}
+                    className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-bus`}>Business income (annual)</Label>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${formId}-bus`}>Annual business income</Label>
+                <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                    LKR
+                  </span>
                   <Input
                     id={`${formId}-bus`}
-                    value={business}
-                    onChange={(e) => setBusiness(e.target.value)}
-                    className="font-mono text-sm"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={formatMoneyInputDisplay(business)}
+                    onChange={(e) => setBusiness(digitsOnly(e.target.value))}
+                    className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${formId}-oth`}>Other income (annual)</Label>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor={`${formId}-oth`}>Annual other income</Label>
+                <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                    LKR
+                  </span>
                   <Input
                     id={`${formId}-oth`}
-                    value={otherIncome}
-                    onChange={(e) => setOtherIncome(e.target.value)}
-                    className="font-mono text-sm"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={formatMoneyInputDisplay(otherIncome)}
+                    onChange={(e) => setOtherIncome(digitsOnly(e.target.value))}
+                    className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Notes</CardTitle>
-                <CardDescription>Optional text stored on the generated strategy proposal.</CardDescription>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${formId}-dep-s`}>Dependents</Label>
                 <Input
-                  value={strategyNotes}
-                  onChange={(e) => setStrategyNotes(e.target.value)}
-                  placeholder="Optional notes"
+                  id={`${formId}-dep-s`}
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={dependents}
+                  onChange={(e) => setDependents(e.target.value)}
+                  className="h-10"
                 />
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
-              <div>
-                <CardTitle className="text-lg">Deductions</CardTitle>
-                <CardDescription>
-                  Each row maps to a statutory relief code (MVP pack). Amounts are summed per code.
-                </CardDescription>
               </div>
-              <Button type="button" size="sm" variant="outline" onClick={addDeductionRow}>
-                <Plus className="mr-1 h-4 w-4" />
-                Add row
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {deductionRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No deduction rows. Add a row to propose statutory reliefs, or submit with none (no
-                  claims).
-                </p>
-              ) : null}
-              {deductionRows.map((row, idx) => (
-                <div
-                  key={row._id}
-                  className="flex flex-col gap-2 rounded-md border border-border/80 bg-muted/20 p-3 sm:flex-row sm:items-end"
-                >
-                  <div className="grid flex-1 gap-2">
-                    <Label className="text-xs text-muted-foreground">Relief code</Label>
-                    <Select
-                      aria-label={`Deduction relief ${idx + 1}`}
-                      value={row.relief_code}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setDeductionRows((prev) =>
-                          prev.map((r) => (r._id === row._id ? { ...r, relief_code: v } : r)),
-                        );
-                      }}
-                    >
-                      {TAX_OPT_B_MVP_RELIEF_CODES.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="grid flex-1 gap-2">
-                    <Label className="text-xs text-muted-foreground">Amount (LKR / year)</Label>
-                    <Input
-                      className="font-mono text-sm"
-                      value={row.amount_annual}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setDeductionRows((prev) =>
-                          prev.map((r) => (r._id === row._id ? { ...r, amount_annual: v } : r)),
-                        );
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => removeDeductionRow(row._id)}
-                    aria-label="Remove deduction row"
+            </div>
+
+            <div className="border-t border-border pt-6">
+              <h3 className="text-sm font-medium text-muted-foreground">Tax relief claims</h3>
+              <div className="mt-4 space-y-3">
+                {deductionRows.map((row, idx) => (
+                  <div
+                    key={row._id}
+                    className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/10 p-3 sm:flex-row sm:items-end"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
-              <div>
-                <CardTitle className="text-lg">Investments</CardTitle>
-                <CardDescription>
-                  Informational rows are kept for your records only. &quot;Map to relief&quot; adds the
-                  amount to the generated claim for the chosen code (e.g. retirement contributions).
-                </CardDescription>
-              </div>
-              <Button type="button" size="sm" variant="outline" onClick={addInvestmentRow}>
-                <Plus className="mr-1 h-4 w-4" />
-                Add row
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {investmentRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No investment rows (optional). Add rows to record holdings or map amounts to a
-                  relief code.
-                </p>
-              ) : null}
-              {investmentRows.map((row, idx) => (
-                <div
-                  key={row._id}
-                  className="flex flex-col gap-3 rounded-md border border-border/80 bg-muted/20 p-3 lg:flex-row lg:items-end"
-                >
-                  <div className="grid min-w-0 flex-1 gap-2">
-                    <Label className="text-xs text-muted-foreground">Type / label</Label>
-                    <Input
-                      value={row.investment_type}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setInvestmentRows((prev) =>
-                          prev.map((r) => (r._id === row._id ? { ...r, investment_type: v } : r)),
-                        );
-                      }}
-                      placeholder="e.g. listed shares, unit trust"
-                    />
-                  </div>
-                  <div className="grid w-full gap-2 sm:w-40">
-                    <Label className="text-xs text-muted-foreground">Amount (year)</Label>
-                    <Input
-                      className="font-mono text-sm"
-                      value={row.amount_annual}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setInvestmentRows((prev) =>
-                          prev.map((r) => (r._id === row._id ? { ...r, amount_annual: v } : r)),
-                        );
-                      }}
-                    />
-                  </div>
-                  <div className="grid w-full gap-2 sm:w-48">
-                    <Label className="text-xs text-muted-foreground">Tax treatment</Label>
-                    <Select
-                      aria-label={`Investment treatment ${idx + 1}`}
-                      value={row.tax_treatment}
-                      onChange={(e) => {
-                        const v = e.target.value as TaxOptBInvestmentTaxTreatmentV1;
-                        setInvestmentRows((prev) =>
-                          prev.map((r) =>
-                            r._id === row._id
-                              ? {
-                                  ...r,
-                                  tax_treatment: v,
-                                  relief_code: v === "map_to_relief" ? r.relief_code ?? "retirement_contribution" : null,
-                                }
-                              : r,
-                          ),
-                        );
-                      }}
-                    >
-                      <option value="informational">informational</option>
-                      <option value="map_to_relief">map_to_relief</option>
-                    </Select>
-                  </div>
-                  {row.tax_treatment === "map_to_relief" ? (
-                    <div className="grid w-full gap-2 sm:w-56">
-                      <Label className="text-xs text-muted-foreground">Relief code</Label>
+                    <div className="grid min-w-0 flex-1 gap-2">
+                      <Label className="text-xs text-muted-foreground">Relief type</Label>
                       <Select
-                        aria-label={`Investment relief ${idx + 1}`}
-                        value={row.relief_code ?? "retirement_contribution"}
+                        aria-label={`Relief ${idx + 1}`}
+                        value={row.relief_code}
                         onChange={(e) => {
                           const v = e.target.value;
-                          setInvestmentRows((prev) =>
+                          setDeductionRows((prev) =>
                             prev.map((r) => (r._id === row._id ? { ...r, relief_code: v } : r)),
                           );
                         }}
+                        className="h-10"
                       >
                         {TAX_OPT_B_MVP_RELIEF_CODES.map((code) => (
                           <option key={code} value={code}>
-                            {code}
+                            {RELIEF_LABELS[code] ?? code}
                           </option>
                         ))}
                       </Select>
                     </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => removeInvestmentRow(row._id)}
-                    aria-label="Remove investment row"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking…
-                </>
-              ) : (
-                "Run compliance (structured inputs)"
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={loading || taxLoading}
-              className="w-full sm:w-auto"
-              onClick={() => void runEstimateTaxStructured()}
-            >
-              {taxLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Estimating…
-                </>
-              ) : (
-                "Estimate tax (MVP)"
-              )}
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <form onSubmit={onSubmitAdvanced} className="grid gap-8 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-                Profile (manual)
-            </CardTitle>
-            <CardDescription>
-                Raw TaxOptBProfileV1 for the manual check. Transaction-backed run overwrites gross /
-                taxable from the snapshot in the result.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor={`${formId}-uid`}>User id (Component 1 snapshot)</Label>
-              <Input
-                id={`${formId}-uid`}
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="demo-user-1"
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={`${formId}-ty`}>Tax year</Label>
-              <Input
-                id={`${formId}-ty`}
-                value={taxYear}
-                onChange={(e) => setTaxYear(e.target.value)}
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={`${formId}-emp`}>Employment type</Label>
-              <Select
-                id={`${formId}-emp`}
-                value={employmentType}
-                onChange={(e) => setEmploymentType(e.target.value as TaxOptBEmploymentTypeV1)}
-              >
-                <option value="employee">employee</option>
-                <option value="self_employed">self_employed</option>
-                <option value="business_owner">business_owner</option>
-                <option value="other">other</option>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor={`${formId}-dep`}>Dependents</Label>
-              <Input
-                id={`${formId}-dep`}
-                type="number"
-                min={0}
-                max={20}
-                value={dependents}
-                onChange={(e) => setDependents(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor={`${formId}-gross`}>Annual gross income (LKR)</Label>
-              <Input
-                id={`${formId}-gross`}
-                value={gross}
-                onChange={(e) => setGross(e.target.value)}
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="grid gap-2">
-                <Label htmlFor={`${formId}-tax`}>Estimated annual taxable income</Label>
-              <Input
-                id={`${formId}-tax`}
-                value={taxable}
-                onChange={(e) => setTaxable(e.target.value)}
-                placeholder="optional — leave empty to omit"
-                className="font-mono text-sm"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Strategy proposal (JSON)</CardTitle>
-            <CardDescription>
-                TaxOptBStrategyProposalV1 — used for manual check and for the transaction-backed check.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <textarea
-              value={strategyJson}
-              onChange={(e) => setStrategyJson(e.target.value)}
-              spellCheck={false}
-              rows={14}
-              className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Strategy JSON"
-            />
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking…
-                </>
-              ) : (
-                "Run compliance check (manual profile)"
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={loading}
-              className="w-full sm:w-auto"
-              onClick={() => void runFromTransactions()}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking…
-                </>
-              ) : (
-                "Run using Component 1 income snapshot"
-              )}
-            </Button>
+                    <div className="grid min-w-0 flex-1 gap-2">
+                      <Label className="text-xs text-muted-foreground">Amount</Label>
+                      <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                        <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                          LKR
+                        </span>
+                        <Input
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={formatMoneyInputDisplay(row.amount_annual)}
+                          onChange={(e) => {
+                            const v = digitsOnly(e.target.value);
+                            setDeductionRows((prev) =>
+                              prev.map((r) => (r._id === row._id ? { ...r, amount_annual: v } : r)),
+                            );
+                          }}
+                          className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => removeDeductionRow(row._id)}
+                      aria-label="Remove row"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
               <Button
                 type="button"
-                variant="outline"
-                disabled={loading || taxLoading}
-                className="w-full sm:w-auto"
-                onClick={() => void runEstimateTaxAdvanced()}
+                variant="link"
+                size="sm"
+                className="mt-2 h-auto p-0 text-sm font-normal text-primary"
+                onClick={addDeductionRow}
               >
-                {taxLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Estimating…
-                  </>
-                ) : (
-                  "Estimate tax (MVP)"
-                )}
+                <Plus className="mr-1 inline h-3.5 w-3.5" />
+                Add row
               </Button>
+            </div>
+
+            <Button type="submit" disabled={isCalculating} className="h-11 w-full">
+              {isCalculating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Working…
+                </>
+              ) : (
+                "Calculate my tax"
+              )}
+            </Button>
           </CardContent>
         </Card>
       </form>
-      )}
 
       {error ? (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardHeader>
-            <CardTitle className="text-destructive text-base">Request failed</CardTitle>
-            <CardDescription className="text-destructive/90">{error}</CardDescription>
+        <Card className="rounded-xl border border-destructive/30 bg-destructive/5">
+          <CardHeader className="p-6 pb-2">
+            <CardTitle className="text-base font-semibold text-destructive">We couldn&apos;t finish that</CardTitle>
           </CardHeader>
+          <CardContent className="px-6 pb-6 pt-0">
+            <p className="text-sm text-destructive/90">{error}</p>
+          </CardContent>
         </Card>
       ) : null}
 
       {result ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Result</CardTitle>
-            <CardDescription>
-              Ruleset {result.ruleset_assessment_year ?? "—"} (schema {result.ruleset_schema_version ?? "—"})
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div
-              className={
-                result.passed
-                  ? "inline-flex rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-800 dark:text-emerald-200"
-                  : "inline-flex rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive"
-              }
-            >
-              {result.passed ? "Passed" : "Failed"}
-            </div>
-
-            {result.mapped_profile ? (
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-3 text-sm">
-                <div className="font-medium">Mapped profile (from structured inputs)</div>
-                <pre className="mt-2 max-h-48 overflow-auto rounded-md border bg-muted/40 p-2 text-xs">
-                  {JSON.stringify(result.mapped_profile, null, 2)}
-                </pre>
-              </div>
-            ) : null}
-
-            {result.mapped_strategy ? (
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-3 text-sm">
-                <div className="font-medium">Mapped strategy (generated claims)</div>
-                <pre className="mt-2 max-h-48 overflow-auto rounded-md border bg-muted/40 p-2 text-xs">
-                  {JSON.stringify(result.mapped_strategy, null, 2)}
-                </pre>
-              </div>
-            ) : null}
-
-            {result.income_snapshot ? (
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-3 text-sm">
-                <div className="font-medium">Income snapshot (Component 1)</div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {result.income_snapshot.derivation_summary}
-                </p>
-                <dl className="mt-2 grid gap-1 text-xs font-mono sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground">source</dt>
-                    <dd>{result.income_snapshot.source}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">pipeline</dt>
-                    <dd>{result.income_snapshot.pipeline_version}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">gross</dt>
-                    <dd>{result.income_snapshot.annual_gross_income}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">taxable</dt>
-                    <dd>{result.income_snapshot.estimated_annual_taxable_income}</dd>
-                  </div>
-                </dl>
-              </div>
-            ) : null}
-
-            {result.violations.length > 0 ? (
-              <ul className="space-y-3">
-                {result.violations.map((v, i) => {
-                  const key = `${v.rule_id}-${i}`;
-                  const open = openRefs[key];
-                  return (
-                    <li
-                      key={key}
-                      className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm"
-                    >
-                      <div className="font-mono text-xs text-muted-foreground">{v.rule_id}</div>
-                      <div className="mt-1">{v.message}</div>
-                      {v.reference ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleRef(key)}
-                          className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                        >
-                          {open ? (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          )}
-                          Rule reference
-                        </button>
-                      ) : null}
-                      {open && v.reference ? (
-                        <p className="mt-2 border-l-2 border-primary/40 pl-3 text-xs text-muted-foreground">
-                          {v.reference}
-                        </p>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-
-            {result.passed && Object.keys(result.applied_relief).length > 0 ? (
-              <div>
-                <div className="mb-2 text-sm font-medium">Applied relief (caps)</div>
-                <pre className="max-h-64 overflow-auto rounded-md border bg-muted/40 p-3 text-xs">
-                  {JSON.stringify(result.applied_relief, null, 2)}
-                </pre>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {taxCompute ? (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardHeader>
-            <CardTitle className="text-base">Tax estimate (MVP)</CardTitle>
-            <CardDescription className="text-amber-950/80 dark:text-amber-100/90">
-              {taxCompute.research_disclaimer}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {taxCompute.tax_computation ? (
-              <>
-                <div className="text-lg font-semibold">
-                  Total tax (LKR):{" "}
-                  <span className="font-mono">{taxCompute.tax_computation.total_tax}</span>
+        <>
+          <div
+            className={
+              result.passed
+                ? "overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-emerald-600/15"
+                : "overflow-hidden rounded-xl border border-destructive/35 bg-card shadow-sm ring-1 ring-destructive/10"
+            }
+          >
+            {result.passed ? (
+              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-5">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-md"
+                  aria-hidden
+                >
+                  <CheckCircle2 className="h-8 w-8 stroke-[2]" />
                 </div>
-                <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground">Income basis (before personal relief)</dt>
-                    <dd className="font-mono">{taxCompute.tax_computation.income_basis_before_personal_relief}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Personal relief</dt>
-                    <dd className="font-mono">{taxCompute.tax_computation.personal_relief_annual}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Taxable after personal relief</dt>
-                    <dd className="font-mono">{taxCompute.tax_computation.taxable_after_personal_relief}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Allowed deductions (total)</dt>
-                    <dd className="font-mono">{taxCompute.tax_computation.total_allowed_deductions}</dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-muted-foreground">Taxable after deductions (slab base)</dt>
-                    <dd className="font-mono">{taxCompute.tax_computation.taxable_after_deductions}</dd>
-                  </div>
-                </dl>
-                <div>
-                  <div className="mb-2 text-sm font-medium">Slab allocation</div>
-                  <ul className="space-y-1 font-mono text-xs">
-                    {taxCompute.tax_computation.slab_slices.map((s) => (
-                      <li key={s.slab_index}>
-                        Band {s.slab_index}: rate {s.rate} — slice {s.taxable_in_slice} LKR → tax{" "}
-                        {s.tax_in_slice}
-                        {s.slice_width_cap ? ` (cap width ${s.slice_width_cap})` : " (remainder)"}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-base font-semibold leading-snug text-foreground">
+                    Your tax is calculated
+                  </p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Your income and relief claims look good for{" "}
+                    <span className="font-medium text-foreground">{assessmentYearLabel}</span>. Your
+                    estimated tax and breakdown are below.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">{taxCompute.tax_computation.algorithm_documentation}</p>
-                <pre className="max-h-40 overflow-auto rounded-md border bg-muted/40 p-2 text-xs">
-                  {JSON.stringify(taxCompute.tax_computation.per_deduction_allowed, null, 2)}
-                </pre>
-              </>
+              </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Compliance did not pass, so no tax figure was produced. Fix violations and try again.
-              </p>
+              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:gap-5">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-destructive/12 text-destructive ring-1 ring-destructive/25"
+                  aria-hidden
+                >
+                  <AlertCircle className="h-8 w-8 stroke-[2]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-foreground">We need a quick fix</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Adjust the items below, then run the calculation again.
+                  </p>
+                  {result.violations.length > 0 ? (
+                    <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-foreground">
+                      {result.violations.map((v, i) => (
+                        <li key={`v-${i}`}>{v.message}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </div>
             )}
-            <ExplanationPanel
-              bundle={taxCompute.explanations}
-              title="Narrative — tax estimate (FR5)"
-            />
-          </CardContent>
-        </Card>
+          </div>
+
+          {tc ? (
+            <Card className="rounded-xl border border-border bg-card shadow-sm">
+              <CardContent className="space-y-6 p-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">Your estimated tax</p>
+                  <p className="mt-1 text-3xl font-semibold tracking-tight">
+                    {formatLkrAmount(tc.total_tax)}
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between gap-4 border-b border-border pb-3">
+                    <span className="text-muted-foreground">Gross income</span>
+                    <span className="font-medium tabular-nums">{formatLkrAmount(tc.annual_gross_income)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-border pb-3">
+                    <span className="text-muted-foreground">Personal relief</span>
+                    <span className="font-medium tabular-nums">{formatLkrAmount(tc.personal_relief_annual)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-border pb-3">
+                    <span className="text-muted-foreground">Allowed deductions</span>
+                    <span className="font-medium tabular-nums">{formatLkrAmount(tc.total_allowed_deductions)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-b border-border pb-3">
+                    <span className="text-muted-foreground">Taxable income</span>
+                    <span className="font-medium tabular-nums">{formatLkrAmount(tc.taxable_after_deductions)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-t border-foreground/20 pt-3 font-semibold">
+                    <span>Total tax</span>
+                    <span className="tabular-nums">{formatLkrAmount(tc.total_tax)}</span>
+                  </div>
+                  {effectiveRatePct != null ? (
+                    <div className="flex justify-between gap-4 pt-1 text-sm">
+                      <span className="text-muted-foreground">Effective rate</span>
+                      <span className="font-medium tabular-nums">{effectiveRatePct}%</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-lg border border-border/80 bg-muted/10">
+                  <button
+                    type="button"
+                    onClick={() => setShowSlabDetails((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-primary hover:underline"
+                  >
+                    {showSlabDetails ? "Hide tax calculation detail ▲" : "View tax calculation detail ▼"}
+                  </button>
+                  {showSlabDetails ? (
+                    <div className="border-t border-border/80 px-2 pb-3">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                            <th className="px-2 py-2 font-medium">Rate</th>
+                            <th className="px-2 py-2 font-medium">Income in this band</th>
+                            <th className="px-2 py-2 font-medium">Tax</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tc.slab_slices.map((s) => (
+                            <tr key={s.slab_index} className="border-b border-border/60">
+                              <td className="px-2 py-2 tabular-nums">{formatSlabRate(s.rate)}</td>
+                              <td className="px-2 py-2 tabular-nums">{formatLkrAmount(s.taxable_in_slice)}</td>
+                              <td className="px-2 py-2 tabular-nums">{formatLkrAmount(s.tax_in_slice)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="rounded-xl border border-border bg-card shadow-sm">
+              <CardContent className="p-6">
+                <p className="text-sm text-muted-foreground">
+                  Adjust your details and try again to see an estimated tax amount.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {Object.keys(result.applied_relief).length > 0 ? (
+            <Card className="rounded-xl border border-border bg-card shadow-sm">
+              <CardContent className="space-y-4 p-6">
+                <h3 className="text-base font-semibold">Applied reliefs</h3>
+                <div className="overflow-x-auto rounded-lg border border-border/80">
+                  <table className="w-full min-w-[560px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30 text-left">
+                        <th className="px-4 py-3 font-semibold">Relief</th>
+                        <th className="px-4 py-3 font-semibold">You claimed</th>
+                        <th className="px-4 py-3 font-semibold">Maximum allowed</th>
+                        <th className="px-4 py-3 font-semibold">Applied</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(result.applied_relief).map(([code, raw]) => {
+                        const row = normalizeReliefEntry(raw);
+                        return (
+                          <tr key={code} className="border-b border-border/60 last:border-0">
+                            <td className="px-4 py-3">{reliefDisplayName(code)}</td>
+                            <td className="px-4 py-3 tabular-nums">{formatLkrAmount(row.claimed)}</td>
+                            <td className="px-4 py-3 tabular-nums">{formatLkrAmount(row.cap)}</td>
+                            <td className="px-4 py-3 tabular-nums">{formatLkrAmount(row.allowed)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Compare scenarios (FR6)</CardTitle>
-          <CardDescription>
-            Uses your structured intake above plus optional extra strategies. Enable{" "}
-            <strong>Mapped intake</strong> to include <span className="font-mono">from_intake</span>{" "}
-            (deductions from this form). Edit JSON to add more variants.{" "}
-            <Link to="/tax-optimization/compare" className="text-primary underline">
-              Manual profile JSON
-            </Link>
-            . For enumerated max-cap search (Function 2), use the{" "}
-            <Link to="/tax-optimization/explorer" className="text-primary underline">
-              Strategy explorer
-            </Link>
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="rounded border-input"
-                checked={compareIncludeMapped}
-                onChange={(e) => setCompareIncludeMapped(e.target.checked)}
-              />
-              Include mapped intake (<span className="font-mono">from_intake</span>)
-            </label>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={`${formId}-baseline`} className="text-xs">
-                Baseline variant id (optional)
-              </Label>
-              <Input
-                id={`${formId}-baseline`}
-                value={compareBaselineId}
-                onChange={(e) => setCompareBaselineId(e.target.value)}
-                placeholder="e.g. from_intake"
-                className="h-9 w-48 font-mono text-sm"
-              />
-            </div>
-            <Button
-              type="button"
-              disabled={compareLoading}
-              onClick={() => void runCompareScenarios()}
-              className="mt-auto"
-            >
-              {compareLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Comparing…
-                </>
-              ) : (
-                "Compare scenarios"
-              )}
-            </Button>
-          </div>
-          <div>
-            <Label htmlFor={`${formId}-compare-extras`} className="text-xs">
-              Extra strategy variants (JSON array)
-            </Label>
-            <textarea
-              id={`${formId}-compare-extras`}
-              value={compareExtraVariantsJson}
-              onChange={(e) => setCompareExtraVariantsJson(e.target.value)}
-              spellCheck={false}
-              rows={8}
-              className="mt-1 w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-          {compareError ? (
-            <p className="text-sm text-destructive">{compareError}</p>
-          ) : null}
-          <CompareStrategiesTable
-            data={compareResult}
-            expanded={compareExpanded}
-            onToggleExpand={toggleCompareExpand}
-          />
-          <ExplanationPanel
-            bundle={compareResult?.explanations}
-            title="Narrative — scenario comparison (FR5)"
-          />
-        </CardContent>
-      </Card>
+      {includeExplanations && advisoryText ? (
+        <div className="rounded-xl border border-border bg-card border-l-4 border-l-emerald-600/70 pl-5 pr-6 py-6 shadow-sm">
+          <h3 className="text-base font-semibold">Advisory note</h3>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{advisoryText}</p>
+        </div>
+      ) : null}
+
+      <p className="text-center text-xs text-muted-foreground">
+        This estimate is based on MVP rules and is not legal or filing advice. Verify with the Inland
+        Revenue Department.
+      </p>
     </div>
   );
 }

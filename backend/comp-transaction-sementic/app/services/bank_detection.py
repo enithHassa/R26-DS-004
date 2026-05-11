@@ -17,6 +17,30 @@ class BankDetectionResult:
 
 _BANK_RULES: list[tuple[str, list[str], float]] = [
     (
+        "FRIMI",
+        [
+            "www.frimi.lk",
+            "frimi.lk",
+            "frimi fund transfer",
+            "fund transfer from frimi",
+            "fund transfer to frimi",
+            "from frimi to round up",
+        ],
+        0.58,
+    ),
+    (
+        "DIALOG_FINANCE",
+        [
+            "dialogfinance.lk",
+            "financialservice@dialog.lk",
+            "www.dialogfinance.lk",
+            "from_dfp-",
+            "to_dfp-",
+            "consolidated individual monthly statement",
+        ],
+        0.62,
+    ),
+    (
         "NTB",
         [
             "nations trust bank",
@@ -58,6 +82,8 @@ _BANK_RULES: list[tuple[str, list[str], float]] = [
 ]
 
 _FILENAME_HINTS: list[tuple[str, list[str], float]] = [
+    ("FRIMI", ["frimi", "fromimi"], 0.42),
+    ("DIALOG_FINANCE", ["dialog", "dialogfinance", "dfp_statement", "_dfp"], 0.48),
     ("NTB", ["ntb", "nations_trust", "nationstrust"], 0.45),
     ("SAMPATH", ["sampath", "smb_estatement", "smb_est"], 0.4),
     ("BOC", ["boc", "bank_of_ceylon"], 0.4),

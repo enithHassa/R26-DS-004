@@ -1,0 +1,211 @@
+version: "v1.0.0"
+jurisdiction: "LK"
+legal_basis: "Inland Revenue Act No. 24 of 2017 (and amendments)"
+taxonomy_version: "v1.0.0"
+currency: "LKR"
+effective_from: "2018-04-01"
+notes:
+  - "This rulebook is deterministic and auditable."
+  - "Model provides class + confidence only; this file decides taxability."
+  - "All conditions must be evaluated with a safe interpreter (no eval)."
+
+rules:
+  EMP_FULL_TAX:
+    class_key: "employment_income"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_assessable_income"
+    rule_reference: "IRA 2017 S.4, S.8"
+    explanation: "Employment income is assessable unless a specific exemption applies."
+
+  EMP_ALLOW_TAX:
+    class_key: "employment_allowance_taxable"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_assessable_income"
+    rule_reference: "IRA 2017 S.4(1)(b)"
+    explanation: "Taxable allowances are included in assessable income."
+
+  EMP_ALLOW_EXEMPT:
+    class_key: "employment_allowance_exempt"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 S.11"
+    explanation: "Qualifying exempt allowances/reimbursements are excluded."
+
+  EMP_BONUS_TAX:
+    class_key: "bonus_performance"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_assessable_income"
+    rule_reference: "IRA 2017 S.4(1)(a)"
+    explanation: "Bonus and incentive payments are taxable employment income."
+
+  DEDUCT_EPF_ETF:
+    class_key: "epf_etf_contribution"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "deduction_signal_only"
+    rule_reference: "EPF/ETF provisions and deduction treatment"
+    explanation: "EPF/ETF contribution rows are deduction signals, not taxable inflow."
+
+  BUS_SERVICE_TAX:
+    class_key: "freelance_service"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_business_income"
+    rule_reference: "IRA 2017 S.4(1)(c)"
+    explanation: "Freelance/service receipts are taxable business income."
+
+  BUS_PROFIT_TAX:
+    class_key: "business_profit"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_business_income"
+    rule_reference: "IRA 2017 S.5"
+    explanation: "Business profits are included in taxable income."
+
+  RENT_TAX:
+    class_key: "rental_income"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "include_in_investment_income"
+    rule_reference: "IRA 2017 S.4(1)(d)"
+    explanation: "Rental receipts are taxable under investment income treatment."
+
+  INT_AIT_REPORTABLE:
+    class_key: "interest_income"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "reportable_with_ait_context"
+    rule_reference: "IRA 2017 S.4(1)(e), S.84"
+    explanation: "Interest income is reportable; withholding handling is separate."
+
+  DIV_AIT_REPORTABLE:
+    class_key: "dividend_income"
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "reportable_with_ait_context"
+    rule_reference: "IRA 2017 S.4(1)(f), S.85"
+    explanation: "Dividend income is reportable with dividend withholding context."
+
+  CAP_GAIN_DEFAULT_EXEMPT:
+    class_key: "capital_gain"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 S.3(1) exclusions (verify by asset type)"
+    explanation: "Capital receipts are generally non-assessable by default class policy."
+
+  GIFT_CONDITIONAL:
+    class_key: "gift_received"
+    taxability_status: "partially_taxable"
+    treatment: "conditional"
+    rule_reference: "IRA 2017 S.11(g), S.4 context"
+    explanation: "Gift taxability depends on relationship and supporting facts."
+    conditions:
+      - condition_id: "gift_from_relative"
+        when:
+          all:
+            - field: "counterparty_type"
+              op: "eq"
+              value: "relative"
+        taxability_status: "exempt"
+        taxable_fraction: 0.0
+        rule_reference: "IRA 2017 S.11(g)"
+        explanation: "Gift from relative is exempt."
+      - condition_id: "gift_other_source"
+        when:
+          all:
+            - field: "counterparty_type"
+              op: "neq"
+              value: "relative"
+        taxability_status: "taxable"
+        taxable_fraction: 1.0
+        rule_reference: "IRA 2017 S.4 context"
+        explanation: "Gift from non-relative defaults to taxable pending specific exemption evidence."
+
+  LOAN_PRINCIPAL_NON_TAX:
+    class_key: "loan_received"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "Not income (loan principal)"
+    explanation: "Loan principal inflow is financing, not income."
+
+  LOAN_REPAY_NON_TAX:
+    class_key: "loan_repayment"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "Not income (repayment)"
+    explanation: "Loan repayment outflow is not taxable income."
+
+  REIMBURSEMENT_CONDITIONAL:
+    class_key: "reimbursement"
+    taxability_status: "partially_taxable"
+    treatment: "conditional"
+    rule_reference: "IRA 2017 S.11"
+    explanation: "Reimbursements are exempt only with supporting policy/receipts."
+    conditions:
+      - condition_id: "supported_reimbursement"
+        when:
+          all:
+            - field: "has_supporting_receipt"
+              op: "eq"
+              value: true
+        taxability_status: "exempt"
+        taxable_fraction: 0.0
+        rule_reference: "IRA 2017 S.11"
+        explanation: "Supported reimbursement is exempt."
+      - condition_id: "unsupported_reimbursement"
+        when:
+          all:
+            - field: "has_supporting_receipt"
+              op: "eq"
+              value: false
+        taxability_status: "taxable"
+        taxable_fraction: 1.0
+        rule_reference: "IRA 2017 S.4"
+        explanation: "Unsupported reimbursement is treated as taxable benefit."
+
+  INSURANCE_EXEMPT:
+    class_key: "insurance_payout"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 S.11(d)"
+    explanation: "Qualifying insurance payouts are exempt."
+
+  GRATUITY_EXEMPT:
+    class_key: "gratuity"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 S.11(e)"
+    explanation: "Qualifying gratuity payments are exempt."
+
+  QUALIFYING_DEDUCTION:
+    class_key: "qualifying_payment"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "deduction_signal_only"
+    rule_reference: "IRA 2017 deduction provisions (e.g., S.34)"
+    explanation: "Eligible outflows reduce taxable base under deduction logic."
+
+  INTERNAL_TRANSFER_NON_TAX:
+    class_key: "inter_account_transfer"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "Not income (own-funds movement)"
+    explanation: "Inter-account transfers are neutral fund movement."
+
+  REVIEW_REQUIRED:
+    class_key: "unknown"
+    taxability_status: "unknown"
+    taxable_fraction: 0.0
+    treatment: "route_to_review_queue"
+    rule_reference: "Operational control"
+    explanation: "Unknown class requires human review before tax decision."

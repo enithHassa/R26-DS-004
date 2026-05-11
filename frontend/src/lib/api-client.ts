@@ -7,6 +7,13 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
     return error instanceof Error ? error.message : String(error);
   }
 
+  const msgLower = (error.message ?? "").toLowerCase();
+  if (error.code === "ECONNABORTED" || msgLower.includes("timeout")) {
+    return apiPrefix.includes("optimization")
+      ? "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running."
+      : "Request timed out. Check your connection and try again.";
+  }
+
   const status = error.response?.status;
   const data = error.response?.data as unknown;
 

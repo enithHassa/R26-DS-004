@@ -80,6 +80,31 @@ class TaxOptBSearchStrategiesFromFinancialInputsRequestV1(
     )
 
 
+class TaxOptBSearchStrategiesMlRankRequestV1(TaxOptBSearchStrategiesFromFinancialInputsRequestV1):
+    """Same search request as Function 2 plus ML bundle options (Function 3).
+
+    Ranking reorders **only** strategies that already passed compliance + tax computation.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    feature_version: str | None = Field(
+        default=None,
+        description="If set, must match feature_version in best_model_summary.json or request fails.",
+    )
+    model_bundle_path: str | None = Field(
+        default=None,
+        max_length=2048,
+        description="Optional directory override for artifacts (best_model_summary.json + joblib).",
+    )
+    max_ml_candidates: int = Field(
+        default=10_000,
+        ge=1,
+        le=50_000,
+        description="Reject with 422 when passing count exceeds this (latency / batch safety).",
+    )
+
+
 class TaxOptBAppliedReliefSummaryEntryV1(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -224,6 +249,49 @@ class TaxOptBSearchStrategyRowV1(BaseModel):
     applied_relief_summary: list[TaxOptBAppliedReliefSummaryEntryV1] = Field(default_factory=list)
     included_relief_codes: list[str] = Field(default_factory=list)
     result: TaxOptBComputeTaxResponseV1 | None = None
+    rule_only_rank: int | None = Field(
+        default=None,
+        ge=1,
+        description="1-based rank under rule-only sort among all passing strategies (Function 3).",
+    )
+    ml_score: str | None = Field(
+        default=None,
+        description="Regressor output used for ML-assisted ordering (string for JSON decimal safety).",
+    )
+    ml_assist_rank: int | None = Field(
+        default=None,
+        ge=1,
+        description="1-based rank after ML-assisted ordering within returned rows (matches rank in ML mode).",
+    )
+    deterministic_rank: int | None = Field(
+        default=None,
+        ge=1,
+        description="Echo of rule_only_rank for permutation-safe auditing (Function 3).",
+    )
+
+
+class TaxOptBSearchMlMetaV1(BaseModel):
+    """Provenance for ML-assisted ranking (rules remain authoritative for tax legality)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    model_id: str = Field(description="Identifier from training run / artifact manifest.")
+    feature_version: str
+    training_timestamp: str = Field(description="ISO-8601 timestamp from training manifest.")
+    artifact_sha256: str | None = Field(
+        default=None,
+        description="Optional checksum of the estimator joblib on disk at load time.",
+    )
+    artifact_path_used: str = Field(
+        description="Resolved filesystem path to the loaded estimator artifact.",
+    )
+    synthetic_training_data_disclaimer: str
+    compliance_assertion: str = Field(
+        description="Fixed research disclosure that ML did not bypass compliance.",
+    )
+    inference_latency_ms: float = Field(ge=0.0)
+    utility_alpha: float | None = Field(default=None, description="Alpha used for Pareto utility (v2 only).")
+    optimization_objective_label: str | None = Field(default=None, description="Human-readable label for UI display.")
 
 
 class TaxOptBSearchTraceabilityV1(BaseModel):
@@ -292,6 +360,10 @@ class TaxOptBSearchStrategiesResponseV1(BaseModel):
     research_disclaimer: str
     rules_version_label: str | None = None
     explanations: TaxOptBExplanationBundleV1 | None = None
+    ml_meta: TaxOptBSearchMlMetaV1 | None = Field(
+        default=None,
+        description="Present for Function 3 ML-assisted responses only.",
+    )
 
 
 __all__ = [
@@ -303,7 +375,9 @@ __all__ = [
     "TaxOptBRuleTraceOutcomeV1",
     "TaxOptBSearchOptimizationMetaV1",
     "TaxOptBSearchStrategiesFromFinancialInputsRequestV1",
+    "TaxOptBSearchStrategiesMlRankRequestV1",
     "TaxOptBSearchStrategiesResponseV1",
+    "TaxOptBSearchMlMetaV1",
     "TaxOptBSearchStrategyMetricsV1",
     "TaxOptBSearchStrategyRowV1",
     "TaxOptBSearchTaxBreakdownV1",
