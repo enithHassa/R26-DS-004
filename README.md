@@ -262,6 +262,9 @@ Frontend dev server proxies **`/api`** to the gateway (`VITE_API_BASE_URL`, defa
 ```bash
 source .venv-backend/bin/activate
 
+# Component 1 (Transaction Semantic Reasoning — port 8001)
+python scripts/run_transaction_semantic_api.py
+
 # Component 2 (Tax Strategy Optimization — Function 1 compliance)
 PYTHONPATH=. uvicorn tax_opt_b_app.main:app \
   --app-dir backend/comp-tax-optimization \

@@ -234,6 +234,14 @@ export interface TaxOptBSearchStrategiesFromFinancialInputsRequestV1
   include_result_detail?: boolean;
 }
 
+/** ``POST .../strategies/ml-rank`` (Function 3). */
+export interface TaxOptBSearchStrategiesMlRankRequestV1
+  extends TaxOptBSearchStrategiesFromFinancialInputsRequestV1 {
+  feature_version?: string | null;
+  model_bundle_path?: string | null;
+  max_ml_candidates?: number;
+}
+
 export interface TaxOptBAppliedReliefSummaryEntryV1 {
   relief_code: string;
   allowed?: string | null;
@@ -304,6 +312,29 @@ export interface TaxOptBSearchStrategyRowV1 {
   applied_relief_summary: TaxOptBAppliedReliefSummaryEntryV1[];
   included_relief_codes: string[];
   result: TaxOptBComputeTaxResponseV1 | null;
+  /** Function 3: 1-based rank under rule-only sort (present on ML-assisted responses). */
+  rule_only_rank?: number | null;
+  /** Function 3: regressor score used for ML ordering (not a calibrated probability). */
+  ml_score?: string | null;
+  /** Function 3: 1-based rank after ML-assisted ordering (matches `rank` in ML mode). */
+  ml_assist_rank?: number | null;
+  /** Function 3: same as `rule_only_rank` for auditing. */
+  deterministic_rank?: number | null;
+}
+
+/** Function 3 — ML ranking metadata (rules remain authoritative for tax outcomes). */
+export interface TaxOptBSearchMlMetaV1 {
+  /** Model identifier from training manifest / artifact bundle. */
+  model_id: string;
+  feature_version: string;
+  training_timestamp: string;
+  artifact_sha256?: string | null;
+  artifact_path_used: string;
+  synthetic_training_data_disclaimer: string;
+  compliance_assertion: string;
+  inference_latency_ms: number;
+  utility_alpha?: number | null;
+  optimization_objective_label?: string | null;
 }
 
 export interface TaxOptBSearchTraceabilityV1 {
@@ -344,4 +375,6 @@ export interface TaxOptBSearchStrategiesResponseV1 {
   research_disclaimer: string;
   rules_version_label?: string | null;
   explanations?: TaxOptBExplanationBundleV1 | null;
+  /** Function 3: present when the response used ML-assisted reordering over the legal set. */
+  ml_meta?: TaxOptBSearchMlMetaV1 | null;
 }

@@ -140,6 +140,8 @@ models/**/checkpoints/
 models/**/runs/
 models/**/logs/
 
+# Component 1 local training outputs: see models/transaction-semantic/artifacts/.gitignore
+
 # Experiment tracking
 mlruns/
 wandb/
@@ -174,6 +176,9 @@ temp/
 *.swp
 *.swo
 *~
+
+# ---------- Microsoft Office (lock files while workbook is open) ----------
+~$*
 
 # ---------- OS files ----------
 .DS_Store

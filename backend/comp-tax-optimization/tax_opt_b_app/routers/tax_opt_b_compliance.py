@@ -29,6 +29,8 @@ from tax_opt_b_app.services.tax_opt_b_financial_strategy_presets import (
     PRESET_SUMMARY_NARRATIVES,
     build_preset_financial_inputs,
 )
+from tax_opt_b_app.services.tax_opt_b_rules_loader import TaxOptBRulePack
+from tax_opt_b_app.services.tax_opt_b_rules_scope import rules_pack_for_tax_year
 from tax_opt_b_app.services.tax_opt_b_tax_computation import run_compliance_and_compute_tax
 from tax_opt_b_app.tax_opt_b_schemas_compliance_v1 import (
     TaxOptBComplianceCheckRequestV1,
@@ -61,14 +63,30 @@ from tax_opt_b_app.tax_opt_b_schemas_strategy_v1 import TaxOptBStrategyProposalV
 router = APIRouter(tags=["tax-opt-b-compliance"])
 
 
-def _rules_pack_or_503(request: Request):
-    pack = getattr(request.app.state, "tax_opt_b_rules", None)
-    if pack is None:
+def _rules_base_or_503(request: Request) -> TaxOptBRulePack:
+    base = getattr(request.app.state, "tax_opt_b_rules", None)
+    if base is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rules pack not loaded.",
         )
-    return pack
+    return base
+
+
+def _rules_pack_or_503(request: Request) -> TaxOptBRulePack:
+    """Base rules bundle as loaded from YAML (canonical ``assessment_year`` in file)."""
+    return _rules_base_or_503(request)
+
+
+def _rules_pack_for_request(request: Request, tax_year: str) -> TaxOptBRulePack:
+    """Rules bundle scoped to the request's assessment year (MVP: same thresholds, rebased label)."""
+    try:
+        return rules_pack_for_tax_year(_rules_base_or_503(request), tax_year)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
 
 
 def _maybe_compute_explanations(
@@ -162,7 +180,7 @@ def _merge_preset_explanation_section(
     summary="Evaluate profile + strategy against encoded IR MVP rules",
 )
 def compliance_check(request: Request, body: TaxOptBComplianceCheckRequestV1) -> TaxOptBComplianceResultV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.profile.tax_year)
     return evaluate_compliance(
         body.profile,
         body.strategy,
@@ -180,7 +198,7 @@ def compliance_check_from_financial_inputs(
     request: Request,
     body: TaxOptBComplianceFromFinancialInputsRequestV1,
 ) -> TaxOptBComplianceResultV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     unknown = validate_relief_codes_used(body, pack.allowed_relief_codes)
     if unknown:
         raise HTTPException(
@@ -214,7 +232,7 @@ async def compliance_check_from_transactions(
     request: Request,
     body: TaxOptBComplianceFromTransactionsRequestV1,
 ) -> TaxOptBComplianceResultV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     try:
         snap = await fetch_income_snapshot(
             user_id=body.user_id,
@@ -262,7 +280,7 @@ def compute_tax(
     request: Request,
     body: TaxOptBComplianceCheckRequestV1,
 ) -> TaxOptBComputeTaxResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.profile.tax_year)
     out = run_compliance_and_compute_tax(
         body.profile,
         body.strategy,
@@ -285,7 +303,7 @@ def compute_tax_from_financial_inputs(
     request: Request,
     body: TaxOptBComplianceFromFinancialInputsRequestV1,
 ) -> TaxOptBComputeTaxResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     unknown = validate_relief_codes_used(body, pack.allowed_relief_codes)
     if unknown:
         raise HTTPException(
@@ -336,7 +354,7 @@ def compare_strategies_route(
     request: Request,
     body: TaxOptBCompareStrategiesRequestV1,
 ) -> TaxOptBCompareStrategiesResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.profile.tax_year)
     for v in body.variants:
         unknown = validate_strategy_relief_codes(v.strategy, pack.allowed_relief_codes)
         if unknown:
@@ -369,7 +387,7 @@ def compare_strategies_from_financial_inputs(
     request: Request,
     body: TaxOptBCompareFromFinancialInputsRequestV1,
 ) -> TaxOptBCompareStrategiesResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     unknown = validate_relief_codes_used(body, pack.allowed_relief_codes)
     if unknown:
         raise HTTPException(
@@ -417,7 +435,7 @@ def compare_presets_from_financial_inputs(
     request: Request,
     body: TaxOptBComparePresetsFromFinancialInputsRequestV1,
 ) -> TaxOptBCompareStrategiesResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     unknown = validate_relief_codes_used(body, pack.allowed_relief_codes)
     if unknown:
         raise HTTPException(
@@ -494,7 +512,7 @@ def search_strategies_from_financial_inputs_route(
     request: Request,
     body: TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
 ) -> TaxOptBSearchStrategiesResponseV1:
-    pack = _rules_pack_or_503(request)
+    pack = _rules_pack_for_request(request, body.tax_year)
     unknown = validate_relief_codes_used(body, pack.allowed_relief_codes)
     if unknown:
         raise HTTPException(

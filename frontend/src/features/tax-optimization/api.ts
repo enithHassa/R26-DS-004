@@ -10,6 +10,7 @@ import type {
   TaxOptBComplianceFromFinancialInputsRequestV1,
   TaxOptBComputeTaxResponseV1,
   TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
+  TaxOptBSearchStrategiesMlRankRequestV1,
   TaxOptBSearchStrategiesResponseV1,
 } from "./types";
 
@@ -87,6 +88,19 @@ export async function postSearchStrategiesFromFinancialInputs(
   const { data } = await taxOptimizationApi.post<TaxOptBSearchStrategiesResponseV1>(
     "/compliance/search-strategies-from-financial-inputs",
     body,
+  );
+  return data;
+}
+
+/** Function 3 — ML-assisted ranking over the legal candidate set only. */
+export async function postSearchStrategiesMlRank(
+  body: TaxOptBSearchStrategiesMlRankRequestV1,
+): Promise<TaxOptBSearchStrategiesResponseV1> {
+  const { data } = await taxOptimizationApi.post<TaxOptBSearchStrategiesResponseV1>(
+    "/strategies/ml-rank",
+    body,
+    /** Model load + scoring over large candidate sets often exceeds the default 30s client limit. */
+    { timeout: 180_000 },
   );
   return data;
 }

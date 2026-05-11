@@ -12,35 +12,6 @@ from pydantic import BaseModel, Field, model_validator
 from backend.shared.schemas.common import Currency, ORMBase, RiskTolerance, TimestampedSchema
 
 
-class Occupation(StrEnum):
-    EMPLOYEE = "employee"
-    SELF_EMPLOYED = "self_employed"
-    BUSINESS_OWNER = "business_owner"
-    INVESTOR = "investor"
-    PROFESSIONAL = "professional"
-    OTHER = "other"
-
-
-class Gender(StrEnum):
-    MALE = "male"
-    FEMALE = "female"
-    OTHER = "other"
-
-
-class MaritalStatus(StrEnum):
-    SINGLE = "single"
-    MARRIED = "married"
-    DIVORCED = "divorced"
-    WIDOWED = "widowed"
-
-
-class IncomeSource(BaseModel):
-    kind: str = Field(description="employment|business|rental|interest|dividend|capital_gain|other")
-    monthly_amount: Decimal = Field(ge=0)
-    currency: Currency = Currency.LKR
-    is_taxable: bool = True
-
-
 _PROVINCE_TO_DISTRICT: dict[str, str] = {
     "Western": "Colombo",
     "Central": "Kandy",
@@ -70,40 +41,16 @@ def _normalize_profile_payload(data: object) -> object:
         return data
     d = dict(data)
 
-    # Common aliases from corrected synthetic dataset.
-    aliases = {
-        "fullname": "full_name",
-        "gross_monthly_income_lkr": "gross_monthly_income",
-        "monthly_expenses_lkr": "monthly_expenses",
-        "monthly_debt_service_lkr": "monthly_debt_service",
-        "liquid_savings_lkr": "liquid_savings",
-        "existing_investments_lkr": "existing_investments",
-        "total_debt_lkr": "total_debt",
-        "epf_balance_lkr": "epf_balance",
-        "etf_balance_lkr": "etf_balance",
-        "life_insurance_premium_annual_lkr": "life_insurance_premium_annual",
-        "home_loan_interest_annual_lkr": "home_loan_interest_annual",
-        "donations_annual_lkr": "donations_annual",
-    }
-    for src, dst in aliases.items():
-        if src in d and dst not in d:
-            d[dst] = d[src]
-
-    # Province fallback when district is not provided.
+    # Province → district fallback.
     if ("district" not in d or not d.get("district")) and d.get("province"):
         d["district"] = _PROVINCE_TO_DISTRICT.get(str(d["province"]), "Colombo")
 
-    # Derive DOB when only age/year-band is provided (anonymized datasets).
+    # age_band → date_of_birth derivation.
     if not d.get("date_of_birth"):
         if d.get("age_band"):
             age_mid = _age_band_midpoint(str(d["age_band"]))
-            # Keep deterministic snapshot-ish birthday.
             snapshot_year = int(str(d.get("tax_year", "2024_25")).split("_", 1)[0]) + 1
             d["date_of_birth"] = date(snapshot_year - age_mid, 6, 30).isoformat()
-        elif d.get("age_years") is not None:
-            age = int(d["age_years"])
-            snapshot_year = int(str(d.get("tax_year", "2024_25")).split("_", 1)[0]) + 1
-            d["date_of_birth"] = date(snapshot_year - age, 6, 30).isoformat()
 
     # Accept income_sources_json string and map to income_sources list.
     if "income_sources" not in d and d.get("income_sources_json"):
@@ -113,6 +60,35 @@ def _normalize_profile_payload(data: object) -> object:
             d["income_sources"] = []
 
     return d
+
+
+class Occupation(StrEnum):
+    EMPLOYEE = "employee"
+    SELF_EMPLOYED = "self_employed"
+    BUSINESS_OWNER = "business_owner"
+    INVESTOR = "investor"
+    PROFESSIONAL = "professional"
+    OTHER = "other"
+
+
+class Gender(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+
+
+class MaritalStatus(StrEnum):
+    SINGLE = "single"
+    MARRIED = "married"
+    DIVORCED = "divorced"
+    WIDOWED = "widowed"
+
+
+class IncomeSource(BaseModel):
+    kind: str = Field(description="employment|business|rental|interest|dividend|capital_gain|other")
+    monthly_amount: Decimal = Field(ge=0)
+    currency: Currency = Currency.LKR
+    is_taxable: bool = True
 
 
 class FinancialProfileBase(BaseModel):

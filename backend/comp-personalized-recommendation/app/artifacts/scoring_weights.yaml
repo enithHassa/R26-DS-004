@@ -1,0 +1,8 @@
+# Phase 4 multi-objective fusion weights (WP6).
+# Override at runtime via COMP_RECOMMENDATION_* env vars on the API service,
+# or copy this file next to trained artifacts as scoring_weights.yaml for training-only defaults.
+
+w_savings: 0.40
+w_adoption: 0.30
+w_feasibility: 0.20
+w_risk_penalty: 0.10

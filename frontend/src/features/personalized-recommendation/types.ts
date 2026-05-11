@@ -5,17 +5,11 @@
  * the wire and convert at the form boundary.
  */
 
-export type Occupation =
-  | "employee"
-  | "self_employed"
-  | "business_owner"
-  | "investor"
-  | "professional"
-  | "other";
+export type Occupation = "employee" | "business_owner" | "professional";
 
-export type Gender = "male" | "female" | "other";
+export type Gender = "male" | "female";
 
-export type MaritalStatus = "single" | "married" | "divorced" | "widowed";
+export type MaritalStatus = "single" | "married" | "divorced";
 
 export type RiskTolerance = "low" | "medium" | "high";
 
@@ -31,6 +25,15 @@ export interface FinancialProfileBase {
   date_of_birth: string;
   gender: Gender;
   district: string;
+  marital_status: MaritalStatus;
+  occupation: Occupation;
+}
+
+export interface FinancialProfileCreate {
+  full_name: string;
+  age_band: string;
+  province: string;
+  gender: Gender;
   marital_status: MaritalStatus;
   occupation: Occupation;
   dependents: number;
@@ -52,8 +55,6 @@ export interface FinancialProfileBase {
   income_sources: IncomeSource[];
   tax_year: string;
 }
-
-export type FinancialProfileCreate = FinancialProfileBase;
 
 export interface FinancialProfile extends FinancialProfileBase {
   id: string;
@@ -147,10 +148,14 @@ export interface RecommendationRequest {
   regenerate_candidates?: boolean;
 }
 
-export const SL_DISTRICTS = [
-  "Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "Nuwara Eliya",
-  "Galle", "Matara", "Hambantota", "Jaffna", "Kilinochchi", "Mannar",
-  "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
-  "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
-  "Moneragala", "Ratnapura", "Kegalle",
+export const SL_PROVINCES = [
+  "Western",
+  "Central",
+  "Southern",
+  "North Western",
+] as const;
+
+export const AGE_BANDS = [
+  "18-24", "25-29", "30-34", "35-39", "40-44",
+  "45-49", "50-54", "55-59", "60-64", "65-70", "70+",
 ] as const;

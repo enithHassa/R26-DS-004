@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-05-09T05:22:57Z",
+  "train_table": "D:/R26-DS-004/R26-DS-004/models/tax-optimization/datasets/ml/training_persona_v1.parquet",
+  "train_table_sha256": "acae2f0fd0038e99a4bceaca36b5494ed11f8522e9d0469ee89f3f7fd2d6b741",
+  "feature_version": "v1",
+  "protocol": {
+    "split": "group_by_taxpayer_id",
+    "split_method": "group_shuffle_sklearn",
+    "train_frac": 0.7,
+    "val_frac": 0.15,
+    "test_frac": 0.15,
+    "random_state": 42,
+    "max_taxpayers_cap": null,
+    "sklearn_ensemble_n_jobs": 1,
+    "rf_n_estimators": 400,
+    "et_n_estimators": 500,
+    "forest_max_depth": null,
+    "feature_matrix_dtype": "float32",
+    "rows_total": 320000,
+    "rows_train": 224000,
+    "rows_val": 48000,
+    "rows_test": 48000,
+    "unique_taxpayers": 5000
+  },
+  "target": "savings_vs_baseline_lkr",
+  "targets_documentation": {
+    "savings_vs_baseline_lkr": {
+      "paradigm": "regression",
+      "unit": "LKR",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr"
+      ],
+      "notes": "X excludes savings_vs_baseline_lkr; matches API inference_matrix_layout v1_11_no_savings."
+    },
+    "rule_rank_among_passing": {
+      "paradigm": "regression_surrogate_on_ordinal_ranks",
+      "unit": "dimensionless_rank",
+      "x_columns": [
+        "annual_gross_income",
+        "annual_salary_income",
+        "annual_business_income",
+        "annual_other_income",
+        "dependents",
+        "employment_type_code",
+        "n_ordered_relief_codes",
+        "n_included_relief_codes",
+        "candidate_mask",
+        "total_tax_lkr",
+        "baseline_tax_lkr"
+      ],
+      "caveats": "rule_rank_among_passing is discrete and ordinal within taxpayer; MSE/MAE/R2 treat it as real-valued. Prefer learning-to-rank or per-group models for research conclusions; this zoo entry is for coarse comparison only."
+    }
+  },
+  "feature_columns_X": [
+    "annual_gross_income",
+    "annual_salary_income",
+    "annual_business_income",
+    "annual_other_income",
+    "dependents",
+    "employment_type_code",
+    "n_ordered_relief_codes",
+    "n_included_relief_codes",
+    "candidate_mask",
+    "total_tax_lkr",
+    "baseline_tax_lkr"
+  ],
+  "models": [
+    {
+      "model": "sklearn_random_forest",
+      "val_mae": 10320.35226125,
+      "val_rmse": 145428.61401664122,
+      "val_r2": 0.9961275126461611,
+      "test_mae": 21502.352835989586,
+      "test_rmse": 571547.5538833978,
+      "test_r2": 0.929610223989226
+    },
+    {
+      "model": "sklearn_extra_trees",
+      "val_mae": 10759.12160925,
+      "val_rmse": 154505.13734104566,
+      "val_r2": 0.9956290471000862,
+      "test_mae": 12576.606291624996,
+      "test_rmse": 293768.69853601,
+      "test_r2": 0.9814041565705985
+    },
+    {
+      "model": "sklearn_gradient_boosting",
+      "val_mae": 35971.96588269521,
+      "val_rmse": 290862.990857121,
+      "val_r2": 0.9845094367664167,
+      "test_mae": 39678.55285842738,
+      "test_rmse": 500576.4273290089,
+      "test_r2": 0.9460059839643703
+    }
+  ],
+  "best_model_by_val_mae": "sklearn_random_forest",
+  "best_validation_spearman": 0.9992963879367146,
+  "models_excluded": {
+    "xgboost": "not installed; add xgboost to models/requirements-ml.txt to enable XGBRegressor.",
+    "lightgbm": "lightgbm not importable; use models/requirements-ml.txt environment."
+  }
+}
