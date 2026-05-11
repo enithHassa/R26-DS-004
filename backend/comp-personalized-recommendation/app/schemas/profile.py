@@ -49,7 +49,7 @@ def _normalize_profile_payload(data: object) -> object:
     if not d.get("date_of_birth"):
         if d.get("age_band"):
             age_mid = _age_band_midpoint(str(d["age_band"]))
-            snapshot_year = int(str(d.get("tax_year", "2024_25")).split("_", 1)[0]) + 1
+            snapshot_year = int(str(d.get("tax_year", "2026_27")).split("_", 1)[0]) + 1
             d["date_of_birth"] = date(snapshot_year - age_mid, 6, 30).isoformat()
 
     # Accept income_sources_json string and map to income_sources list.
@@ -119,7 +119,7 @@ class FinancialProfileBase(BaseModel):
     investment_horizon_years: int = Field(ge=0, le=50, default=10)
     income_sources: list[IncomeSource] = Field(default_factory=list)
 
-    tax_year: str = Field(default="2024_25", pattern=r"^\d{4}_\d{2}$")
+    tax_year: str = Field(default="2026_27", pattern=r"^\d{4}_\d{2}$")
 
     @model_validator(mode="before")
     @classmethod
