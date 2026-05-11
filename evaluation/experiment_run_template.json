@@ -1,0 +1,36 @@
+{
+  "run_id": "run_2026_05_09_0001",
+  "component": "language-model",
+  "component_version": "0.1.0",
+  "model_version": "candidate_a_v0",
+  "corpus_version": "corpus_v1",
+  "rule_engine_version": "rules_v0",
+  "dataset": {
+    "name": "seed_benchmark",
+    "split": "dev",
+    "sample_count": 100
+  },
+  "metrics": {
+    "intent_f1": 0.0,
+    "entity_f1": 0.0,
+    "grounding_adherence": 0.0,
+    "latency_p95_ms": 0.0,
+    "phase2_retrieval_recall_at_k_any_gold": null,
+    "phase2_retrieval_mrr_at_k": null,
+    "phase2_retrieval_n_evaluated": null,
+    "phase2_intent_accuracy": null,
+    "phase2_intent_macro_f1": null,
+    "phase2_joint_success_rate": null,
+    "phase2_joint_n": null
+  },
+  "runtime": {
+    "started_at_utc": "2026-05-09T00:00:00Z",
+    "finished_at_utc": "2026-05-09T00:10:00Z",
+    "duration_seconds": 600
+  },
+  "cost": {
+    "currency": "USD",
+    "estimated_total": 0.0
+  },
+  "notes": "Template for Phase 1 tracking standards."
+}

@@ -1,0 +1,54 @@
+{
+  "spec_version": "1.0.0",
+  "phase": "3a-step9",
+  "title": "Lex Specialis — explicit override paths (Neo4j)",
+  "chosen_strategy": "Typed relationships (OVERRIDES, MODIFIES, SUPERSEDES) plus node-level Lex metadata from Step 8. Phase 4 queries traverse overrides after retrieval; ranking can combine edge presence, rel.effective_from / effective_to, and node.specificity_rank.",
+  "edge_semantics": [
+    {
+      "rel_type": "OVERRIDES",
+      "pattern": "(:Section)-[:OVERRIDES]->(:Section)",
+      "meaning": "The **source** Section’s rule takes precedence over the **target** Section when both apply in the same context (more specific beats more general).",
+      "recommended_rel_properties": [
+        "review_status",
+        "source_note",
+        "confidence",
+        "effective_from",
+        "effective_to",
+        "specificity_rank"
+      ]
+    },
+    {
+      "rel_type": "MODIFIES",
+      "pattern": "(:LawInstrument)-[:MODIFIES]->(:Section)",
+      "meaning": "The **source** instrument (e.g. amendment Act) modifies the legal content represented by the **target** Section node.",
+      "recommended_rel_properties": [
+        "review_status",
+        "source_note",
+        "effective_from",
+        "effective_to"
+      ]
+    },
+    {
+      "rel_type": "SUPERSEDES",
+      "pattern": "(:LawInstrument)-[:SUPERSEDES]->(:LawInstrument)",
+      "meaning": "The **source** instrument replaces or fully supersedes the **target** instrument for the scoped provisions (use rel dates + manifest metadata to scope).",
+      "recommended_rel_properties": [
+        "review_status",
+        "source_note",
+        "effective_from",
+        "effective_to"
+      ]
+    }
+  ],
+  "query_hints_for_phase_4": [
+    "Prefer explicit OVERRIDES/MODIFIES/SUPERSEDES edges when curators encode known conflicts.",
+    "When edges are missing, fall back to comparing node.authority_class, node.specificity_rank, and lex_effective_* windows from lex_specialis_v1.",
+    "Never treat auto_heuristic edges as ground truth without review_status upgrade."
+  ],
+  "ingest": {
+    "format": "Same JSONL as edge_ingest_v1.json",
+    "loader": "scripts/neo4j_load_curated_edges.py",
+    "strict_flag": "--strict-lex-overrides (requires source_note and review_status on OVERRIDES/MODIFIES/SUPERSEDES)"
+  },
+  "examples_path": "knowledge_graph/examples/override_edges_sample.jsonl"
+}

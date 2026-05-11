@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://r26-ds-004.local/evaluation/frozen/query_response.schema.json",
+  "title": "QueryResponse",
+  "description": "Phase 2 Step 14 + Phase 3 Step 15 — citations with optional KG join fields from corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "top_k", "citations", "retrieval_model"],
+  "properties": {
+    "question": { "type": "string" },
+    "top_k": { "type": "integer", "minimum": 1 },
+    "citations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Citation" }
+    },
+    "retrieval_model": {
+      "type": "string",
+      "enum": ["tfidf-baseline", "dense-baseline", "stub-no-corpus"]
+    }
+  },
+  "$defs": {
+    "Citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunk_id", "score", "text"],
+      "properties": {
+        "chunk_id": { "type": "string" },
+        "score": { "type": "number" },
+        "text": { "type": "string" },
+        "source_doc_id": { "type": ["string", "null"] },
+        "section_uid": { "type": ["string", "null"] },
+        "section_label": { "type": ["string", "null"] },
+        "tier": { "type": ["string", "null"] },
+        "instrument_type": { "type": ["string", "null"] },
+        "content_kind": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

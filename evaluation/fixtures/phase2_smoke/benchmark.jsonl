@@ -1,0 +1,3 @@
+{"example_id": "fx_r1", "task_id": "retrieval_law_grounding", "utterance": "How much personal relief can I claim?", "gold_chunk_ids": ["fixture::relief"]}
+{"example_id": "fx_j1", "task_id": "joint_nlu_retrieval", "utterance": "Am I tax resident with 200 days in Sri Lanka?", "intent": "residence_scope", "gold_chunk_ids": ["fixture::residence"]}
+{"example_id": "fx_i1", "task_id": "intent_classification", "utterance": "Can donations to charity reduce my tax?", "gold_intent": "donation_relief"}

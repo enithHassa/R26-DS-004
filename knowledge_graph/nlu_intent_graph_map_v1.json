@@ -1,0 +1,66 @@
+{
+  "map_version": "1.0.0",
+  "phase": "3a-step12",
+  "title": "NLU intent → graph traversal entry",
+  "description": "For each predicted intent (Phase 2 benchmark / API predicted_intent), defines how Phase 4 GraphRAG picks **entry nodes**. `cypher_template` rows are **parameterized** starters only — compose follow-on Cypher in code with the same safety rules as Step 11.",
+  "parameter_safety": "Bind only allowlisted parameters from `entry.parameters` or from kg_nlu_entity_map_lib resolvers; never splice raw user text into Cypher.",
+  "intents": [
+    {
+      "nlu_intent": "personal_relief",
+      "description": "Personal relief / individual deduction ceilings.",
+      "entry": {
+        "strategy": "match_relief_by_id",
+        "parameters": { "relief_id": "relief_personal" },
+        "cypher_template": "MATCH (n:Relief {relief_id: $relief_id}) RETURN n LIMIT 1"
+      },
+      "expansion_hints": [
+        "From Relief, consider inbound COVERS_RELIEF from Section for statutory wording.",
+        "Combine with top-k TextChunk anchors from retrieval if Relief node absent."
+      ],
+      "fallback_behavior": "retrieval_first",
+      "notes": "Seed `relief_id` values must match graph `Relief` nodes."
+    },
+    {
+      "nlu_intent": "donation_relief",
+      "description": "Approved charity / donation deductions.",
+      "entry": {
+        "strategy": "match_relief_by_id",
+        "parameters": { "relief_id": "donation_relief" },
+        "cypher_template": "MATCH (n:Relief {relief_id: $relief_id}) RETURN n LIMIT 1"
+      },
+      "expansion_hints": [
+        "Link to approved-charity Concept nodes when NER provides entity resolution."
+      ],
+      "fallback_behavior": "retrieval_first",
+      "notes": "Align `relief_id` with curated Relief + Concept seeds."
+    },
+    {
+      "nlu_intent": "residence_scope",
+      "description": "Tax residence, days tests, scope of Sri Lanka taxation.",
+      "entry": {
+        "strategy": "match_concept_by_id",
+        "parameters": { "concept_id": "tax_resident" },
+        "cypher_template": "MATCH (n:Concept {concept_id: $concept_id}) RETURN n LIMIT 1"
+      },
+      "expansion_hints": [
+        "From Concept, follow DEFINES inbound from Section; add Lex edges for overrides."
+      ],
+      "fallback_behavior": "retrieval_first",
+      "notes": "`tax_resident` concept_id should match Concept seeds (see concepts_seed.json style)."
+    },
+    {
+      "nlu_intent": "_default",
+      "description": "Unknown or low-confidence intent — anchor on law-grounded chunks.",
+      "entry": {
+        "strategy": "retrieval_first",
+        "parameters": {},
+        "cypher_template": null
+      },
+      "expansion_hints": [
+        "MATCH (t:TextChunk) WHERE t.chunk_id IN $chunk_ids RETURN t — bind chunk_ids from retrieval only."
+      ],
+      "fallback_behavior": "clarify",
+      "notes": "Optionally ask a disambiguation question when intent probability is below a product threshold."
+    }
+  ]
+}
