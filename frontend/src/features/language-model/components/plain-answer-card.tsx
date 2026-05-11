@@ -58,19 +58,3 @@ export function PlainAnswerCard({
     </Card>
   );
 }
-
-export function PlainAnswerUnavailable({ requested }: { requested: boolean }) {
-  if (!requested) return null;
-
-  return (
-    <Card className="rounded-xl border border-dashed border-border/80 bg-muted/10 shadow-sm">
-      <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">Plain-language answer not available</p>
-        <p>
-          Turn on answer synthesis on the server and set a Gemini API key, then run the query again
-          with the summary option enabled.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}

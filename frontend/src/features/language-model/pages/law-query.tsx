@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 
 import { DomainNotice } from "../components/domain-notice";
 import { GraphContextPanel } from "../components/graph-context-panel";
-import { PlainAnswerCard, PlainAnswerUnavailable } from "../components/plain-answer-card";
+import { PlainAnswerCard } from "../components/plain-answer-card";
 import { anchorsFromCitations } from "../components/graph-source-anchor";
 import { retrievalModelLabel } from "../components/language-model-display";
 import { RetrievalResultCard } from "../components/retrieval-result-card";
@@ -33,7 +33,7 @@ export function LawQueryPage() {
     "What are the rules for personal relief in Sri Lanka?",
   );
   const [topK, setTopK] = useState("8");
-  const [synthesizeAnswer, setSynthesizeAnswer] = useState(true);
+  const [synthesizeAnswer, setSynthesizeAnswer] = useState(false);
 
   const mutation = useMutation({ mutationFn: postQuery });
 
@@ -116,8 +116,8 @@ export function LawQueryPage() {
                   <span>
                     <span className="font-medium text-foreground">Plain-language summary</span>
                     <span className="mt-1 block text-muted-foreground">
-                      Uses Gemini on the server when configured. Source excerpts stay below for
-                      verification.
+                      Optional. When enabled on the server, Gemini can add a short summary above the
+                      source excerpts.
                     </span>
                   </span>
                 </label>
@@ -147,15 +147,13 @@ export function LawQueryPage() {
         <>
           <DomainNotice status={res.domain_status} message={res.domain_message} />
 
-          {blocked ? null : res.plain_answer ? (
+          {!blocked && res.plain_answer ? (
             <PlainAnswerCard
               answer={res.plain_answer}
               provider={res.answer_provider}
               model={res.answer_model}
             />
-          ) : (
-            <PlainAnswerUnavailable requested={synthesizeAnswer && !blocked} />
-          )}
+          ) : null}
 
           {blocked ? null : (
           <Card className="overflow-hidden rounded-xl border border-border/80 shadow-sm">
