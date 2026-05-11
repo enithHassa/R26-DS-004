@@ -42,3 +42,4 @@ uvicorn==0.42.0
 joblib==1.5.3
 scikit-learn==1.8.0
 pandas==3.0.2
+neo4j>=5.14.0,<6

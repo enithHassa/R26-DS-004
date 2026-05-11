@@ -1,0 +1,96 @@
+[
+  {
+    "profile_type": "individual_resident",
+    "display_name": "Resident Individual",
+    "description": "A natural person who is resident in Sri Lanka for tax purposes (183+ days in the year of assessment). Subject to tax on worldwide income.",
+    "relevant_relief_ids": [
+      "relief_personal",
+      "donation_relief",
+      "life_insurance_relief",
+      "health_insurance_relief",
+      "rent_relief",
+      "home_loan_interest_relief",
+      "retirement_contribution_relief"
+    ],
+    "relevant_milestone_ids": [
+      "annual_return_filing_individual",
+      "estimated_tax_q1_instalment",
+      "estimated_tax_q2_instalment",
+      "estimated_tax_q3_instalment",
+      "tax_registration_individual"
+    ],
+    "relevant_concept_ids": [
+      "tax_resident", "gross_income", "taxable_income",
+      "year_of_assessment", "qualifying_payment", "assessable_income"
+    ],
+    "review_status": "curated"
+  },
+  {
+    "profile_type": "individual_non_resident",
+    "display_name": "Non-Resident Individual",
+    "description": "A natural person who is not tax resident in Sri Lanka. Taxed only on Sri Lanka-sourced income. Personal relief not applicable.",
+    "relevant_relief_ids": [],
+    "relevant_milestone_ids": [
+      "annual_return_filing_individual",
+      "tax_registration_individual"
+    ],
+    "relevant_concept_ids": [
+      "non_resident", "gross_income", "taxable_income",
+      "year_of_assessment", "withholding_tax"
+    ],
+    "review_status": "curated"
+  },
+  {
+    "profile_type": "paye_employee",
+    "display_name": "PAYE / APIT Employee",
+    "description": "An employee whose tax is withheld at source by the employer via the APIT (Advance Personal Income Tax) system. May still need to file if additional income exists.",
+    "relevant_relief_ids": [
+      "relief_personal",
+      "life_insurance_relief",
+      "health_insurance_relief",
+      "rent_relief",
+      "retirement_contribution_relief",
+      "employment_expenses_relief"
+    ],
+    "relevant_milestone_ids": [
+      "apit_monthly_remittance",
+      "annual_return_filing_individual"
+    ],
+    "relevant_concept_ids": [
+      "tax_resident", "employment_income", "withholding_tax",
+      "gross_income", "taxable_income", "qualifying_payment"
+    ],
+    "review_status": "curated"
+  },
+  {
+    "profile_type": "company_resident",
+    "display_name": "Resident Company",
+    "description": "A company incorporated in Sri Lanka or managed and controlled in Sri Lanka. Subject to corporate income tax on worldwide income.",
+    "relevant_relief_ids": [
+      "donation_relief"
+    ],
+    "relevant_milestone_ids": [
+      "annual_return_filing_company",
+      "estimated_tax_q1_instalment",
+      "estimated_tax_q2_instalment",
+      "estimated_tax_q3_instalment"
+    ],
+    "relevant_concept_ids": [
+      "gross_income", "business_income", "taxable_income", "year_of_assessment"
+    ],
+    "review_status": "curated"
+  },
+  {
+    "profile_type": "company_non_resident",
+    "display_name": "Non-Resident Company",
+    "description": "A company not incorporated or managed in Sri Lanka. Taxed only on Sri Lanka-sourced income.",
+    "relevant_relief_ids": [],
+    "relevant_milestone_ids": [
+      "annual_return_filing_company"
+    ],
+    "relevant_concept_ids": [
+      "non_resident", "business_income", "withholding_tax", "taxable_income"
+    ],
+    "review_status": "curated"
+  }
+]

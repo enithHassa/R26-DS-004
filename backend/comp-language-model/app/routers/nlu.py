@@ -1,4 +1,4 @@
-"""NLU + retrieval baseline routes (Phase 2)."""
+"""NLU + retrieval baseline routes (Phase 2 + Phase 4 graph enrichment)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,9 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from app.config import LanguageModelSettings, get_lm_settings
+from app.schemas.graph_v1 import GraphContext
 from app.schemas.nlu_v1 import NLUParseRequest, NLUParseResponse, RetrievalHit
+from app.services.domain_gate import assess_domain
 from app.services.intent_benchmark import build_intent_classifier
 from app.services.intent_tfidf_centroid import TfidfIntentCentroidClassifier
 from app.services.tfidf_chunk_index import TfidfChunkIndex
@@ -26,15 +28,23 @@ def _predict_intent(
 
 
 @router.post("/parse", response_model=NLUParseResponse)
-def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse:
+async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse:
     index = getattr(request.app.state, "retrieval_index", None)
     clf: TfidfIntentCentroidClassifier | None = getattr(request.app.state, "intent_classifier", None)
+    graph_service = getattr(request.app.state, "graph_service", None)
     settings = get_lm_settings()
     k = body.top_k or settings.COMP_LLM_RETRIEVAL_TOP_K
 
     pred_intent, intent_model = _predict_intent(clf, body.utterance)
 
     if index is None:
+        domain = assess_domain(
+            body.utterance,
+            None,
+            enabled=settings.COMP_LLM_DOMAIN_GATE_ENABLED,
+            min_retrieval_score=settings.COMP_LLM_MIN_RETRIEVAL_SCORE,
+            require_tax_hints=settings.COMP_LLM_DOMAIN_REQUIRE_TAX_HINTS,
+        )
         return NLUParseResponse(
             utterance=body.utterance,
             intent=body.intent_hint,
@@ -43,16 +53,41 @@ def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse:
             retrieval_hits=[],
             model="stub-no-corpus",
             corpus_loaded=False,
+            domain_status=domain.status,
+            domain_message=domain.message,
         )
 
+    model_id = "dense-baseline" if settings.COMP_LLM_RETRIEVAL_BACKEND == "dense" else "tfidf-baseline"
+    chunk_texts: dict[str, str] = getattr(request.app.state, "chunk_text_by_id", {}) or {}
     hits = index.search(body.utterance, k)
-    if settings.COMP_LLM_RETRIEVAL_BACKEND == "dense":
-        model_id = "dense-baseline"
-    else:
-        model_id = "tfidf-baseline"
+    top_score = hits[0][1] if hits else None
+    top_excerpt = chunk_texts.get(hits[0][0], "") if hits else None
+    domain = assess_domain(
+        body.utterance,
+        top_score,
+        enabled=settings.COMP_LLM_DOMAIN_GATE_ENABLED,
+        min_retrieval_score=settings.COMP_LLM_MIN_RETRIEVAL_SCORE,
+        require_tax_hints=settings.COMP_LLM_DOMAIN_REQUIRE_TAX_HINTS,
+        top_excerpt=top_excerpt,
+        min_question_overlap=settings.COMP_LLM_DOMAIN_MIN_QUESTION_OVERLAP,
+    )
     join_map: dict[str, dict[str, str | None]] = getattr(
         request.app.state, "chunk_kg_join_by_id", None
     ) or {}
+
+    if domain.status != "in_domain":
+        return NLUParseResponse(
+            utterance=body.utterance,
+            intent=body.intent_hint,
+            predicted_intent=pred_intent,
+            intent_model=intent_model,
+            retrieval_hits=[],
+            model=model_id,
+            corpus_loaded=True,
+            graph_context=None,
+            domain_status=domain.status,
+            domain_message=domain.message,
+        )
 
     def _hit(cid: str, s: float) -> RetrievalHit:
         m = join_map.get(cid) or {}
@@ -67,14 +102,33 @@ def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse:
             content_kind=m.get("content_kind"),
         )
 
+    retrieval_hits = [_hit(cid, s) for cid, s in hits]
+
+    # Phase 4 — graph enrichment
+    graph_context: GraphContext | None = None
+    if graph_service is not None:
+        from app.services.graph_service import _merge_contexts
+        chunk_ids = [cid for cid, _ in hits]
+        section_uids = [
+            m.get("section_uid")
+            for cid in chunk_ids
+            if (m := join_map.get(cid) or {}) and m.get("section_uid")
+        ]
+        chunk_ctx  = await graph_service.enrich_from_chunks(chunk_ids, section_uids or None)
+        intent_ctx = await graph_service.enrich_from_intent(pred_intent)
+        graph_context = _merge_contexts(chunk_ctx, intent_ctx)
+
     return NLUParseResponse(
         utterance=body.utterance,
         intent=body.intent_hint,
         predicted_intent=pred_intent,
         intent_model=intent_model,
-        retrieval_hits=[_hit(cid, s) for cid, s in hits],
+        retrieval_hits=retrieval_hits,
         model=model_id,
         corpus_loaded=True,
+        graph_context=graph_context,
+        domain_status=domain.status,
+        domain_message=domain.message,
     )
 
 

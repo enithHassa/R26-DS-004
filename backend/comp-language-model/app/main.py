@@ -14,12 +14,13 @@ from app.routers import health, nlu, query
 from app.routers.nlu import attach_intent_classifier, attach_retrieval_index
 from app.services.corpus_chunk_kg_join import load_chunk_kg_join_by_id
 from app.services.corpus_chunk_texts import load_chunk_texts
+from app.services.graph_service import GraphService
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: RUF029
     configure_logging(service_name="comp-language-model")
     logger.info("Language-model component starting (version={})", __version__)
     lm_cfg = get_lm_settings()
@@ -60,8 +61,47 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     else:
         logger.info("No intent benchmark configured (set COMP_LLM_INTENT_BENCHMARK_JSONL)")
+
+    # Phase 4 — Neo4j GraphService
+    app.state.graph_service = None
+    if lm_cfg.COMP_LLM_GRAPH_ENABLED and lm_cfg.NEO4J_PASSWORD:
+        try:
+            gs = GraphService(
+                uri=lm_cfg.NEO4J_URI,
+                user=lm_cfg.NEO4J_USER,
+                password=lm_cfg.NEO4J_PASSWORD,
+                database=lm_cfg.NEO4J_DATABASE,
+            )
+            reachable = await gs.verify()
+            if reachable:
+                app.state.graph_service = gs
+                logger.info(
+                    "GraphService connected to Neo4j (uri={}, db={})",
+                    lm_cfg.NEO4J_URI,
+                    lm_cfg.NEO4J_DATABASE,
+                )
+            else:
+                logger.warning(
+                    "GraphService could not reach Neo4j at {} — graph enrichment disabled",
+                    lm_cfg.NEO4J_URI,
+                )
+                await gs.close()
+        except Exception:
+            logger.exception("GraphService failed to initialise — graph enrichment disabled")
+    else:
+        logger.info(
+            "GraphService disabled (COMP_LLM_GRAPH_ENABLED={}, password_set={})",
+            lm_cfg.COMP_LLM_GRAPH_ENABLED,
+            bool(lm_cfg.NEO4J_PASSWORD),
+        )
+
     yield
+
     logger.info("Language-model component shutting down")
+    gs = getattr(app.state, "graph_service", None)
+    if gs is not None:
+        await gs.close()
+        logger.info("GraphService closed")
 
 
 def create_app() -> FastAPI:

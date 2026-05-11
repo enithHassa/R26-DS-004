@@ -51,6 +51,57 @@ class LanguageModelSettings(BaseSettings):
         description="Phase 2 benchmark JSONL to fit TF-IDF centroid intent baseline (optional).",
     )
 
+    # ------------------------------------------------------------------
+    # Phase 4 — Neo4j Knowledge Graph
+    # ------------------------------------------------------------------
+    NEO4J_URI: str = Field(
+        default="neo4j://127.0.0.1:7687",
+        description="Bolt URI for Neo4j instance.",
+    )
+    NEO4J_USER: str = Field(default="neo4j")
+    NEO4J_PASSWORD: str = Field(default="")
+    NEO4J_DATABASE: str = Field(default="neo4j")
+    COMP_LLM_GRAPH_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Phase 4: enable Neo4j GraphService enrichment on NLU and query responses. "
+            "Set True once Neo4j is running and seeded."
+        ),
+    )
+
+    COMP_LLM_ANSWER_SYNTHESIS_ENABLED: bool = Field(
+        default=False,
+        description="Enable optional plain-language answers on POST /api/v1/query.",
+    )
+    COMP_LLM_ANSWER_PROVIDER: Literal["gemini", "none"] = Field(default="gemini")
+    COMP_LLM_GEMINI_API_KEY: str = Field(default="")
+    COMP_LLM_GEMINI_MODEL: str = Field(default="gemini-2.0-flash")
+    COMP_LLM_ANSWER_MAX_CITATIONS: int = Field(default=4, ge=1, le=8)
+    COMP_LLM_ANSWER_MAX_CHARS_PER_CITATION: int = Field(default=1200, ge=200, le=8000)
+    COMP_LLM_ANSWER_MAX_OUTPUT_TOKENS: int = Field(default=900, ge=128, le=4096)
+    COMP_LLM_ANSWER_TIMEOUT_SECONDS: float = Field(default=25.0, ge=5.0, le=120.0)
+
+    COMP_LLM_DOMAIN_GATE_ENABLED: bool = Field(
+        default=True,
+        description="Reject obvious non-tax questions and weak retrieval matches before answering.",
+    )
+    COMP_LLM_MIN_RETRIEVAL_SCORE: float = Field(
+        default=0.04,
+        ge=0.0,
+        le=1.0,
+        description="Minimum top retrieval score required when no tax hints are present in the question.",
+    )
+    COMP_LLM_DOMAIN_REQUIRE_TAX_HINTS: bool = Field(
+        default=True,
+        description="Require Sri Lankan income-tax wording before returning citations or summaries.",
+    )
+    COMP_LLM_DOMAIN_MIN_QUESTION_OVERLAP: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Minimum token overlap between the question and top excerpt before answering.",
+    )
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",

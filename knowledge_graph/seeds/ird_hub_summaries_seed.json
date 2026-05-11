@@ -1,0 +1,52 @@
+[
+  {
+    "summary_id": "hub_personal_relief_summary",
+    "topic_label": "Personal Relief — IRD Summary",
+    "summary_text": "Personal relief is granted to resident individuals for each year of assessment. The amount is fixed in the Second Schedule of the Inland Revenue Act and has been LKR 3,000,000 per year since 2020/21.",
+    "source_url": "https://www.ird.gov.lk/en/Types_of_Taxes/Pages/Income-Tax.aspx",
+    "captured_at_utc": "2025-01-01T00:00:00Z",
+    "authority_weight": 0.55,
+    "cites_chunk_ids": [],
+    "review_status": "curated"
+  },
+  {
+    "summary_id": "hub_income_tax_rates_summary",
+    "topic_label": "Income Tax Rates — IRD Summary",
+    "summary_text": "Income tax on resident individuals is calculated on taxable income after personal relief and qualifying payments. Tax slabs: 6% on first LKR 3M, 12% on next LKR 3M, 18% on next LKR 3M, 24% on next LKR 3M, 36% above LKR 12M.",
+    "source_url": "https://www.ird.gov.lk/en/Types_of_Taxes/Pages/Income-Tax.aspx",
+    "captured_at_utc": "2025-01-01T00:00:00Z",
+    "authority_weight": 0.55,
+    "cites_chunk_ids": [],
+    "review_status": "curated"
+  },
+  {
+    "summary_id": "hub_filing_obligations_summary",
+    "topic_label": "Filing Obligations — IRD Summary",
+    "summary_text": "Every resident individual with total income exceeding the personal relief threshold is required to file an income tax return by 30 November following the year of assessment. Penalties apply for late filing.",
+    "source_url": "https://www.ird.gov.lk/en/Types_of_Taxes/Pages/Income-Tax.aspx",
+    "captured_at_utc": "2025-01-01T00:00:00Z",
+    "authority_weight": 0.55,
+    "cites_chunk_ids": [],
+    "review_status": "curated"
+  },
+  {
+    "summary_id": "hub_apit_summary",
+    "topic_label": "APIT (Advance Personal Income Tax) — IRD Summary",
+    "summary_text": "APIT is the withholding tax system for employment income in Sri Lanka. Employers deduct APIT monthly from employees and remit to IRD by the 15th of the following month. APIT replaces PAYE from 2020/21.",
+    "source_url": "https://www.ird.gov.lk/en/Types_of_Taxes/Pages/APIT.aspx",
+    "captured_at_utc": "2025-01-01T00:00:00Z",
+    "authority_weight": 0.55,
+    "cites_chunk_ids": [],
+    "review_status": "curated"
+  },
+  {
+    "summary_id": "hub_qualifying_payments_summary",
+    "topic_label": "Qualifying Payments — IRD Summary",
+    "summary_text": "Qualifying payments include life insurance premiums, health insurance premiums, donations to approved charities, home loan interest, rent payments, and contributions to approved retirement schemes. Each has an annual cap per the Second Schedule.",
+    "source_url": "https://www.ird.gov.lk/en/Types_of_Taxes/Pages/Income-Tax.aspx",
+    "captured_at_utc": "2025-01-01T00:00:00Z",
+    "authority_weight": 0.55,
+    "cites_chunk_ids": [],
+    "review_status": "curated"
+  }
+]
