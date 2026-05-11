@@ -112,7 +112,9 @@ export interface TaxOptBComplianceFromFinancialInputsRequestV1 extends TaxOptBEx
   dependents: number;
   annual_salary_income: string;
   annual_business_income: string;
+  annual_investment_income?: string;
   annual_other_income: string;
+  residency?: "resident" | "non_resident";
   deductions: TaxOptBDeductionLineV1[];
   investments: TaxOptBInvestmentLineV1[];
   strategy_notes?: string | null;
@@ -266,6 +268,7 @@ export interface TaxOptBSearchStrategyMetricsV1 {
 export interface TaxOptBSearchTaxBreakdownV1 {
   employment_income_lkr: string;
   business_income_lkr: string;
+  investment_income_lkr?: string;
   other_income_lkr: string;
   gross_income_lkr: string;
   assessable_income_lkr: string;
