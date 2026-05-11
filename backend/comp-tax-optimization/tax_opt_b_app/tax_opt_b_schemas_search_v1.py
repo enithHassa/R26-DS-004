@@ -121,6 +121,7 @@ class TaxOptBSearchTaxBreakdownV1(BaseModel):
 
     employment_income_lkr: str = Field(description="From financial_inputs.annual_salary_income (LKR, string decimal).")
     business_income_lkr: str = Field(description="From financial_inputs.annual_business_income.")
+    investment_income_lkr: str = Field(default="0", description="From financial_inputs.annual_investment_income.")
     other_income_lkr: str = Field(description="From financial_inputs.annual_other_income.")
     gross_income_lkr: str = Field(description="Echo annual gross (same as tax_computation.annual_gross_income / profile).")
     assessable_income_lkr: str = Field(

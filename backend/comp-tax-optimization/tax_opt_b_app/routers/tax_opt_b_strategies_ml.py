@@ -51,6 +51,8 @@ def search_strategies_ml_rank_route(
             pack,
             default_artifacts_root=comp.COMP_ML_ARTIFACTS_PATH,
             rules_version_label=comp.COMP_OPTIMIZATION_RULES_VERSION,
+            preloaded_summary=getattr(request.app.state, "ml_summary", None),
+            preloaded_estimator=getattr(request.app.state, "ml_estimator", None),
         )
     except MlArtifactNotFoundError as exc:
         raise HTTPException(

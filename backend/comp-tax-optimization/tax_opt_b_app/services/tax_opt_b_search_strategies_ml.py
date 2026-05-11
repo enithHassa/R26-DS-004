@@ -55,11 +55,13 @@ def search_strategies_ml_rank(
     *,
     default_artifacts_root: Path,
     rules_version_label: str | None = None,
+    preloaded_summary: object | None = None,
+    preloaded_estimator: object | None = None,
 ) -> TaxOptBSearchStrategiesResponseV1:
     """Enumerate and tax-evaluate all grid points, then reorder **passing** rows with ML scores."""
 
     art_dir = _artifacts_directory(body, default_artifacts_root)
-    summary = load_ml_bundle_summary(art_dir)
+    summary = preloaded_summary if preloaded_summary is not None else load_ml_bundle_summary(art_dir)
     if body.feature_version is not None and body.feature_version != summary.feature_version:
         msg = (
             f"feature_version mismatch: request={body.feature_version!r} "
@@ -67,7 +69,7 @@ def search_strategies_ml_rank(
         )
         raise MlFeatureVersionMismatchError(msg)
 
-    estimator = load_ml_estimator(art_dir, summary)
+    estimator = preloaded_estimator if preloaded_estimator is not None else load_ml_estimator(art_dir, summary)
 
     evaluation = evaluate_search_passing_rows(body, pack, rules_version_label=rules_version_label)
     gross = evaluation.profile.annual_gross_income
