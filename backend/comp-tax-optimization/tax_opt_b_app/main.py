@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tax_opt_b_app import __version__
 from tax_opt_b_app.config import component_settings
 from tax_opt_b_app.routers import health, tax_opt_b_compliance, tax_opt_b_strategies_ml
+from tax_opt_b_app.services.tax_opt_b_ml_ranking import load_ml_bundle_summary, load_ml_estimator
 from tax_opt_b_app.services.tax_opt_b_rules_loader import load_tax_opt_b_rules
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -27,6 +28,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         __version__,
         app.state.tax_opt_b_rules.assessment_year,
     )
+    art_dir = component_settings.COMP_ML_ARTIFACTS_PATH
+    logger.info("Pre-loading ML model from {}", art_dir)
+    summary = load_ml_bundle_summary(art_dir)
+    app.state.ml_summary = summary
+    app.state.ml_estimator = load_ml_estimator(art_dir, summary)
+    logger.info("ML model loaded (model_id={})", summary.model_id)
     yield
     logger.info("Tax optimization component shutting down")
 
