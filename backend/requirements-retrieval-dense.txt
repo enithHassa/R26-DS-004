@@ -1,0 +1,5 @@
+# Optional: Phase 2 Step 11 dense retrieval (sentence-transformers + PyTorch).
+# Install on top of backend/requirements.txt when running:
+#   scripts/phase2_eval_retrieval_dense.py
+#   scripts/phase2_experiment_run.py --retrieval-backend dense
+sentence-transformers>=3.3.0,<4.0.0

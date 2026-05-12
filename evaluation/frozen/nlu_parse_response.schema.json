@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://r26-ds-004.local/evaluation/frozen/nlu_parse_response.schema.json",
+  "title": "NLUParseResponse",
+  "description": "M5-frozen response for POST /api/v1/nlu/parse (Phase 2 + Phase 3 Step 15 optional KG join fields on hits). Update when app/schemas/nlu_v1.py changes; bump gate_id in phase2_M5_baseline.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["utterance", "retrieval_hits", "model", "corpus_loaded"],
+  "properties": {
+    "utterance": { "type": "string" },
+    "intent": {
+      "type": ["string", "null"],
+      "description": "Echo of request intent_hint."
+    },
+    "predicted_intent": {
+      "type": ["string", "null"],
+      "description": "Centroid classifier output when intent benchmark is loaded."
+    },
+    "intent_model": {
+      "type": ["string", "null"],
+      "description": "tfidf-centroid when classifier active; null otherwise."
+    },
+    "retrieval_hits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RetrievalHit" }
+    },
+    "model": {
+      "type": "string",
+      "description": "Retrieval mode: tfidf-baseline or dense-baseline when corpus index loaded; stub-no-corpus otherwise.",
+      "enum": ["tfidf-baseline", "dense-baseline", "stub-no-corpus"]
+    },
+    "corpus_loaded": { "type": "boolean" }
+  },
+  "$defs": {
+    "RetrievalHit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunk_id", "score"],
+      "properties": {
+        "chunk_id": { "type": "string" },
+        "score": { "type": "number" },
+        "source_doc_id": { "type": ["string", "null"] },
+        "section_uid": { "type": ["string", "null"] },
+        "section_label": { "type": ["string", "null"] },
+        "tier": { "type": ["string", "null"] },
+        "instrument_type": { "type": ["string", "null"] },
+        "content_kind": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
