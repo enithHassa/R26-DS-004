@@ -1,5 +1,5 @@
 import { useCallback, useId, useMemo, useState, type FormEvent } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,6 @@ import type {
   TaxOptBCompareFromFinancialInputsRequestV1,
   TaxOptBComplianceFromFinancialInputsRequestV1,
   TaxOptBComputeTaxResponseV1,
-  TaxOptBDeductionLineV1,
   TaxOptBEmploymentTypeV1,
   TaxOptBExplanationBundleV1,
   TaxOptBInvestmentLineV1,
@@ -29,7 +28,6 @@ import type {
   TaxOptBStrategyVariantV1,
   TaxOptBCompareStrategiesResponseV1,
 } from "../types";
-import { TAX_OPT_B_MVP_RELIEF_CODES } from "../types";
 
 /* eslint-disable @typescript-eslint/no-unused-vars --
  * Advanced/compare/transaction handlers and related state are kept for API parity; this screen only wires the simplified form.
@@ -183,24 +181,21 @@ function buildManualRequest(
   return { profile, strategy };
 }
 
-type DeductionRow = TaxOptBDeductionLineV1 & { _id: string };
 type InvestmentRow = TaxOptBInvestmentLineV1 & { _id: string };
 
 export function CompliancePage() {
   const formId = useId();
   const [advancedMode, setAdvancedMode] = useState(false);
-  const [showReliefClaims, setShowReliefClaims] = useState(false);
 
   const [userId, setUserId] = useState("demo-user-1");
   const [taxYear, setTaxYear] = useState("2024_25");
   const [employmentType, setEmploymentType] = useState<TaxOptBEmploymentTypeV1>("employee");
   const dependents = "0";
-  const [salary, setSalary] = useState("2000000");
+  const [salary, setSalary] = useState("20000000");
   const [business, setBusiness] = useState("400000");
-  const [investment, setInvestment] = useState("0");
+  const [investment, setInvestment] = useState("10000");
   const [otherIncome, setOtherIncome] = useState("0");
   const [strategyNotes, setStrategyNotes] = useState("");
-  const [deductionRows, setDeductionRows] = useState<DeductionRow[]>([]);
   const [investmentRows, setInvestmentRows] = useState<InvestmentRow[]>([]);
 
   const [gross, setGross] = useState("2400000");
@@ -253,14 +248,6 @@ export function CompliancePage() {
   }, []);
 
   const buildFinancialPayload = useCallback((): TaxOptBComplianceFromFinancialInputsRequestV1 => {
-    const deductions: TaxOptBDeductionLineV1[] = deductionRows
-      .map(({ relief_code, amount_annual, description }) => ({
-        relief_code: relief_code.trim(),
-        amount_annual: amount_annual.trim() || "0",
-        description: description?.trim() || null,
-      }))
-      .filter((r) => r.relief_code.length > 0);
-
     const investments: TaxOptBInvestmentLineV1[] = investmentRows.map(
       ({ investment_type, amount_annual, tax_treatment, relief_code }) => ({
         investment_type: investment_type.trim() || "unspecified",
@@ -279,7 +266,7 @@ export function CompliancePage() {
       annual_business_income: business.trim() || "0",
       annual_investment_income: investment.trim() || "0",
       annual_other_income: otherIncome.trim() || "0",
-      deductions,
+      deductions: [],
       investments,
       strategy_notes: strategyNotes.trim() || null,
     };
@@ -293,7 +280,6 @@ export function CompliancePage() {
     investment,
     otherIncome,
     strategyNotes,
-    deductionRows,
     investmentRows,
   ]);
 
@@ -442,17 +428,6 @@ export function CompliancePage() {
     }
   };
 
-  const addDeductionRow = () => {
-    setDeductionRows((prev) => [
-      ...prev,
-      { _id: nextRowId(), relief_code: "life_insurance_premium", amount_annual: "0" },
-    ]);
-  };
-
-  const removeDeductionRow = (id: string) => {
-    setDeductionRows((prev) => prev.filter((r) => r._id !== id));
-  };
-
   const addInvestmentRow = () => {
     setInvestmentRows((prev) => [
       ...prev,
@@ -490,9 +465,8 @@ export function CompliancePage() {
         <div className="px-6 py-5">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Check My Tax</h1>
           <p className="mt-2 w-full text-sm leading-relaxed text-muted-foreground">
-            Enter your income details to check your tax compliance and get an estimated tax amount for
-            assessment year <span className="font-medium text-foreground">{assessmentYearLabel}</span> (April–March).
-            Add any tax relief claims you plan to make and we will tell you how much tax you owe.
+            Enter your income details to get an estimated tax amount for assessment year{" "}
+            <span className="font-medium text-foreground">{assessmentYearLabel}</span> (April–March).
           </p>
           <p className="mt-2 w-full text-xs leading-relaxed text-muted-foreground">
             Personal relief is applied automatically based on the correct amount for your selected assessment year,
@@ -559,6 +533,7 @@ export function CompliancePage() {
                     id={`${formId}-sal`}
                     inputMode="numeric"
                     autoComplete="off"
+                    placeholder="20,000,000"
                     value={formatMoneyInputDisplay(salary)}
                     onChange={(e) => setSalary(digitsOnly(e.target.value))}
                     className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -575,6 +550,7 @@ export function CompliancePage() {
                     id={`${formId}-bus`}
                     inputMode="numeric"
                     autoComplete="off"
+                    placeholder="400,000"
                     value={formatMoneyInputDisplay(business)}
                     onChange={(e) => setBusiness(digitsOnly(e.target.value))}
                     className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -597,6 +573,7 @@ export function CompliancePage() {
                     id={`${formId}-inv`}
                     inputMode="numeric"
                     autoComplete="off"
+                    placeholder="10,000"
                     value={formatMoneyInputDisplay(investment)}
                     onChange={(e) => setInvestment(digitsOnly(e.target.value))}
                     className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -616,6 +593,7 @@ export function CompliancePage() {
                     id={`${formId}-oth`}
                     inputMode="numeric"
                     autoComplete="off"
+                    placeholder="0"
                     value={formatMoneyInputDisplay(otherIncome)}
                     onChange={(e) => setOtherIncome(digitsOnly(e.target.value))}
                     className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -624,100 +602,6 @@ export function CompliancePage() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-4">
-              <button
-                type="button"
-                onClick={() => setShowReliefClaims((prev) => !prev)}
-                className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                {showReliefClaims ? "▲ Hide relief claims" : "▼ I already know my relief claims (optional)"}
-              </button>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Not sure which reliefs to claim?{" "}
-                <a href="/tax-optimization/explorer" className="underline hover:text-foreground">
-                  Find Best Strategy
-                </a>{" "}
-                — our AI will find the best combination for you automatically.
-              </p>
-
-              {showReliefClaims ? (
-                <div className="mt-4 space-y-3">
-                  {deductionRows.map((row, idx) => (
-                    <div
-                      key={row._id}
-                      className="flex flex-col gap-3 rounded-lg border border-border/80 bg-muted/10 p-3 sm:flex-row sm:items-end"
-                    >
-                      <div className="grid min-w-0 flex-1 gap-2">
-                        <Label className="text-xs text-muted-foreground">Relief type</Label>
-                        <Select
-                          aria-label={`Relief ${idx + 1}`}
-                          value={row.relief_code}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setDeductionRows((prev) =>
-                              prev.map((r) => (r._id === row._id ? { ...r, relief_code: v } : r)),
-                            );
-                          }}
-                          className="h-10"
-                        >
-                          {TAX_OPT_B_MVP_RELIEF_CODES.map((code) => (
-                            <option key={code} value={code}>
-                              {RELIEF_LABELS[code] ?? code}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div className="grid min-w-0 flex-1 gap-2">
-                        <Label className="text-xs text-muted-foreground">Amount</Label>
-                        <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
-                          <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
-                            LKR
-                          </span>
-                          <Input
-                            inputMode="numeric"
-                            autoComplete="off"
-                            value={formatMoneyInputDisplay(row.amount_annual)}
-                            onChange={(e) => {
-                              const v = digitsOnly(e.target.value);
-                              setDeductionRows((prev) =>
-                                prev.map((r) => (r._id === row._id ? { ...r, amount_annual: v } : r)),
-                              );
-                            }}
-                            className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => removeDeductionRow(row._id)}
-                        aria-label="Remove row"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="mt-2 h-auto p-0 text-sm font-normal text-primary"
-                    onClick={addDeductionRow}
-                  >
-                    <Plus className="mr-1 inline h-3.5 w-3.5" />
-                    Add row
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-
-            {!showReliefClaims ? (
-              <p className="text-center text-xs text-muted-foreground">
-                This will calculate your tax with personal relief only — no deductions claimed.
-              </p>
-            ) : null}
 
             <Button type="submit" disabled={isCalculating} className="h-11 w-full">
               {isCalculating ? (

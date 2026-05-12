@@ -12,6 +12,8 @@ import type {
   TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
   TaxOptBSearchStrategiesMlRankRequestV1,
   TaxOptBSearchStrategiesResponseV1,
+  TaxOptBRfTaxPredictRequestV1,
+  TaxOptBRfTaxPredictResponseV1,
 } from "./types";
 
 /** All requests go through the API gateway (see `VITE_API_BASE_URL`). */
@@ -101,6 +103,17 @@ export async function postSearchStrategiesMlRank(
     body,
     /** Model load + scoring over large candidate sets often exceeds the default 30s client limit. */
     { timeout: 180_000 },
+  );
+  return data;
+}
+
+/** 2025/26 filing calculator — Random Forest tax estimate with SHAP reasoning. */
+export async function postRfTaxPredict(
+  body: TaxOptBRfTaxPredictRequestV1,
+): Promise<TaxOptBRfTaxPredictResponseV1> {
+  const { data } = await taxOptimizationApi.post<TaxOptBRfTaxPredictResponseV1>(
+    "/tax-filing/rf-predict",
+    body,
   );
   return data;
 }

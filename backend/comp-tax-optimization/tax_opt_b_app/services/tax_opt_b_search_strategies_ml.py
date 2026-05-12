@@ -11,6 +11,8 @@ from tax_opt_b_app.services.tax_opt_b_ml_features_v1 import (
 from tax_opt_b_app.services.tax_opt_b_financial_strategy_presets import (
     relief_max_claim_amounts_by_code,
 )
+import shap as _shap
+
 from tax_opt_b_app.services.tax_opt_b_ml_ranking import (
     MlFeatureVersionMismatchError,
     file_sha256_hex,
@@ -18,6 +20,7 @@ from tax_opt_b_app.services.tax_opt_b_ml_ranking import (
     load_ml_estimator,
     measure_predict_latency_ms,
 )
+from tax_opt_b_app.services.tax_opt_b_ml_shap import compute_shap_values
 from tax_opt_b_app.services.tax_opt_b_rules_loader import TaxOptBRulePack
 from tax_opt_b_app.services.tax_opt_b_search_strategies import (
     apply_top_k_with_baseline_sticky,
@@ -28,11 +31,17 @@ from tax_opt_b_app.services.tax_opt_b_search_strategies import (
     rule_sort_key_for_passing_row,
     sort_passing_rows_rule_only,
 )
+from tax_opt_b_app.services.tax_opt_b_ml_features_v1 import (
+    ML_FEATURE_COLUMN_NAMES_V1_NO_SAVINGS,
+    ML_FEATURE_COLUMN_NAMES_V2,
+)
 from tax_opt_b_app.tax_opt_b_schemas_search_v1 import (
     TaxOptBSearchMlMetaV1,
     TaxOptBSearchStrategiesMlRankRequestV1,
     TaxOptBSearchStrategiesResponseV1,
     TaxOptBSearchStrategyRowV1,
+    TaxOptBShapExplanationV1,
+    TaxOptBShapFeatureContributionV1,
 )
 
 COMPLIANCE_ASSERTION = (
@@ -108,6 +117,17 @@ def search_strategies_ml_rank(
     scores_vec, latency_ms = measure_predict_latency_ms(estimator, X)
     score_by_id = {row[0].candidate_id: float(scores_vec[i]) for i, row in enumerate(passing_sorted)}
 
+    # Compute SHAP values for all passing strategies
+    feature_names: list[str] = list(
+        ML_FEATURE_COLUMN_NAMES_V2
+        if summary.inference_matrix_layout == "v2_14_utility"
+        else ML_FEATURE_COLUMN_NAMES_V1_NO_SAVINGS
+    )
+    shap_values, shap_base = compute_shap_values(estimator, X)
+    shap_by_id = {row[0].candidate_id: shap_values[i] for i, row in enumerate(passing_sorted)}
+    # Build lookup: candidate_id → row index in X (same order as passing_sorted)
+    row_idx_by_id = {row[0].candidate_id: i for i, row in enumerate(passing_sorted)}
+
     ml_sorted = sorted(
         passing_sorted,
         key=lambda row: (
@@ -142,6 +162,24 @@ def search_strategies_ml_rank(
     for r in rows_out:
         rid = rule_rank_by_id[r.candidate_id]
         ms = score_by_id[r.candidate_id]
+        row_idx = row_idx_by_id[r.candidate_id]
+        shap_vec = shap_by_id[r.candidate_id]
+        contributions = [
+            TaxOptBShapFeatureContributionV1(
+                feature_name=feature_names[j],
+                shap_value=float(shap_vec[j]),
+                feature_value=float(X[row_idx, j]),
+            )
+            for j in range(len(feature_names))
+        ]
+        contributions.sort(key=lambda c: abs(c.shap_value), reverse=True)
+        shap_explanation = TaxOptBShapExplanationV1(
+            base_value=shap_base,
+            predicted_value=ms,
+            feature_contributions=contributions,
+            explainer_type="TreeExplainer",
+            shap_version=_shap.__version__,
+        )
         patched.append(
             r.model_copy(
                 update={
@@ -149,6 +187,7 @@ def search_strategies_ml_rank(
                     "ml_score": f"{ms:.12g}",
                     "ml_assist_rank": r.rank,
                     "deterministic_rank": rid,
+                    "ml_shap_explanation": shap_explanation,
                 },
             ),
         )
@@ -171,6 +210,8 @@ def search_strategies_ml_rank(
             f"{int((1 - summary.utility_alpha) * 100)}% liquidity efficiency)"
             if summary.utility_alpha is not None else None
         ),
+        shap_base_value=shap_base,
+        shap_explainer_type="TreeExplainer",
     )
 
     return assemble_search_strategies_response(

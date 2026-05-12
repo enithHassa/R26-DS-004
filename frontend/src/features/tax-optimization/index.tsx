@@ -1,10 +1,11 @@
-import { GitCompareArrows, LayoutList, ShieldCheck } from "lucide-react";
+import { FileText, GitCompareArrows, LayoutList, ShieldCheck } from "lucide-react";
 
 import type { FeatureModule } from "@/features/types";
 
 import { CompliancePage } from "./pages/compliance";
 import { ComparePage } from "./pages/compare";
 import { ExplorerPage } from "./pages/explorer";
+import { TaxFilingPage } from "./pages/tax-filing";
 
 /** Component B — routes are mounted in ``App.tsx`` under ``/tax-optimization/*`` (standalone, not team sidebar). */
 export { TaxOptimizationStandalone } from "./standalone-shell";
@@ -19,11 +20,13 @@ const taxOptimization: FeatureModule = {
     { path: "tax/compliance", element: <CompliancePage /> },
     { path: "tax/compare", element: <ComparePage /> },
     { path: "tax/explorer", element: <ExplorerPage /> },
+    { path: "tax/filing", element: <TaxFilingPage /> },
   ],
   nav: [
     { to: "/tax/compliance", label: "Check my tax", icon: ShieldCheck },
     { to: "/tax/compare", label: "Compare strategies", icon: GitCompareArrows },
     { to: "/tax/explorer", label: "Find best strategy", icon: LayoutList },
+    { to: "/tax/filing", label: "Tax Filing 2025/26", icon: FileText },
   ],
 };
 

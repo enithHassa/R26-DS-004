@@ -22,6 +22,7 @@ export default function App() {
     { path: "/tax-optimization/compliance", element: <Navigate to="/tax/compliance" replace /> },
     { path: "/tax-optimization/compare", element: <Navigate to="/tax/compare" replace /> },
     { path: "/tax-optimization/explorer", element: <Navigate to="/tax/explorer" replace /> },
+    { path: "/tax-optimization/filing", element: <Navigate to="/tax/filing" replace /> },
   ];
   return useRoutes(routes);
 }

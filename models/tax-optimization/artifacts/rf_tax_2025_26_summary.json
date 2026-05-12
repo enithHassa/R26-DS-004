@@ -1,0 +1,27 @@
+{
+  "model_id": "rf_tax_2025_26_v1",
+  "feature_version": "rf_v1",
+  "feature_names": [
+    "annual_salary_income",
+    "annual_business_income",
+    "annual_investment_income",
+    "annual_other_income",
+    "dependents",
+    "employment_type_code",
+    "relief_life_insurance_premium",
+    "relief_health_insurance_premium",
+    "relief_home_loan_interest",
+    "relief_rent",
+    "relief_charitable_donations",
+    "relief_retirement_contribution",
+    "total_gross_income",
+    "total_relief_claimed"
+  ],
+  "training_timestamp": "2026-05-11T20:29:04.970822+00:00",
+  "n_training_rows": 25000,
+  "tax_year": "2025_26",
+  "estimator_joblib": "rf_tax_2025_26.joblib",
+  "artifact_sha256": "be526e9c201ea2e2300d8fbfcaf4a9b4d8787927b031ba87e1a6943e4e763a70",
+  "model_type": "RandomForestRegressor",
+  "n_estimators": 200
+}

@@ -1,4 +1,5 @@
 import { useCallback, useId, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Check, Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import { postSearchStrategiesFromFinancialInputs, postSearchStrategiesMlRank } from "../api";
-import { ExplanationPanel } from "../components/explanation-panel";
 import { ExplorerCharts } from "../components/explorer-charts";
 import { SearchStrategiesTable } from "../components/search-strategies-table";
 import { formatLkrAmount, parseDecimalSafe } from "../format-lkr";
@@ -40,7 +40,7 @@ function formatEffectiveRate(rateStr: string | null | undefined): string | null 
 }
 
 
-const FILING_DEADLINE = new Date("2025-11-30");
+const FILING_DEADLINE = new Date("2026-11-30");
 
 function getDaysUntilDeadline(): number {
   const today = new Date();
@@ -90,14 +90,16 @@ export function ExplorerPage() {
   const [employmentType, setEmploymentType] = useState<TaxOptBEmploymentTypeV1>("employee");
   const residency = "resident" as const;
   const dependents = "0";
-  const [salary, setSalary] = useState("2000000");
+  const [salary, setSalary] = useState("20000000");
   const [business, setBusiness] = useState("400000");
-  const [investment, setInvestment] = useState("0");
+  const [investment, setInvestment] = useState("10000");
   const [otherIncome, setOtherIncome] = useState("0");
   const [topK] = useState("5");
   const [rankBy] = useState<TaxOptBStrategySearchRankByV1>("total_tax");
   const [maxCandidates] = useState("100");
   const [explanationDetail] = useState<"summary" | "detailed">("summary");
+  const [showSpending, setShowSpending] = useState(false);
+  const [actualSpending, setActualSpending] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +124,12 @@ export function ExplorerPage() {
       annual_investment_income: investment.trim().replace(/,/g, "") || "0",
       annual_other_income: otherIncome.trim().replace(/,/g, "") || "0",
       residency,
-      deductions: [],
+      deductions: Object.entries(actualSpending)
+        .filter(([, amt]) => amt && Number(amt.replace(/,/g, "")) > 0)
+        .map(([relief_code, amount_annual]) => ({
+          relief_code,
+          amount_annual: amount_annual.replace(/,/g, ""),
+        })),
       investments: [],
       strategy_notes: null,
       top_k: k,
@@ -146,6 +153,7 @@ export function ExplorerPage() {
     rankBy,
     maxCandidates,
     explanationDetail,
+    actualSpending,
   ]);
 
   const buildMlPayload = useCallback((): TaxOptBSearchStrategiesMlRankRequestV1 => {
@@ -278,8 +286,8 @@ export function ExplorerPage() {
               <span className="font-semibold">
                 {daysLeft} day{daysLeft !== 1 ? "s" : ""} until filing deadline —
               </span>
-              {" "}Income tax returns for 2024/25 must be filed by{" "}
-              <span className="font-semibold">November 30, 2025</span>.
+              {" "}Income tax returns for 2025/26 must be filed by{" "}
+              <span className="font-semibold">November 30, 2026</span>.
               {" "}Find your best strategy below before the deadline.
             </div>
           </div>
@@ -316,6 +324,7 @@ export function ExplorerPage() {
                   id={`${formId}-salary`}
                   inputMode="numeric"
                   autoComplete="off"
+                  placeholder="20,000,000"
                   value={formatMoneyInputDisplay(salary)}
                   onChange={(e) => setSalary(digitsOnly(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -335,6 +344,7 @@ export function ExplorerPage() {
                   id={`${formId}-business`}
                   inputMode="numeric"
                   autoComplete="off"
+                  placeholder="400,000"
                   value={formatMoneyInputDisplay(business)}
                   onChange={(e) => setBusiness(digitsOnly(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -354,6 +364,7 @@ export function ExplorerPage() {
                   id={`${formId}-investment`}
                   inputMode="numeric"
                   autoComplete="off"
+                  placeholder="10,000"
                   value={formatMoneyInputDisplay(investment)}
                   onChange={(e) => setInvestment(digitsOnly(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -370,6 +381,7 @@ export function ExplorerPage() {
                   id={`${formId}-other`}
                   inputMode="numeric"
                   autoComplete="off"
+                  placeholder="0"
                   value={formatMoneyInputDisplay(otherIncome)}
                   onChange={(e) => setOtherIncome(digitsOnly(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -389,6 +401,52 @@ export function ExplorerPage() {
                 ))}
               </Select>
             </div>
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={() => setShowSpending((p) => !p)}
+              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              {showSpending ? "▲ Hide actual spending" : "▼ Enter what you actually spent this year (optional)"}
+            </button>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enter real amounts you paid — the system will cap them at the statutory limit and find the best combination from your actual spending.
+            </p>
+            {showSpending ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {([
+                  { code: "life_insurance_premium",   label: "Life insurance paid",       cap: "Cap: LKR 100,000" },
+                  { code: "health_insurance_premium",  label: "Health insurance paid",     cap: "Cap: LKR 75,000" },
+                  { code: "home_loan_interest",        label: "Home loan interest paid",   cap: "Cap: LKR 600,000" },
+                  { code: "rent_relief",               label: "Rent paid this year",       cap: "Cap: 25% of rent, max LKR 300,000" },
+                  { code: "charitable_donations",      label: "Charitable donations",      cap: "Cap: 33% of taxable income" },
+                  { code: "retirement_contribution",   label: "Retirement contribution",   cap: "Cap: LKR 600,000" },
+                ] as const).map(({ code, label, cap }) => (
+                  <div key={code} className="grid gap-1">
+                    <label className="text-xs font-medium text-foreground">{label}</label>
+                    <p className="text-[10px] text-muted-foreground">{cap}</p>
+                    <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                      <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                        LKR
+                      </span>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={actualSpending[code] ? formatMoneyInputDisplay(actualSpending[code].replace(/,/g, "")) : ""}
+                        onChange={(e) => {
+                          const v = digitsOnly(e.target.value);
+                          setActualSpending((prev) => ({ ...prev, [code]: v }));
+                        }}
+                        className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <Button
@@ -737,13 +795,15 @@ export function ExplorerPage() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-[11px] text-muted-foreground">These are estimates only — not legal or filing advice. Always verify with the Inland Revenue Department before filing.</p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              These are estimates only — not legal or filing advice. Always verify with the Inland Revenue Department before filing.
+            </p>
+            <Button asChild variant="outline" className="shrink-0">
+              <Link to="/tax/filing">Estimate tax for filing 2025/26</Link>
+            </Button>
+          </div>
         </div>
-      ) : null}
-
-      {/* ── 10. AI advisory narrative ── */}
-      {(mlData ?? ruleData)?.explanations ? (
-        <ExplanationPanel bundle={(mlData ?? ruleData)!.explanations!} title="AI advisory narrative" presentation="advisory" />
       ) : null}
 
     </div>

@@ -55,6 +55,16 @@ At runtime the YAML is validated and parsed into a **`TaxOptBRulePack`** (immuta
 
 **FR5 (explainability):** responses may embed a template-based explanation bundle (`include_explanations`) with trace refs to rules and scenarios — not LLM output; policy stays in YAML. Short thesis note: [`docs/component-b-fr5-explainability.md`](../../docs/component-b-fr5-explainability.md).
 
+## Tax filing RF model (2025/26)
+
+Train the Random Forest filing calculator (25,000 synthetic rows labeled by the rules engine):
+
+```bash
+PYTHONPATH=. python -m tax_opt_b_app.services.tax_opt_b_rf_train
+```
+
+Run from the repository root with the working directory set to `backend/comp-tax-optimization`, or set `PYTHONPATH` to the repo root. Artifacts are written to `models/tax-optimization/artifacts/` (`rf_tax_2025_26.joblib` and `rf_tax_2025_26_summary.json`). Restart the optimization service after training so `POST /api/v1/tax-filing/rf-predict` loads the bundle.
+
 ## Tests
 
 ```bash

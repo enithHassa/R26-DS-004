@@ -53,6 +53,18 @@ def test_mapper_aggregates_income_and_duplicate_relief_codes() -> None:
     assert strategy.notes == "mapper test"
 
 
+def test_mapper_includes_investment_income_in_gross() -> None:
+    fin = TaxOptBFinancialInputsV1(
+        tax_year="2024_25",
+        annual_salary_income=Decimal("2000000"),
+        annual_business_income=Decimal("400000"),
+        annual_investment_income=Decimal("70000"),
+        annual_other_income=Decimal("50000"),
+    )
+    profile, _ = map_financial_inputs_to_profile_and_strategy(fin)
+    assert profile.annual_gross_income == Decimal("2520000")
+
+
 def test_validate_relief_codes_used() -> None:
     fin = TaxOptBFinancialInputsV1(
         deductions=[

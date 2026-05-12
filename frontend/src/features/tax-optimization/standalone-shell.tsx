@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { ArrowLeft, GitCompareArrows, LayoutList, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowLeft, FileText, GitCompareArrows, LayoutList, ShieldCheck, Wallet } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -44,6 +44,10 @@ export function TaxOptimizationStandalone() {
           <NavLink to="/tax/explorer" className={navLinkClass} end>
             <LayoutList className="h-4 w-4 shrink-0" />
             Find best strategy
+          </NavLink>
+          <NavLink to="/tax/filing" className={navLinkClass} end>
+            <FileText className="h-4 w-4 shrink-0" />
+            Tax Filing 2025/26
           </NavLink>
         </nav>
 
