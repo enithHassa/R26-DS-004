@@ -1,0 +1,29 @@
+{
+  "spec_version": "1.0.0",
+  "phase": "3a-step13",
+  "title": "Node-linked embeddings (join key = graph id)",
+  "description": "Vectors are stored outside Neo4j by default. Every row aligns with one graph node via (neo4j_label, id_property, node_id). The embedding_model_id + embedding_run_id reproduce the artifact. Phase 4 joins TextChunk.chunk_id (or Concept.concept_id, etc.) to rows in the bundle.",
+  "artifact_layout": {
+    "directory": "models/node_embeddings/{embedding_run_id}/",
+    "files": [
+      "node_embeddings_meta.json — manifest (this spec’s JSON shape)",
+      "vectors.npz — NumPy compressed archive with arrays `embeddings` (float32) and `chunk_ids` (object string array), same length"
+    ]
+  },
+  "join_key": {
+    "neo4j_label": "Ontology node label, e.g. TextChunk",
+    "id_property": "Unique id property on that label, e.g. chunk_id",
+    "node_id": "String value equal to the property on the node"
+  },
+  "versioning": {
+    "embedding_model_id": "HuggingFace or local model id (e.g. sentence-transformers/all-MiniLM-L6-v2)",
+    "embedding_run_id": "Opaque run id (timestamp or UUID)",
+    "corpus_version": "corpus_v1 tag from JSONL records when applicable"
+  },
+  "implementations": {
+    "python_module": "scripts/kg_node_embeddings_lib.py",
+    "compute_cli": "scripts/compute_node_embeddings_bundle.py",
+    "optional_dependency": "backend/requirements-retrieval-dense.txt",
+    "language_model_env": "COMP_LLM_DENSE_EMBEDDING_BUNDLE_DIR (with COMP_LLM_RETRIEVAL_BACKEND=dense and COMP_LLM_CORPUS_JSONL for citation text)"
+  }
+}

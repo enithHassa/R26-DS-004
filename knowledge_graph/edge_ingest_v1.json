@@ -1,0 +1,39 @@
+{
+  "spec_version": "1.0.0",
+  "phase": "3a-step7",
+  "title": "Curated / automated edge rows for Neo4j (JSONL)",
+  "description": "One JSON object per line. Endpoints must use ontology node labels and id_property names from ontology_v1.json. Relationships must match a relationship_types entry. Optional metadata: confidence, review_status, effective_from, effective_to, source_note, specificity_rank (see ontology optional_edge_properties).",
+  "required_fields": [
+    "rel_type",
+    "from_label",
+    "from_key",
+    "from_id",
+    "to_label",
+    "to_key",
+    "to_id"
+  ],
+  "optional_fields": [
+    "confidence",
+    "review_status",
+    "effective_from",
+    "effective_to",
+    "source_note",
+    "specificity_rank"
+  ],
+  "review_status_suggestions": [
+    "manual",
+    "manual_seed",
+    "auto_alias_match",
+    "auto_heuristic",
+    "needs_review",
+    "rejected"
+  ],
+  "implementations": {
+    "validate_and_helpers": "scripts/kg_curated_edges_lib.py",
+    "neo4j_loader": "scripts/neo4j_load_curated_edges.py",
+    "heuristic_mentions": "scripts/export_heuristic_mentions_edges.py",
+    "lex_override_semantics": "knowledge_graph/lex_override_paths_v1.json",
+    "lex_override_validation": "scripts/kg_override_edges_lib.py",
+    "consolidated_view_edges": "knowledge_graph/examples/consolidated_view_trace_edges_sample.jsonl"
+  }
+}

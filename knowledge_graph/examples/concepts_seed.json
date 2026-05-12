@@ -1,0 +1,12 @@
+{
+  "concepts": [
+    {
+      "concept_id": "relief_personal",
+      "aliases": ["personal relief", "personal reliefs"]
+    },
+    {
+      "concept_id": "tax_resident",
+      "aliases": ["tax resident", "resident in sri lanka"]
+    }
+  ]
+}

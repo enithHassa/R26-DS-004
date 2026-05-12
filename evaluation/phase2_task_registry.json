@@ -1,0 +1,97 @@
+{
+  "registry_version": "1.0",
+  "title": "Phase 2 — Model zoo, training, and comparative evaluation",
+  "window": "Weeks 4–8 (roadmap)",
+  "step_1_summary": "Canonical list of evaluation tasks. Every benchmark row should set task_id (or inherit the default retrieval task). Metrics and gold fields are task-specific.",
+  "default_task_id": "retrieval_law_grounding",
+  "tasks": [
+    {
+      "task_id": "retrieval_law_grounding",
+      "name": "Law-grounded passage retrieval",
+      "description": "Given a natural-language tax question, retrieve passages from corpus_v1. Ground truth is one or more chunk_ids that a subject-matter expert ties to the operative rule or definition.",
+      "inputs": ["utterance"],
+      "gold": ["gold_chunk_ids"],
+      "primary_metrics": [
+        {
+          "metric_id": "recall_at_k_any_gold",
+          "definition": "Fraction of examples where at least one gold_chunk_id appears in the model top-k retrieved chunk_ids."
+        },
+        {
+          "metric_id": "mrr",
+          "definition": "Mean reciprocal rank of the first relevant chunk (planned in eval harness)."
+        }
+      ],
+      "status": "active",
+      "validation": {
+        "required_fields": ["example_id", "utterance"],
+        "gold_chunk_ids_min_count": 1
+      }
+    },
+    {
+      "task_id": "intent_classification",
+      "name": "Tax intent classification",
+      "description": "Map the user utterance to a closed or open tag set of tax intents (e.g. personal_relief, residence_scope). Used to compare NLU encoders and small classifiers before or alongside retrieval.",
+      "inputs": ["utterance"],
+      "gold": ["gold_intent"],
+      "gold_field_aliases": {
+        "gold_intent": ["gold_intent", "intent"]
+      },
+      "primary_metrics": [
+        {
+          "metric_id": "accuracy",
+          "definition": "Exact match on normalized intent label."
+        },
+        {
+          "metric_id": "macro_f1",
+          "definition": "Macro-averaged F1 over intent labels (planned)."
+        }
+      ],
+      "status": "active",
+      "validation": {
+        "required_fields": ["example_id", "utterance"],
+        "require_intent_label": true,
+        "gold_chunk_ids_min_count": 0
+      }
+    },
+    {
+      "task_id": "joint_nlu_retrieval",
+      "name": "Joint intent + law-grounded retrieval",
+      "description": "Pipeline task: correct intent and at least one gold chunk in top-k. Models the full routing + evidence path for advisory UX.",
+      "inputs": ["utterance"],
+      "gold": ["gold_intent", "gold_chunk_ids"],
+      "gold_field_aliases": {
+        "gold_intent": ["gold_intent", "intent"]
+      },
+      "primary_metrics": [
+        {
+          "metric_id": "joint_success",
+          "definition": "Fraction of examples where intent matches gold AND recall_at_k_any_gold holds (planned intent model)."
+        }
+      ],
+      "status": "active",
+      "validation": {
+        "required_fields": ["example_id", "utterance"],
+        "require_intent_label": true,
+        "gold_chunk_ids_min_count": 1
+      }
+    },
+    {
+      "task_id": "answer_citation_grounding",
+      "name": "Generated answer with citation grounding",
+      "description": "Full natural-language answer must cite corpus chunks; overlap between cited chunk_ids and gold_chunk_ids (and optional rubric). For later SLM / RAG evaluation.",
+      "inputs": ["utterance"],
+      "gold": ["gold_chunk_ids"],
+      "primary_metrics": [
+        {
+          "metric_id": "citation_recall",
+          "definition": "Fraction of required gold chunks cited or paraphrase-justified (rubric TBD)."
+        }
+      ],
+      "status": "planned",
+      "validation": {
+        "required_fields": ["example_id", "utterance"],
+        "gold_chunk_ids_min_count": 1
+      }
+    }
+  ]
+}
