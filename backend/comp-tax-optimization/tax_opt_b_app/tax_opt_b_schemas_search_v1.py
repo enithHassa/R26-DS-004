@@ -210,6 +210,26 @@ class TaxOptBRuleTraceEntryV1(BaseModel):
     reference: str = Field(default="", max_length=2_000)
 
 
+class TaxOptBShapFeatureContributionV1(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    feature_name: str = Field(description="ML feature name (e.g. 'total_tax_lkr')")
+    shap_value: float = Field(description="SHAP contribution to ML score (positive = increases score, negative = decreases)")
+    feature_value: float = Field(description="Actual value of this feature for this strategy")
+
+
+class TaxOptBShapExplanationV1(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    base_value: float = Field(description="Expected model output averaged over training data (SHAP baseline)")
+    predicted_value: float = Field(description="Model output = base_value + sum(shap_values)")
+    feature_contributions: list[TaxOptBShapFeatureContributionV1] = Field(
+        description="Per-feature SHAP contributions sorted by absolute impact descending."
+    )
+    explainer_type: str = Field(default="TreeExplainer", description="SHAP explainer class used")
+    shap_version: str = Field(description="shap library version used for computation")
+
+
 class TaxOptBSearchStrategyRowV1(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -269,6 +289,10 @@ class TaxOptBSearchStrategyRowV1(BaseModel):
         ge=1,
         description="Echo of rule_only_rank for permutation-safe auditing (Function 3).",
     )
+    ml_shap_explanation: TaxOptBShapExplanationV1 | None = Field(
+        default=None,
+        description="SHAP feature contributions explaining the ML score (Function 3 only).",
+    )
 
 
 class TaxOptBSearchMlMetaV1(BaseModel):
@@ -293,6 +317,11 @@ class TaxOptBSearchMlMetaV1(BaseModel):
     inference_latency_ms: float = Field(ge=0.0)
     utility_alpha: float | None = Field(default=None, description="Alpha used for Pareto utility (v2 only).")
     optimization_objective_label: str | None = Field(default=None, description="Human-readable label for UI display.")
+    shap_base_value: float | None = Field(
+        default=None,
+        description="Expected model output (SHAP base value) averaged over training background.",
+    )
+    shap_explainer_type: str | None = Field(default=None, description="SHAP explainer class used (e.g. TreeExplainer).")
 
 
 class TaxOptBSearchTraceabilityV1(BaseModel):

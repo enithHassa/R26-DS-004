@@ -133,7 +133,7 @@ def compute_apit_liability(
 
     algo = (
         "Income basis = estimated_annual_taxable_income if set on profile (manual/API), "
-        "else annual_gross_income. Structured financial intake uses gross only. "
+        "else annual_gross_income. Structured financial intake uses salary + business + investment + other income as gross. "
         "Taxable after personal relief = max(0, basis - personal_relief_annual). "
         "Taxable after deductions = max(0, that - sum of allowed amounts in applied_relief). "
         "Slabs: each finite upper is band width; allocate remaining taxable left-to-right; "
