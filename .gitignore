@@ -41,10 +41,10 @@ lib64/
 share/python-wheels/
 MANIFEST
 
-# Virtual environments (project-specific)
-.venv/
-.venv-backend/
-.venv-ml/
+# Virtual environments — ignore any project-local venv name
+# (.venv-backend, .venv-ml, .venv-test, .venv-gen, …)
+.venv*/
+.venv
 venv/
 env/
 ENV/

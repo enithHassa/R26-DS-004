@@ -11,6 +11,23 @@ from backend.shared.schemas.enums import TxnDirection
 from backend.shared.schemas.taxability import TaxabilityOutput
 
 
+class NarrativeContextHit(BaseModel):
+    class_key: str
+    score: float = Field(..., ge=0.0, le=1.0)
+    description: str
+    default_taxability_status: str
+
+
+class ClassificationFacts(BaseModel):
+    """Optional facts for conditional IRA rules (gifts, reimbursements, etc.)."""
+
+    counterparty_type: str | None = Field(
+        default=None,
+        description="e.g. relative, employer, unknown",
+    )
+    has_supporting_receipt: bool | None = None
+
+
 class AnalyzeTransactionRequest(BaseModel):
     """Request body — subset of fields needed for a single-shot analysis."""
 
@@ -19,10 +36,13 @@ class AnalyzeTransactionRequest(BaseModel):
     tx_date: date
     direction: TxnDirection
     bank_code: str | None = Field(None, max_length=16)
+    document_type: str | None = Field(None, max_length=64)
+    facts: ClassificationFacts | None = None
+    persist: bool = False
 
 
 class AnalyzeTransactionResponse(BaseModel):
-    """Full analysis envelope returned by the API (stub until WP9)."""
+    """Full analysis envelope returned by the API."""
 
     transaction_id: UUID
     semantic_category: str = Field(..., description="Predicted semantic label.")
@@ -30,3 +50,20 @@ class AnalyzeTransactionResponse(BaseModel):
     tax_rule_code: str | None = Field(None, description="IRD-grounded rule code when mapped.")
     taxability: TaxabilityOutput
     confidence_report: ConfidenceReport
+    taxonomy_version: str
+    rulebook_version: str
+    decision_mode: str
+    rule_reference: str
+    explanation: str
+    review_reason: str | None = None
+    condition_id_matched: str | None = None
+    model_semantic_category: str | None = Field(
+        default=None,
+        description="Classifier label before narrative fusion or manual override.",
+    )
+    class_source: str = Field(
+        default="model",
+        description="model, narrative, or manual.",
+    )
+    narrative_interpretation: str | None = None
+    narrative_hits: list[NarrativeContextHit] = Field(default_factory=list)
