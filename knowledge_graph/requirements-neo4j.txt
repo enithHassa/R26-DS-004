@@ -1,0 +1,2 @@
+# Optional: apply KG schema / future Neo4j ETL from Python
+neo4j>=5.14.0,<6

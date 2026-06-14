@@ -64,10 +64,20 @@ class TaxOptBFinancialInputsV1(BaseModel):
 
     annual_salary_income: Decimal = Field(default=Decimal("0"), ge=0)
     annual_business_income: Decimal = Field(default=Decimal("0"), ge=0)
+    annual_investment_income: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        description="Investment income (dividends, interest, rent) — IRD Form IT01 separate source.",
+    )
     annual_other_income: Decimal = Field(
         default=Decimal("0"),
         ge=0,
-        description="Other annual inflows (rent, interest, etc.) included in gross for MVP caps.",
+        description="Other annual inflows included in gross for MVP caps.",
+    )
+    residency: str = Field(
+        default="resident",
+        description="'resident' (global income taxed) or 'non_resident' (Sri Lanka source only).",
+        pattern=r"^(resident|non_resident)$",
     )
 
     deductions: list[TaxOptBDeductionLineV1] = Field(default_factory=list)

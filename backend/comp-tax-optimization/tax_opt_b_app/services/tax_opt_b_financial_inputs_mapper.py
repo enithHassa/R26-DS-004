@@ -31,8 +31,8 @@ def _aggregate_claims(fin: TaxOptBFinancialInputsV1) -> dict[str, Decimal]:
 def map_financial_inputs_to_profile_and_strategy(
     fin: TaxOptBFinancialInputsV1,
 ) -> tuple[TaxOptBProfileV1, TaxOptBStrategyProposalV1]:
-    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_other_income
-    # Option A: gross (salary + business + other) is the sole income basis for compliance
+    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_investment_income + fin.annual_other_income
+    # Gross (salary + business + investment + other) is the income basis for compliance
     # donation % caps and tax slabs; no separate "estimated taxable" on structured intake.
     profile = TaxOptBProfileV1(
         tax_year=fin.tax_year,

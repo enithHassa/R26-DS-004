@@ -37,7 +37,7 @@ PRESET_SUMMARY_NARRATIVES: dict[str, str] = {
 
 def profile_from_financial_inputs(fin: TaxOptBFinancialInputsV1) -> TaxOptBProfileV1:
     """Same gross aggregation as ``map_financial_inputs_to_profile_and_strategy`` (Option A)."""
-    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_other_income
+    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_investment_income + fin.annual_other_income
     return TaxOptBProfileV1(
         tax_year=fin.tax_year,
         employment_type=fin.employment_type,
