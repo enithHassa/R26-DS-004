@@ -33,6 +33,22 @@ class DocumentBatchUploadResponse(BaseModel):
     uploaded_count: int
 
 
+class DocumentListResponse(BaseModel):
+    items: list[UploadedDocumentSummary] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
+
+
+class DocumentRenameRequest(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+
+
+class DocumentRenameResponse(BaseModel):
+    document: UploadedDocumentSummary
+    updated_related_transaction_count: int = 0
+
+
 class DocumentStatusResponse(BaseModel):
     document_id: UUID
     filename: str

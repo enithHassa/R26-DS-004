@@ -25,3 +25,10 @@ class TaxabilityOutput(BaseModel):
     evidence: EvidenceChain | None = None
     model_version: str | None = Field(None, max_length=64)
     model_run_id: UUID | None = None
+    treatment: str | None = None
+    taxable_fraction: Decimal | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Fraction of amount_lkr treated as assessable when known.",
+    )

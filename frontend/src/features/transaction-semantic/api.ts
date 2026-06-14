@@ -5,7 +5,7 @@ const BASE_URL =
 
 const transactionSemanticApi = axios.create({
   baseURL: BASE_URL,
-  timeout: 45_000,
+  timeout: 120_000,
 });
 
 transactionSemanticApi.interceptors.response.use(
@@ -169,6 +169,39 @@ export interface ExportPreviewResponse {
   rows: ExportPreviewRow[];
 }
 
+export interface DocumentListResponse {
+  items: UploadedDocumentSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DocumentRenameResponse {
+  document: UploadedDocumentSummary;
+  updated_related_transaction_count: number;
+}
+
+export async function listDocuments(
+  limit = 50,
+  offset = 0,
+): Promise<DocumentListResponse> {
+  const { data } = await transactionSemanticApi.get<DocumentListResponse>("/documents", {
+    params: { limit, offset },
+  });
+  return data;
+}
+
+export async function renameDocument(
+  documentId: string,
+  filename: string,
+): Promise<DocumentRenameResponse> {
+  const { data } = await transactionSemanticApi.patch<DocumentRenameResponse>(
+    `/documents/${documentId}`,
+    { filename },
+  );
+  return data;
+}
+
 export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
@@ -256,6 +289,203 @@ export async function previewFilteredDocuments(
   const { data } = await transactionSemanticApi.get<ExportPreviewResponse>(
     "/documents/export/preview",
     { params: filters },
+  );
+  return data;
+}
+
+export interface ClassificationFacts {
+  counterparty_type?: string | null;
+  has_supporting_receipt?: boolean | null;
+}
+
+export interface AnalyzeTransactionRequest {
+  raw_desc: string;
+  amount_lkr: string;
+  tx_date: string;
+  direction: "CR" | "DR";
+  bank_code?: string | null;
+  document_type?: string | null;
+  facts?: ClassificationFacts | null;
+  persist?: boolean;
+}
+
+export interface TaxabilityOutput {
+  tx_id: string;
+  taxability_status: "taxable" | "exempt" | "partially_taxable" | "unknown";
+  taxable_amount: string | null;
+  confidence: number | null;
+  model_version: string | null;
+  treatment: string | null;
+  taxable_fraction: string | null;
+}
+
+export interface NarrativeContextHit {
+  class_key: string;
+  score: number;
+  description: string;
+  default_taxability_status: string;
+}
+
+export interface AnalyzeTransactionResponse {
+  transaction_id: string;
+  semantic_category: string;
+  economic_event: string | null;
+  tax_rule_code: string | null;
+  taxability: TaxabilityOutput;
+  confidence_report: {
+    top_label: string;
+    top_probability: number;
+    calibrated_probability: number;
+    is_ood: boolean;
+  };
+  taxonomy_version: string;
+  rulebook_version: string;
+  decision_mode: string;
+  rule_reference: string;
+  explanation: string;
+  review_reason: string | null;
+  condition_id_matched: string | null;
+  model_semantic_category: string | null;
+  class_source: "model" | "narrative" | "manual" | string;
+  narrative_interpretation: string | null;
+  narrative_hits: NarrativeContextHit[];
+}
+
+export interface IncomeTypeCatalogItem {
+  class_key: string;
+  group: string;
+  description: string;
+  tax_rule_code: string;
+  default_taxability_status: string;
+  default_taxable_fraction: number;
+  treatment: string | null;
+  rule_reference: string;
+  explanation: string;
+  is_conditional: boolean;
+}
+
+export interface IncomeTypeCatalogResponse {
+  taxonomy_version: string;
+  rulebook_version: string;
+  items: IncomeTypeCatalogItem[];
+  by_taxability_status: Record<string, IncomeTypeCatalogItem[]>;
+}
+
+export interface TaxableIncomeLineItem {
+  class_key: string;
+  tax_rule_code: string | null;
+  taxability_status: string;
+  transaction_count: number;
+  gross_amount_lkr: string;
+  taxable_amount_lkr: string;
+}
+
+export interface TaxableIncomeSummaryRequest {
+  date_from: string;
+  date_to: string;
+  bank_code?: string | null;
+}
+
+export interface TaxableIncomeSummaryResponse {
+  date_from: string;
+  date_to: string;
+  total_taxable_lkr: string;
+  total_excluded_lkr: string;
+  review_count: number;
+  transaction_count: number;
+  taxable_lines: TaxableIncomeLineItem[];
+  non_taxable_lines: TaxableIncomeLineItem[];
+  review_lines: TaxableIncomeLineItem[];
+}
+
+export interface AnalyzeBatchItemRequest {
+  row_id?: string | null;
+  raw_desc: string;
+  amount_lkr: string;
+  tx_date: string;
+  direction: "CR" | "DR";
+  facts?: ClassificationFacts | null;
+}
+
+export interface AnalyzeBatchRequest {
+  bank_code?: string | null;
+  document_type?: string | null;
+  document_id?: string | null;
+  persist?: boolean;
+  items: AnalyzeBatchItemRequest[];
+}
+
+export interface AnalyzeBatchItemResponse {
+  row_id: string | null;
+  result: AnalyzeTransactionResponse;
+}
+
+export interface AnalyzeBatchResponse {
+  results: AnalyzeBatchItemResponse[];
+  processed_count: number;
+}
+
+export async function analyzeTransaction(
+  body: AnalyzeTransactionRequest,
+): Promise<AnalyzeTransactionResponse> {
+  const { data } = await transactionSemanticApi.post<AnalyzeTransactionResponse>(
+    "/transactions/analyze",
+    body,
+  );
+  return data;
+}
+
+export async function analyzeTransactionsBatch(
+  body: AnalyzeBatchRequest,
+): Promise<AnalyzeBatchResponse> {
+  const { data } = await transactionSemanticApi.post<AnalyzeBatchResponse>(
+    "/transactions/analyze-batch",
+    body,
+    { timeout: 300_000 },
+  );
+  return data;
+}
+
+export interface ApplyClassBatchItemRequest {
+  row_id?: string | null;
+  raw_desc: string;
+  amount_lkr: string;
+  tx_date: string;
+  direction: "CR" | "DR";
+  class_key: string;
+  facts?: ClassificationFacts | null;
+  model_semantic_category?: string | null;
+}
+
+export interface ApplyClassBatchRequest {
+  bank_code?: string | null;
+  document_type?: string | null;
+  items: ApplyClassBatchItemRequest[];
+}
+
+export async function applyTransactionClassBatch(
+  body: ApplyClassBatchRequest,
+): Promise<AnalyzeBatchResponse> {
+  const { data } = await transactionSemanticApi.post<AnalyzeBatchResponse>(
+    "/transactions/apply-class-batch",
+    body,
+  );
+  return data;
+}
+
+export async function getIncomeTypeCatalog(): Promise<IncomeTypeCatalogResponse> {
+  const { data } = await transactionSemanticApi.get<IncomeTypeCatalogResponse>(
+    "/taxonomy/income-types",
+  );
+  return data;
+}
+
+export async function summarizeTaxableIncome(
+  body: TaxableIncomeSummaryRequest,
+): Promise<TaxableIncomeSummaryResponse> {
+  const { data } = await transactionSemanticApi.post<TaxableIncomeSummaryResponse>(
+    "/taxable-income/summary",
+    body,
   );
   return data;
 }

@@ -16,6 +16,16 @@ export default defineConfig(({ mode }) => {
   /** Personalized recommendation service (Component 3). Direct proxy avoids needing the gateway running. */
   const recommendationUrl =
     env.VITE_DEV_RECOMMENDATION_URL?.trim() || "http://127.0.0.1:8003";
+  /** Transaction semantic service (Component 1). Rewrites /api/v1 → /v1 on the service. */
+  const transactionSemanticUrl =
+    env.VITE_DEV_TRANSACTION_SEMANTIC_URL?.trim() || "http://127.0.0.1:8001";
+  const transactionSemanticProxy = {
+    target: transactionSemanticUrl,
+    changeOrigin: true,
+    timeout: 300_000,
+    proxyTimeout: 300_000,
+    rewrite: (p: string) => p.replace(/^\/api\/v1/, "/v1"),
+  };
 
   return {
     plugins: [react(), tailwindcss()],
@@ -45,6 +55,10 @@ export default defineConfig(({ mode }) => {
           proxyTimeout: 180_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/optimization/, "/api/v1"),
         },
+        "/api/v1/documents": transactionSemanticProxy,
+        "/api/v1/transactions": transactionSemanticProxy,
+        "/api/v1/taxonomy": transactionSemanticProxy,
+        "/api/v1/taxable-income": transactionSemanticProxy,
         "/api": {
           target: gatewayUrl,
           changeOrigin: true,
