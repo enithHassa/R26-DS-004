@@ -1,12 +1,14 @@
 import { Navigate } from "react-router-dom";
-import { BarChart3, GitCompare, Sparkles, User } from "lucide-react";
+import { BarChart3, Brain, GitCompare, Merge, Sparkles, User } from "lucide-react";
 
 import type { FeatureModule } from "@/features/types";
 
 import { FinancialModuleLayout } from "./financial-module-layout";
 import { ComparePage } from "./pages/compare";
+import { HybridRecommendationsPage } from "./pages/hybrid-recommendations";
 import { ImpactPage } from "./pages/impact";
 import { ProfilePage } from "./pages/profile";
+import { RagRecommendationsPage } from "./pages/rag-recommendations";
 import { RecommendationsPage } from "./pages/recommendations";
 import { StrategyDetailPage } from "./pages/strategy-detail";
 
@@ -19,13 +21,18 @@ const personalizedRecommendation: FeatureModule = {
     { path: "profile", element: <ProfilePage /> },
     { path: "recommendations", element: <RecommendationsPage /> },
     { path: "strategy/:strategyId", element: <StrategyDetailPage /> },
+    { path: "impact", element: <ImpactPage /> },
     { path: "impact/:strategyId", element: <ImpactPage /> },
     { path: "compare", element: <ComparePage /> },
+    { path: "rag", element: <RagRecommendationsPage /> },
+    { path: "hybrid", element: <HybridRecommendationsPage /> },
   ],
   nav: [
     { to: "/profile", label: "Profile", icon: User },
     { to: "/recommendations", label: "Recommendations", icon: Sparkles },
-    { to: "/impact/new", label: "Impact", icon: BarChart3 },
+    { to: "/rag", label: "Knowledge Match", icon: Brain },
+    { to: "/hybrid", label: "Smart Recommendations", icon: Merge },
+    { to: "/impact", label: "Impact", icon: BarChart3 },
     { to: "/compare", label: "Compare", icon: GitCompare },
   ],
 };
