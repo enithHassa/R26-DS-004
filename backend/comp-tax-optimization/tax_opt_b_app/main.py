@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from tax_opt_b_app import __version__
 from tax_opt_b_app.config import component_settings
 from tax_opt_b_app.routers import health, tax_opt_b_compliance, tax_opt_b_strategies_ml
+from tax_opt_b_app.routers.tax_opt_b_rf_tax import router as rf_tax_router
 from tax_opt_b_app.services.tax_opt_b_ml_ranking import load_ml_bundle_summary, load_ml_estimator
+from tax_opt_b_app.services.tax_opt_b_rf_predictor import load_rf_bundle
 from tax_opt_b_app.services.tax_opt_b_rules_loader import load_tax_opt_b_rules
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -34,6 +36,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.ml_summary = summary
     app.state.ml_estimator = load_ml_estimator(art_dir, summary)
     logger.info("ML model loaded (model_id={})", summary.model_id)
+    try:
+        app.state.rf_tax_bundle = load_rf_bundle(art_dir)
+        logger.info("RF tax model loaded (model_id={})", app.state.rf_tax_bundle.model_id)
+    except FileNotFoundError as _exc:
+        logger.warning("RF tax model not found — /tax-filing/rf-predict will return 503 until trained: {}", _exc)
+        app.state.rf_tax_bundle = None
     yield
     logger.info("Tax optimization component shutting down")
 
@@ -64,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["health"])
     app.include_router(tax_opt_b_compliance.router, prefix=f"{api}/compliance")
     app.include_router(tax_opt_b_strategies_ml.router, prefix=f"{api}/strategies")
+    app.include_router(rf_tax_router, prefix=f"{api}/tax-filing")
 
     return app
 

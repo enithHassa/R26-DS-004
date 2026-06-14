@@ -10,7 +10,10 @@ import {
 import { cn } from "@/lib/utils";
 
 import { formatLkrAmount, parseDecimalSafe } from "../format-lkr";
-import type { TaxOptBSearchStrategiesResponseV1, TaxOptBSearchStrategyRowV1 } from "../types";
+import type {
+  TaxOptBSearchStrategiesResponseV1,
+  TaxOptBSearchStrategyRowV1,
+} from "../types";
 
 type Props = {
   data: TaxOptBSearchStrategiesResponseV1 | null;
@@ -32,6 +35,32 @@ function sanitizeConsumerLine(s: string): string {
     .replace(/\bit220[a-z0-9_]+\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function stripRuleTraceAmounts(summary: string): string {
+  const s = sanitizeConsumerLine(summary);
+  const idx = s.search(/\s+Allowed\s+LKR\s+/i);
+  if (idx > 0) return `${s.slice(0, idx).trim()}.`;
+  return s.replace(/\s*\(claimed\s+LKR[^)]*\)\s*\.?$/i, "").trim();
+}
+
+function formatReliefAmountsLine(
+  relief: NonNullable<TaxOptBSearchStrategyRowV1["applied_relief_summary"][number]>,
+): string | null {
+  const parts: string[] = [];
+  if (relief.allowed != null && relief.allowed !== "") {
+    parts.push(`Allowed: ${formatLkrAmount(relief.allowed)}`);
+  }
+  if (
+    relief.cap != null &&
+    relief.cap !== "" &&
+    relief.allowed != null &&
+    relief.allowed !== "" &&
+    relief.cap !== relief.allowed
+  ) {
+    parts.push(`Statutory cap: ${formatLkrAmount(relief.cap)}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 function formatSavesVsBaseline(
@@ -305,26 +334,14 @@ export function SearchStrategiesTable({
                     <div>
                       <h4 className="mb-3 text-sm font-semibold text-foreground">Compliance verification</h4>
                       <ul className="space-y-2">
-                        {row.rule_trace.map((t, idx) => {
+                        {row.rule_trace
+                          .filter((t) => t.relief_code != null && t.category !== "compliance_meta")
+                          .map((t, idx) => {
                           const passed = (t.outcome ?? "passed") === "passed";
                           const reliefExtra = row.applied_relief_summary.find(
                             (a) => a.relief_code && a.relief_code === t.relief_code,
                           );
-                          const reliefLine = reliefExtra
-                            ? [
-                                reliefExtra.claimed != null && reliefExtra.claimed !== ""
-                                  ? `Claimed: ${formatLkrAmount(reliefExtra.claimed)}`
-                                  : null,
-                                reliefExtra.allowed != null && reliefExtra.allowed !== ""
-                                  ? `Allowed: ${formatLkrAmount(reliefExtra.allowed)}`
-                                  : null,
-                                reliefExtra.cap != null && reliefExtra.cap !== ""
-                                  ? `Cap: ${formatLkrAmount(reliefExtra.cap)}`
-                                  : null,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")
-                            : "";
+                          const reliefLine = reliefExtra ? formatReliefAmountsLine(reliefExtra) : null;
                           return (
                             <li
                               key={`trace-${idx}`}
@@ -339,7 +356,7 @@ export function SearchStrategiesTable({
                               </span>
                               <div className="min-w-0 flex-1 space-y-1">
                                 <p className="text-sm leading-relaxed text-foreground">
-                                  {sanitizeConsumerLine(t.summary)}
+                                  {stripRuleTraceAmounts(t.summary)}
                                 </p>
                                 {reliefLine ? (
                                   <p className="text-xs text-muted-foreground">{reliefLine}</p>
@@ -351,6 +368,7 @@ export function SearchStrategiesTable({
                       </ul>
                     </div>
                   ) : null}
+
                 </div>
               )}
             </div>

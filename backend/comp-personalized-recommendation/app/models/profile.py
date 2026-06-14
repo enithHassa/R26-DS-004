@@ -72,4 +72,4 @@ class FinancialProfile(TimestampMixin, Base):
     investment_horizon_years: Mapped[int] = mapped_column(default=10, nullable=False)
     income_sources: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
-    tax_year: Mapped[str] = mapped_column(String(8), default="2024_25", nullable=False, index=True)
+    tax_year: Mapped[str] = mapped_column(String(8), default="2026_27", nullable=False, index=True)

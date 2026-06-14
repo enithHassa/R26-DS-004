@@ -13,9 +13,9 @@
 schema_version: "1.0"
 country: "LK"
 currency: "LKR"
-rules_pack_ref: "sl_tax_2024_25.yaml"
-rules_pack_version: "2024_25"
-effective_from: "2024-04-01"
+rules_pack_ref: "sl_tax_2026_27.yaml"
+rules_pack_version: "2026_27"
+effective_from: "2026-04-01"
 maintainer: "comp-personalized-recommendation"
 
 defaults:
