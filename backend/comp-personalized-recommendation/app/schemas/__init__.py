@@ -27,6 +27,7 @@ from app.schemas.profile import (
     Occupation,
 )
 from app.schemas.recommendation import (
+    ExplainRequest,
     FeatureAttribution,
     FeedbackCreate,
     RecommendationExplanation,
@@ -49,6 +50,7 @@ from app.schemas.strategy import (
 __all__ = [
     "DerivedFeatures",
     "EligibilityCheck",
+    "ExplainRequest",
     "FeatureAttribution",
     "FeedbackCreate",
     "FinancialProfile",

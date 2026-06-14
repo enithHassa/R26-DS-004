@@ -27,8 +27,8 @@ models/personalized-recommendation/
 | 1     | `data/`, `rules/` |
 | 2     | `features/` |
 | 4     | `ranking/`, `artifacts/` |
-| 5     | `impact/` |
-| 6     | `evaluation/` |
+| 5     | `impact/` (Monte Carlo engine + strategy tax effects) |
+| 6     | `evaluation/` (metrics, ablations, fairness, SHAP explain) |
 
 ## Environment
 

@@ -23,6 +23,7 @@ def test_openapi(client: TestClient) -> None:
         "/api/v1/profiles",
         "/api/v1/strategies/generate",
         "/api/v1/recommendations",
+        "/api/v1/recommendations/explain",
         "/api/v1/impact/simulate",
     ]:
         assert p in paths, f"missing route {p}"

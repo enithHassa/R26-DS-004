@@ -159,3 +159,73 @@ export const AGE_BANDS = [
   "18-24", "25-29", "30-34", "35-39", "40-44",
   "45-49", "50-54", "55-59", "60-64", "65-70", "70+",
 ] as const;
+
+/** Phase 5 — predictive impact (FR7, FR8). */
+export interface ImpactScenario {
+  name: string;
+  salary_growth_mean?: number;
+  salary_growth_std?: number;
+  inflation_mean?: number;
+  investment_return_mean?: number;
+  adoption_success_prob?: number;
+}
+
+export interface ImpactSimulationRequest {
+  profile_id: string;
+  strategy_id?: string | null;
+  strategy_code?: string | null;
+  horizon_years?: number;
+  n_paths?: number;
+  random_seed?: number | null;
+  scenario?: ImpactScenario;
+}
+
+export interface YearlyProjection {
+  year: number;
+  projected_salary: string;
+  projected_tax_liability: string;
+  projected_savings: string;
+  net_worth: string;
+}
+
+export interface ProjectionBand {
+  year: number;
+  p10: string;
+  p50: string;
+  p90: string;
+}
+
+export interface ImpactSummary {
+  horizon_years: number;
+  expected_total_savings: string;
+  expected_net_worth: string;
+  savings_std: string;
+  value_at_risk_p10: string;
+  probability_of_net_gain: number;
+}
+
+export interface ImpactSimulationResponse {
+  run_id: string;
+  profile_id: string;
+  strategy_id: string | null;
+  horizon_years: number;
+  n_paths: number;
+  baseline: YearlyProjection[];
+  strategy_path: YearlyProjection[] | null;
+  net_worth_bands: ProjectionBand[];
+  tax_liability_bands: ProjectionBand[];
+  summary: ImpactSummary;
+}
+
+export interface StrategyComparisonRequest {
+  profile_id: string;
+  strategy_codes: string[];
+  horizon_years?: number;
+}
+
+/** Phase 6 — SHAP explain (FR10). */
+export interface ExplainRequest {
+  profile_id: string;
+  strategy_code: string;
+  top_k?: number;
+}

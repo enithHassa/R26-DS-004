@@ -323,6 +323,22 @@ export interface TaxOptBSearchStrategyRowV1 {
   ml_assist_rank?: number | null;
   /** Function 3: same as `rule_only_rank` for auditing. */
   deterministic_rank?: number | null;
+  /** Function 3: SHAP feature contributions explaining the ML score. */
+  ml_shap_explanation?: TaxOptBShapExplanationV1 | null;
+}
+
+export interface TaxOptBShapFeatureContributionV1 {
+  feature_name: string;
+  shap_value: number;
+  feature_value: number;
+}
+
+export interface TaxOptBShapExplanationV1 {
+  base_value: number;
+  predicted_value: number;
+  feature_contributions: TaxOptBShapFeatureContributionV1[];
+  explainer_type: string;
+  shap_version: string;
 }
 
 /** Function 3 — ML ranking metadata (rules remain authoritative for tax outcomes). */
@@ -338,6 +354,8 @@ export interface TaxOptBSearchMlMetaV1 {
   inference_latency_ms: number;
   utility_alpha?: number | null;
   optimization_objective_label?: string | null;
+  shap_base_value?: number | null;
+  shap_explainer_type?: string | null;
 }
 
 export interface TaxOptBSearchTraceabilityV1 {
@@ -380,4 +398,31 @@ export interface TaxOptBSearchStrategiesResponseV1 {
   explanations?: TaxOptBExplanationBundleV1 | null;
   /** Function 3: present when the response used ML-assisted reordering over the legal set. */
   ml_meta?: TaxOptBSearchMlMetaV1 | null;
+}
+
+/** ``POST .../tax-filing/rf-predict`` — 2025/26 filing calculator (RF + SHAP). */
+export interface TaxOptBRfTaxPredictRequestV1 {
+  tax_year: "2025_26";
+  employment_type: TaxOptBEmploymentTypeV1;
+  dependents: number;
+  annual_salary_income: string;
+  annual_business_income: string;
+  annual_investment_income: string;
+  annual_other_income: string;
+  relief_life_insurance_premium: string;
+  relief_health_insurance_premium: string;
+  relief_home_loan_interest: string;
+  relief_rent: string;
+  relief_charitable_donations: string;
+  relief_retirement_contribution: string;
+}
+
+export interface TaxOptBRfTaxPredictResponseV1 {
+  predicted_tax_lkr: string;
+  total_gross_income_lkr: string;
+  total_relief_claimed_lkr: string;
+  shap_explanation: TaxOptBShapExplanationV1;
+  model_id: string;
+  feature_version: string;
+  disclaimer: string;
 }
