@@ -21,6 +21,7 @@ const personalizedRecommendation: FeatureModule = {
     { path: "profile", element: <ProfilePage /> },
     { path: "recommendations", element: <RecommendationsPage /> },
     { path: "strategy/:strategyId", element: <StrategyDetailPage /> },
+    { path: "impact", element: <ImpactPage /> },
     { path: "impact/:strategyId", element: <ImpactPage /> },
     { path: "compare", element: <ComparePage /> },
     { path: "rag", element: <RagRecommendationsPage /> },
@@ -28,10 +29,10 @@ const personalizedRecommendation: FeatureModule = {
   ],
   nav: [
     { to: "/profile", label: "Profile", icon: User },
-    { to: "/recommendations", label: "Strategy Match", icon: Sparkles },
+    { to: "/recommendations", label: "Recommendations", icon: Sparkles },
     { to: "/rag", label: "Knowledge Match", icon: Brain },
     { to: "/hybrid", label: "Smart Recommendations", icon: Merge },
-    { to: "/impact/new", label: "Impact", icon: BarChart3 },
+    { to: "/impact", label: "Impact", icon: BarChart3 },
     { to: "/compare", label: "Compare", icon: GitCompare },
   ],
 };
