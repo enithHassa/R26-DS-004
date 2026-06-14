@@ -32,6 +32,7 @@ python-dotenv==1.2.2
 python-multipart==0.0.22
 scikit-learn==1.8.0
 shap==0.51.0
+lightgbm==4.6.0
 openpyxl==3.1.5
 pillow==11.3.0
 pytesseract==0.3.13
@@ -40,6 +41,3 @@ starlette==1.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.42.0
-joblib==1.5.3
-scikit-learn==1.8.0
-pandas==3.0.2
