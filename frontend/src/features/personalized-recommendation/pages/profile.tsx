@@ -27,6 +27,8 @@ import {
   getProfileFeatures,
   listProfiles,
 } from "../api/profiles";
+import { WizardNav } from "../components/wizard-nav";
+import { useDashboardStore } from "../store/dashboard-store";
 import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
 
 const decimalString = z
@@ -122,6 +124,30 @@ function taxpayerName(total: number): string {
   return `Taxpayer_${String(total + 1).padStart(5, "0")}`;
 }
 
+const WIZARD_STEPS = [
+  "Personal",
+  "Employment",
+  "Income",
+  "Assets",
+  "Insurance & horizon",
+] as const;
+
+const STEP_FIELDS: (keyof ProfileForm)[][] = [
+  ["full_name", "age_band", "gender", "marital_status", "province", "dependents"],
+  ["occupation", "years_employed"],
+  ["gross_monthly_income", "monthly_expenses", "monthly_debt_service"],
+  ["liquid_savings", "existing_investments", "total_debt", "epf_balance", "etf_balance"],
+  [
+    "life_insurance_premium_annual",
+    "home_loan_interest_annual",
+    "donations_annual",
+    "health_insurance",
+    "risk_tolerance",
+    "investment_horizon_years",
+    "tax_year",
+  ],
+];
+
 const defaultValues: ProfileForm = {
   full_name: taxpayerName(0),
   age_band: "30-34",
@@ -178,8 +204,10 @@ function ageBandFromYears(age: number): string {
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
+  const setActiveProfileId = useDashboardStore((s) => s.setActiveProfileId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [step, setStep] = useState(0);
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -221,6 +249,8 @@ export function ProfilePage() {
       await queryClient.invalidateQueries({ queryKey: ["profiles"] });
       await queryClient.invalidateQueries({ queryKey: ["profiles-count"] });
       setSelectedId(created.id);
+      setActiveProfileId(created.id);
+      setStep(0);
       const fresh = queryClient.getQueryData<{ total: number }>(["profiles-count"]);
       const nextTotal = fresh?.total ?? (countQuery.data?.total ?? 0);
       reset({ ...defaultValues, full_name: taxpayerName(nextTotal) });
@@ -260,10 +290,9 @@ export function ProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Financial Profile</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Financial profile</h1>
         <p className="text-muted-foreground">
-          Capture income, expenses, dependents, and risk tolerance. These values
-          power every downstream recommendation and impact simulation (FR1, FR2).
+          Multi-step intake (FR1) with validation — powers recommendations, eligibility, and impact (FR2).
         </p>
       </div>
 
@@ -273,11 +302,18 @@ export function ProfilePage() {
             <CardHeader>
               <CardTitle>Create profile</CardTitle>
               <CardDescription>
-                All amounts are in LKR. Defaults reflect a typical mid-career employee.
+                Step {step + 1} of {WIZARD_STEPS.length} — all amounts in LKR.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
+              <WizardNav
+                steps={[...WIZARD_STEPS]}
+                current={step}
+                onStepClick={(i) => setStep(i)}
+              />
+
+              {step === 0 && (
               <Section title="Personal">
                 <Field label="Full name" error={errors.full_name?.message}>
                   <Input {...register("full_name")} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" />
@@ -318,7 +354,9 @@ export function ProfilePage() {
                   />
                 </Field>
               </Section>
+              )}
 
+              {step === 1 && (
               <Section title="Employment">
                 <Field label="Occupation">
                   <Select {...register("occupation")}>
@@ -336,7 +374,9 @@ export function ProfilePage() {
                   />
                 </Field>
               </Section>
+              )}
 
+              {step === 2 && (
               <Section title="Income & expenses (monthly LKR)">
                 <Field label="Gross monthly income" error={errors.gross_monthly_income?.message}>
                   <Input
@@ -363,7 +403,9 @@ export function ProfilePage() {
                   />
                 </Field>
               </Section>
+              )}
 
+              {step === 3 && (
               <Section title="Assets & liabilities (LKR)">
                 <Field label="Liquid savings">
                   <Input
@@ -406,7 +448,10 @@ export function ProfilePage() {
                   />
                 </Field>
               </Section>
+              )}
 
+              {step === 4 && (
+              <>
               <Section title="Insurance & reliefs (annual LKR)">
                 <Field label="Life insurance premium">
                   <Input
@@ -463,6 +508,8 @@ export function ProfilePage() {
                   />
                 </Field>
               </Section>
+              </>
+              )}
 
               {createMutation.isError && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
@@ -471,19 +518,41 @@ export function ProfilePage() {
               )}
             </CardContent>
 
-            <CardFooter className="flex justify-end gap-2 border-t pt-4">
+            <CardFooter className="flex flex-wrap justify-between gap-2 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => reset({ ...defaultValues, full_name: taxpayerName(countQuery.data?.total ?? 0) })}
+                onClick={() => {
+                  reset({ ...defaultValues, full_name: taxpayerName(countQuery.data?.total ?? 0) });
+                  setStep(0);
+                }}
                 disabled={isSubmitting}
               >
                 Reset
               </Button>
-              <Button type="submit" disabled={isSubmitting || createMutation.isPending}>
-                {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create profile
-              </Button>
+              <div className="flex gap-2">
+                {step > 0 && (
+                  <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
+                    Back
+                  </Button>
+                )}
+                {step < WIZARD_STEPS.length - 1 ? (
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await form.trigger(STEP_FIELDS[step]);
+                      if (ok) setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
+                    }}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isSubmitting || createMutation.isPending}>
+                    {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Create profile
+                  </Button>
+                )}
+              </div>
             </CardFooter>
           </form>
         </Card>
@@ -533,7 +602,10 @@ export function ProfilePage() {
                     className={`flex items-center justify-between gap-3 py-3 cursor-pointer rounded-md px-2 ${
                       selectedId === p.id ? "bg-accent/50" : "hover:bg-accent/30"
                     }`}
-                    onClick={() => setSelectedId(p.id)}
+                    onClick={() => {
+                      setSelectedId(p.id);
+                      setActiveProfileId(p.id);
+                    }}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{p.full_name}</div>
