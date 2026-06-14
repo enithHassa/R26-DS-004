@@ -1,0 +1,289 @@
+{
+  "ontology_version": "1.2.0",
+  "phase": "3a-step10",
+  "title": "Tax Knowledge Graph — ontology v1 (nodes + relationships)",
+  "description": "IRD-grounded corpus → Neo4j. Step 10 adds ConsolidatedViewPassage + VIEW_* relationships for honest traceability from consolidated PDF text to underlying sections and amendment instruments.",
+  "design_rules": [
+    "Every corpus chunk_id must link to at least one graph node (typically TextChunk).",
+    "Prefer manifest source_doc_id as the join key for LawInstrument.",
+    "Guides and draft instruments stay in the graph with lower authority_weight; OVERRIDES + edge dates express precedence (refined in Step 3c).",
+    "New rel types require ontology_version bump; do not overload one type with unrelated semantics.",
+    "ConsolidatedViewPassage nodes are optional: use them when ingesting a consolidated Act PDF so Proof Maps can jump to underlying Section / LawInstrument nodes, not only merged text."
+  ],
+  "node_labels": [
+    {
+      "label": "LawInstrument",
+      "description": "A versioned legal or interpretive source: Act, amendment, consolidated edition, circular, ruling, schedule publication, or official guide.",
+      "neo4j_label": "LawInstrument",
+      "id_property": "source_doc_id",
+      "key_properties": [
+        "source_doc_id",
+        "title",
+        "instrument_type",
+        "doc_type",
+        "tier",
+        "authority_weight",
+        "is_draft",
+        "publication_date",
+        "effective_start_date",
+        "effective_end_date",
+        "version_label",
+        "source_url",
+        "language"
+      ],
+      "corpus_alignment": {
+        "manifest_row": "one LawInstrument per source_manifest row",
+        "corpus_chunk_field": "inherited on TextChunk via source_doc_id"
+      }
+    },
+    {
+      "label": "Section",
+      "description": "A navigable unit inside an instrument: section, article, part, or schedule slice. Stable section_uid is assigned at ETL time (may combine instrument + section label).",
+      "neo4j_label": "Section",
+      "id_property": "section_uid",
+      "key_properties": [
+        "section_uid",
+        "source_doc_id",
+        "section_label",
+        "heading_text",
+        "effective_start_date",
+        "effective_end_date"
+      ],
+      "corpus_alignment": {
+        "corpus_chunk_field": "section_ref (heuristic list), pdf_outline_breadcrumb"
+      }
+    },
+    {
+      "label": "TextChunk",
+      "description": "Retrieval-sized text unit from corpus_v1; 1:1 with chunk_id. Bridge node for Proof Maps and vector stores.",
+      "neo4j_label": "TextChunk",
+      "id_property": "chunk_id",
+      "key_properties": [
+        "chunk_id",
+        "source_doc_id",
+        "corpus_version",
+        "content_kind",
+        "page",
+        "chunk_index",
+        "section_ref",
+        "tier",
+        "instrument_type",
+        "layout_hint"
+      ],
+      "corpus_alignment": {
+        "corpus_chunk_field": "full JSONL record"
+      }
+    },
+    {
+      "label": "Concept",
+      "description": "Tax concept or defined term (e.g. resident, gross income, employment income). May be anchored by statute wording or curated.",
+      "neo4j_label": "Concept",
+      "id_property": "concept_id",
+      "key_properties": [
+        "concept_id",
+        "canonical_name",
+        "aliases",
+        "notes",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "note": "concept_id is internal; links via DEFINES / MENTIONS"
+      }
+    },
+    {
+      "label": "Relief",
+      "description": "A deduction, credit, or exemption family (e.g. personal relief, donation relief).",
+      "neo4j_label": "Relief",
+      "id_property": "relief_id",
+      "key_properties": [
+        "relief_id",
+        "display_name",
+        "statutory_label",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "note": "Often extracted from Tier A sections and official tables"
+      }
+    },
+    {
+      "label": "RateBand",
+      "description": "Numeric band or threshold row (tax slabs, relief ceilings, PAYE/APIT table rows).",
+      "neo4j_label": "RateBand",
+      "id_property": "rate_band_id",
+      "key_properties": [
+        "rate_band_id",
+        "band_label",
+        "currency",
+        "effective_start_date",
+        "effective_end_date",
+        "source_doc_id",
+        "raw_row_fingerprint",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "corpus_chunk_field": "table chunks (content_kind=table) and nearby text"
+      }
+    },
+    {
+      "label": "ProcedureMilestone",
+      "description": "Filing, payment, or instalment milestone (due date, return type, e-Service step).",
+      "neo4j_label": "ProcedureMilestone",
+      "id_property": "milestone_id",
+      "key_properties": [
+        "milestone_id",
+        "milestone_kind",
+        "description",
+        "applies_to",
+        "effective_start_date",
+        "effective_end_date",
+        "source_doc_id",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "note": "Tier B/C procedural guides + statute cross-links"
+      }
+    },
+    {
+      "label": "IrdHubSummary",
+      "description": "Structured capture of high-signal IRD Income Tax hub HTML summaries; always cross-linked to Tier A evidence where claimed.",
+      "neo4j_label": "IrdHubSummary",
+      "id_property": "summary_id",
+      "key_properties": [
+        "summary_id",
+        "topic_label",
+        "source_url",
+        "captured_at_utc",
+        "authority_weight",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "note": "From ird_extract_html / hub crawl; lower authority than statute"
+      }
+    },
+    {
+      "label": "ConsolidatedViewPassage",
+      "description": "A navigational anchor inside a consolidated edition PDF: ties merged wording to underlying statute/amendment sources without pretending the consolidated file is the sole authority.",
+      "neo4j_label": "ConsolidatedViewPassage",
+      "id_property": "anchor_id",
+      "key_properties": [
+        "anchor_id",
+        "source_doc_id",
+        "consolidated_as_of",
+        "section_label_snapshot",
+        "chunk_id",
+        "review_status"
+      ],
+      "corpus_alignment": {
+        "note": "Curated or semi-automated; chunk_id optional link to TextChunk from consolidated corpus; lineage via VIEW_TRACES_* edges"
+      }
+    }
+  ],
+  "relationship_types": [
+    {
+      "type": "PART_OF",
+      "description": "Section sits within one LawInstrument (statute, amendment publication, etc.).",
+      "from_labels": ["Section"],
+      "to_labels": ["LawInstrument"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "HAS_CHUNK",
+      "description": "Attach corpus TextChunk to Section and/or LawInstrument (every chunk_id reachable from the graph).",
+      "from_labels": ["Section", "LawInstrument"],
+      "to_labels": ["TextChunk"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "DEFINES",
+      "description": "Section defines a Concept (legal definition or core statutory sense).",
+      "from_labels": ["Section"],
+      "to_labels": ["Concept"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "MENTIONS",
+      "description": "TextChunk mentions a Concept (weak/heuristic link; curated in ETL).",
+      "from_labels": ["TextChunk"],
+      "to_labels": ["Concept"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "MODIFIES",
+      "description": "A LawInstrument (e.g. amendment Act) modifies the legal content of a Section node.",
+      "from_labels": ["LawInstrument"],
+      "to_labels": ["Section"],
+      "lex_specialis_relevant": true
+    },
+    {
+      "type": "SUPERSEDES",
+      "description": "A newer LawInstrument fully supersedes an older one (instrument-level succession).",
+      "from_labels": ["LawInstrument"],
+      "to_labels": ["LawInstrument"],
+      "lex_specialis_relevant": true
+    },
+    {
+      "type": "OVERRIDES",
+      "description": "Lex specialis-style precedence: the source node takes priority over the target (typically more specific Section over more general Section). Use effective_* on nodes and optional edge properties in Step 3c.",
+      "from_labels": ["Section"],
+      "to_labels": ["Section"],
+      "lex_specialis_relevant": true
+    },
+    {
+      "type": "CITES",
+      "description": "IrdHubSummary cites a TextChunk as Tier A/B/C evidence for a summary claim.",
+      "from_labels": ["IrdHubSummary"],
+      "to_labels": ["TextChunk"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "APPLIES_TO",
+      "description": "RateBand applies to a Concept (e.g. income band) or Relief (ceiling row).",
+      "from_labels": ["RateBand"],
+      "to_labels": ["Concept", "Relief"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "DERIVED_FROM",
+      "description": "ProcedureMilestone is grounded in a Section (statutory or consolidated basis).",
+      "from_labels": ["ProcedureMilestone"],
+      "to_labels": ["Section"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "COVERS_RELIEF",
+      "description": "Section covers or authorizes a Relief (deduction/credit family).",
+      "from_labels": ["Section"],
+      "to_labels": ["Relief"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "VIEW_IN_INSTRUMENT",
+      "description": "ConsolidatedViewPassage belongs to the consolidated LawInstrument (same source_doc_id as the consolidated PDF).",
+      "from_labels": ["ConsolidatedViewPassage"],
+      "to_labels": ["LawInstrument"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "VIEW_TRACES_TO_SECTION",
+      "description": "Consolidated passage traces to an underlying Section node (base Act or amendment-redacted section).",
+      "from_labels": ["ConsolidatedViewPassage"],
+      "to_labels": ["Section"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "VIEW_TRACES_TO_INSTRUMENT",
+      "description": "Consolidated passage traces to an amendment or other LawInstrument that contributed the underlying wording.",
+      "from_labels": ["ConsolidatedViewPassage"],
+      "to_labels": ["LawInstrument"],
+      "lex_specialis_relevant": false
+    }
+  ],
+  "optional_edge_properties": [
+    "confidence",
+    "review_status",
+    "effective_from",
+    "effective_to",
+    "source_note",
+    "specificity_rank"
+  ]
+}

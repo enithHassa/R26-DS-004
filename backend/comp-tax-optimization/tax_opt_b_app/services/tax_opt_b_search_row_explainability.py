@@ -63,6 +63,7 @@ def build_search_tax_breakdown(
     return TaxOptBSearchTaxBreakdownV1(
         employment_income_lkr=str(fin.annual_salary_income),
         business_income_lkr=str(fin.annual_business_income),
+        investment_income_lkr=str(getattr(fin, "annual_investment_income", Decimal("0"))),
         other_income_lkr=str(fin.annual_other_income),
         gross_income_lkr=tc.annual_gross_income,
         assessable_income_lkr=tc.income_basis_before_personal_relief,
@@ -125,12 +126,9 @@ def build_rule_trace(
         spec = by_relief.get(rc)
         if not spec:
             continue
-        allowed = val.get("allowed", "")
-        cap = val.get("cap", "")
-        claimed = val.get("claimed", "")
-        summary = (
-            f"{spec.description.strip()} Allowed LKR {allowed} (claimed LKR {claimed}, cap LKR {cap})."
-        )
+        summary = spec.description.strip()
+        if not summary.endswith("."):
+            summary = f"{summary}."
         lbl = relief_label(rc, dict(pack.relief_display_names))
         desc = spec.description.strip()
         short = f"{lbl} applied" if lbl else (desc[:120] + ("…" if len(desc) > 120 else ""))

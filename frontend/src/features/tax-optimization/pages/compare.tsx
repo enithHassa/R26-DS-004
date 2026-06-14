@@ -214,8 +214,9 @@ export function ComparePage() {
   const [employmentType, setEmploymentType] = useState<TaxOptBEmploymentTypeV1>("employee");
   const [salary, setSalary] = useState("2000000");
   const [business, setBusiness] = useState("400000");
+  const [investment, setInvestment] = useState("0");
   const [otherIncome, setOtherIncome] = useState("0");
-  const [dependents, setDependents] = useState("0");
+  const dependents = "0";
   const [selectedOptional, setSelectedOptional] = useState<Set<OptionalStrategyKey>>(() => new Set());
 
   const [loading, setLoading] = useState(false);
@@ -224,8 +225,8 @@ export function ComparePage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const grossAnnual = useMemo(() => {
-    return parseAmount(salary) + parseAmount(business) + parseAmount(otherIncome);
-  }, [salary, business, otherIncome]);
+    return parseAmount(salary) + parseAmount(business) + parseAmount(investment) + parseAmount(otherIncome);
+  }, [salary, business, investment, otherIncome]);
 
   const estimatedTaxableAnnual = useMemo(() => {
     if (grossAnnual <= 0) return 0;
@@ -383,6 +384,22 @@ export function ComparePage() {
               </div>
             </div>
             <div className="grid gap-2">
+              <Label htmlFor={`${formId}-inv`}>Annual investment income (LKR)</Label>
+              <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                  LKR
+                </span>
+                <Input
+                  id={`${formId}-inv`}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={formatMoneyInputDisplay(investment)}
+                  onChange={(e) => setInvestment(digitsOnly(e.target.value))}
+                  className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor={`${formId}-oth`}>Annual other income (LKR)</Label>
               <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
                 <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
@@ -397,18 +414,6 @@ export function ComparePage() {
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
-            </div>
-            <div className="grid gap-2 md:col-span-2 md:max-w-xs">
-              <Label htmlFor={`${formId}-dep`}>Dependents</Label>
-              <Input
-                id={`${formId}-dep`}
-                type="number"
-                min={0}
-                max={20}
-                value={dependents}
-                onChange={(e) => setDependents(e.target.value)}
-                className="h-10"
-              />
             </div>
           </div>
         </CardContent>
