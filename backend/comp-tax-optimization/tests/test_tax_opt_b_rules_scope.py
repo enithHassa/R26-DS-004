@@ -76,3 +76,25 @@ def test_evaluate_compliance_rebases_yaml_pack_when_profile_year_differs() -> No
     result = evaluate_compliance(profile, strategy, base)
     assert result.passed is True
     assert not any(v.rule_id == "it22064486_optb_year_001" for v in result.violations)
+
+
+def test_2025_26_pack_loads_and_has_new_reliefs() -> None:
+    """2025_26 pack includes solar_panel_relief and updated charitable donation cap."""
+    pack_2025_26 = load_tax_opt_b_rules(component_settings.COMP_OPTIMIZATION_RULES_PATH_2025_26)
+    assert pack_2025_26.assessment_year == "2025_26"
+    assert pack_2025_26.thresholds.personal_relief_annual == Decimal("1800000")
+    assert "solar_panel_relief" in pack_2025_26.allowed_relief_codes
+    assert pack_2025_26.thresholds.deductions.get("solar_panel_relief_cap_annual") == Decimal("600000")
+    assert pack_2025_26.thresholds.deductions.get("charitable_donations_cap_annual") == Decimal("75000")
+
+
+def test_2025_26_pack_has_dual_charitable_cap_rule() -> None:
+    """Charitable donation rule for 2025_26 has both pct and annual fields."""
+    pack_2025_26 = load_tax_opt_b_rules(component_settings.COMP_OPTIMIZATION_RULES_PATH_2025_26)
+    charity_rule = next(
+        (r for r in pack_2025_26.rules if r.rule_type == "charitable_donation_cap"),
+        None,
+    )
+    assert charity_rule is not None
+    assert charity_rule.cap_pct_field == "charitable_donations_cap_pct_of_taxable"
+    assert charity_rule.cap_annual_field == "charitable_donations_cap_annual"

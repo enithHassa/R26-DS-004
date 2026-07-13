@@ -246,6 +246,30 @@ class TaxOptBSearchStrategyRowV1(BaseModel):
         default=None,
         description="LKR vs baseline when baseline passed; else null.",
     )
+    tax_status: str | None = Field(
+        default=None,
+        description="'tax_due' if user owes additional tax, 'refund_due' if overpaid via APIT, null if not calculated.",
+    )
+    apit_already_paid: str | None = Field(
+        default=None,
+        description="APIT tax already paid by employer (from T10 certificate), LKR string decimal.",
+    )
+    net_tax_payable: str | None = Field(
+        default=None,
+        description="Net tax position: negative = refund due, positive = tax owed, LKR string decimal.",
+    )
+    rental_income_gross: str | None = Field(
+        default=None,
+        description="Gross rental income before 25% deemed repair deduction (LKR string decimal).",
+    )
+    rental_income_deduction: str | None = Field(
+        default=None,
+        description="Automatic 25% deemed repair allowance on rental income (LKR string decimal).",
+    )
+    rental_income_net: str | None = Field(
+        default=None,
+        description="Net rental income after deduction, included in taxable (LKR string decimal).",
+    )
     metrics: TaxOptBSearchStrategyMetricsV1 | None = Field(
         default=None,
         description="Structured tax breakdown; null when include_result_detail was false.",
