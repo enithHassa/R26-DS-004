@@ -202,3 +202,33 @@ def test_golden_pass_all_allowed_relief_codes_under_caps(client: TestClient) -> 
         "retirement_contribution",
     ):
         assert code in data["applied_relief"]
+
+
+def test_2025_26_charitable_donation_fixed_cap_enforced(client: TestClient) -> None:
+    """2025_26: Charitable donation of Rs 90,000 exceeds the fixed Rs 75,000 cap (even if below 33%)."""
+    # With 2025_26, 33% of 1.8M = 594,000 > 90,000 claimed > 75,000 fixed cap → should fail
+    body = {
+        "profile": _base_profile(tax_year="2025_26", estimated_annual_taxable_income="1800000"),
+        "strategy": {"claims": [{"relief_code": "charitable_donations", "claimed_amount_annual": "90000"}]},
+    }
+    resp = client.post("/api/v1/compliance/check", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["passed"] is False
+    assert any(v["rule_id"] == "it22064486_optb_cap_donations_001" for v in data["violations"])
+
+
+def test_2025_26_solar_panel_relief_passes_under_cap(client: TestClient) -> None:
+    """2025_26: Solar panel relief (Rs 400,000) passes under the Rs 600,000 cap."""
+    body = {
+        "profile": _base_profile(tax_year="2025_26"),
+        "strategy": {"claims": [{"relief_code": "solar_panel_relief", "claimed_amount_annual": "400000"}]},
+    }
+    resp = client.post("/api/v1/compliance/check", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["passed"] is True
+    assert "solar_panel_relief" in data["applied_relief"]
+    relief = data["applied_relief"]["solar_panel_relief"]
+    assert relief["claimed"] == "400000"
+    assert relief["allowed"] == "400000"
