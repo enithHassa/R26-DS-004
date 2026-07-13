@@ -31,7 +31,17 @@ def _aggregate_claims(fin: TaxOptBFinancialInputsV1) -> dict[str, Decimal]:
 def map_financial_inputs_to_profile_and_strategy(
     fin: TaxOptBFinancialInputsV1,
 ) -> tuple[TaxOptBProfileV1, TaxOptBStrategyProposalV1]:
-    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_investment_income + fin.annual_other_income
+    # Apply 25% deemed repair allowance to rental income
+    deduction_pct = Decimal("0.25")
+    rental_deduction = (fin.annual_rental_income * deduction_pct).quantize(Decimal("1"))
+    rental_net = fin.annual_rental_income - rental_deduction
+
+    # Handle backward compatibility: if annual_investment_income is set, use it as other_investment
+    other_investment = fin.annual_other_investment_income
+    if fin.annual_investment_income is not None and fin.annual_investment_income > 0:
+        other_investment = fin.annual_investment_income
+
+    gross = fin.annual_salary_income + fin.annual_business_income + rental_net + fin.annual_interest_income + other_investment + fin.annual_other_income
     # Gross (salary + business + investment + other) is the income basis for compliance
     # donation % caps and tax slabs; no separate "estimated taxable" on structured intake.
     profile = TaxOptBProfileV1(

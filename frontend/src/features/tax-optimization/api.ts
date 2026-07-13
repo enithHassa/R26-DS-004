@@ -14,6 +14,8 @@ import type {
   TaxOptBSearchStrategiesResponseV1,
   TaxOptBRfTaxPredictRequestV1,
   TaxOptBRfTaxPredictResponseV1,
+  MLRankedStrategyV1,
+  MLRankResponseV1,
 } from "./types";
 
 /** All requests go through the API gateway (see `VITE_API_BASE_URL`). */
@@ -103,6 +105,48 @@ export async function postSearchStrategiesMlRank(
     body,
     /** Model load + scoring over large candidate sets often exceeds the default 30s client limit. */
     { timeout: 180_000 },
+  );
+  return data;
+}
+
+/** Phase 2.D — ML ranking endpoint: Rank 20 strategies by utility score with legal explanations. */
+export async function postMlRankStrategies(
+  taxYear: string,
+  salary: number,
+  rentalIncome: number,
+  interestIncome: number,
+  businessIncome: number,
+  lifeInsurancePremium: number,
+  healthInsurancePremium: number,
+  homeLoanInterest: number,
+  rentRelief: number,
+  charitableDonations: number,
+  retirementContribution: number,
+  complexityTolerance: number,
+  auditRiskTolerance: number,
+  timeAvailable: number,
+): Promise<MLRankResponseV1> {
+  const body = {
+    tax_year: taxYear,
+    salary,
+    rental_income: rentalIncome,
+    interest_income: interestIncome,
+    business_income: businessIncome,
+    life_insurance_premium: lifeInsurancePremium,
+    health_insurance_premium: healthInsurancePremium,
+    home_loan_interest: homeLoanInterest,
+    rent_relief: rentRelief,
+    charitable_donations: charitableDonations,
+    retirement_contribution: retirementContribution,
+    complexity_tolerance: complexityTolerance,
+    audit_risk_tolerance: auditRiskTolerance,
+    time_available: timeAvailable,
+  };
+
+  const { data } = await taxOptimizationApi.post<MLRankResponseV1>(
+    "/compliance/ml-rank-strategies",
+    body,
+    { timeout: 60_000 }, // 60s timeout for ML ranking
   );
   return data;
 }
