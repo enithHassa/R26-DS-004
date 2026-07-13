@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv-backend/Scripts/python.exe -m uvicorn tax_opt_b_app.main:app --port 8002 --app-dir backend/comp-tax-optimization)",
+      "PowerShell(.venv-backend\\\\Scripts\\\\python -m pytest backend/comp-tax-optimization/tests/test_tax_opt_b_ml_rank.py::test_ml_rank_shap_explanation_present -v -s 2>&1)"
+    ]
+  }
+}
