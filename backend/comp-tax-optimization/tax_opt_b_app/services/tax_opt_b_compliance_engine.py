@@ -124,11 +124,17 @@ def evaluate_compliance(
             if relief_code not in claims_by_code:
                 continue
             pct_field = rule.cap_pct_field
+            ann_field = rule.cap_annual_field
             pct = deductions.get(pct_field, Decimal("0")) if pct_field else Decimal("0")
             basis = profile.estimated_annual_taxable_income
             if basis is None:
                 basis = profile.annual_gross_income
-            cap = (basis * pct).quantize(Decimal("1"))
+            pct_cap = (basis * pct).quantize(Decimal("1"))
+            ann_cap = deductions.get(ann_field, Decimal("0")) if ann_field else Decimal("0")
+            if ann_cap > 0:
+                cap = min(pct_cap, ann_cap).quantize(Decimal("1"))
+            else:
+                cap = pct_cap
             claimed = claims_by_code[relief_code]
             msg = rule.message or "Donations exceed cap."
             if claimed > cap:
