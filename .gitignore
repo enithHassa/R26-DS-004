@@ -121,6 +121,15 @@ data/synthetic/*
 data/external/
 data/interim/
 
+# Phase 2 tax optimization data & models
+backend/comp-tax-optimization/phase2_data/
+backend/comp-tax-optimization/phase2_data_excel/
+backend/comp-tax-optimization/phase2_data_generation/
+backend/comp-tax-optimization/phase2_ml/
+backend/comp-tax-optimization/phase2_models/
+*.csv
+*.xlsx
+
 # Model binaries & checkpoints (keep configs / .gitkeep)
 models/**/*.bin
 models/**/*.pt
