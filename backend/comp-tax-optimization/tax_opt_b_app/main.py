@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from tax_opt_b_app import __version__
 from tax_opt_b_app.config import component_settings
-from tax_opt_b_app.routers import health, tax_opt_b_compliance, tax_opt_b_strategies_ml
+from tax_opt_b_app.routers import health, tax_opt_b_compliance, tax_opt_b_strategies_ml, tax_opt_b_phase2_ml_rank
 from tax_opt_b_app.routers.tax_opt_b_rf_tax import router as rf_tax_router
 from tax_opt_b_app.services.tax_opt_b_ml_ranking import load_ml_bundle_summary, load_ml_estimator
 from tax_opt_b_app.services.tax_opt_b_rf_predictor import load_rf_bundle
@@ -116,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["health"])
     app.include_router(tax_opt_b_compliance.router, prefix=f"{api}/compliance")
     app.include_router(tax_opt_b_strategies_ml.router, prefix=f"{api}/strategies")
+    app.include_router(tax_opt_b_phase2_ml_rank.router, prefix=f"{api}/strategies")
     app.include_router(rf_tax_router, prefix=f"{api}/tax-filing")
 
     return app
