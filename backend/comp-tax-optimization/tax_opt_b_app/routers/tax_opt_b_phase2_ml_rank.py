@@ -105,13 +105,16 @@ def phase2_ml_rank_strategies(
 
         # Convert to strategy grid format for ML ranker
         strategies_grid = []
-        for row in passing_sorted:
-            candidate = row[0]
+        for i, row in enumerate(passing_sorted):
+            spec = row[0]  # TaxOptBStrategyCandidateSpecV1
+            reliefs = list(spec.included_relief_codes) if spec.included_relief_codes else []
+            strategy_name = f"Strategy {i+1}: {', '.join(reliefs) if reliefs else 'Baseline (No Reliefs)'}"
+
             strategies_grid.append({
-                "id": candidate.candidate_id,
-                "name": candidate.candidate_display_name,
-                "reliefs": candidate.reliefs,
-                "description": candidate.candidate_display_name,
+                "id": spec.candidate_id,
+                "name": strategy_name,
+                "reliefs": reliefs,
+                "description": strategy_name,
             })
 
         # Convert request format
