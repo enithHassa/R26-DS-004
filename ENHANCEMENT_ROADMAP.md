@@ -9,46 +9,71 @@
 
 ---
 
+## Recently Completed (July 2026)
+
+- ✅ **ML utility score reweighting** — raised `tax_savings` weight from 0.45 to 0.70; scores now spread across 0.20–0.80 range instead of clustered 0.54–0.55. See [ML_FIX_SUMMARY.md](ML_FIX_SUMMARY.md) and [ML_CLUSTERING_FIX.md](ML_CLUSTERING_FIX.md).
+- ✅ **Feature engineering expansion** — added 74 engineered features (income ratios, relief-to-income metrics, etc.) in `phase2_ml/feature_engineering_service.py`.
+- ✅ **Phase 2 ML ranking endpoint** — full backend integration: `/api/v1/compliance/phase2-ml-rank` wired at startup with `MLStrategyRanker`, `FeatureEngineeringService`, and `legal_rag_service`. Tests: `test_ml_rank_endpoint.py`, `test_ml_rank_integration.py`.
+- ✅ **Legal explanations wired end-to-end** — `legal_rag_service` instantiated in `main.py` lifespan; consumed by `MLRankingService` to build per-strategy `audit_risk_summary` text.
+- ✅ **Frontend ML results UI** — dedicated `ml-ranked-strategies.tsx` component for ML-ranked results; separate from rule-based search table.
+
+---
+
 ## 🎯 TIER 1: Critical Enhancements (High Impact, High Priority)
 
-### 1.1 ML Model Improvement
-**Problem:** Utility scores are tightly clustered (54.7-54.8%), unable to differentiate strategies meaningfully
+### Next Immediate Priorities (Post Phase 2)
 
-**Solutions:**
-- [ ] Retrain model with higher weight on tax_savings (0.45 → 0.70+)
-- [ ] Improve feature engineering: Add income ratios, relief-to-income metrics
-- [ ] Use real-world tax data instead of synthetic (if available)
-- [ ] Add model versioning and A/B testing framework
+These two concrete tasks build on completed Phase 2 work and close remaining Tier 1 gaps:
+
+1. **Audit Risk Reconciliation** — Per-relief risk labels in `legal_rag_service.py` are static (`'audit_risk': 'low'`), but the ML model computes a dynamic `audit_risk_score` from `RISKY_RELIEFS` weighting in `feature_engineering_service.py`. Make them align: replace hardcoded labels with lookups from the same `RISKY_RELIEFS` source, so users see one consistent risk story.
+
+2. **Model Versioning & Tracking** — Currently `train_final_models.py` overwrites a single joblib artifact with no version history or timestamp. Add: (a) `model_version` field in trained model metadata, (b) timestamped joblib filenames, (c) a simple model registry (JSON or CSV) logging train date, performance stats, and which model is active. Enables A/B testing and rollback.
+
+---
+
+### 1.1 ML Model Improvement
+**Status:** ✅ **MOSTLY DONE**
+
+**Completed (July 2026):**
+- ✅ Utility formula reweighted: tax_savings 0.45 → 0.70 (ML_FIX_SUMMARY.md)
+- ✅ Feature engineering expanded to 74 features (income ratios, relief-to-income, etc.)
+
+**Still open:**
+- [ ] Model versioning and A/B testing framework (see "Next Immediate Priorities" above)
+- [ ] Real-world training data (currently synthetic only; confirm with team if real tax data is available)
 
 **Impact:** Better strategy ranking, more useful recommendations
 
 ---
 
 ### 1.2 Audit Risk Assessment
-**Problem:** Audit risk levels are hardcoded as "LOW" for all strategies
+**Status:** ✅ **PARTIALLY DONE** — Gap is narrower than originally stated
 
-**Solutions:**
-- [ ] Implement actual audit risk scoring based on:
-  - Relief combination complexity
-  - Amount thresholds relative to income
-  - Regulation references and compliance strength
-- [ ] Add risk explanations in results
-- [ ] Show compliance confidence scores
+**Completed (July 2026):**
+- ✅ Real audit risk scoring implemented in `feature_engineering_service.py` (computes `audit_risk_score` from `RISKY_RELIEFS` weights, not just "LOW" for everything)
+- ✅ Risk summaries shown in results (built per-strategy via `MLRankingService.audit_risk_summary`)
 
-**Impact:** Users understand risk-benefit tradeoffs better
+**Still open:**
+- [ ] **Align displayed risk with computed risk:** `legal_rag_service.py` hardcodes per-relief `'audit_risk': 'low'`/`'medium'` labels independently of the ML score. A user may see "low risk" label but receive a strategy ranked lower due to computed audit risk. Implement: replace hardcoded labels with dynamic lookup from `RISKY_RELIEFS` (see "Next Immediate Priorities").
+
+**Impact:** Users understand risk-benefit tradeoffs better; no confusion between label and actual model confidence
 
 ---
 
 ### 1.3 Legal Explanations & Compliance
-**Problem:** Legal RAG service initialized but not fully utilized
+**Status:** ✅ **WIRED & TESTED**
 
-**Solutions:**
-- [ ] Expand legal_rag_service with more relief details
-- [ ] Link to specific Inland Revenue Act sections
-- [ ] Add "why this relief works for you" personalized explanations
-- [ ] Show compliance risk per strategy
+**Completed (July 2026):**
+- ✅ Legal RAG service initialized in `main.py` lifespan
+- ✅ Actively consumed by `MLRankingService` to build `audit_risk_summary` per strategy
+- ✅ Full endpoint coverage: `/api/v1/compliance/phase2-ml-rank` tested (`test_ml_rank_integration.py`)
+- ✅ Per-relief compliance explanations displayed in results
 
-**Impact:** Users trust recommendations more, understand legal basis
+**Still open (enhancement, not blocker):**
+- [ ] Link explanations to specific Inland Revenue Act section numbers (currently generic per-relief text, not statute-cited)
+- [ ] Personalize "why this relief works for you" phrasing based on persona (e.g., "Your rental income of X makes this applicable")
+
+**Impact:** Users trust recommendations more, understand legal basis; statute citations add credibility
 
 ---
 
