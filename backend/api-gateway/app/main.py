@@ -6,6 +6,7 @@ Routing map (representative):
     /api/v1/optimization/**    ->  COMP_OPTIMIZATION_URL
     /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
     /api/v1/llm/**             ->  COMP_LLM_URL (Component 4; strips ``llm`` segment)
+    /api/v1/adaptive-tax/**    ->  COMP_ADAPTIVE_TAX_URL (Component 5)
 """
 
 from __future__ import annotations
@@ -40,7 +41,8 @@ _HOP_BY_HOP = {
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(service_name="api-gateway")
     logger.info("API gateway starting (version={})", __version__)
-    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+    # Adaptive-tax explain / extract and optimization ML can exceed 30s.
+    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=5.0))
     try:
         yield
     finally:
@@ -67,6 +69,7 @@ def create_app() -> FastAPI:
     _register_proxy(app, prefix="/api/v1/optimization", upstream=settings.COMP_OPTIMIZATION_URL)
     _register_proxy(app, prefix="/api/v1/transaction", upstream=settings.COMP_TRANSACTION_URL)
     _register_proxy(app, prefix="/api/v1/llm", upstream=settings.COMP_LLM_URL)
+    _register_proxy(app, prefix="/api/v1/adaptive-tax", upstream=settings.COMP_ADAPTIVE_TAX_URL)
     return app
 
 
@@ -101,6 +104,11 @@ def _system_router() -> APIRouter:
             checks["language_model"] = r.status_code == 200
         except Exception:
             checks["language_model"] = False
+        try:
+            r = await client.get(f"{settings.COMP_ADAPTIVE_TAX_URL}/health", timeout=5.0)
+            checks["adaptive_tax"] = r.status_code == 200
+        except Exception:
+            checks["adaptive_tax"] = False
         return {"status": "ok" if all(checks.values()) else "degraded", "checks": checks}
 
     return router

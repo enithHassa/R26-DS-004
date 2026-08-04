@@ -1,0 +1,30 @@
+{
+  "run_id": "run_YYYY_MM_DD_0001",
+  "component": "adaptive-tax",
+  "component_version": "0.4.0",
+  "model_version": "fixture_explain_v1",
+  "corpus_version": "adaptive_tax_corpus_v1",
+  "rule_engine_version": "phase3_python_v1",
+  "dataset": {
+    "name": "adaptive_tax_phase4_metrics",
+    "split": "dev",
+    "sample_count": null
+  },
+  "metrics": {
+    "extraction_precision": null,
+    "calculation_accuracy": null,
+    "citation_faithfulness": null,
+    "explanation_grounding": null,
+    "amendment_adaptivity": null
+  },
+  "runtime": {
+    "started_at_utc": null,
+    "finished_at_utc": null,
+    "duration_seconds": null
+  },
+  "cost": {
+    "currency": "USD",
+    "estimated_total": 0.0
+  },
+  "notes": "Mirror of evaluation/experiment_run_template.json for Adaptive Tax Phase 4 / dissertation Chapter 4. Copy to runs/ and fill after scoring."
+}

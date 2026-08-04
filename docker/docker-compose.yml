@@ -40,6 +40,42 @@ services:
     profiles:
       - ml
 
+  # Optional — Adaptive Tax Phase 2 (teammates with working Docker/WSL2).
+  # Default demo path is Neo4j Desktop + embedded Chroma (no Docker).
+  #   docker compose -f docker/docker-compose.yml --profile adaptive-tax up -d neo4j chromadb
+  neo4j:
+    image: neo4j:5-community
+    container_name: tax_advisory_neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-adaptive-tax-dev}
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    profiles:
+      - adaptive-tax
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: tax_advisory_chromadb
+    restart: unless-stopped
+    ports:
+      - "8006:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    profiles:
+      - adaptive-tax
+
 volumes:
   postgres_data:
   mlflow_data:
+  neo4j_data:
+  chromadb_data:

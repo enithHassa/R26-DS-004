@@ -1,0 +1,30 @@
+{
+  "run_id": "adaptive_tax_phase4_eval_2026_08_03_fixture",
+  "component": "adaptive-tax",
+  "component_version": "0.4.0",
+  "model_version": "fixture_explain_v1",
+  "corpus_version": "adaptive_tax_corpus_v1",
+  "rule_engine_version": "phase3_python_v1",
+  "dataset": {
+    "name": "adaptive_tax_phase4_metrics",
+    "split": "dev",
+    "sample_count": 20
+  },
+  "metrics": {
+    "extraction_precision": 1.0,
+    "calculation_accuracy": 1.0,
+    "citation_faithfulness": 1.0,
+    "explanation_grounding": 1.0,
+    "amendment_adaptivity": 1.0
+  },
+  "runtime": {
+    "started_at_utc": "2026-08-02T21:00:00Z",
+    "finished_at_utc": "2026-08-02T21:05:00Z",
+    "duration_seconds": 300
+  },
+  "cost": {
+    "currency": "USD",
+    "estimated_total": 0.0
+  },
+  "notes": "Local fixture-mode run 2026-08-03. calculation_accuracy=1.0 means 8/8 named examples. See metrics_table.md."
+}

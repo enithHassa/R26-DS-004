@@ -4,7 +4,7 @@ Graph schemas, build scripts, and exported snapshots for Tax Knowledge Graph wor
 
 ## Phase 3 ontology (Steps 1–2)
 
-- **`ontology_v1.json`** (v**1.2.0**) — **Node labels** (Step 1 + Step 10 **ConsolidatedViewPassage**) plus **relationship types** (Step 2 + Step 10 **VIEW_**\*): `PART_OF`, `HAS_CHUNK`, …, `COVERS_RELIEF`, `VIEW_IN_INSTRUMENT`, `VIEW_TRACES_TO_SECTION`, `VIEW_TRACES_TO_INSTRUMENT`, each with `from_labels` / `to_labels` and optional `lex_specialis_relevant`. Shared optional edge properties are under `optional_edge_properties`.
+- **`ontology_v1.json`** (v**1.3.0**) — **Node labels** (Step 1 + Step 10 **ConsolidatedViewPassage**) plus **relationship types** (Step 2 + Step 10 **VIEW_**\* + Adaptive Tax calc **CONTRIBUTES_TO** / **DEDUCTED_FROM** / **LIMITED_BY**): `PART_OF`, `HAS_CHUNK`, …, `COVERS_RELIEF`, `VIEW_IN_INSTRUMENT`, `VIEW_TRACES_TO_SECTION`, `VIEW_TRACES_TO_INSTRUMENT`, `CONTRIBUTES_TO`, `DEDUCTED_FROM`, `LIMITED_BY`, each with `from_labels` / `to_labels` and optional `lex_specialis_relevant`. Shared optional edge properties are under `optional_edge_properties`.
 - **`scripts/kg_ontology_lib.py`** — `load_ontology()`, `validate_ontology()` for CI and ETL.
 
 ## Phase 3 Step 3 — Chunk metadata for KG loading
@@ -57,6 +57,7 @@ Graph schemas, build scripts, and exported snapshots for Tax Knowledge Graph wor
 
 - **`consolidated_view_v1.json`** — why **ConsolidatedViewPassage** exists and how it links to real sources.
 - **Ontology 1.2.0** — node **ConsolidatedViewPassage**; rels **VIEW_IN_INSTRUMENT**, **VIEW_TRACES_TO_SECTION**, **VIEW_TRACES_TO_INSTRUMENT**.
+- **Ontology 1.3.0** — Adaptive Tax calc rels **CONTRIBUTES_TO**, **DEDUCTED_FROM**, **LIMITED_BY** (Concept→Concept).
 - **`kg_consolidated_view_lib.py`** — `make_anchor_id()`, `validate_anchor_row()`, `props_for_neo4j()`.
 - **`neo4j_load_consolidated_anchors.py`** — MERGE anchors; trace edges via **`neo4j_load_curated_edges.py`**.
 - **`neo4j/03_consolidated_view_indexes.cypher`** + extra row in **`00_constraints.cypher`** (applied by `neo4j_apply_schema.py`).

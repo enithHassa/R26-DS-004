@@ -83,26 +83,26 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
   if (!b) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Income Sources Section */}
       <div>
-        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Income Sources</h5>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">INCOME SOURCES</h5>
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Employment</div>
-            <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
               {formatLkrAmount(b.employment_income_lkr)}
             </div>
           </div>
-          <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Business</div>
-            <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
               {formatLkrAmount(b.business_income_lkr)}
             </div>
           </div>
-          <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Other</div>
-            <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
               {formatLkrAmount(b.other_income_lkr)}
             </div>
           </div>
@@ -110,21 +110,21 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
       </div>
 
       {/* Gross Income Highlight */}
-      <div className="rounded-xl border-2 border-primary/30 bg-primary/5 px-4 py-3">
+      <div className="rounded-xl border-2 border-primary/30 bg-primary/8 px-4 py-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Gross Income</div>
-        <div className="mt-2 text-2xl font-bold tabular-nums text-primary">
+        <div className="mt-2 text-2xl font-bold tabular-nums text-foreground">
           {formatLkrAmount(b.gross_income_lkr)}
         </div>
       </div>
 
       {/* Tax Calculation Path Section */}
       <div>
-        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tax Calculation Path</h5>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX CALCULATION PATH</h5>
         <div className="space-y-2">
           {/* Assessable */}
-          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Assessable income</div>
-            <div className="text-sm font-medium tabular-nums text-foreground">
+            <div className="text-sm font-semibold tabular-nums text-foreground">
               {formatLkrAmount(b.assessable_income_lkr)}
             </div>
           </div>
@@ -144,9 +144,9 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
           </div>
 
           {/* Equals Taxable */}
-          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Taxable income</div>
-            <div className="text-sm font-medium tabular-nums text-foreground">
+            <div className="text-sm font-semibold tabular-nums text-foreground">
               {formatLkrAmount(b.taxable_income_lkr)}
             </div>
           </div>
@@ -155,7 +155,7 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
 
       {/* Tax Outcome Section */}
       <div>
-        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tax Outcome</h5>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX OUTCOME</h5>
         <div className="grid gap-3 sm:grid-cols-2">
           {/* Total Tax - HIGHLIGHTED */}
           <div className="rounded-xl border-2 border-amber-400/50 bg-amber-50/50 px-4 py-3 dark:border-amber-600/40 dark:bg-amber-950/30">
@@ -168,19 +168,19 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
           </div>
 
           {/* Effective Rate */}
-          <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">Effective Tax Rate</div>
-            <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+            <div className="mt-1 text-sm font-semibold tabular-nums text-foreground">
               {b.effective_tax_rate ?? "—"}
             </div>
           </div>
 
           {/* Tax Saving vs Baseline */}
           {b.tax_savings_vs_baseline_lkr != null && (
-            <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
               <div className="text-xs font-medium text-muted-foreground">Savings vs Baseline</div>
               <div className={cn(
-                "mt-1 text-sm font-medium tabular-nums",
+                "mt-1 text-sm font-semibold tabular-nums",
                 parseDecimalSafe(b.tax_savings_vs_baseline_lkr) && parseDecimalSafe(b.tax_savings_vs_baseline_lkr)! > 0
                   ? "text-emerald-600 dark:text-emerald-400"
                   : "text-foreground"
@@ -195,10 +195,10 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
       {/* Tax Slab Breakdown Section */}
       {slabs.length > 0 && (
         <div>
-          <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tax by Slab (Breakdown)</h5>
-          <div className="overflow-hidden rounded-lg border border-border/60 bg-background/60">
+          <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX BY SLAB (BREAKDOWN)</h5>
+          <div className="overflow-hidden rounded-lg border border-border/60 bg-muted/20">
             {/* Header */}
-            <div className="grid grid-cols-4 gap-2 border-b border-border/60 bg-muted/30 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-4 gap-2 border-b border-border/60 bg-muted/40 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <div>Slab</div>
               <div className="text-right">Rate</div>
               <div className="text-right">Income in Slab</div>
@@ -229,7 +229,7 @@ function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
 
             {/* Total Row */}
             <div className="grid grid-cols-4 gap-2 border-t border-border/60 bg-muted/20 px-3 py-2.5 text-sm font-bold">
-              <div colSpan={2} className="text-foreground">
+              <div className="col-span-2 text-foreground">
                 Total Tax
               </div>
               <div className="text-right text-foreground">

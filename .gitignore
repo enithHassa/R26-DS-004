@@ -219,3 +219,10 @@ Desktop.ini
 *.orig
 *.rej
 .direnv/
+
+# ---------- Viva / demo recordings (keep path notes in docs only) ----------
+*.mp4
+*.mkv
+*.webm
+*.mov
+evaluation/adaptive-tax/recordings/
