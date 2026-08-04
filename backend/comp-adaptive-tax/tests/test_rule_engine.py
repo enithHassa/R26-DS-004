@@ -176,3 +176,26 @@ def test_falls_back_to_file_kg_when_live_graph_misses_incomes() -> None:
     # 1.9M − 1.2M PR = 700k → 500k*6% + 200k*18% = 30k + 36k = 66_000
     assert result.final_tax_lkr == "66000"
     assert "slab_band_1" in result.rules_applied
+
+
+def test_falls_back_to_file_kg_when_neo4j_connection_refused() -> None:
+    """Bolt refused (Neo4j Desktop down) must not 500 the calculator."""
+
+    class DownKg:
+        def resolve_applicable_concepts(self, *, income_types, claimed_deductions):
+            raise ConnectionRefusedError(
+                "[WinError 10061] No connection could be made because the "
+                "target machine actively refused it"
+            )
+
+    result = calculate(
+        CalculateTaxRequestV1.model_validate(
+            {
+                "employment_income": "1800000",
+                "resident_status": "resident",
+            }
+        ),
+        kg=DownKg(),  # type: ignore[arg-type]
+    )
+    # 1.8M − 1.2M PR = 600k → 500k*6% + 100k*18% = 30k + 18k = 48_000
+    assert result.final_tax_lkr == "48000"

@@ -36,6 +36,18 @@ def calculate_tax(body: CalculateTaxRequestV1) -> CalculateTaxResponseV1:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+    except Exception as exc:
+        # Last-resort: Neo4j ServiceUnavailable etc. if fallback did not apply.
+        name = type(exc).__name__
+        if name in {"ServiceUnavailable", "Neo4jError"} or "neo4j" in str(exc).lower():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Neo4j is unavailable. Start Neo4j Desktop, or set "
+                    "COMP_ADAPTIVE_TAX_KG_MODE=file for offline calc."
+                ),
+            ) from exc
+        raise
 
     try:
         calc_id = save_calculation(body, result)
