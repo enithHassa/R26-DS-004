@@ -3,10 +3,12 @@ import personalizedRecommendation from "@/features/personalized-recommendation";
 import transactionSemantic from "@/features/transaction-semantic";
 import languageModel from "@/features/language-model";
 import taxOptimization from "@/features/tax-optimization";
+import adaptiveTax from "@/features/adaptive-tax";
 
 export const features: FeatureModule[] = [
   personalizedRecommendation,
   transactionSemantic,
   languageModel,
   taxOptimization,
+  adaptiveTax,
 ];

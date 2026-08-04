@@ -66,6 +66,7 @@ def _register_component_db(component_dir: str, alias: str) -> None:
 
 _register_component_models()
 _register_component_db("comp-transaction-sementic", "comp_transaction_sementic_db")
+_register_component_db("comp-adaptive-tax", "comp_adaptive_tax_db")
 
 
 config = context.config

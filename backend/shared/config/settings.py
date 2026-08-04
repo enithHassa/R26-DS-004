@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     COMP_OPTIMIZATION_URL: str = "http://localhost:8002"
     COMP_RECOMMENDATION_URL: str = "http://localhost:8003"
     COMP_LLM_URL: str = "http://localhost:8004"
+    COMP_ADAPTIVE_TAX_URL: str = "http://localhost:8005"
 
     # ---------- CORS (comma-separated list in env) ----------
     CORS_ORIGINS: list[str] = Field(
