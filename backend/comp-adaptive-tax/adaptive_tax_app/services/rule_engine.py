@@ -48,6 +48,23 @@ _CLAIM_FIELD_TO_CONCEPT = {
 }
 
 
+def _is_neo4j_unavailable(exc: BaseException) -> bool:
+    """True when Bolt/Neo4j is down (or auth/connect failed hard)."""
+    name = type(exc).__name__
+    if name in {"ServiceUnavailable", "Neo4jError", "ClientError", "AuthError"}:
+        return True
+    msg = str(exc).lower()
+    return any(
+        needle in msg
+        for needle in (
+            "couldn't connect",
+            "connection refused",
+            "failed to establish connection",
+            "actively refused",
+        )
+    )
+
+
 def _q1(value: Decimal) -> Decimal:
     """Round to whole LKR (HALF_UP) — used for tax slices and running totals."""
     return value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
@@ -254,10 +271,23 @@ def calculate(
     claimed = _claimed_amounts(request)
 
     # --- 2. Query KG ---------------------------------------------------------
-    applicable: ApplicableConcepts = kg.resolve_applicable_concepts(
-        income_types=list(income_amounts.keys()),
-        claimed_deductions=list(claimed.keys()),
-    )
+    try:
+        applicable: ApplicableConcepts = kg.resolve_applicable_concepts(
+            income_types=list(income_amounts.keys()),
+            claimed_deductions=list(claimed.keys()),
+        )
+    except Exception as exc:
+        # Neo4j Desktop down / bolt refused while .env still has NEO4J_PASSWORD
+        # (auto mode). Fall back to file ontology for offline calculator use.
+        if isinstance(kg, FileOntologyKgClient):
+            raise
+        if not _is_neo4j_unavailable(exc):
+            raise
+        kg = FileOntologyKgClient()
+        applicable = kg.resolve_applicable_concepts(
+            income_types=list(income_amounts.keys()),
+            claimed_deductions=list(claimed.keys()),
+        )
     # Live Neo4j without reloaded Phase 3 CONTRIBUTES_TO edges returns no incomes
     # → assessable 0 / tax 0. Fall back to the seeded file ontology in that case.
     if income_amounts and not applicable.income_concept_ids and not isinstance(
