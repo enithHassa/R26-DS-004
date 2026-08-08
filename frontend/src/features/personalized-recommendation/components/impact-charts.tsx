@@ -66,10 +66,14 @@ function FanChartBlock({ title, description, data, showMedianPaths }: ChartBlock
   return (
     <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm">
       <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-      <div className="mt-4 h-[280px] w-full">
+      <p className="mt-1.5 text-xs text-muted-foreground">{description}</p>
+      <p className="mt-3 rounded-md bg-muted/50 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        The shaded band shows the range of realistic outcomes. The solid line is the
+        most likely path; the dashed lines are the pessimistic and optimistic edges.
+      </p>
+      <div className="mt-4 h-[340px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 8 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 12, left: 8, bottom: 28 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
             <XAxis dataKey="year" tick={{ fontSize: 11 }} label={{ value: "Year", position: "insideBottom", offset: -4, fontSize: 11 }} />
             <YAxis
@@ -84,7 +88,11 @@ function FanChartBlock({ title, description, data, showMedianPaths }: ChartBlock
               labelFormatter={(y) => `Year ${y}`}
               contentStyle={{ borderRadius: 8, fontSize: 12 }}
             />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Legend
+              wrapperStyle={{ fontSize: 11, paddingTop: 16, lineHeight: 1.8 }}
+              verticalAlign="bottom"
+              align="center"
+            />
             <Area
               type="monotone"
               dataKey="bandBase"
@@ -101,12 +109,12 @@ function FanChartBlock({ title, description, data, showMedianPaths }: ChartBlock
               stroke="none"
               fill="var(--color-primary)"
               fillOpacity={0.15}
-              name="P10–P90 band"
+              name="Realistic range"
               isAnimationActive={false}
             />
-            <Line type="monotone" dataKey="p50" stroke="var(--color-primary)" strokeWidth={2.5} dot={false} name="P50 (median)" />
-            <Line type="monotone" dataKey="p10" stroke="var(--color-primary)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="P10" />
-            <Line type="monotone" dataKey="p90" stroke="var(--color-primary)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="P90" />
+            <Line type="monotone" dataKey="p50" stroke="var(--color-primary)" strokeWidth={3} dot={false} name="Most likely" />
+            <Line type="monotone" dataKey="p10" stroke="#dc2626" strokeWidth={1.5} strokeDasharray="5 3" dot={false} name="If things go badly" />
+            <Line type="monotone" dataKey="p90" stroke="#0891b2" strokeWidth={1.5} strokeDasharray="5 3" dot={false} name="If things go well" />
             {showMedianPaths && (
               <>
                 <Line
@@ -114,16 +122,17 @@ function FanChartBlock({ title, description, data, showMedianPaths }: ChartBlock
                   dataKey="baseline"
                   stroke="#94a3b8"
                   strokeWidth={2}
+                  strokeDasharray="2 2"
                   dot={false}
-                  name="Baseline (median path)"
+                  name="If you do nothing"
                 />
                 <Line
                   type="monotone"
                   dataKey="strategy"
                   stroke="#059669"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   dot={false}
-                  name="With strategy (median path)"
+                  name="If you follow this plan"
                 />
               </>
             )}
@@ -158,16 +167,16 @@ export function ImpactCharts({ result }: Props) {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6">
       <FanChartBlock
-        title="Net worth fan chart"
-        description="Monte Carlo P10 / P50 / P90 bands across simulated paths (FR7, FR8)."
+        title="How your savings could grow"
+        description="Thousands of possible futures were simulated — this shows the spread of likely outcomes."
         data={netRows}
         showMedianPaths={Boolean(result.strategy_path)}
       />
       <FanChartBlock
-        title="Tax liability fan chart"
-        description="Uncertainty bands for annual tax liability over the horizon."
+        title="How much tax you might pay each year"
+        description="Tax bills vary with income and life changes — this shows the realistic range year by year."
         data={taxRows}
       />
     </div>

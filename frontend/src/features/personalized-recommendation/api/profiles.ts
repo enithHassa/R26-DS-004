@@ -4,6 +4,7 @@ import type {
   FinancialProfile,
   FinancialProfileCreate,
   PaginatedProfiles,
+  ProfileHistorySnapshot,
 } from "../types";
 
 export interface ListProfilesParams {
@@ -37,6 +38,17 @@ export async function getProfileFeatures(profileId: string): Promise<DerivedFeat
   return data;
 }
 
+export async function getProfileHistory(
+  profileId: string,
+  months = 24,
+): Promise<ProfileHistorySnapshot[]> {
+  const { data } = await recommendationApi.get<ProfileHistorySnapshot[]>(
+    `/profiles/${profileId}/history`,
+    { params: { months } },
+  );
+  return data;
+}
+
 export async function updateProfile(
   profileId: string,
   payload: Partial<FinancialProfileCreate>,
@@ -50,4 +62,16 @@ export async function updateProfile(
 
 export async function deleteProfile(profileId: string): Promise<void> {
   await recommendationApi.delete(`/profiles/${profileId}`);
+}
+
+export async function setEligibilityOverride(
+  profileId: string,
+  flag: string,
+  value: boolean | null,
+): Promise<DerivedFeatures> {
+  const { data } = await recommendationApi.patch<DerivedFeatures>(
+    `/profiles/${profileId}/eligibility-overrides`,
+    { flag, value },
+  );
+  return data;
 }

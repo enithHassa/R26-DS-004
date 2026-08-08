@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.shared.schemas.common import Currency, ORMBase, RiskTolerance, TimestampedSchema
 
@@ -126,6 +126,13 @@ class FinancialProfileBase(BaseModel):
     def _normalize_input(cls, data: object) -> object:
         return _normalize_profile_payload(data)
 
+    @field_validator("income_sources", mode="before")
+    @classmethod
+    def _default_income_sources(cls, value: object) -> object:
+        # The ORM column is nullable, so rows persisted before/without income
+        # sources hydrate as None rather than a missing field.
+        return [] if value is None else value
+
 
 class FinancialProfileCreate(FinancialProfileBase):
     pass
@@ -165,6 +172,17 @@ class FinancialProfileUpdate(BaseModel):
 class FinancialProfile(TimestampedSchema, FinancialProfileBase):
     """Full profile response."""
 
+    eligibility_overrides: dict[str, bool] = Field(default_factory=dict)
+
+
+class EligibilityOverrideUpdate(BaseModel):
+    """Manually pin (or clear) a single eligibility flag for a profile."""
+
+    flag: str = Field(min_length=1, max_length=64)
+    value: bool | None = Field(
+        default=None, description="True/false pins the flag; null clears the override."
+    )
+
 
 class DerivedFeatures(ORMBase):
     """Features computed from a profile for the ranker and impact engine."""
@@ -180,10 +198,12 @@ class DerivedFeatures(ORMBase):
     baseline_tax_liability_annual: Decimal
     effective_tax_rate: float = Field(ge=0, le=1)
     eligibility_flags: dict[str, bool] = Field(default_factory=dict)
+    eligibility_overrides: dict[str, bool] = Field(default_factory=dict)
 
 
 __all__ = [
     "DerivedFeatures",
+    "EligibilityOverrideUpdate",
     "FinancialProfile",
     "FinancialProfileBase",
     "FinancialProfileCreate",

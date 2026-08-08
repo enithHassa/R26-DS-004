@@ -9,14 +9,20 @@ Populated in Phase 0 with the baseline schema: ``users``, ``financial_profiles``
 ``simulation_runs`` and ``feedback``; those get their own Alembic revisions.
 """
 
+from app.models.behavioural_answer import BehaviouralAnswer
 from app.models.profile import FinancialProfile
+from app.models.profile_history import ProfileHistorySnapshot
 from app.models.recommendation import Recommendation, RecommendationItem
+from app.models.recommendation_feedback import RecommendationFeedback
 from app.models.strategy import TaxStrategy
 from app.models.user import User
 
 __all__ = [
+    "BehaviouralAnswer",
     "FinancialProfile",
+    "ProfileHistorySnapshot",
     "Recommendation",
+    "RecommendationFeedback",
     "RecommendationItem",
     "TaxStrategy",
     "User",
