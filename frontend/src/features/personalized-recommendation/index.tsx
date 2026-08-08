@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { BarChart3, Brain, GitCompare, Merge, Sparkles, User } from "lucide-react";
+import { BarChart3, GitCompare, Merge, User } from "lucide-react";
 
 import type { FeatureModule } from "@/features/types";
 
@@ -29,8 +29,6 @@ const personalizedRecommendation: FeatureModule = {
   ],
   nav: [
     { to: "/profile", label: "Profile", icon: User },
-    { to: "/recommendations", label: "Recommendations", icon: Sparkles },
-    { to: "/rag", label: "Knowledge Match", icon: Brain },
     { to: "/hybrid", label: "Smart Recommendations", icon: Merge },
     { to: "/impact", label: "Impact", icon: BarChart3 },
     { to: "/compare", label: "Compare", icon: GitCompare },

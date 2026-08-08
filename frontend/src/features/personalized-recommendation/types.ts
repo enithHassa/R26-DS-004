@@ -27,6 +27,24 @@ export interface FinancialProfileBase {
   district: string;
   marital_status: MaritalStatus;
   occupation: Occupation;
+  dependents: number;
+  years_employed: number;
+  gross_monthly_income: string;
+  monthly_expenses: string;
+  monthly_debt_service: string;
+  liquid_savings: string;
+  existing_investments: string;
+  total_debt: string;
+  epf_balance: string;
+  etf_balance: string;
+  health_insurance: boolean;
+  life_insurance_premium_annual: string;
+  home_loan_interest_annual: string;
+  donations_annual: string;
+  risk_tolerance: RiskTolerance;
+  investment_horizon_years: number;
+  income_sources: IncomeSource[];
+  tax_year: string;
 }
 
 export interface FinancialProfileCreate {
@@ -60,6 +78,19 @@ export interface FinancialProfile extends FinancialProfileBase {
   id: string;
   created_at: string;
   updated_at: string | null;
+  eligibility_overrides: Record<string, boolean>;
+}
+
+export interface ProfileHistorySnapshot {
+  snapshot_month: string;
+  gross_monthly_income: string;
+  monthly_expenses: string;
+  liquid_savings: string;
+  existing_investments: string;
+  total_debt: string;
+  epf_balance: string;
+  etf_balance: string;
+  savings_rate: number;
 }
 
 export interface DerivedFeatures {
@@ -74,6 +105,7 @@ export interface DerivedFeatures {
   baseline_tax_liability_annual: string;
   effective_tax_rate: number;
   eligibility_flags: Record<string, boolean>;
+  eligibility_overrides: Record<string, boolean>;
 }
 
 export interface PaginatedProfiles {
@@ -146,6 +178,27 @@ export interface RecommendationRequest {
   profile_id: string;
   top_k: number;
   regenerate_candidates?: boolean;
+}
+
+export interface FeedbackCreate {
+  recommendation_item_id: string;
+  accepted: boolean;
+  dismissed_reason?: string | null;
+  user_rating?: number | null;
+}
+
+export interface BehaviouralAnswerCreate {
+  question_key: string;
+  answer_value: string;
+}
+
+export interface BehaviouralAnswer {
+  id: string;
+  profile_id: string;
+  question_key: string;
+  answer_value: string;
+  created_at: string;
+  updated_at: string | null;
 }
 
 export const SL_PROVINCES = [

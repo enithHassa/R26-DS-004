@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 
 import { listProfiles } from "../api/profiles";
 import { generateRecommendations } from "../api/recommendations";
+import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { RecommendationCard } from "../components/recommendation-card";
 import { useDashboardStore } from "../store/dashboard-store";
@@ -48,14 +49,13 @@ export function RecommendationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Strategy recommendations</h1>
-        <p className="text-muted-foreground">
-          Top-K ranked strategies with savings, adoption probability, risk, and confidence (FR5, FR6, FR11, NFR3).
-        </p>
-      </div>
+      <PageHeader
+        icon={Sparkles}
+        title="Strategy recommendations"
+        description="Top-K ranked strategies with savings, adoption probability, risk, and confidence."
+      />
 
-      <Card className="max-w-3xl">
+      <Card className="max-w-3xl border-t-4 border-t-primary/70">
         <CardHeader>
           <CardTitle>Generate ranked list</CardTitle>
           <CardDescription>
