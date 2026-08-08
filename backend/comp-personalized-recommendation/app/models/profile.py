@@ -73,3 +73,7 @@ class FinancialProfile(TimestampMixin, Base):
     income_sources: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
     tax_year: Mapped[str] = mapped_column(String(8), default="2026_27", nullable=False, index=True)
+
+    eligibility_overrides: Mapped[dict[str, bool]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
