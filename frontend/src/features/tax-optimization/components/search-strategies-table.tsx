@@ -79,35 +79,169 @@ function formatSavesVsBaseline(
 
 function BreakdownMetricCards({ row }: { row: TaxOptBSearchStrategyRowV1 }) {
   const b = row.breakdown;
+  const slabs = row.result?.tax_computation?.slab_slices ?? [];
   if (!b) return null;
-  const cards: { label: string; value: string }[] = [
-    { label: "Employment income", value: formatLkrAmount(b.employment_income_lkr) },
-    { label: "Business income", value: formatLkrAmount(b.business_income_lkr) },
-    { label: "Other income", value: formatLkrAmount(b.other_income_lkr) },
-    { label: "Gross income", value: formatLkrAmount(b.gross_income_lkr) },
-    { label: "Assessable (before personal relief)", value: formatLkrAmount(b.assessable_income_lkr) },
-    { label: "Personal relief", value: formatLkrAmount(b.personal_relief_lkr) },
-    { label: "Statutory deductions", value: formatLkrAmount(b.total_statutory_deductions_lkr) },
-    { label: "Total reliefs (personal + statutory)", value: formatLkrAmount(b.total_reliefs_lkr) },
-    { label: "Taxable (before slabs)", value: formatLkrAmount(b.taxable_income_lkr) },
-    { label: "Total tax", value: formatLkrAmount(b.total_tax_lkr) },
-    { label: "Effective rate", value: b.effective_tax_rate ?? "—" },
-    {
-      label: "Tax saving vs baseline",
-      value: b.tax_savings_vs_baseline_lkr != null ? formatLkrAmount(b.tax_savings_vs_baseline_lkr) : "—",
-    },
-  ];
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {cards.map((c) => (
-        <div
-          key={c.label}
-          className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm"
-        >
-          <div className="text-xs font-medium text-muted-foreground">{c.label}</div>
-          <div className="mt-1 text-sm font-medium tabular-nums text-foreground">{c.value}</div>
+    <div className="space-y-5">
+      {/* Income Sources Section */}
+      <div>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">INCOME SOURCES</h5>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Employment</div>
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
+              {formatLkrAmount(b.employment_income_lkr)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Business</div>
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
+              {formatLkrAmount(b.business_income_lkr)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Other</div>
+            <div className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
+              {formatLkrAmount(b.other_income_lkr)}
+            </div>
+          </div>
         </div>
-      ))}
+      </div>
+
+      {/* Gross Income Highlight */}
+      <div className="rounded-xl border-2 border-primary/30 bg-primary/8 px-4 py-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Gross Income</div>
+        <div className="mt-2 text-2xl font-bold tabular-nums text-foreground">
+          {formatLkrAmount(b.gross_income_lkr)}
+        </div>
+      </div>
+
+      {/* Tax Calculation Path Section */}
+      <div>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX CALCULATION PATH</h5>
+        <div className="space-y-2">
+          {/* Assessable */}
+          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Assessable income</div>
+            <div className="text-sm font-semibold tabular-nums text-foreground">
+              {formatLkrAmount(b.assessable_income_lkr)}
+            </div>
+          </div>
+
+          {/* Minus Personal Relief */}
+          <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+            <span>−</span>
+            <span>Personal relief</span>
+            <span className="ml-auto">{formatLkrAmount(b.personal_relief_lkr)}</span>
+          </div>
+
+          {/* Minus Statutory Deductions */}
+          <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+            <span>−</span>
+            <span>Statutory deductions</span>
+            <span className="ml-auto">{formatLkrAmount(b.total_statutory_deductions_lkr)}</span>
+          </div>
+
+          {/* Equals Taxable */}
+          <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Taxable income</div>
+            <div className="text-sm font-semibold tabular-nums text-foreground">
+              {formatLkrAmount(b.taxable_income_lkr)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tax Outcome Section */}
+      <div>
+        <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX OUTCOME</h5>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Total Tax - HIGHLIGHTED */}
+          <div className="rounded-xl border-2 border-amber-400/50 bg-amber-50/50 px-4 py-3 dark:border-amber-600/40 dark:bg-amber-950/30">
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+              Total Tax
+            </div>
+            <div className="mt-2 text-xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
+              {formatLkrAmount(b.total_tax_lkr)}
+            </div>
+          </div>
+
+          {/* Effective Rate */}
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
+            <div className="text-xs font-medium text-muted-foreground">Effective Tax Rate</div>
+            <div className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+              {b.effective_tax_rate ?? "—"}
+            </div>
+          </div>
+
+          {/* Tax Saving vs Baseline */}
+          {b.tax_savings_vs_baseline_lkr != null && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 shadow-sm">
+              <div className="text-xs font-medium text-muted-foreground">Savings vs Baseline</div>
+              <div className={cn(
+                "mt-1 text-sm font-semibold tabular-nums",
+                parseDecimalSafe(b.tax_savings_vs_baseline_lkr) && parseDecimalSafe(b.tax_savings_vs_baseline_lkr)! > 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-foreground"
+              )}>
+                {formatLkrAmount(b.tax_savings_vs_baseline_lkr)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tax Slab Breakdown Section */}
+      {slabs.length > 0 && (
+        <div>
+          <h5 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">TAX BY SLAB (BREAKDOWN)</h5>
+          <div className="overflow-hidden rounded-lg border border-border/60 bg-muted/20">
+            {/* Header */}
+            <div className="grid grid-cols-4 gap-2 border-b border-border/60 bg-muted/40 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div>Slab</div>
+              <div className="text-right">Rate</div>
+              <div className="text-right">Income in Slab</div>
+              <div className="text-right">Tax</div>
+            </div>
+
+            {/* Slab Rows */}
+            {slabs.map((slab, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "grid grid-cols-4 gap-2 px-3 py-2.5 text-sm",
+                  idx !== slabs.length - 1 && "border-b border-border/40",
+                )}
+              >
+                <div className="font-medium text-foreground">Slab {slab.slab_index + 1}</div>
+                <div className="text-right font-medium text-foreground">
+                  {slab.rate}
+                </div>
+                <div className="text-right font-medium tabular-nums text-foreground">
+                  {formatLkrAmount(slab.taxable_in_slice)}
+                </div>
+                <div className="text-right font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                  {formatLkrAmount(slab.tax_in_slice)}
+                </div>
+              </div>
+            ))}
+
+            {/* Total Row */}
+            <div className="grid grid-cols-4 gap-2 border-t border-border/60 bg-muted/20 px-3 py-2.5 text-sm font-bold">
+              <div className="col-span-2 text-foreground">
+                Total Tax
+              </div>
+              <div className="text-right text-foreground">
+                —
+              </div>
+              <div className="text-right tabular-nums text-amber-700 dark:text-amber-300">
+                {formatLkrAmount(b.total_tax_lkr)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -303,6 +437,93 @@ export function SearchStrategiesTable({
                     ) : (
                       <p className="text-xs text-muted-foreground">No breakdown available for this row.</p>
                     )}
+                  </div>
+
+                  {/* T10 Certificate & Net Tax Position Section */}
+                  <div className="space-y-3 rounded-lg border border-amber-200/50 bg-amber-50/30 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+                    <h4 className="text-sm font-semibold text-foreground">T10 Certificate &amp; Net Tax Position</h4>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {/* APIT Already Paid */}
+                      {row.apit_already_paid != null && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">APIT Tax Already Paid (T10)</div>
+                          <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                            {formatLkrAmount(row.apit_already_paid)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Net Tax Payable */}
+                      {row.net_tax_payable != null && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">Net Tax Payable</div>
+                          <div className={cn("mt-1 text-sm font-medium tabular-nums",
+                            parseDecimalSafe(row.net_tax_payable) === 0 ? "text-foreground" :
+                            parseDecimalSafe(row.net_tax_payable)! < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                          )}>
+                            {formatLkrAmount(row.net_tax_payable)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tax Status */}
+                      {row.tax_status && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">Tax Status</div>
+                          <div className="mt-1">
+                            {parseDecimalSafe(row.net_tax_payable) === 0 ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                <span className="h-2 w-2 rounded-full bg-blue-600"></span>
+                                Balanced
+                              </span>
+                            ) : row.tax_status === "refund_due" ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
+                                Refund Due
+                              </span>
+                            ) : row.tax_status === "tax_due" ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                <span className="h-2 w-2 rounded-full bg-red-600"></span>
+                                Tax Due
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">{row.tax_status}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rental Income Gross */}
+                      {row.rental_income_gross != null && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">Rental Income (Gross)</div>
+                          <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                            {formatLkrAmount(row.rental_income_gross)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rental Deduction */}
+                      {row.rental_income_deduction != null && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">Rental Deduction (25%)</div>
+                          <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                            {formatLkrAmount(row.rental_income_deduction)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rental Income Net */}
+                      {row.rental_income_net != null && (
+                        <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2.5 shadow-sm">
+                          <div className="text-xs font-medium text-muted-foreground">Rental Income (Net)</div>
+                          <div className="mt-1 text-sm font-medium tabular-nums text-foreground">
+                            {formatLkrAmount(row.rental_income_net)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {(row.rule_summary?.length ?? 0) > 0 ? (

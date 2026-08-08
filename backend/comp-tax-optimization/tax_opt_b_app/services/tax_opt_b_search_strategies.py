@@ -8,6 +8,8 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import TypeAlias
 
 from tax_opt_b_app.services.tax_opt_b_financial_strategy_presets import (
+    actual_claimable_amounts_by_code,
+    apply_rental_deduction,
     profile_from_financial_inputs,
     relief_max_claim_amounts_by_code,
 )
@@ -183,26 +185,53 @@ class SearchPassingEvaluation:
     passing_rows: list[PassingRowTuple]
 
 
+def _enumerate_specs_from_relief_codes(
+    ordered_relief_codes: tuple[str, ...],
+    *,
+    max_candidates: int,
+) -> list[TaxOptBStrategyCandidateSpecV1]:
+    """Enumerate 2^n candidate specs for the given ordered relief codes."""
+    n = len(ordered_relief_codes)
+    total = 1 << n
+    if total > max_candidates:
+        raise ValueError(
+            f"Grid size {total} exceeds max_candidates={max_candidates} "
+            f"({n} reliefs with actual spending).",
+        )
+    specs: list[TaxOptBStrategyCandidateSpecV1] = []
+    for mask in range(total):
+        included = tuple(ordered_relief_codes[i] for i in range(n) if (mask >> i) & 1)
+        specs.append(
+            TaxOptBStrategyCandidateSpecV1(
+                grid_version=SEARCH_GRID_VERSION,
+                included_relief_codes=included,
+                candidate_id=f"cap_subset_{mask}",
+                label=_candidate_label(included),
+            )
+        )
+    return specs
+
+
 def evaluate_search_passing_rows(
     body: TaxOptBSearchStrategiesFromFinancialInputsRequestV1,
     pack: TaxOptBRulePack,
     *,
     rules_version_label: str | None = None,
 ) -> SearchPassingEvaluation:
-    """Enumerate candidates once, run ``run_compliance_and_compute_tax`` per spec, collect passing rows."""
+    """Enumerate candidates once, run ``run_compliance_and_compute_tax`` per spec, collect passing rows.
+
+    Grid is built only from relief codes the user actually incurred (actual spending > 0).
+    If a user paid nothing for a relief, it is excluded from the grid entirely.
+    """
     keys = set(TaxOptBFinancialInputsV1.model_fields.keys())
     fin = TaxOptBFinancialInputsV1.model_validate(body.model_dump(include=keys))
     profile = profile_from_financial_inputs(fin)
-    amounts = relief_max_claim_amounts_by_code(profile, pack)
+    amounts = actual_claimable_amounts_by_code(fin, profile, pack)
     ordered = tuple(sorted(amounts.keys()))
     space_id = search_space_id(profile, ordered)
     yaml_labels = dict(pack.relief_display_names)
 
-    specs = enumerate_candidate_specs(
-        profile,
-        pack,
-        max_candidates=body.max_candidates,
-    )
+    specs = _enumerate_specs_from_relief_codes(ordered, max_candidates=body.max_candidates)
     baseline_id = body.baseline_candidate_id or "cap_subset_0"
     grid_ids = {s.candidate_id for s in specs}
     if baseline_id not in grid_ids:
@@ -355,6 +384,17 @@ def build_search_response_rows(
             yaml_labels=yaml_labels,
         )
         trace = build_rule_trace(out.compliance, pack)
+
+        # Calculate rental deduction info
+        rental_net, rental_ded = apply_rental_deduction(fin.annual_rental_income)
+
+        # Calculate T10 net tax position
+        net_tax_payable = tax - fin.apit_tax_paid_by_employer
+        if net_tax_payable > 0:
+            tax_status = "tax_due"
+        else:
+            tax_status = "refund_due"
+
         rows_out.append(
             TaxOptBSearchStrategyRowV1(
                 candidate_id=spec.candidate_id,
@@ -364,6 +404,12 @@ def build_search_response_rows(
                 total_tax=str(tax),
                 effective_rate=eff_s,
                 delta_total_tax_vs_baseline=delta_str,
+                tax_status=tax_status,
+                apit_already_paid=str(fin.apit_tax_paid_by_employer),
+                net_tax_payable=str(net_tax_payable),
+                rental_income_gross=str(fin.annual_rental_income),
+                rental_income_deduction=str(rental_ded),
+                rental_income_net=str(rental_net),
                 metrics=metrics,
                 breakdown=breakdown,
                 optimization_summary=opt_sum,
@@ -525,6 +571,7 @@ def search_strategies_from_financial_inputs(
 
 __all__ = [
     "SearchPassingEvaluation",
+    "_enumerate_specs_from_relief_codes",
     "apply_top_k_with_baseline_sticky",
     "assemble_search_strategies_response",
     "build_search_response_rows",

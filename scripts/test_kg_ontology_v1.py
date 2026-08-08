@@ -17,7 +17,7 @@ _spec.loader.exec_module(_mod)
 
 def test_default_ontology_loads() -> None:
     doc = _mod.load_ontology(_ONTOLOGY)
-    assert doc["ontology_version"] == "1.2.0"
+    assert doc["ontology_version"] == "1.3.0"
     assert doc["phase"] == "3a-step10"
     assert len(doc["relationship_types"]) >= 11
     errs = _mod.validate_ontology(doc, path=_ONTOLOGY)

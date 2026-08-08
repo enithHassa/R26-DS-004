@@ -59,6 +59,12 @@ from tax_opt_b_app.tax_opt_b_schemas_financial_inputs_v1 import TaxOptBFinancial
 from tax_opt_b_app.tax_opt_b_schemas_tax_computation_v1 import TaxOptBComputeTaxResponseV1
 from tax_opt_b_app.tax_opt_b_schemas_profile_v1 import TaxOptBProfileV1
 from tax_opt_b_app.tax_opt_b_schemas_strategy_v1 import TaxOptBStrategyProposalV1
+from tax_opt_b_app.tax_opt_b_schemas_ml_rank_v1 import (
+    MLRankRequestV1,
+    MLRankResponseV1,
+    MLHealthCheckResponseV1,
+)
+from tax_opt_b_app.services.tax_opt_b_ml_rank_service import MLRankingService
 
 router = APIRouter(tags=["tax-opt-b-compliance"])
 
@@ -81,7 +87,16 @@ def _rules_pack_or_503(request: Request) -> TaxOptBRulePack:
 def _rules_pack_for_request(request: Request, tax_year: str) -> TaxOptBRulePack:
     """Rules bundle scoped to the request's assessment year (MVP: same thresholds, rebased label)."""
     try:
-        return rules_pack_for_tax_year(_rules_base_or_503(request), tax_year)
+        base_pack = _rules_base_or_503(request)
+        key = tax_year.strip()
+
+        # For 2025_26+, use the year-specific pack if available
+        if key >= "2025_26":
+            alt_pack = getattr(request.app.state, "tax_opt_b_rules_2025_26", None)
+            if alt_pack is not None:
+                base_pack = alt_pack
+
+        return rules_pack_for_tax_year(base_pack, tax_year)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -538,3 +553,235 @@ def search_strategies_from_financial_inputs_route(
         include_explanations=body.include_explanations,
         explanation_detail=body.explanation_detail,
     )
+
+
+# ============================================================================
+# PHASE 2.C: ML-BASED STRATEGY RANKING
+# ============================================================================
+
+
+@router.post(
+    "/ml-rank-strategies",
+    response_model=MLRankResponseV1,
+    summary="ML-based strategy ranking",
+    tags=["ml-ranking"],
+)
+def ml_rank_strategies(
+    request: Request,
+    body: MLRankRequestV1,
+) -> MLRankResponseV1:
+    """Rank tax strategies using ML model with legal explanations.
+
+    Uses machine learning trained on 50,000 synthetic data points to rank
+    strategies by utility score (combining tax savings, compliance, simplicity,
+    audit risk, and user preferences).
+
+    Returns top 10 ranked strategies with:
+    - ML utility scores (0-1)
+    - Estimated tax liability and savings
+    - Legal explanations from Inland Revenue Act
+    - Audit risk assessments
+    - Personalization based on user preferences
+    """
+    # Get ML services from app state
+    ml_ranker = getattr(request.app.state, "ml_strategy_ranker", None)
+    feature_engineer = getattr(request.app.state, "feature_engineer", None)
+    legal_rag = getattr(request.app.state, "legal_rag", None)
+
+    if not all([ml_ranker, feature_engineer, legal_rag]):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ML ranking services not initialized",
+        )
+
+    # Get rules pack for the requested year
+    pack = _rules_pack_for_request(request, body.tax_year)
+
+    # Generate strategy grid (20 combinations)
+    strategies_grid = _generate_strategy_grid()
+
+    # Create ranking service
+    ranking_service = MLRankingService(ml_ranker, feature_engineer, legal_rag)
+
+    # Rank strategies
+    try:
+        if not ml_ranker.is_ready():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML model not ready - models failed to load",
+            )
+        return ranking_service.rank_strategies(body, pack, strategies_grid)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        import traceback
+        error_detail = f"Error ranking strategies: {str(exc)}\n{traceback.format_exc()}"
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=error_detail,
+        ) from exc
+
+
+@router.get(
+    "/ml-health",
+    response_model=MLHealthCheckResponseV1,
+    summary="ML service health check",
+    tags=["ml-ranking"],
+)
+def ml_health_check(request: Request) -> MLHealthCheckResponseV1:
+    """Check if ML ranking service is ready."""
+    ml_ranker = getattr(request.app.state, "ml_strategy_ranker", None)
+
+    if ml_ranker and ml_ranker.is_ready():
+        return MLHealthCheckResponseV1(
+            status="ready",
+            model_version="unified-xgboost-50k",
+            num_features=74,
+            model_size_mb=0.45,
+        )
+    else:
+        return MLHealthCheckResponseV1(
+            status="not_ready",
+            model_version="",
+            num_features=0,
+            model_size_mb=0,
+        )
+
+
+def _generate_strategy_grid() -> list:
+    """Generate strategy combinations (20 total).
+
+    Returns list of strategy dicts with:
+    - id: int (1-20)
+    - name: str
+    - reliefs: list of relief codes
+    """
+    return [
+        {"id": 1, "name": "Baseline (No Reliefs)", "reliefs": []},
+        {
+            "id": 2,
+            "name": "Single: life_insurance_premium",
+            "reliefs": ["life_insurance_premium"],
+        },
+        {
+            "id": 3,
+            "name": "Single: health_insurance_premium",
+            "reliefs": ["health_insurance_premium"],
+        },
+        {
+            "id": 4,
+            "name": "Single: home_loan_interest",
+            "reliefs": ["home_loan_interest"],
+        },
+        {"id": 5, "name": "Single: rent_relief", "reliefs": ["rent_relief"]},
+        {
+            "id": 6,
+            "name": "Single: charitable_donations",
+            "reliefs": ["charitable_donations"],
+        },
+        {
+            "id": 7,
+            "name": "Single: retirement_contribution",
+            "reliefs": ["retirement_contribution"],
+        },
+        {
+            "id": 8,
+            "name": "Two: life_insurance + health_insurance",
+            "reliefs": ["life_insurance_premium", "health_insurance_premium"],
+        },
+        {
+            "id": 9,
+            "name": "Two: life_insurance + home_loan",
+            "reliefs": ["life_insurance_premium", "home_loan_interest"],
+        },
+        {
+            "id": 10,
+            "name": "Two: life_insurance + rent_relief",
+            "reliefs": ["life_insurance_premium", "rent_relief"],
+        },
+        {
+            "id": 11,
+            "name": "Two: life_insurance + charitable",
+            "reliefs": ["life_insurance_premium", "charitable_donations"],
+        },
+        {
+            "id": 12,
+            "name": "Two: life_insurance + retirement",
+            "reliefs": ["life_insurance_premium", "retirement_contribution"],
+        },
+        {
+            "id": 13,
+            "name": "Three: life_insurance + health + home_loan",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "home_loan_interest",
+            ],
+        },
+        {
+            "id": 14,
+            "name": "Three: life_insurance + health + rent",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "rent_relief",
+            ],
+        },
+        {
+            "id": 15,
+            "name": "Three: life_insurance + health + charitable",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "charitable_donations",
+            ],
+        },
+        {
+            "id": 16,
+            "name": "Three: life_insurance + health + retirement",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "retirement_contribution",
+            ],
+        },
+        {
+            "id": 17,
+            "name": "Three: life_insurance + home_loan + rent",
+            "reliefs": [
+                "life_insurance_premium",
+                "home_loan_interest",
+                "rent_relief",
+            ],
+        },
+        {
+            "id": 18,
+            "name": "Four: life_insurance + health + home_loan + rent",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "home_loan_interest",
+                "rent_relief",
+            ],
+        },
+        {
+            "id": 19,
+            "name": "Four: life_insurance + health + home_loan + charitable",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "home_loan_interest",
+                "charitable_donations",
+            ],
+        },
+        {
+            "id": 20,
+            "name": "Four: life_insurance + health + home_loan + retirement",
+            "reliefs": [
+                "life_insurance_premium",
+                "health_insurance_premium",
+                "home_loan_interest",
+                "retirement_contribution",
+            ],
+        },
+    ]

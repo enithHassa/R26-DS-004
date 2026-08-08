@@ -41,10 +41,10 @@ lib64/
 share/python-wheels/
 MANIFEST
 
-# Virtual environments (project-specific)
-.venv/
-.venv-backend/
-.venv-ml/
+# Virtual environments — ignore any project-local venv name
+# (.venv-backend, .venv-ml, .venv-test, .venv-gen, …)
+.venv*/
+.venv
 venv/
 env/
 ENV/
@@ -120,6 +120,15 @@ data/synthetic/*
 !data/synthetic/.gitkeep
 data/external/
 data/interim/
+
+# Phase 2 tax optimization data & models
+backend/comp-tax-optimization/phase2_data/
+backend/comp-tax-optimization/phase2_data_excel/
+backend/comp-tax-optimization/phase2_data_generation/
+backend/comp-tax-optimization/phase2_ml/
+backend/comp-tax-optimization/phase2_models/
+*.csv
+*.xlsx
 
 # Model binaries & checkpoints (keep configs / .gitkeep)
 models/**/*.bin
@@ -210,3 +219,10 @@ Desktop.ini
 *.orig
 *.rej
 .direnv/
+
+# ---------- Viva / demo recordings (keep path notes in docs only) ----------
+*.mp4
+*.mkv
+*.webm
+*.mov
+evaluation/adaptive-tax/recordings/

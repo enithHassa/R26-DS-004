@@ -1,8 +1,8 @@
 {
-  "ontology_version": "1.2.0",
+  "ontology_version": "1.3.0",
   "phase": "3a-step10",
   "title": "Tax Knowledge Graph — ontology v1 (nodes + relationships)",
-  "description": "IRD-grounded corpus → Neo4j. Step 10 adds ConsolidatedViewPassage + VIEW_* relationships for honest traceability from consolidated PDF text to underlying sections and amendment instruments.",
+  "description": "IRD-grounded corpus → Neo4j. Step 10 adds ConsolidatedViewPassage + VIEW_* relationships for honest traceability from consolidated PDF text to underlying sections and amendment instruments. v1.3.0 adds Adaptive Tax calc edges CONTRIBUTES_TO, DEDUCTED_FROM, LIMITED_BY (Concept→Concept).",
   "design_rules": [
     "Every corpus chunk_id must link to at least one graph node (typically TextChunk).",
     "Prefer manifest source_doc_id as the join key for LawInstrument.",
@@ -275,6 +275,27 @@
       "description": "Consolidated passage traces to an amendment or other LawInstrument that contributed the underlying wording.",
       "from_labels": ["ConsolidatedViewPassage"],
       "to_labels": ["LawInstrument"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "CONTRIBUTES_TO",
+      "description": "Income (or intermediate) Concept contributes toward another Concept (e.g. employment_income → assessable_income) for Adaptive Tax calc.",
+      "from_labels": ["Concept"],
+      "to_labels": ["Concept"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "DEDUCTED_FROM",
+      "description": "Deduction Concept is subtracted when computing another Concept (e.g. qualifying_payment → taxable_income).",
+      "from_labels": ["Concept"],
+      "to_labels": ["Concept"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "LIMITED_BY",
+      "description": "Deduction Concept is limited by a cap Concept (e.g. qualifying_payment → qualifying_payment_cap).",
+      "from_labels": ["Concept"],
+      "to_labels": ["Concept"],
       "lex_specialis_relevant": false
     }
   ],
