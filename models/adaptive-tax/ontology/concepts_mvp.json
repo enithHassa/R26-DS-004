@@ -1,0 +1,106 @@
+{
+  "concepts": [
+    {
+      "concept_id": "qualifying_payment",
+      "display_name": "Qualifying payment",
+      "aliases": ["qualifying payments", "section 52 qualifying payment"]
+    },
+    {
+      "concept_id": "qualifying_payment_cap",
+      "display_name": "Qualifying payment aggregate cap",
+      "aliases": ["section 52 cap", "qualifying payments maximum"]
+    },
+    {
+      "concept_id": "personal_relief",
+      "display_name": "Personal relief",
+      "aliases": ["personal reliefs", "tax free allowance"]
+    },
+    {
+      "concept_id": "assessable_income",
+      "display_name": "Assessable income",
+      "aliases": ["assessable income"]
+    },
+    {
+      "concept_id": "taxable_income",
+      "display_name": "Taxable income",
+      "aliases": ["taxable income after relief"]
+    },
+    {
+      "concept_id": "chargeable_income",
+      "display_name": "Chargeable income",
+      "aliases": ["chargeable income"]
+    },
+    {
+      "concept_id": "income_tax_liability",
+      "display_name": "Income tax liability",
+      "aliases": ["tax payable", "APIT liability"]
+    },
+    {
+      "concept_id": "first_schedule_rates",
+      "display_name": "First Schedule progressive rates",
+      "aliases": ["progressive tax rates", "APIT slabs"]
+    },
+    {
+      "concept_id": "employment_income",
+      "display_name": "Employment income",
+      "aliases": ["employment income", "gains and profits from employment"]
+    },
+    {
+      "concept_id": "business_income",
+      "display_name": "Business income",
+      "aliases": ["business income", "trade business profession"]
+    },
+    {
+      "concept_id": "resident_individual",
+      "display_name": "Resident individual",
+      "aliases": ["resident", "resident taxpayer", "resident individual taxpayer"]
+    },
+    {
+      "concept_id": "investment_income",
+      "display_name": "Investment income",
+      "aliases": ["investment income", "investment returns", "passive income"]
+    },
+    {
+      "concept_id": "donation",
+      "display_name": "Charitable donation",
+      "aliases": ["donation", "donations", "charitable donations"]
+    },
+    {
+      "concept_id": "donation_cap",
+      "display_name": "Charitable donation cap",
+      "aliases": ["donation limit", "charitable donations maximum", "donation percentage cap"]
+    }
+  ],
+  "sections": [
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "section_label": "Section 52",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "manual_seed"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "section_label": "First Schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "manual_seed"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_2",
+      "section_label": "Section 2",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "manual_seed"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "section_label": "Section 5",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "manual_seed"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_6",
+      "section_label": "Section 6",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "manual_seed"
+    }
+  ]
+}

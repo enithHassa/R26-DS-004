@@ -519,6 +519,82 @@ def _apply_export_filters(stmt, *, filters: ExportFilter, document_id: uuid.UUID
     return stmt
 
 
+def _latest_selected_parser(db: Session, document_id: uuid.UUID) -> str | None:
+    router_run = db.scalar(
+        select(ExtractionRun)
+        .where(
+            ExtractionRun.document_id == document_id,
+            ExtractionRun.parser_name == ROUTER_PARSER_NAME,
+        )
+        .order_by(ExtractionRun.started_at.desc())
+        .limit(1),
+    )
+    if router_run is None:
+        return None
+    metrics = router_run.metrics or {}
+    raw_sel = metrics.get("selected_parser")
+    return raw_sel if isinstance(raw_sel, str) else None
+
+
+def list_documents(
+    db: Session,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[Document, int, str | None]], int]:
+    total = int(db.scalar(select(func.count()).select_from(Document)) or 0)
+    documents = list(
+        db.scalars(
+            select(Document)
+            .order_by(Document.uploaded_at.desc())
+            .offset(offset)
+            .limit(limit),
+        ).all(),
+    )
+    summaries: list[tuple[Document, int, str | None]] = []
+    for document in documents:
+        row_count = int(
+            db.scalar(
+                select(func.count())
+                .select_from(ExtractedTransaction)
+                .where(ExtractedTransaction.document_id == document.id),
+            )
+            or 0,
+        )
+        summaries.append((document, row_count, _latest_selected_parser(db, document.id)))
+    return summaries, total
+
+
+def rename_document(
+    db: Session,
+    *,
+    document_id: uuid.UUID,
+    filename: str,
+) -> tuple[Document, int, int, str | None] | None:
+    document = db.get(Document, document_id)
+    if document is None:
+        return None
+
+    normalized = _normalize_display_filename(filename)
+    document.filename = normalized
+    document.updated_at = datetime.now(timezone.utc)
+    row_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(ExtractedTransaction)
+            .where(ExtractedTransaction.document_id == document.id),
+        )
+        or 0,
+    )
+    updated_related = _sync_related_transaction_document_names(
+        db,
+        document_id=document.id,
+        filename=normalized,
+    )
+    db.commit()
+    return document, row_count, updated_related, _latest_selected_parser(db, document.id)
+
+
 def get_document_status_snapshot(db: Session, document_id: uuid.UUID) -> DocumentStatusSnapshot | None:
     document = db.get(Document, document_id)
     if document is None:
@@ -666,6 +742,61 @@ def _persist_extraction_phase(
 def _sanitize_filename(filename: str) -> str:
     base = filename.strip().replace(" ", "_")
     return re.sub(r"[^A-Za-z0-9._-]", "", base) or "uploaded_file.bin"
+
+
+def _normalize_display_filename(filename: str) -> str:
+    name = filename.strip()
+    if not name:
+        raise ValueError("Filename cannot be empty.")
+    cleaned = name.replace("\x00", "").replace("/", "_").replace("\\", "_")
+    return cleaned[:255]
+
+
+def _sync_related_transaction_document_names(
+    db: Session,
+    *,
+    document_id: uuid.UUID,
+    filename: str,
+) -> int:
+    from backend.shared.db.transaction import Transaction as SharedTransaction
+
+    updated_ids: set[uuid.UUID] = set()
+
+    by_document = db.scalars(
+        select(SharedTransaction).where(
+            SharedTransaction.raw_payload["document_id"].astext == str(document_id),
+        ),
+    ).all()
+    for tx in by_document:
+        if tx.id in updated_ids:
+            continue
+        payload = dict(tx.raw_payload or {})
+        payload["document_filename"] = filename
+        if "source_filename" in payload:
+            payload["source_filename"] = filename
+        tx.raw_payload = payload
+        updated_ids.add(tx.id)
+
+    row_ids = db.scalars(
+        select(ExtractedTransaction.id).where(ExtractedTransaction.document_id == document_id),
+    ).all()
+    for row_id in row_ids:
+        linked = db.scalars(
+            select(SharedTransaction).where(
+                SharedTransaction.raw_payload["row_id"].astext == str(row_id),
+            ),
+        ).all()
+        for tx in linked:
+            if tx.id in updated_ids:
+                continue
+            payload = dict(tx.raw_payload or {})
+            payload["document_filename"] = filename
+            if "source_filename" in payload:
+                payload["source_filename"] = filename
+            tx.raw_payload = payload
+            updated_ids.add(tx.id)
+
+    return len(updated_ids)
 
 
 def _build_text_probe(

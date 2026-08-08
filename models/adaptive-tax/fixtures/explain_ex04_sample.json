@@ -1,0 +1,38 @@
+{
+  "id": "explain_ex04_sample",
+  "scenario": "Salary + qualifying payment (ex04) — fixture-mode sample narrative",
+  "notes": "Regression artifact for Phase 4. Runtime fixture mode builds narratives from the live calculation trace + evidence; this file documents the expected shape and a representative ex04 explanation.",
+  "summary": "The rule engine computed a final income-tax liability of 0 LKR. This narrative is grounded only in the calculation trace and retrieved legal evidence for Section 5, Section 52, First Schedule.",
+  "sections_cited": ["Section 5", "Section 52", "First Schedule"],
+  "steps_explained": [
+    {
+      "step_id": "sum_assessable",
+      "narrative": "Sum assessable income from KG-applicable income heads (sections: Section 5). Applied formula `assessable = employment + business + investment (applicable heads)` yielding 3000000.",
+      "evidence_chunk_ids": ["ird-ira-2017-base::p0005::c0000"],
+      "rule_source_id": null
+    },
+    {
+      "step_id": "deduct_qualifying_payment",
+      "narrative": "Apply deduction qualifying_payment (sections: Section 52). Applied formula `allowed = min(claimed, sec52_cap=1800000) via qualifying_payment_cap` yielding 1200000.",
+      "evidence_chunk_ids": ["ird-ira-2017-base::p0052::c0000"],
+      "rule_source_id": "00000000-0000-4000-8000-000000000052"
+    },
+    {
+      "step_id": "apply_personal_relief",
+      "narrative": "Apply personal relief for residents (sections: First Schedule). Applied formula `taxable = max(0, running - personal_relief)` yielding 0.",
+      "evidence_chunk_ids": ["ird-ira-2017-base::p0100::c0000"],
+      "rule_source_id": null
+    },
+    {
+      "step_id": "final_tax",
+      "narrative": "Total income tax liability (sections: First Schedule). Applied formula `final_tax = sum(slab tax slices)` yielding 0.",
+      "evidence_chunk_ids": ["ird-ira-2017-base::p0100::c0000"],
+      "rule_source_id": null
+    }
+  ],
+  "final_tax_lkr": "0",
+  "disclaimer": "Research prototype — not legal advice.",
+  "insufficient_evidence": false,
+  "sections_retrieved": ["Section 5", "Section 52", "First Schedule"],
+  "calc_id": "11111111-2222-4333-8444-555555555555"
+}

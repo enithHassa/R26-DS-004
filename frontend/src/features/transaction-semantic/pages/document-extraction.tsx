@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Database, FileUp, RefreshCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DocumentListPanel } from "@/features/transaction-semantic/components/document-list-panel";
 import {
   exportFilteredDocumentsCsv,
   exportSingleDocumentCsv,
@@ -34,8 +36,10 @@ function formatMoney(value: string | null): string {
 }
 
 export function TransactionDocumentExtractionPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
-  const [documentId, setDocumentId] = useState("");
+  const [documentId, setDocumentId] = useState(searchParams.get("document") ?? "");
+  const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
   const [bankCodeOverride, setBankCodeOverride] = useState("");
   const [status, setStatus] = useState<DocumentStatusResponse | null>(null);
   const [transactions, setTransactions] = useState<ExtractedTransactionItem[]>([]);
@@ -62,8 +66,17 @@ export function TransactionDocumentExtractionPage() {
 
   const hasLoadedDocument = documentId.trim().length > 0;
 
+  useEffect(() => {
+    const selected = searchParams.get("document") ?? "";
+    setDocumentId(selected);
+    if (selected) {
+      void refreshAll(selected);
+    }
+  }, [searchParams]);
+
   const summaryCards = useMemo(
     () => [
+      { label: "Document name", value: status?.filename ?? previewMeta?.filename ?? "-" },
       { label: "Document ID", value: status?.document_id ?? "-" },
       { label: "Status", value: status?.status ?? (previewMeta ? "preview_only" : "-") },
       {
@@ -114,9 +127,10 @@ export function TransactionDocumentExtractionPage() {
     setSuccess(null);
     try {
       const resp = await uploadDocument(file);
-      setDocumentId(resp.document.document_id);
+      setSearchParams({ document: resp.document.document_id });
       setSuccess(resp.message);
       setPreviewMeta(null);
+      setLibraryRefreshKey((value) => value + 1);
       await refreshAll(resp.document.document_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed.";
@@ -184,7 +198,11 @@ export function TransactionDocumentExtractionPage() {
       return;
     }
     setSuccess(null);
-    await refreshAll(documentId.trim());
+    setSearchParams({ document: documentId.trim() });
+  }
+
+  function handleSelectDocument(nextId: string): void {
+    setSearchParams({ document: nextId });
   }
 
   async function handleReExtract(): Promise<void> {
@@ -308,12 +326,23 @@ export function TransactionDocumentExtractionPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Transaction Document Extractor</h1>
+        <h1 className="text-2xl font-semibold">Transaction documents</h1>
         <p className="text-sm text-muted-foreground">
-          Upload a bank statement (PDF, CSV, Excel, text, or PNG/JPG via OCR), extract rows, review
-          statement totals, and re-process if needed.
+          Upload bank statements, keep them in the document library, and review extracted rows for the
+          selected document.
         </p>
       </div>
+
+      <DocumentListPanel
+        selectedDocumentId={hasLoadedDocument ? documentId : null}
+        onSelect={handleSelectDocument}
+        onRenamed={(id) => {
+          if (id === documentId.trim()) {
+            void refreshAll(id);
+          }
+        }}
+        refreshKey={libraryRefreshKey}
+      />
 
       <Card>
         <CardHeader>

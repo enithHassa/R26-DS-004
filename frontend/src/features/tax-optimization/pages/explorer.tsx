@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
-import { postSearchStrategiesFromFinancialInputs, postSearchStrategiesMlRank } from "../api";
+import { postSearchStrategiesFromFinancialInputs, postSearchStrategiesMlRank, postMlRankStrategies } from "../api";
 import { ExplorerCharts } from "../components/explorer-charts";
 import { SearchStrategiesTable } from "../components/search-strategies-table";
+import { MLRankedStrategies } from "../components/ml-ranked-strategies";
 import { formatLkrAmount, parseDecimalSafe } from "../format-lkr";
 import type {
   TaxOptBEmploymentTypeV1,
@@ -18,17 +19,21 @@ import type {
   TaxOptBSearchStrategiesMlRankRequestV1,
   TaxOptBSearchStrategiesResponseV1,
   TaxOptBStrategySearchRankByV1,
+  MLRankResponseV1,
+  MLRankedStrategyV1,
 } from "../types";
 
-function digitsOnly(s: string): string {
-  return s.replace(/\D/g, "");
+function digitsAndDecimal(s: string): string {
+  // Allow digits and one decimal point
+  return s.replace(/[^\d.]/g, "").replace(/\.(?=.*\.)/g, "");
 }
 
 function formatMoneyInputDisplay(digitString: string): string {
   if (!digitString) return "";
   const n = Number(digitString);
   if (!Number.isFinite(n)) return digitString;
-  return n.toLocaleString("en-LK");
+  // Format with thousands separator, preserve decimals
+  return n.toLocaleString("en-LK", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function formatEffectiveRate(rateStr: string | null | undefined): string | null {
@@ -92,13 +97,16 @@ export function ExplorerPage() {
   const dependents = "0";
   const [salary, setSalary] = useState("20000000");
   const [business, setBusiness] = useState("400000");
-  const [investment, setInvestment] = useState("10000");
+  const [rentalIncome, setRentalIncome] = useState<string>("");
+  const [interestIncome, setInterestIncome] = useState<string>("");
+  const [otherInvestmentIncome, setOtherInvestmentIncome] = useState("10000");
   const [otherIncome, setOtherIncome] = useState("0");
+  const [apitTaxPaid, setApitTaxPaid] = useState<string>("");
+  const [investmentExpanded, setInvestmentExpanded] = useState(false);
   const [topK] = useState("5");
   const [rankBy] = useState<TaxOptBStrategySearchRankByV1>("total_tax");
   const [maxCandidates] = useState("100");
   const [explanationDetail] = useState<"summary" | "detailed">("summary");
-  const [showSpending, setShowSpending] = useState(false);
   const [actualSpending, setActualSpending] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(false);
@@ -107,10 +115,54 @@ export function ExplorerPage() {
   const [ruleData, setRuleData] = useState<TaxOptBSearchStrategiesResponseV1 | null>(null);
   const [mlData, setMlData] = useState<TaxOptBSearchStrategiesResponseV1 | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [mlRankResponse, setMlRankResponse] = useState<MLRankResponseV1 | null>(null);
+  const [mlRankLoading, setMlRankLoading] = useState(false);
+  const [mlRankError, setMlRankError] = useState<string | null>(null);
 
   const toggleExpand = useCallback((candidateId: string) => {
     setExpanded((p) => ({ ...p, [candidateId]: !p[candidateId] }));
   }, []);
+
+  const onMlRank = async () => {
+    setMlRankError(null);
+    setMlRankLoading(true);
+    try {
+      const salaryNum = parseDecimalSafe(salary) ?? 0;
+      const rentalNum = parseDecimalSafe(rentalIncome) ?? 0;
+      const interestNum = parseDecimalSafe(interestIncome) ?? 0;
+      const businessNum = parseDecimalSafe(business) ?? 0;
+      const lifeInsuranceNum = parseDecimalSafe(actualSpending.life_insurance_premium ?? "0") ?? 0;
+      const healthInsuranceNum = parseDecimalSafe(actualSpending.health_insurance_premium ?? "0") ?? 0;
+      const homeLoanNum = parseDecimalSafe(actualSpending.home_loan_interest ?? "0") ?? 0;
+      const rentReliefNum = parseDecimalSafe(actualSpending.rent_relief ?? "0") ?? 0;
+      const charitableNum = parseDecimalSafe(actualSpending.charitable_donations ?? "0") ?? 0;
+      const retirementNum = parseDecimalSafe(actualSpending.retirement_contribution ?? "0") ?? 0;
+
+      console.log("[DEBUG Frontend] ML Rank Request - Life Insurance:", lifeInsuranceNum, "Health Insurance:", healthInsuranceNum, "Charitable:", charitableNum);
+
+      const response = await postMlRankStrategies(
+        taxYear,
+        salaryNum,
+        rentalNum,
+        interestNum,
+        businessNum,
+        lifeInsuranceNum,
+        healthInsuranceNum,
+        homeLoanNum,
+        rentReliefNum,
+        charitableNum,
+        retirementNum,
+        3, // Default complexity tolerance
+        3, // Default audit risk tolerance
+        2, // Default time available
+      );
+      setMlRankResponse(response);
+    } catch (err) {
+      setMlRankError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMlRankLoading(false);
+    }
+  };
 
   const buildPayload = useCallback((): TaxOptBSearchStrategiesFromFinancialInputsRequestV1 => {
     const k = Math.max(1, Math.min(64, parseInt(topK, 10) || 10));
@@ -121,8 +173,11 @@ export function ExplorerPage() {
       dependents: Math.max(0, Math.min(20, parseInt(dependents, 10) || 0)),
       annual_salary_income: salary.trim().replace(/,/g, "") || "0",
       annual_business_income: business.trim().replace(/,/g, "") || "0",
-      annual_investment_income: investment.trim().replace(/,/g, "") || "0",
+      annual_rental_income: rentalIncome.trim().replace(/,/g, "") || "0",
+      annual_interest_income: interestIncome.trim().replace(/,/g, "") || "0",
+      annual_other_investment_income: otherInvestmentIncome.trim().replace(/,/g, "") || "0",
       annual_other_income: otherIncome.trim().replace(/,/g, "") || "0",
+      apit_tax_paid_by_employer: apitTaxPaid.trim().replace(/,/g, "") || "0",
       residency,
       deductions: Object.entries(actualSpending)
         .filter(([, amt]) => amt && Number(amt.replace(/,/g, "")) > 0)
@@ -146,8 +201,11 @@ export function ExplorerPage() {
     dependents,
     salary,
     business,
-    investment,
+    rentalIncome,
+    interestIncome,
+    otherInvestmentIncome,
     otherIncome,
+    apitTaxPaid,
     residency,
     topK,
     rankBy,
@@ -247,8 +305,8 @@ export function ExplorerPage() {
         <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">How it works</p>
         <div className="flex items-center">
           {([
-            { n: 1, label: "Enter your income", sub: "Salary, business & more" },
-            { n: 2, label: "We test 64 combos", sub: "Every legal relief mix" },
+            { n: 1, label: "Enter income & spending", sub: "Salary + what you paid" },
+            { n: 2, label: "We test your combos", sub: "Only reliefs you paid for" },
             { n: 3, label: "AI picks the best", sub: "Ranked by tax savings" },
             { n: 4, label: "See why it wins", sub: "Transparent rule trace" },
             { n: 5, label: "Plan your payments", sub: "Quarterly schedule" },
@@ -326,7 +384,7 @@ export function ExplorerPage() {
                   autoComplete="off"
                   placeholder="20,000,000"
                   value={formatMoneyInputDisplay(salary)}
-                  onChange={(e) => setSalary(digitsOnly(e.target.value))}
+                  onChange={(e) => setSalary(digitsAndDecimal(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -346,30 +404,100 @@ export function ExplorerPage() {
                   autoComplete="off"
                   placeholder="400,000"
                   value={formatMoneyInputDisplay(business)}
-                  onChange={(e) => setBusiness(digitsOnly(e.target.value))}
+                  onChange={(e) => setBusiness(digitsAndDecimal(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
-            <div className="grid gap-2">
-              <div>
-                <Label htmlFor={`${formId}-investment`}>Annual investment income (LKR)</Label>
-                <p className="text-xs text-muted-foreground">Dividends, interest, rental income (IRD Form IT01)</p>
-              </div>
-              <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
-                <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
-                  LKR
+            {/* Investment Income (expandable section) */}
+            <div className="md:col-span-2 grid gap-2 border border-input rounded-lg p-3">
+              <button
+                type="button"
+                onClick={() => setInvestmentExpanded(!investmentExpanded)}
+                className="flex items-center justify-between w-full hover:bg-muted/30 p-1 rounded transition-colors"
+              >
+                <Label className="cursor-pointer text-sm font-semibold">Annual investment income (LKR)</Label>
+                <span className="text-xs text-muted-foreground">
+                  {investmentExpanded ? "▼" : "▶"}
                 </span>
-                <Input
-                  id={`${formId}-investment`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="10,000"
-                  value={formatMoneyInputDisplay(investment)}
-                  onChange={(e) => setInvestment(digitsOnly(e.target.value))}
-                  className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-              </div>
+              </button>
+
+              {investmentExpanded && (
+                <div className="grid gap-2 mt-3 pt-3 border-t border-border">
+                  {/* Rental Income Sub-field */}
+                  <div>
+                    <Label htmlFor={`${formId}-rental`} className="text-xs font-medium mb-1 block">Rental Income</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Gross rental from properties (25% deduction applied automatically)</p>
+                    <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                      <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                        LKR
+                      </span>
+                      <Input
+                        id={`${formId}-rental`}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={formatMoneyInputDisplay(rentalIncome)}
+                        onChange={(e) => setRentalIncome(digitsAndDecimal(e.target.value))}
+                        className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Interest Income Sub-field */}
+                  <div>
+                    <Label htmlFor={`${formId}-interest`} className="text-xs font-medium mb-1 block">Interest Income</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Bank interest, savings interest (IRD Form IT01)</p>
+                    <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                      <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                        LKR
+                      </span>
+                      <Input
+                        id={`${formId}-interest`}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={formatMoneyInputDisplay(interestIncome)}
+                        onChange={(e) => setInterestIncome(digitsAndDecimal(e.target.value))}
+                        className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Other Investment Income Sub-field */}
+                  <div>
+                    <Label htmlFor={`${formId}-other-investment`} className="text-xs font-medium mb-1 block">Other Investment Income</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">Dividends, capital gains, etc. (IRD Form IT01)</p>
+                    <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                      <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                        LKR
+                      </span>
+                      <Input
+                        id={`${formId}-other-investment`}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={formatMoneyInputDisplay(otherInvestmentIncome)}
+                        onChange={(e) => setOtherInvestmentIncome(digitsAndDecimal(e.target.value))}
+                        className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Total Investment Income Display */}
+                  {(rentalIncome || interestIncome || otherInvestmentIncome) && (
+                    <div className="mt-3 pt-3 border-t border-border bg-muted/20 rounded p-2">
+                      <p className="text-xs font-semibold text-foreground">
+                        Total: LKR {(
+                          (Number(rentalIncome.replace(/,/g, "")) || 0) +
+                          (Number(interestIncome.replace(/,/g, "")) || 0) +
+                          (Number(otherInvestmentIncome.replace(/,/g, "")) || 0)
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor={`${formId}-other`}>Annual other income (LKR)</Label>
@@ -383,7 +511,7 @@ export function ExplorerPage() {
                   autoComplete="off"
                   placeholder="0"
                   value={formatMoneyInputDisplay(otherIncome)}
-                  onChange={(e) => setOtherIncome(digitsOnly(e.target.value))}
+                  onChange={(e) => setOtherIncome(digitsAndDecimal(e.target.value))}
                   className="h-10 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
@@ -404,71 +532,162 @@ export function ExplorerPage() {
           </div>
 
           <div className="border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={() => setShowSpending((p) => !p)}
-              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              {showSpending ? "▲ Hide actual spending" : "▼ Enter what you actually spent this year (optional)"}
-            </button>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Enter real amounts you paid — the system will cap them at the statutory limit and find the best combination from your actual spending.
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">What did you actually spend last year?</span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Required for optimization</span>
+            </div>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+              Enter the real amounts you paid in the previous tax year. The system only considers reliefs you actually incurred — leave blank if you didn&apos;t spend on that item. Amounts are automatically capped at IRD limits.
             </p>
-            {showSpending ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {([
-                  { code: "life_insurance_premium",   label: "Life insurance paid",       cap: "Cap: LKR 100,000" },
-                  { code: "health_insurance_premium",  label: "Health insurance paid",     cap: "Cap: LKR 75,000" },
-                  { code: "home_loan_interest",        label: "Home loan interest paid",   cap: "Cap: LKR 600,000" },
-                  { code: "rent_relief",               label: "Rent paid this year",       cap: "Cap: 25% of rent, max LKR 300,000" },
-                  { code: "charitable_donations",      label: "Charitable donations",      cap: "Cap: 33% of taxable income" },
-                  { code: "retirement_contribution",   label: "Retirement contribution",   cap: "Cap: LKR 600,000" },
-                ] as const).map(({ code, label, cap }) => (
-                  <div key={code} className="grid gap-1">
-                    <label className="text-xs font-medium text-foreground">{label}</label>
-                    <p className="text-[10px] text-muted-foreground">{cap}</p>
-                    <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
-                      <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
-                        LKR
-                      </span>
-                      <Input
-                        inputMode="numeric"
-                        autoComplete="off"
-                        placeholder="0"
-                        value={actualSpending[code] ? formatMoneyInputDisplay(actualSpending[code].replace(/,/g, "")) : ""}
-                        onChange={(e) => {
-                          const v = digitsOnly(e.target.value);
-                          setActualSpending((prev) => ({ ...prev, [code]: v }));
-                        }}
-                        className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
-                      />
-                    </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                { code: "life_insurance_premium",   label: "Life insurance paid",       cap: "Max deductible: LKR 100,000" },
+                { code: "health_insurance_premium",  label: "Health insurance paid",     cap: "Max deductible: LKR 75,000" },
+                { code: "home_loan_interest",        label: "Home loan interest paid",   cap: "Max deductible: LKR 600,000" },
+                { code: "rent_relief",               label: "Rent paid",                 cap: "Max deductible: 25% of rent, up to LKR 300,000" },
+                { code: "charitable_donations",      label: "Charitable donations made", cap: "Max deductible: lower of 33% of taxable income or LKR 75,000. Must be to approved charitable institutions." },
+                { code: "retirement_contribution",   label: "Retirement fund paid",      cap: "Max deductible: 15% of income, up to LKR 600,000" },
+                ...(taxYear >= "2025_26" ? [{ code: "solar_panel_relief" as const, label: "Solar panel installation", cap: "Max deductible: LKR 600,000" }] : []),
+              ] as const).map(({ code, label, cap }) => (
+                <div key={code} className="grid gap-1">
+                  <label className="text-xs font-medium text-foreground">{label}</label>
+                  <p className="text-[10px] text-muted-foreground">{cap}</p>
+                  <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+                    <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                      LKR
+                    </span>
+                    <Input
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="0"
+                      value={actualSpending[code] ? formatMoneyInputDisplay(actualSpending[code].replace(/,/g, "")) : ""}
+                      onChange={(e) => {
+                        const v = digitsAndDecimal(e.target.value);
+                        setActualSpending((prev) => ({ ...prev, [code]: v }));
+                      }}
+                      className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
                   </div>
-                ))}
-              </div>
-            ) : null}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <Button
-            type="button"
-            disabled={loading}
-            onClick={() => void onRun()}
-            className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Searching…
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4 opacity-90" />
-                Find my best strategy
-              </>
-            )}
-          </Button>
+          {/* ── T10 APIT Section ── */}
+          <div className="border-t border-border pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">Tax Already Paid (T10 Certificate)</span>
+            </div>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+              Enter the total APIT tax your employer already paid on your behalf (from your T10 certificate issued at end of tax year). This determines if you owe additional tax or get a refund.
+            </p>
+            <div className="flex overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-2 focus-within:ring-ring">
+              <span className="flex items-center border-r border-input bg-muted/30 px-3 text-sm text-muted-foreground">
+                LKR
+              </span>
+              <Input
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Total APIT paid by employer"
+                value={apitTaxPaid ? formatMoneyInputDisplay(apitTaxPaid.replace(/,/g, "")) : ""}
+                onChange={(e) => {
+                  const v = digitsAndDecimal(e.target.value);
+                  setApitTaxPaid(v);
+                }}
+                className="h-9 border-0 text-right tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              type="button"
+              disabled={loading}
+              onClick={() => void onRun()}
+              className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4 opacity-90" />
+                  Find my best strategy
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              disabled={mlRankLoading}
+              onClick={() => void onMlRank()}
+              className="h-11 w-full bg-indigo-600 text-white hover:bg-indigo-700"
+            >
+              {mlRankLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Ranking strategies…
+                </>
+              ) : (
+                <>
+                  🤖 Show ML Rankings
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      {/* ── Income Sources Summary ── */}
+      {(() => {
+        const salaryNum = parseDecimalSafe(salary) ?? 0;
+        const businessNum = parseDecimalSafe(business) ?? 0;
+        const rentalNum = parseDecimalSafe(rentalIncome) ?? 0;
+        const interestNum = parseDecimalSafe(interestIncome) ?? 0;
+        const otherInvestmentNum = parseDecimalSafe(otherInvestmentIncome) ?? 0;
+        const otherIncomeNum = parseDecimalSafe(otherIncome) ?? 0;
+        const investmentTotal = rentalNum + interestNum + otherInvestmentNum;
+        const grossIncome = salaryNum + businessNum + investmentTotal + otherIncomeNum;
+
+        return (
+          <Card className="rounded-xl border border-border/80 bg-card shadow-sm">
+            <CardHeader className="p-6 pb-3">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Income Sources</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-foreground">Employment</span>
+                  <span className="font-medium tabular-nums text-foreground">{formatLkrAmount(salaryNum)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-foreground">Business</span>
+                  <span className="font-medium tabular-nums text-foreground">{formatLkrAmount(businessNum)}</span>
+                </div>
+                {investmentTotal > 0 && (
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-foreground">Investment Income</span>
+                    <span className="font-medium tabular-nums text-foreground">{formatLkrAmount(investmentTotal)}</span>
+                  </div>
+                )}
+                {otherIncomeNum > 0 && (
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm text-foreground">Other Income</span>
+                    <span className="font-medium tabular-nums text-foreground">{formatLkrAmount(otherIncomeNum)}</span>
+                  </div>
+                )}
+                <div className="border-t border-border/50 pt-2 mt-2">
+                  <div className="flex items-center justify-between py-2">
+                    <span className="font-semibold text-foreground">Total Gross Income</span>
+                    <span className="text-lg font-bold tabular-nums text-primary">{formatLkrAmount(grossIncome)}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {error ? (
         <Card className="rounded-xl border border-destructive/30 bg-destructive/5">
@@ -610,8 +829,8 @@ export function ExplorerPage() {
           </div>
           <div className="grid gap-3 px-6 py-4 sm:grid-cols-3">
             <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 1 — We tested everything</div>
-              <div className="text-sm text-foreground">We checked all <strong>64 possible combinations</strong> of tax reliefs against IRD rules. Only the ones that pass every rule are shown to you.</div>
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 1 — We tested your spending</div>
+              <div className="text-sm text-foreground">We only consider reliefs you <strong>actually incurred</strong> last year and tested every valid combination against IRD rules. Only compliant ones are shown.</div>
             </div>
             <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">Step 2 — AI ranked them</div>
@@ -650,6 +869,21 @@ export function ExplorerPage() {
         baselineCandidateId={(mlData ?? ruleData)?.baseline_candidate_id ?? null}
         rankedBySubtitle={tableRankedBySubtitle}
       />
+
+      {mlRankError && (
+        <Card className="rounded-xl border border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/20">
+          <CardContent className="px-6 py-4">
+            <p className="text-sm text-amber-900 dark:text-amber-100">
+              <span className="font-semibold">ML Ranking Error: </span>
+              {mlRankError}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {mlRankResponse && (
+        <MLRankedStrategies response={mlRankResponse} />
+      )}
 
       {/* ── 5. Tax comparison charts ── */}
       {ruleData && baselineRow && ruleBestRow ? (

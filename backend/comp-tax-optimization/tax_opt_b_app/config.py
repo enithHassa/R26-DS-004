@@ -24,6 +24,10 @@ class ComponentSettings(BaseSettings):
         PROJECT_ROOT / "models" / "tax-optimization" / "rules" / "it22064486_sl_tax_mvp.yaml"
     )
 
+    COMP_OPTIMIZATION_RULES_PATH_2025_26: Path = (
+        PROJECT_ROOT / "models" / "tax-optimization" / "rules" / "it22064486_sl_tax_2025_26.yaml"
+    )
+
     COMP_OPTIMIZATION_RULES_VERSION: str | None = Field(
         default=None,
         description="Optional override label echoed in API responses for traceability.",
@@ -35,6 +39,11 @@ class ComponentSettings(BaseSettings):
             "Directory containing best_model_summary.json and trained joblib "
             "(Function 3 ML-assisted ranking)."
         ),
+    )
+
+    PHASE2_MODELS_PATH: Path = Field(
+        default=Path("phase2_models"),
+        description="Directory containing Phase 2 unified ML model (ml_model_unified.joblib)",
     )
 
     model_config = SettingsConfigDict(

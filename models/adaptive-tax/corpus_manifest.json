@@ -1,0 +1,128 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "corpus_version": "corpus_v1",
+  "pdf_root": "data/raw/adaptive-tax",
+  "corpus_jsonl": "data/processed/adaptive-tax/corpus_v1.jsonl",
+  "text_out_dir": "data/processed/adaptive-tax/text",
+  "notes": [
+    "source_doc_id values are adaptive-tax Phase 2 IDs (e.g. ird-ira-2017-base).",
+    "Do not reuse Comp 4 evaluation/ird IDs such as ird-ira-2017.",
+    "ird-calc-ontology-v5 is for RAG/metadata only; calc edges come from ontology JSONL, not PDF convert."
+  ],
+  "documents": [
+    {
+      "file_name": "IR_Act_No._24_2017_E.pdf",
+      "source_doc_id": "ird-ira-2017-base",
+      "title": "Inland Revenue Act No. 24 of 2017 (English)",
+      "tier": "A",
+      "instrument_type": "base_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false,
+      "publication_date": "2017-10-24",
+      "effective_start_date": "2018-04-01"
+    },
+    {
+      "file_name": "IR_Act_No._04_2023_E.pdf",
+      "source_doc_id": "ird-amend-2023-04",
+      "title": "Inland Revenue Amendment Act No. 04 of 2023 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IR_Act_No._45_2022_E.pdf",
+      "source_doc_id": "ird-amend-2022-45",
+      "title": "Inland Revenue Amendment Act No. 45 of 2022 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IR_Act_No_02-2025_E.pdf",
+      "source_doc_id": "ird-amend-2025-02",
+      "title": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IR_Act_No_11-2026_E.pdf",
+      "source_doc_id": "ird-amend-2026-11",
+      "title": "Inland Revenue Amendment Act No. 11 of 2026 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IR_Act_No14_2023_E.pdf",
+      "source_doc_id": "ird-amend-2023-14",
+      "title": "Inland Revenue Amendment Act No. 14 of 2023 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IR_Act_No._10_2021_E.pdf",
+      "source_doc_id": "ird-amend-2021-10",
+      "title": "Inland Revenue Amendment Act No. 10 of 2021 (English)",
+      "tier": "A",
+      "instrument_type": "amendment_act",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "IRA_Cons_Act_-_2025_Changes.pdf",
+      "source_doc_id": "ird-consolidated-2025",
+      "title": "Inland Revenue Act consolidated changes 2025 (English)",
+      "tier": "A",
+      "instrument_type": "consolidated",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "1.00",
+      "is_draft": false
+    },
+    {
+      "file_name": "Guide to Inland Revenue Act.pdf",
+      "source_doc_id": "ird-guide-ira",
+      "title": "Guide to Inland Revenue Act (English)",
+      "tier": "B",
+      "instrument_type": "guide",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "0.60",
+      "is_draft": true
+    },
+    {
+      "file_name": "Tax_Knowledge_Base_Master_v5.pdf",
+      "source_doc_id": "ird-calc-ontology-v5",
+      "title": "Tax Knowledge Base Master v5 (Section 52 / schedules — research ontology)",
+      "tier": "C",
+      "instrument_type": "ontology_notes",
+      "doc_type": "pdf",
+      "language": "en",
+      "authority_weight": "0.40",
+      "is_draft": false,
+      "notes": "RAG/metadata only. Do not convert this PDF into calc graph edges; use models/adaptive-tax/ontology/*.jsonl instead."
+    }
+  ]
+}

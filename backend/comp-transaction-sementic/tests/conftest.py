@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.util
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -14,12 +14,11 @@ C1_ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture()
 def client() -> Iterator[TestClient]:
-    """Load ``app/main.py`` without colliding with other ``app`` packages on ``sys.path``."""
-    main_path = C1_ROOT / "app" / "main.py"
-    spec = importlib.util.spec_from_file_location("comp_transaction_semantic_main", main_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    app = mod.app
+    """Load the component FastAPI app from ``backend/comp-transaction-sementic``."""
+    root = str(C1_ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from app.main import app
+
     with TestClient(app) as c:
         yield c

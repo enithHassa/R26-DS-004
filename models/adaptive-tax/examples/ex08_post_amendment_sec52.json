@@ -1,0 +1,77 @@
+{
+  "id": "ex08",
+  "scenario": "Post-amendment Sec 52 cap (Act 02/2025) vs pre-amend",
+  "key_assertion": "Tax differs between pre_amend_2025 (cap 1.2M) and current (cap 1.8M)",
+  "assert_variants_differ": true,
+  "variants": [
+    {
+      "id": "ex08_pre_amend_2025",
+      "label": "Pre Act 02/2025 Sec 52 cap 1_200_000",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "3000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "1500000",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "pre_amend_2025"
+      },
+      "expected_final_tax_lkr": "48000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "cap_qualifying_payment_cap",
+        "deduct_qualifying_payment",
+        "apply_personal_relief",
+        "slab_band_1",
+        "slab_band_2",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "sec52_qualifying_payment_cap",
+        "personal_relief",
+        "fs_2024_25_band_1",
+        "fs_2024_25_band_2"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "1200000"
+      }
+    },
+    {
+      "id": "ex08_current",
+      "label": "Post Act 02/2025 Sec 52 cap 1_800_000",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "3000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "1500000",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "18000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "cap_qualifying_payment_cap",
+        "deduct_qualifying_payment",
+        "apply_personal_relief",
+        "slab_band_1",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "sec52_qualifying_payment_cap",
+        "ird-amend-2025-02",
+        "personal_relief",
+        "fs_2024_25_band_1"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "1500000"
+      }
+    }
+  ]
+}

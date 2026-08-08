@@ -1,0 +1,41 @@
+{
+  "sample_id": "act_02_2025_section52_20fields",
+  "source_amendment": "IR Act No. 02/2025 (Section 52 qualifying-payment cap)",
+  "source_doc_id": "ird-amend-2025-02",
+  "gold_source": "models/adaptive-tax/fixtures/section52_extract_sample.json",
+  "notes": "Twenty labeled scalar fields across two extracted rules (10 fields × 2). Used for extraction precision = correct/total. Fixture self-score expects 20/20 when predicted == gold.",
+  "field_schema": [
+    "section",
+    "paragraph",
+    "rule_type",
+    "concept_id",
+    "condition",
+    "formula",
+    "threshold",
+    "maximum",
+    "effective_date",
+    "amends_section"
+  ],
+  "fields": [
+    {"field_id": "r0.section", "rule_index": 0, "path": "section", "gold": "52"},
+    {"field_id": "r0.paragraph", "rule_index": 0, "path": "paragraph", "gold": null},
+    {"field_id": "r0.rule_type", "rule_index": 0, "path": "rule_type", "gold": "limit"},
+    {"field_id": "r0.concept_id", "rule_index": 0, "path": "concept_id", "gold": "qualifying_payment_cap"},
+    {"field_id": "r0.condition", "rule_index": 0, "path": "condition", "gold": "Aggregate qualifying payments under Section 52"},
+    {"field_id": "r0.formula", "rule_index": 0, "path": "formula", "gold": null},
+    {"field_id": "r0.threshold", "rule_index": 0, "path": "threshold", "gold": null},
+    {"field_id": "r0.maximum", "rule_index": 0, "path": "maximum", "gold": 1800000.0},
+    {"field_id": "r0.effective_date", "rule_index": 0, "path": "effective_date", "gold": "2025-04-01"},
+    {"field_id": "r0.amends_section", "rule_index": 0, "path": "amends_section", "gold": "52"},
+    {"field_id": "r1.section", "rule_index": 1, "path": "section", "gold": "52"},
+    {"field_id": "r1.paragraph", "rule_index": 1, "path": "paragraph", "gold": null},
+    {"field_id": "r1.rule_type", "rule_index": 1, "path": "rule_type", "gold": "deduction"},
+    {"field_id": "r1.concept_id", "rule_index": 1, "path": "concept_id", "gold": "qualifying_payment"},
+    {"field_id": "r1.condition", "rule_index": 1, "path": "condition", "gold": "Taxpayer claims qualifying payments as provided in Section 52"},
+    {"field_id": "r1.formula", "rule_index": 1, "path": "formula", "gold": "min(sum(qualifying_payments), maximum)"},
+    {"field_id": "r1.threshold", "rule_index": 1, "path": "threshold", "gold": null},
+    {"field_id": "r1.maximum", "rule_index": 1, "path": "maximum", "gold": 1800000.0},
+    {"field_id": "r1.effective_date", "rule_index": 1, "path": "effective_date", "gold": "2025-04-01"},
+    {"field_id": "r1.amends_section", "rule_index": 1, "path": "amends_section", "gold": "52"}
+  ]
+}

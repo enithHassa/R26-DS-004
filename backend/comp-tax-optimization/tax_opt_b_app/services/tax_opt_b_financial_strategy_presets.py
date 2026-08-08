@@ -36,8 +36,27 @@ PRESET_SUMMARY_NARRATIVES: dict[str, str] = {
 
 
 def profile_from_financial_inputs(fin: TaxOptBFinancialInputsV1) -> TaxOptBProfileV1:
-    """Same gross aggregation as ``map_financial_inputs_to_profile_and_strategy`` (Option A)."""
-    gross = fin.annual_salary_income + fin.annual_business_income + fin.annual_investment_income + fin.annual_other_income
+    """Gross aggregation with investment income breakdown.
+
+    Rental income: 25% deemed repair deduction applied automatically per IRA Section 16B.
+    Investment income = rental (net of deduction) + interest + other investment income.
+    """
+    rental_net, _ = apply_rental_deduction(fin.annual_rental_income)
+
+    # Handle backward compatibility: if annual_investment_income is set, use it as other_investment
+    other_investment = fin.annual_other_investment_income
+    if fin.annual_investment_income is not None and fin.annual_investment_income > 0:
+        other_investment = fin.annual_investment_income
+
+    gross = (
+        fin.annual_salary_income
+        + fin.annual_business_income
+        + rental_net
+        + fin.annual_interest_income
+        + other_investment
+        + fin.annual_other_income
+    )
+
     return TaxOptBProfileV1(
         tax_year=fin.tax_year,
         employment_type=fin.employment_type,
@@ -45,6 +64,18 @@ def profile_from_financial_inputs(fin: TaxOptBFinancialInputsV1) -> TaxOptBProfi
         annual_gross_income=gross,
         estimated_annual_taxable_income=None,
     )
+
+
+def apply_rental_deduction(rental_income: Decimal) -> tuple[Decimal, Decimal]:
+    """Apply 25% deemed repair allowance to rental income.
+
+    Returns (net_rental_income, deduction_amount).
+    Deduction = 25% of gross rental income (automatically applied under IRA Section 16B).
+    """
+    deduction_pct = Decimal("0.25")
+    deduction = (rental_income * deduction_pct).quantize(Decimal("1"))
+    net = rental_income - deduction
+    return net, deduction
 
 
 def charitable_donation_cap_lkr(profile: TaxOptBProfileV1, pack: TaxOptBRulePack) -> Decimal:
@@ -145,6 +176,32 @@ def relief_max_claim_amounts_by_code(profile: TaxOptBProfileV1, pack: TaxOptBRul
     return {d.relief_code: d.amount_annual for d in max_caps_mvp_deduction_lines(profile, pack)}
 
 
+def actual_claimable_amounts_by_code(
+    financial_inputs: TaxOptBFinancialInputsV1,
+    profile: TaxOptBProfileV1,
+    pack: TaxOptBRulePack,
+) -> dict[str, Decimal]:
+    """Claimable amount per relief code based on what the user *actually spent*, capped at statutory limits.
+
+    Used by the strategy search grid so it only enumerates reliefs the user actually incurred.
+    If the user spent LKR 0 on a relief, it is excluded from the grid entirely.
+    """
+    actual: dict[str, Decimal] = {}
+    for d in financial_inputs.deductions:
+        code = d.relief_code
+        actual[code] = actual.get(code, Decimal("0")) + d.amount_annual
+
+    caps = relief_max_claim_amounts_by_code(profile, pack)
+
+    result: dict[str, Decimal] = {}
+    for code, cap in caps.items():
+        spent = actual.get(code, Decimal("0"))
+        if spent > 0:
+            result[code] = min(spent, cap)
+
+    return result
+
+
 def build_preset_financial_inputs(
     base: TaxOptBFinancialInputsV1,
     preset_id: FinancialStrategyPresetIdV1,
@@ -196,6 +253,7 @@ __all__ = [
     "FinancialStrategyPresetIdV1",
     "PRESET_LABELS",
     "PRESET_SUMMARY_NARRATIVES",
+    "actual_claimable_amounts_by_code",
     "build_financial_inputs_presets_dict",
     "build_preset_financial_inputs",
     "charitable_donation_cap_lkr",

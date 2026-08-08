@@ -64,15 +64,37 @@ class TaxOptBFinancialInputsV1(BaseModel):
 
     annual_salary_income: Decimal = Field(default=Decimal("0"), ge=0)
     annual_business_income: Decimal = Field(default=Decimal("0"), ge=0)
-    annual_investment_income: Decimal = Field(
+    # Investment Income (breakdown)
+    annual_rental_income: Decimal = Field(
         default=Decimal("0"),
         ge=0,
-        description="Investment income (dividends, interest, rent) — IRD Form IT01 separate source.",
+        description="Gross rental income from properties. 25% deemed repair deduction applied automatically under IRA Section 16B.",
+    )
+    annual_interest_income: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        description="Interest income from banks and financial institutions — IRD Form IT01 separate source.",
+    )
+    annual_other_investment_income: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        description="Other investment income (dividends, capital gains, etc.) — IRD Form IT01 separate source.",
+    )
+    # Backward compatibility alias
+    annual_investment_income: Decimal | None = Field(
+        default=None,
+        ge=0,
+        description="[Deprecated] Use annual_rental_income + annual_interest_income + annual_other_investment_income instead.",
     )
     annual_other_income: Decimal = Field(
         default=Decimal("0"),
         ge=0,
         description="Other annual inflows included in gross for MVP caps.",
+    )
+    apit_tax_paid_by_employer: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        description="Total APIT tax already paid by employer (from T10 certificate). Used to calculate net tax position (owed vs refund).",
     )
     residency: str = Field(
         default="resident",
