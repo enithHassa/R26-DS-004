@@ -20,9 +20,11 @@ from app.services import (
     ExplanationError,
     ProfileNotFoundError,
     RecommendationGenerationError,
+    RecommendationItemNotFoundError,
     StrategyNotFoundError,
     explain_strategy_for_profile,
     generate_recommendations,
+    submit_feedback,
 )
 
 router = APIRouter()
@@ -78,9 +80,10 @@ def explain_by_item_id(recommendation_item_id: UUID) -> RecommendationExplanatio
 
 
 @router.post("/feedback", status_code=status.HTTP_202_ACCEPTED)
-def submit_feedback(payload: FeedbackCreate) -> dict[str, str]:
+def feedback(payload: FeedbackCreate, db: Session = DBSession) -> dict[str, str]:
     """Persist user feedback (accepted / dismissed / rating) for continual learning."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Feedback persistence is planned for a later phase.",
-    )
+    try:
+        submit_feedback(db, payload)
+    except RecommendationItemNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"status": "accepted"}

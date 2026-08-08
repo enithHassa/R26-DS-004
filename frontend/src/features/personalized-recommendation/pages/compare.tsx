@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { compareImpactStrategies } from "../api/impact";
 import { CompareCharts } from "../components/compare-charts";
+import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { CATALOG_STRATEGIES } from "../constants/strategies";
 import { useDashboardStore } from "../store/dashboard-store";
@@ -52,14 +53,9 @@ export function ComparePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Compare strategies</h1>
-        <p className="text-muted-foreground">
-          Side-by-side Monte Carlo impact for the same profile and horizon (FR8).
-        </p>
-      </div>
+      <PageHeader icon={GitCompare} title="Compare strategies" />
 
-      <Card className="max-w-4xl">
+      <Card className="max-w-4xl border-t-4 border-t-primary/70">
         <CardHeader>
           <CardTitle>Select strategies</CardTitle>
           <CardDescription>Up to 5 strategies · horizon from scenario settings ({impactScenario.horizonYears}y).</CardDescription>
@@ -75,10 +71,10 @@ export function ComparePage() {
                   key={s.code}
                   type="button"
                   onClick={() => toggleStrategy(s.code)}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
                     on
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40 hover:bg-muted/50"
                   }`}
                 >
                   {s.label}

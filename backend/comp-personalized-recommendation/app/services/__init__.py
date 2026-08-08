@@ -33,6 +33,10 @@ from app.services.explanation_service import (
     ExplanationError,
     explain_strategy_for_profile,
 )
+from app.services.feedback_service import (
+    RecommendationItemNotFoundError,
+    submit_feedback,
+)
 
 __all__ = [
     "ProfileNotFoundError",
@@ -54,4 +58,6 @@ __all__ = [
     "explain_strategy_for_profile",
     "resolve_artifacts_dir",
     "update_profile",
+    "RecommendationItemNotFoundError",
+    "submit_feedback",
 ]

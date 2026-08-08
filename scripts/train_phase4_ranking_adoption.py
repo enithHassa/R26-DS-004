@@ -10,6 +10,13 @@ Usage (from repo root):
 
 ``--legacy-matcher`` is optional; if provided, adoption labels are distilled from
 matcher probabilities (>0.5 positive). Otherwise labels are eligibility bits.
+
+If the input CSV has real ``adopted__<STRATEGY_CODE>`` columns — written by
+``scripts/export_training_data.py`` from real `recommendation_feedback` rows —
+those take priority over both the legacy-matcher distillation and the
+eligibility-bit fallback, per strategy per row. This is what actually closes
+the "answers -> retrain -> better recommendations" loop; the synthetic CSV
+has no such columns, so training against it is unaffected.
 """
 
 from __future__ import annotations
@@ -18,6 +25,7 @@ import argparse
 import ast
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
@@ -55,6 +63,23 @@ ADOPTION_NAME = "phase4_adoption_model.joblib"
 RANKER_NAME = "phase4_lambdarank_model.joblib"
 STRATEGY_IDS_NAME = "strategy_ids.joblib"
 WEIGHTS_NAME = "scoring_weights.yaml"
+
+
+def _strategy_code_for_api(raw: str) -> str:
+    """Mirror of `recommendation_service._strategy_code_for_api` in the backend
+    (`backend/comp-personalized-recommendation/app/services/recommendation_service.py`)
+    — must stay identical so `adopted__<code>` columns produced by
+    `scripts/export_training_data.py` (which reads the real, persisted
+    `tax_strategies.code` values) line up with catalog strategies here.
+    """
+    import re
+
+    code = re.sub(r"[^A-Za-z0-9_-]", "_", str(raw).strip()).upper()
+    if len(code) < 2:
+        code = "S0"
+    if len(code) > 40:
+        code = code[:40]
+    return code
 
 
 def _boolish(x) -> bool:
@@ -289,6 +314,17 @@ def main() -> int:
     if args.legacy_matcher and args.legacy_matcher.exists():
         legacy = joblib.load(args.legacy_matcher)
 
+    real_label_columns = {
+        s.strategy_id: f"adopted__{_strategy_code_for_api(s.strategy_id)}"
+        for s in catalog.strategies
+        if f"adopted__{_strategy_code_for_api(s.strategy_id)}" in df.columns
+    }
+    if real_label_columns:
+        print(
+            f"Using real adoption labels from {len(real_label_columns)} "
+            f"adopted__* column(s): {sorted(real_label_columns.values())}"
+        )
+
     rank_rows: list[dict] = []
     rank_y: list[int] = []
     groups: list[int] = []
@@ -319,7 +355,11 @@ def main() -> int:
             prow = build_pair_row(udict, s, user_num_keys=user_num, user_cat_keys=user_cat)
             rank_rows.append(prow)
             rank_y.append(rel)
-            if matcher_probs is not None and j < len(matcher_probs):
+
+            real_col = real_label_columns.get(s.strategy_id)
+            if real_col is not None and not pd.isna(r.get(real_col)):
+                y_row.append(int(r[real_col]))
+            elif matcher_probs is not None and j < len(matcher_probs):
                 y_row.append(1 if matcher_probs[j] >= 0.5 else 0)
             else:
                 y_row.append(1 if ev.is_eligible else 0)
@@ -367,7 +407,16 @@ def main() -> int:
         "scoring_weights": WEIGHTS_NAME,
     }
     args.out_dir.joinpath(MANIFEST_NAME).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    args.out_dir.joinpath("model_version.txt").write_text("phase4-lambdarank-adoption-v1\n", encoding="utf-8")
+
+    # Versioned so successive retrains are distinguishable in the
+    # `Recommendation.model_version` column (now that recommendations are
+    # actually persisted — see `recommendation_service._persist_recommendation`)
+    # instead of every retrain silently reusing the same fixed literal string.
+    label_source = "real" if real_label_columns else "synthetic"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    version_string = f"phase4-lambdarank-adoption-v1-{label_source}-{timestamp}"
+    args.out_dir.joinpath("model_version.txt").write_text(f"{version_string}\n", encoding="utf-8")
+    print("Model version:", version_string)
 
     print("Wrote Phase 4 artifacts to", args.out_dir)
     return 0
