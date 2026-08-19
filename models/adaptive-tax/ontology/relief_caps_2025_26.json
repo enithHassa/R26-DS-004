@@ -1,0 +1,66 @@
+{
+  "assessment_year": "2025/26",
+  "currency": "LKR",
+  "param_set": "current",
+  "source_note": "Phase 5.5 Act-verified YA 2025/26: personal relief 1.8M; 1(a) alias cap 75k; solar 600k; rent 25% of included rents.",
+  "reliefs": [
+    {
+      "relief_id": "personal_relief",      "display_name": "Personal relief (annual tax-free amount)",
+      "statutory_label": "Personal relief",
+      "concept_id": "personal_relief",
+      "section_ref": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "cap_amount": 1800000,
+      "currency": "LKR",
+      "effective_start_date": "2025-04-01",
+      "effective_end_date": "2026-03-31",
+      "source_doc_id": "ird-amend-2025-02",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:personal_relief_2025_26"
+    },
+    {
+      "relief_id": "donation_cap",
+      "display_name": "Fifth Schedule 1(a) dual cap (alias of qp_approved_charitable)",
+      "statutory_label": "Fifth Sch 1(a)",
+      "concept_id": "donation_cap",
+      "section_ref": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "cap_amount": 75000,
+      "currency": "LKR",
+      "effective_start_date": "2025-04-01",
+      "effective_end_date": "2026-03-31",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:donation_cap_2025_26"
+    },
+    {
+      "relief_id": "solar_panel_relief",
+      "display_name": "Solar panel relief (Fifth Sch 2(g))",
+      "statutory_label": "Fifth Sch 2(g)",
+      "concept_id": "solar_panel_relief",
+      "section_ref": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "cap_amount": 600000,
+      "currency": "LKR",
+      "effective_start_date": "2025-04-01",
+      "effective_end_date": "2026-03-31",
+      "source_doc_id": "ird-amend-2021-10",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:solar_panel_relief"
+    },
+    {
+      "relief_id": "rent_relief",
+      "display_name": "Rent relief (Fifth Sch 2(c))",
+      "statutory_label": "Fifth Sch 2(c)",
+      "concept_id": "rent_relief",
+      "section_ref": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "currency": "LKR",
+      "effective_start_date": "2025-04-01",
+      "effective_end_date": "2026-03-31",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:rent_relief"
+    }
+  ]
+}

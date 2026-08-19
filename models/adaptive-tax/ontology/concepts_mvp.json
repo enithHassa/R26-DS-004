@@ -6,9 +6,9 @@
       "aliases": ["qualifying payments", "section 52 qualifying payment"]
     },
     {
-      "concept_id": "qualifying_payment_cap",
-      "display_name": "Qualifying payment aggregate cap",
-      "aliases": ["section 52 cap", "qualifying payments maximum"]
+      "concept_id": "qualifying_payment_carry_forward",
+      "display_name": "Qualifying payment carry-forward (Sec 52(4))",
+      "aliases": ["QP carry forward", "section 52(4) carry-forward", "unused qualifying payment"]
     },
     {
       "concept_id": "personal_relief",
@@ -46,9 +46,33 @@
       "aliases": ["employment income", "gains and profits from employment"]
     },
     {
+      "concept_id": "employment_final_withholding",
+      "display_name": "Employment final withholding / exempt amounts (Sec 5(3)(a))",
+      "aliases": [
+        "final withholding payments",
+        "exempt amounts from employment",
+        "section 5(3)(a) exclusion"
+      ]
+    },
+    {
       "concept_id": "business_income",
-      "display_name": "Business income",
-      "aliases": ["business income", "trade business profession"]
+      "display_name": "Business income (net assessable profits)",
+      "aliases": ["business income", "trade business profession", "business profits"]
+    },
+    {
+      "concept_id": "business_gross",
+      "display_name": "Business gross receipts (5.6b)",
+      "aliases": ["business gross", "gross business income", "business turnover"]
+    },
+    {
+      "concept_id": "business_deductions",
+      "display_name": "Allowable business expenses (Sec 11)",
+      "aliases": ["business deductions", "business expenses", "section 11 deduction"]
+    },
+    {
+      "concept_id": "capital_allowances",
+      "display_name": "Capital allowances (Sec 16)",
+      "aliases": ["capital allowance", "depreciation allowances", "section 16 CA"]
     },
     {
       "concept_id": "resident_individual",
@@ -61,14 +85,91 @@
       "aliases": ["investment income", "investment returns", "passive income"]
     },
     {
+      "concept_id": "investment_final_withholding",
+      "display_name": "Investment final withholding / exempt amounts (Sec 7(3)(a))",
+      "aliases": [
+        "final withholding investment",
+        "exempt investment interest",
+        "investment exempt interest",
+        "section 7(3)(a) exclusion"
+      ]
+    },
+    {
+      "concept_id": "other_income",
+      "display_name": "Other income",
+      "aliases": [
+        "other sources",
+        "income from other sources",
+        "section 8 other income",
+        "residual income"
+      ]
+    },
+    {
+      "concept_id": "other_final_withholding",
+      "display_name": "Other-source final withholding / exempt amounts (Sec 8(2)(a))",
+      "aliases": [
+        "final withholding other income",
+        "exempt other income",
+        "section 8(2)(a) exclusion"
+      ]
+    },
+    {
       "concept_id": "donation",
-      "display_name": "Charitable donation",
-      "aliases": ["donation", "donations", "charitable donations"]
+      "display_name": "Charitable donation (Fifth Sch 1(a) alias)",
+      "aliases": [
+        "donation",
+        "donations",
+        "charitable donations",
+        "qp_approved_charitable"
+      ]
     },
     {
       "concept_id": "donation_cap",
-      "display_name": "Charitable donation cap",
-      "aliases": ["donation limit", "charitable donations maximum", "donation percentage cap"]
+      "display_name": "Fifth Schedule 1(a) dual cap (alias)",
+      "aliases": [
+        "donation limit",
+        "1(a) cap",
+        "Rs 75000 or one-third"
+      ]
+    },
+    {
+      "concept_id": "solar_panel_relief",
+      "display_name": "Solar panel relief (Fifth Sch 2(g))",
+      "aliases": ["solar relief", "solar panels", "relief_solar_panel"]
+    },
+    {
+      "concept_id": "solar_panel_relief_cap",
+      "display_name": "Solar panel relief cap (Rs 600,000)",
+      "aliases": ["solar cap", "six hundred thousand"]
+    },
+    {
+      "concept_id": "rent_relief",
+      "display_name": "Rent relief (Fifth Sch 2(c))",
+      "aliases": ["rental relief", "relief_rent"]
+    },
+    {
+      "concept_id": "rent_relief_cap",
+      "display_name": "Rent relief cap (25% of included rents)",
+      "aliases": ["rent cap", "twenty five per centum of rental income"]
+    },
+    {
+      "concept_id": "tax_credit",
+      "display_name": "Tax credit (non-final WHT / APIT)",
+      "aliases": ["tax credits", "credit for withholding tax", "section 89 tax credit"]
+    },
+    {
+      "concept_id": "apit_already_paid",
+      "display_name": "APIT already paid",
+      "aliases": [
+        "APIT paid",
+        "advance personal income tax paid",
+        "withholding tax already paid"
+      ]
+    },
+    {
+      "concept_id": "tax_payable",
+      "display_name": "Tax payable after credits",
+      "aliases": ["net tax payable", "balance tax payable", "tax due after credits"]
     }
   ],
   "sections": [
@@ -100,7 +201,43 @@
       "section_uid": "ird-ira-2017-base::sec::section_6",
       "section_label": "Section 6",
       "source_doc_id": "ird-ira-2017-base",
-      "review_status": "manual_seed"
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_7",
+      "section_label": "Section 7",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_8",
+      "section_label": "Section 8",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_11",
+      "section_label": "Section 11",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_16",
+      "section_label": "Section 16",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::section_89",
+      "section_label": "Section 89",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
+    },
+    {
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "section_label": "Fifth Schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified"
     }
   ]
 }

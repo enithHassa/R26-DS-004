@@ -1,0 +1,392 @@
+{
+  "summary": {
+    "label": "before",
+    "k": 3,
+    "min_score": 0.55,
+    "n_queries": 25,
+    "macro_precision_at_k": 0.1333,
+    "macro_recall_at_k": 0.36,
+    "macro_precision_pct": 13.33,
+    "macro_recall_pct": 36.0,
+    "blocked_leak_queries": 0,
+    "note": "RAG_MIN_SCORE is a retrieval noise floor only \u2014 not legal confidence. Choose production floor from sweep 0.45/0.50/0.55/0.60.",
+    "per_query": [
+      {
+        "query_id": "q01_sec5_employment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-ira-2017-base::p0002::c0000"
+        ],
+        "hit_scores": [
+          0.556826114654541
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q02_sec5_benefits",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [],
+        "hit_scores": [],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q03_sec52_qp",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-amend-2026-11::p0007::c0000",
+          "ird-consolidated-2025::p0093::c0001",
+          "ird-ira-2017-base::p0014::c0000"
+        ],
+        "hit_scores": [
+          0.664591908454895,
+          0.655010461807251,
+          0.6507951021194458
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q04_sec52_reliefs_resident",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-ira-2017-base::p0012::c0000",
+          "ird-amend-2021-10::p0020::c0001",
+          "ird-consolidated-2025::p0010::c0000"
+        ],
+        "hit_scores": [
+          0.6035378575325012,
+          0.553220272064209,
+          0.5526590943336487
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q05_sec52_4_carry_forward",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-amend-2026-11::p0006::c0001",
+          "ird-consolidated-2025::p0244::c0001",
+          "ird-amend-2026-11::p0007::c0000"
+        ],
+        "hit_scores": [
+          0.6701003313064575,
+          0.6752222180366516,
+          0.6642943620681763
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q06_sec52_cap_2025",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [],
+        "hit_scores": [],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q07_personal_relief",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [],
+        "hit_scores": [],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q08_first_schedule_rates",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0198::c0000",
+          "ird-amend-2022-45::p0018::c0001"
+        ],
+        "hit_scores": [
+          0.5648783445358276,
+          0.5746845602989197
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q09_first_schedule_2022_bands",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0198::c0000",
+          "ird-ira-2017-base::p0212::c0000",
+          "ird-ira-2017-base::p0014::c0000"
+        ],
+        "hit_scores": [
+          0.6304543018341064,
+          0.5581335425376892,
+          0.5520604848861694
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q10_sec89_apit_credit",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0093::c0001",
+          "ird-amend-2021-10::p0018::c0001",
+          "ird-amend-2026-11::p0015::c0000"
+        ],
+        "hit_scores": [
+          0.6711971759796143,
+          0.6710187196731567,
+          0.6556047201156616
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q11_sec89_2_credit_amount",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0098::c0000",
+          "ird-amend-2026-11::p0020::c0001",
+          "ird-ira-2017-base::p0103::c0000"
+        ],
+        "hit_scores": [
+          0.6993237733840942,
+          0.6990654468536377,
+          0.6889936923980713
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q12_sec6_business",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0015::c0001",
+          "ird-consolidated-2025::p0015::c0000",
+          "ird-ira-2017-base::p0002::c0000"
+        ],
+        "hit_scores": [
+          0.5751044750213623,
+          0.5718812942504883,
+          0.5704072713851929
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q13_sec6_2_calculating",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0015::c0000",
+          "ird-ira-2017-base::p0018::c0000",
+          "ird-consolidated-2025::p0015::c0001"
+        ],
+        "hit_scores": [
+          0.6527107954025269,
+          0.6448546648025513,
+          0.6127527952194214
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q14_sec7_investment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0015::c0001",
+          "ird-ira-2017-base::p0019::c0000",
+          "ird-ira-2017-base::p0018::c0000"
+        ],
+        "hit_scores": [
+          0.6529390215873718,
+          0.6128354072570801,
+          0.6086481213569641
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q15_sec7_2",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0015::c0001",
+          "ird-ira-2017-base::p0018::c0000",
+          "ird-consolidated-2025::p0015::c0000"
+        ],
+        "hit_scores": [
+          0.6467968225479126,
+          0.6097825169563293,
+          0.5915321111679077
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q16_sec8_other_income",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0016::c0000",
+          "ird-consolidated-2025::p0015::c0001",
+          "ird-ira-2017-base::p0019::c0000"
+        ],
+        "hit_scores": [
+          0.5793313384056091,
+          0.5649614930152893,
+          0.5623405575752258
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q17_sec8_exclusions",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-amend-2022-45::p0014::c0000",
+          "ird-consolidated-2025::p0016::c0000",
+          "ird-ira-2017-base::p0019::c0000"
+        ],
+        "hit_scores": [
+          0.6343777179718018,
+          0.7342851758003235,
+          0.714448094367981
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q18_digit_aware_sec5_vs_52",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [],
+        "hit_scores": [],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q19_sec52_vs_5_negative",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-amend-2022-45::p0026::c0000"
+        ],
+        "hit_scores": [
+          0.5522375106811523
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q20_ya_2024_base_act",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-amend-2026-11::p0006::c0001",
+          "ird-consolidated-2025::p0244::c0001",
+          "ird-amend-2021-10::p0061::c0000"
+        ],
+        "hit_scores": [
+          0.6733187437057495,
+          0.6771818995475769,
+          0.646342396736145
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q21_ya_2025_amendment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-amend-2026-11::p0006::c0001",
+          "ird-consolidated-2025::p0244::c0001",
+          "ird-amend-2026-11::p0015::c0001"
+        ],
+        "hit_scores": [
+          0.6273188591003418,
+          0.6341111660003662,
+          0.5936784744262695
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q22_toc_should_not_win",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-consolidated-2025::p0010::c0000",
+          "ird-consolidated-2025::p0006::c0000",
+          "ird-ira-2017-base::p0012::c0000"
+        ],
+        "hit_scores": [
+          0.589652955532074,
+          0.573279619216919,
+          0.5612694025039673
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q23_sec3_taxable_income_qp",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "hit_ids": [
+          "ird-ira-2017-base::p0014::c0000",
+          "ird-amend-2026-11::p0007::c0000",
+          "ird-consolidated-2025::p0098::c0000"
+        ],
+        "hit_scores": [
+          0.6737901568412781,
+          0.6670513153076172,
+          0.6668075323104858
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q24_blocked_guide_never",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [
+          "ird-ira-2017-base::p0234::c0000",
+          "ird-ira-2017-base::p0042::c0000",
+          "ird-amend-2026-11::p0016::c0000"
+        ],
+        "hit_scores": [
+          0.6731528639793396,
+          0.6693797707557678,
+          0.6661673188209534
+        ],
+        "blocked_leak": false
+      },
+      {
+        "query_id": "q25_donation_sec52_link",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "hit_ids": [],
+        "hit_scores": [],
+        "blocked_leak": false
+      }
+    ]
+  },
+  "sweeps": []
+}

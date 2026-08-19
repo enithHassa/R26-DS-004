@@ -8,6 +8,7 @@ Shared by ``scripts/adaptive_tax_build_chroma.py``, approve re-index, and
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +16,14 @@ from typing import Any, Iterable, Sequence
 
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_COLLECTION = "ird_legal_evidence_v1"
+
+# Phase 6.0 — never index Guide / Master into the tax evidence Chroma collection.
+CHROMA_BLOCKED_SOURCE_DOC_IDS = frozenset(
+    {
+        "ird-calc-ontology-v5",
+        "ird-guide-ira",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -39,20 +48,119 @@ def _stringify_section_ref(value: Any) -> str:
     return str(value)
 
 
-def chunk_metadata_for_chroma(row: dict[str, Any]) -> dict[str, Any]:
-    """Build Chroma-safe metadata from a corpus JSONL row."""
-    page = row.get("page")
+def _section_num_from_ref(section_ref: Any) -> str:
+    """Primary section number / schedule key for retrieval filters (scalar)."""
+    text = _stringify_section_ref(section_ref)
+    if not text:
+        return ""
+    # Prefer first "Section N" token when multi-ref joined with " | "
+    primary = text.split("|")[0].strip()
+    if re.fullmatch(r"(?i)first\s+schedule", primary) or re.search(
+        r"(?i)\bfirst\s+schedule\b", primary
+    ):
+        return "first_schedule"
+    m = re.search(r"(?i)\bsection\s+(\d+[a-z]?)\b", primary)
+    if m:
+        return m.group(1)
+    m2 = re.fullmatch(r"(\d+[a-z]?)", primary)
+    if m2:
+        return m2.group(1)
+    return ""
+
+
+def _as_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return bool(value)
+    s = str(value).strip().lower()
+    if s in {"1", "true", "yes", "y"}:
+        return True
+    if s in {"0", "false", "no", "n", ""}:
+        return False
+    return default
+
+
+def _as_int(value: Any, default: int = 0) -> int:
     try:
-        page_val: int | str = int(page) if page is not None and page != "" else ""
+        if value is None or value == "":
+            return default
+        return int(value)
     except (TypeError, ValueError):
-        page_val = str(page) if page is not None else ""
+        return default
+
+
+def _applicable_yas_scalar(row: dict[str, Any]) -> str:
+    """Chroma-safe comma-joined YA list (never invent)."""
+    yas = row.get("applicable_yas")
+    if yas is None:
+        yas = row.get("applicable_assessment_years")
+    parts: list[str] = []
+    if isinstance(yas, list):
+        for x in yas:
+            s = str(x).strip()
+            if not s:
+                continue
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    parsed = json.loads(s.replace("'", '"'))
+                    if isinstance(parsed, list):
+                        parts.extend(str(p).strip() for p in parsed if str(p).strip())
+                        continue
+                except json.JSONDecodeError:
+                    pass
+            parts.append(s)
+    elif isinstance(yas, str) and yas.strip():
+        s = yas.strip()
+        if s.startswith("["):
+            try:
+                parsed = json.loads(s.replace("'", '"'))
+                if isinstance(parsed, list):
+                    parts = [str(p).strip() for p in parsed if str(p).strip()]
+                else:
+                    parts = [s]
+            except json.JSONDecodeError:
+                parts = [p.strip() for p in re.split(r"[|,]", s) if p.strip()]
+        else:
+            parts = [p.strip() for p in re.split(r"[|,]", s) if p.strip()]
+    return ",".join(dict.fromkeys(parts))
+
+
+def chunk_metadata_for_chroma(row: dict[str, Any]) -> dict[str, Any]:
+    """Build Chroma-safe scalar metadata from a corpus JSONL row.
+
+    Chroma metadata values must be str | int | float | bool (no lists/dicts).
+    Guide/Master rows are filtered by ``iter_corpus_rows`` before indexing.
+    """
+    page = _as_int(row.get("page"), default=0)
+    section_ref = _stringify_section_ref(row.get("section_ref"))
+    paragraph = row.get("paragraph_ref")
+    paragraph_ref = "" if paragraph is None else str(paragraph).strip()
 
     chunk_id = str(row.get("chunk_id") or "")
+    parent = row.get("parent_provision_id")
     return {
         "chunk_id": chunk_id,
         "source_doc_id": str(row.get("source_doc_id") or ""),
-        "section_ref": _stringify_section_ref(row.get("section_ref")),
-        "page": page_val if page_val != "" else 0,
+        "section_ref": section_ref,
+        "section_num": _section_num_from_ref(row.get("section_ref"))
+        or _section_num_from_ref(row.get("schedule_ref")),
+        "paragraph_ref": paragraph_ref,
+        "parent_provision_id": "" if parent is None else str(parent),
+        "chunk_part": _as_int(row.get("chunk_part"), default=1),
+        "chunk_parts": _as_int(row.get("chunk_parts"), default=1),
+        "is_operative_provision": _as_bool(row.get("is_operative_provision")),
+        "is_toc": _as_bool(row.get("is_toc")),
+        "is_header_footer": _as_bool(row.get("is_header_footer")),
+        "is_cross_reference": _as_bool(row.get("is_cross_reference")),
+        "instrument_type": str(row.get("instrument_type") or ""),
+        "page": page,
+        "effective_start_date": str(row.get("effective_start_date") or ""),
+        "applicable_yas": _applicable_yas_scalar(row),
+        "metadata_source": str(row.get("metadata_source") or "deterministic"),
+        "needs_review": _as_bool(row.get("needs_review")),
     }
 
 
@@ -65,6 +173,9 @@ def iter_corpus_rows(path: Path, *, limit: int | None = None) -> Iterable[dict[s
                 continue
             row = json.loads(line)
             if not isinstance(row, dict):
+                continue
+            source_doc_id = str(row.get("source_doc_id") or "").strip()
+            if source_doc_id in CHROMA_BLOCKED_SOURCE_DOC_IDS:
                 continue
             text = row.get("text")
             if not isinstance(text, str) or not text.strip():

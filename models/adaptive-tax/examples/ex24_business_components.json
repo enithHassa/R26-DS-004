@@ -1,0 +1,104 @@
+{
+
+  "id": "ex24",
+
+  "scenario": "Business catalog components (Phase 6.4) — gross + Sec 11 deductions",
+
+  "key_assertion": "biz_gross + biz_deductions filing_lines normalize to scalars then compute_business_net; tax matches ex13.",
+
+  "inputs": {
+
+    "assessment_year": "2024_25",
+
+    "resident_status": "resident",
+
+    "employment_income": "0",
+
+    "business_income": "0",
+
+    "business_gross": "0",
+
+    "business_deductions": "0",
+
+    "capital_allowances": "0",
+
+    "investment_income": "0",
+
+    "qualifying_payments": "0",
+
+    "donations": "0",
+
+    "other_reliefs": {},
+
+    "param_set": "current",
+
+    "filing_lines": [
+
+      {"component_id": "biz_gross", "amount": "2000000"},
+
+      {"component_id": "biz_deductions", "amount": "200000"}
+
+    ]
+
+  },
+
+  "expected_final_tax_lkr": "42000",
+
+  "expected_rules_applied": [
+
+    "aggregate_business_components",
+
+    "compute_business_net",
+
+    "sum_assessable",
+
+    "apply_personal_relief",
+
+    "slab_band_1",
+
+    "slab_band_2",
+
+    "final_tax"
+
+  ],
+
+  "expected_rule_source_ids": [
+
+    "bootstrap:aggregate_business_components",
+
+    "bootstrap:compute_business_net",
+
+    "bootstrap:business_deductions",
+
+    "bootstrap:business_income",
+
+    "ird-ira-2017-base",
+
+    "personal_relief",
+
+    "fs_2024_25_band_1",
+
+    "fs_2024_25_band_2",
+
+    "bootstrap:first_schedule_rates",
+
+    "bootstrap:sum_assessable",
+
+    "bootstrap:first_schedule_rates_2024_25",
+
+    "bootstrap:personal_relief_2024_25",
+
+    "bootstrap:personal_relief"
+
+  ],
+
+  "expected_assessable_concepts": [
+
+    "business_income"
+
+  ],
+
+  "notes": "Phase 6.4 catalog path: Gross 2M − Sec 11 expenses 0.2M = net 1.8M → tax 42000."
+
+}
+

@@ -1,0 +1,46 @@
+{
+  "id": "ex14",
+  "scenario": "Business gross minus Sec 16 capital allowances (5.6b)",
+  "key_assertion": "Gross 1.9M − capital allowances 100k = net 1.8M → same tax as ex02 when deduct_capital_allowances provenance resolves.",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "0",
+    "business_income": "0",
+    "business_gross": "1900000",
+    "business_deductions": "0",
+    "capital_allowances": "100000",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "42000",
+  "expected_rules_applied": [
+    "compute_business_net",
+    "sum_assessable",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:compute_business_net",
+    "bootstrap:capital_allowances",
+    "bootstrap:business_income",
+    "ird-ira-2017-base",
+    "personal_relief",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief"
+  ],
+  "expected_assessable_concepts": [
+    "business_income"
+  ],
+  "notes": "Gross 1.9M − Sec 16 CA 0.1M = net 1.8M → tax 42000 (matches ex02)."
+}

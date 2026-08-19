@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.5",
+  "coverage_area": "donations",
+  "source_doc_ids": ["ird-ira-2017-base"],
+  "section_key": "52",
+  "status": "approved_bootstrap",
+  "notes": "Fifth Sch 1(a) alias. Live deduct is qp_approved_charitable (min(claimed, 75000, floor(assessable/3))). donation/donation_cap nodes are aliases, not a 33% live deduct.",
+  "rules": [
+    {
+      "section": "52",
+      "paragraph": "Fifth Sch 1(a)",
+      "rule_type": "limit",
+      "concept_id": "donation_cap",
+      "engine_handler": "evaluate_qualifying_payment_categories",
+      "executable": false,
+      "assessment_years": ["2024_25", "2025_26"],
+      "formula": "min(claimed, 75000, floor(assessable/3))",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "relationship_hints": [
+        {
+          "from_concept": "donation",
+          "rel_type": "LIMITED_BY",
+          "to_concept": "donation_cap"
+        }
+      ]
+    },
+    {
+      "section": "52",
+      "paragraph": "Fifth Sch 1(a)",
+      "rule_type": "deduction",
+      "concept_id": "donation",
+      "engine_handler": "evaluate_qualifying_payment_categories",
+      "executable": false,
+      "assessment_years": ["2024_25", "2025_26"],
+      "formula": "min(claimed, 75000, floor(assessable/3)); live path qp_approved_charitable (no DEDUCTED_FROM)",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;"
+    }
+  ]
+}

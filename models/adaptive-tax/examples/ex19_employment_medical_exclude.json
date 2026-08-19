@@ -1,0 +1,46 @@
+{
+  "id": "ex19",
+  "scenario": "Employment components with medical exempt (Sec 5(3)(c))",
+  "key_assertion": "Phase 6.1: salary 1.8M included; medical 50k exempt omitted from assessable; tax matches ex01.",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "0",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current",
+    "filing_lines": [
+      {"component_id": "emp_salary", "amount": "1800000"},
+      {"component_id": "emp_medical_benefits", "amount": "50000"}
+    ]
+  },
+  "expected_final_tax_lkr": "42000",
+  "expected_rules_applied": [
+    "aggregate_employment_components",
+    "exclude_employment_exempt_lines",
+    "sum_assessable",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "ird-ira-2017-base",
+    "personal_relief",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "bootstrap:aggregate_employment_components",
+    "bootstrap:exclude_employment_exempt_lines",
+    "bootstrap:emp_salary",
+    "bootstrap:emp_medical_benefits",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief"
+  ]
+}

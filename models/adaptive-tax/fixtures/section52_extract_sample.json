@@ -1,30 +1,17 @@
 {
   "rules": [
     {
-      "section": "52",
-      "paragraph": null,
+      "section": "Fifth Schedule",
+      "paragraph": "2(a)",
       "rule_type": "limit",
-      "concept_id": "qualifying_payment_cap",
-      "condition": "Aggregate qualifying payments under Section 52",
+      "concept_id": "personal_relief",
+      "condition": "Resident individual personal relief (Act 02/2025)",
       "formula": null,
       "threshold": null,
       "maximum": 1800000.0,
       "effective_date": "2025-04-01",
-      "amends_section": "52",
-      "source_quote": "Section 52 of the principal enactment is hereby amended by the substitution for the words \"one million two hundred thousand\" of the words \"one million eight hundred thousand\" wherever those words appear in that section relating to qualifying payments."
-    },
-    {
-      "section": "52",
-      "paragraph": null,
-      "rule_type": "deduction",
-      "concept_id": "qualifying_payment",
-      "condition": "Taxpayer claims qualifying payments as provided in Section 52",
-      "formula": "min(sum(qualifying_payments), maximum)",
-      "threshold": null,
-      "maximum": 1800000.0,
-      "effective_date": "2025-04-01",
-      "amends_section": "52",
-      "source_quote": "Section 52 of the principal enactment is hereby amended by the substitution for the words \"one million two hundred thousand\" of the words \"one million eight hundred thousand\" wherever those words appear in that section relating to qualifying payments."
+      "amends_section": "Fifth Schedule",
+      "source_quote": "In paragraph 2 of the Fifth Schedule to the principal enactment, in sub-paragraph (a), after item (iv), the following item shall be inserted: \"(v) one million eight hundred thousand rupees.\""
     }
   ]
 }

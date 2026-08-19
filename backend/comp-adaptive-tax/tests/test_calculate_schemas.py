@@ -47,6 +47,27 @@ def test_request_json_dump_uses_string_money() -> None:
     assert isinstance(payload["business_income"], str)
 
 
+def test_request_accepts_filing_lines() -> None:
+    req = CalculateTaxRequestV1.model_validate(
+        {
+            "employment_income": "0",
+            "filing_lines": [
+                {"component_id": "emp_salary", "amount": "1000000"},
+                {
+                    "component_id": "emp_medical_benefits",
+                    "amount": "10000",
+                    "treatment": "exempt",
+                },
+            ],
+        }
+    )
+    assert len(req.filing_lines) == 2
+    assert req.filing_lines[0].amount == Decimal("1000000")
+    assert req.filing_lines[1].treatment == "exempt"
+    payload = req.model_dump(mode="json")
+    assert payload["filing_lines"][0]["amount"] == "1000000"
+
+
 def test_request_rejects_negative_money() -> None:
     with pytest.raises(ValidationError):
         CalculateTaxRequestV1.model_validate({"employment_income": "-1"})
@@ -75,6 +96,7 @@ def test_response_trace_fields_are_strings() -> None:
     )
     dumped = resp.model_dump(mode="json")
     assert dumped["final_tax_lkr"] == "48000"
+    assert dumped["unresolved_claims"] == []
     assert dumped["calc_id"] == "11111111-2222-4333-8444-555555555555"
     step = dumped["calculation_trace"][0]
     assert step["inputs"]["employment_income"] == "1800000"
