@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.config import component_settings
 from app.models.profile import FinancialProfile as FinancialProfileORM
+from app.models.recommendation import Recommendation as RecommendationORM
+from app.models.recommendation import RecommendationItem as RecommendationItemORM
+from app.models.strategy import TaxStrategy as TaxStrategyORM
 from app.schemas.recommendation import (
     RecommendationExplanation,
     RecommendationItem,
@@ -568,6 +571,86 @@ def _generate_phase4(
     )
 
 
+def _get_or_create_tax_strategy(db: Session, strategy: Strategy) -> TaxStrategyORM:
+    """Resolve a catalog strategy to a persisted `tax_strategies` row.
+
+    The catalog (`strategy_catalog.yaml`) has no seed script, so this table
+    starts empty — rows are created lazily the first time a strategy is
+    actually recommended, keyed on the stable `code` field.
+    """
+    existing = (
+        db.query(TaxStrategyORM).filter(TaxStrategyORM.code == strategy.code).one_or_none()
+    )
+    if existing is not None:
+        return existing
+
+    row = TaxStrategyORM(
+        code=strategy.code,
+        name=strategy.name,
+        category=strategy.category.value,
+        description=strategy.description,
+        legal_reference=strategy.legal_reference,
+        min_income=strategy.min_income,
+        max_income=strategy.max_income,
+        min_age=strategy.min_age,
+        max_age=strategy.max_age,
+        min_liquidity=strategy.min_liquidity,
+        risk_profile=str(strategy.risk_profile),
+        effort_score=strategy.effort_score,
+        is_active=strategy.is_active,
+    )
+    db.add(row)
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def _persist_recommendation(
+    db: Session,
+    *,
+    profile_id,
+    model_version: str,
+    items: list[RecommendationItem],
+) -> RecommendationORM:
+    """Write the generated batch to `recommendations`/`recommendation_items`.
+
+    Each item's `id` (and its embedded strategy's `id`) is rewritten in place
+    to the real, persisted row id — the caller previously minted throwaway
+    `uuid4()`s that were never stored, so a client had nothing stable to
+    reference when submitting adoption feedback for a specific item.
+    """
+    rec_row = RecommendationORM(profile_id=profile_id, model_version=model_version)
+    db.add(rec_row)
+    db.flush()
+    db.refresh(rec_row)
+
+    for item in items:
+        strategy_row = _get_or_create_tax_strategy(db, item.strategy)
+        item_row = RecommendationItemORM(
+            recommendation_id=rec_row.id,
+            strategy_id=strategy_row.id,
+            rank=item.rank,
+            estimated_annual_savings=item.estimated_annual_savings,
+            adoption_probability=item.adoption_probability,
+            risk_score=item.risk_score,
+            confidence=item.confidence,
+            scores_json=item.scores.model_dump(),
+            explanation_json=item.explanation.model_dump() if item.explanation else None,
+        )
+        db.add(item_row)
+        db.flush()
+        db.refresh(item_row)
+
+        item.id = item_row.id
+        item.strategy.id = strategy_row.id
+        item.strategy.created_at = strategy_row.created_at
+        item.strategy.updated_at = strategy_row.updated_at
+
+    db.commit()
+    db.refresh(rec_row)
+    return rec_row
+
+
 def generate_recommendations(
     db: Session,
     *,
@@ -577,5 +660,16 @@ def generate_recommendations(
     profile = get_profile(db, profile_id)
     artifacts = load_inference_artifacts()
     if artifacts.mode == "phase4":
-        return _generate_phase4(profile, top_k=top_k, artifacts=artifacts)
-    return _generate_legacy(profile, top_k=top_k, artifacts=artifacts)
+        response = _generate_phase4(profile, top_k=top_k, artifacts=artifacts)
+    else:
+        response = _generate_legacy(profile, top_k=top_k, artifacts=artifacts)
+
+    rec_row = _persist_recommendation(
+        db,
+        profile_id=profile.id,
+        model_version=response.model_version,
+        items=response.items,
+    )
+    response.id = rec_row.id
+    response.generated_at = rec_row.created_at
+    return response

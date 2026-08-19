@@ -9,12 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.deps import DBSession
 from app.schemas import (
+    BehaviouralAnswer,
+    BehaviouralAnswerBatchCreate,
     DerivedFeatures,
+    EligibilityOverrideUpdate,
     FinancialProfile,
     FinancialProfileCreate,
     FinancialProfileUpdate,
+    ProfileHistorySnapshot,
 )
-from app.services import profile_service
+from app.services import behavioural_answer_service, history_service, profile_service
 from backend.shared.schemas.common import PaginatedResponse
 
 router = APIRouter()
@@ -90,4 +94,62 @@ def delete_profile(profile_id: UUID, db: Session = DBSession) -> None:
 def get_profile_features(profile_id: UUID, db: Session = DBSession) -> DerivedFeatures:
     """Derived features (disposable income, savings rate, eligibility flags, baseline tax)."""
     orm = _profile_or_404(db, profile_id)
+    return profile_service.compute_derived_features(orm)
+
+
+@router.get("/{profile_id}/history", response_model=list[ProfileHistorySnapshot])
+def get_profile_history(
+    profile_id: UUID,
+    months: int = Query(24, ge=1, le=60),
+    db: Session = DBSession,
+) -> list[ProfileHistorySnapshot]:
+    """Synthetic monthly financial history (income, expenses, balances) used
+    to evidence whether a profile's trajectory supports adopting a
+    recommended strategy. Generated deterministically on first request."""
+    orm = _profile_or_404(db, profile_id)
+    rows = history_service.get_or_create_history(db, orm, months=months)
+    return [ProfileHistorySnapshot.model_validate(r) for r in rows]
+
+
+@router.post("/{profile_id}/behavioural-answers", response_model=list[BehaviouralAnswer])
+def submit_behavioural_answers(
+    profile_id: UUID,
+    payload: BehaviouralAnswerBatchCreate,
+    db: Session = DBSession,
+) -> list[BehaviouralAnswer]:
+    """Record (or update) a taxpayer's answers to behavioural questions.
+
+    Answers to a known question key (see `PROFILE_MAPPED_QUESTIONS`) are also
+    written onto the profile itself, so the next recommendation call reflects
+    them immediately.
+    """
+    try:
+        rows = behavioural_answer_service.upsert_answers(db, profile_id, payload.answers)
+    except behavioural_answer_service.ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return [BehaviouralAnswer.model_validate(r) for r in rows]
+
+
+@router.get("/{profile_id}/behavioural-answers", response_model=list[BehaviouralAnswer])
+def get_behavioural_answers(profile_id: UUID, db: Session = DBSession) -> list[BehaviouralAnswer]:
+    try:
+        rows = behavioural_answer_service.list_answers(db, profile_id)
+    except behavioural_answer_service.ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return [BehaviouralAnswer.model_validate(r) for r in rows]
+
+
+@router.patch("/{profile_id}/eligibility-overrides", response_model=DerivedFeatures)
+def set_eligibility_override(
+    profile_id: UUID,
+    payload: EligibilityOverrideUpdate,
+    db: Session = DBSession,
+) -> DerivedFeatures:
+    """Manually pin (or, with ``value: null``, clear) a single eligibility flag."""
+    try:
+        orm = profile_service.set_eligibility_override(
+            db, profile_id, flag=payload.flag, value=payload.value
+        )
+    except profile_service.ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return profile_service.compute_derived_features(orm)

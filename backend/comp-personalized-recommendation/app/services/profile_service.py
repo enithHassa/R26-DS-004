@@ -11,6 +11,7 @@ features computed at request time agree with the synthetic training set.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -81,6 +82,22 @@ def _load_rules(rules_path: Path) -> Any:
 # ---------------------------------------------------------------------------
 
 
+_TAXPAYER_RE = re.compile(r"Taxpayer_0*(\d+)")
+
+
+def _derive_login_password(full_name: str) -> str:
+    """Login password for the User View portal (username = full_name).
+
+    Mirrors the dataset convention used for seeded synthetic profiles
+    (Taxpayer_NNNNN -> "N@Tax") so newly created profiles can log in the
+    same way as pre-seeded ones.
+    """
+    match = _TAXPAYER_RE.fullmatch(full_name)
+    if match:
+        return f"{int(match.group(1))}@Tax"
+    return f"{uuid4().hex[:8]}@Tax"
+
+
 def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
     """Find/create the owning user. Phase 2 doesn't have auth wired yet so we
     materialise a placeholder user when ``user_id`` is omitted."""
@@ -91,7 +108,11 @@ def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
         return user
 
     placeholder_email = f"profile-{uuid4().hex[:12]}@synthetic.local"
-    user = UserORM(email=placeholder_email, full_name=full_name)
+    user = UserORM(
+        email=placeholder_email,
+        full_name=full_name,
+        password=_derive_login_password(full_name),
+    )
     db.add(user)
     db.flush()
     return user
@@ -177,6 +198,26 @@ def delete_profile(db: Session, profile_id: UUID) -> None:
     db.commit()
 
 
+def set_eligibility_override(
+    db: Session,
+    profile_id: UUID,
+    *,
+    flag: str,
+    value: bool | None,
+) -> FinancialProfileORM:
+    """Pin (``value`` is a bool) or clear (``value`` is ``None``) a manual override."""
+    profile = get_profile(db, profile_id)
+    overrides = dict(profile.eligibility_overrides or {})
+    if value is None:
+        overrides.pop(flag, None)
+    else:
+        overrides[flag] = value
+    profile.eligibility_overrides = overrides
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
 def list_profiles(
     db: Session,
     *,
@@ -200,6 +241,40 @@ def list_profiles(
     items = list(db.execute(stmt).scalars().all())
     total = int(db.execute(count_stmt).scalar_one())
     return _ProfilePage(items=items, total=total)
+
+
+# ---------------------------------------------------------------------------
+# User View login (customer-facing dashboard)
+# ---------------------------------------------------------------------------
+
+
+class InvalidCredentialsError(LookupError):
+    """Raised when a username/password pair doesn't match a user record."""
+
+
+def authenticate_user(db: Session, username: str, password: str) -> tuple[UserORM, FinancialProfileORM]:
+    """Verify credentials and return the user's most recent profile.
+
+    Username is the profile owner's ``full_name``; see
+    ``migrations/versions/0004_add_user_password.py`` for how passwords are
+    derived for pre-seeded profiles.
+    """
+    user = db.execute(
+        select(UserORM).where(UserORM.full_name == username)
+    ).scalar_one_or_none()
+    if user is None or user.password != password:
+        raise InvalidCredentialsError("Invalid username or password")
+
+    profile = db.execute(
+        select(FinancialProfileORM)
+        .where(FinancialProfileORM.user_id == user.id)
+        .order_by(FinancialProfileORM.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if profile is None:
+        raise InvalidCredentialsError("No profile exists for this user")
+
+    return user, profile
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +303,9 @@ def _eligibility_flags(
     profile: FinancialProfileORM,
     annual_income: Decimal,
     disposable_monthly: Decimal,
+    debt_to_income: float,
 ) -> dict[str, bool]:
-    return {
+    computed = {
         "above_tax_threshold": annual_income > Decimal("1200000"),
         "has_disposable_income": disposable_monthly > Decimal("0"),
         "has_employer_provident": profile.epf_balance > 0 or profile.occupation == "employee",
@@ -238,7 +314,15 @@ def _eligibility_flags(
         "is_retirement_eligible": age >= 50,
         "has_dependents": profile.dependents > 0,
         "has_liquidity_buffer": profile.liquid_savings >= profile.monthly_expenses * 3,
+        "has_life_insurance": profile.life_insurance_premium_annual > 0,
+        "has_donations": profile.donations_annual > 0,
+        "has_etf_investment": profile.etf_balance > 0,
+        "has_existing_investments": profile.existing_investments > 0,
+        "has_long_investment_horizon": profile.investment_horizon_years >= 10,
+        "high_debt_to_income": debt_to_income > 0.4,
     }
+    overrides = profile.eligibility_overrides or {}
+    return {**computed, **{k: v for k, v in overrides.items() if k in computed}}
 
 
 def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
@@ -291,16 +375,21 @@ def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
             profile=profile,
             annual_income=annual_income,
             disposable_monthly=monthly_disposable,
+            debt_to_income=debt_to_income,
         ),
+        eligibility_overrides=dict(profile.eligibility_overrides or {}),
     )
 
 
 __all__ = [
+    "InvalidCredentialsError",
     "ProfileNotFoundError",
+    "authenticate_user",
     "compute_derived_features",
     "create_profile",
     "delete_profile",
     "get_profile",
     "list_profiles",
+    "set_eligibility_override",
     "update_profile",
 ]
