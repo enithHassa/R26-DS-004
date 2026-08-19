@@ -121,6 +121,9 @@ data/synthetic/*
 data/external/
 data/interim/
 
+# Adaptive tax local dev job store (regenerated at runtime)
+data/dev/amendment-jobs/
+
 # Phase 2 tax optimization data & models
 backend/comp-tax-optimization/phase2_data/
 backend/comp-tax-optimization/phase2_data_excel/
