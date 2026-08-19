@@ -1,0 +1,45 @@
+{
+  "id": "ex30",
+  "scenario": "Fifth Sch 2(c) cap on included inv_rents; FWH excluded from assessable only",
+  "key_assertion": "Only investment inputs. inv_rents 1,000,000 + FWH 200,000 → investment assessable 800,000; rent allowed = min(300000, floor(0.25 × 1000000)) = 250000, not 25% of post-FWH 800000 (200000).",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "0",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current",
+    "filing_lines": [
+      {"component_id": "inv_rents", "amount": "1000000"},
+      {"component_id": "inv_final_withholding", "amount": "200000"},
+      {"component_id": "relief_rent", "amount": "300000"}
+    ]
+  },
+  "expected_final_tax_lkr": "0",
+  "expected_taxable_after_relief": "0",
+  "expected_investment_assessable": "800000",
+  "expected_rent_cap_inv_rents": "1000000",
+  "expected_rent_cap_ceiling": "250000",
+  "expected_rent_allowed_not": "200000",
+  "expected_rules_applied": [
+    "aggregate_investment_components",
+    "exclude_investment_final_withholding",
+    "sum_assessable",
+    "cap_rent_relief",
+    "deduct_rent_relief",
+    "apply_personal_relief",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:rent_relief",
+    "bootstrap:inv_rents",
+    "bootstrap:exclude_investment_final_wht",
+    "bootstrap:personal_relief_2024_25"
+  ],
+  "expected_deduction_allowed": {
+    "deduct_rent_relief": "250000"
+  }
+}

@@ -49,6 +49,9 @@ export function AdaptiveTaxHomePage() {
           <Link to="/adaptive-tax/calculator">Open calculator</Link>
         </Button>
         <Button type="button" variant="secondary" asChild>
+          <Link to="/adaptive-tax/coverage">Legal coverage dashboard</Link>
+        </Button>
+        <Button type="button" variant="secondary" asChild>
           <Link to="/adaptive-tax/admin/upload">Upload amendment PDF</Link>
         </Button>
       </div>

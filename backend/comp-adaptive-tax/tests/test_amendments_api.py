@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -35,6 +36,7 @@ def test_upload_rejects_empty_file(client: TestClient) -> None:
     assert "empty" in response.json()["detail"].lower()
 
 
+@pytest.mark.integration
 def test_get_missing_job_returns_404(client: TestClient) -> None:
     response = client.get("/api/v1/admin/amendments/00000000-0000-0000-0000-000000000099")
     assert response.status_code == 404

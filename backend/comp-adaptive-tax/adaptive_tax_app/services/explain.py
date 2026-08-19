@@ -50,13 +50,16 @@ def resolve_calculation(
     body: ExplainTaxRequestV1,
     *,
     settings: AdaptiveTaxSettings | None = None,
-) -> tuple[CalculateTaxResponseV1, str]:
-    """Return ``(calculation, calc_id)`` from store or inline payload."""
+) -> tuple[CalculateTaxResponseV1, str, str | None]:
+    """Return ``(calculation, calc_id, assessment_year)`` from store or inline payload."""
     cfg = settings or get_adaptive_tax_settings()
 
     if body.calculation is not None:
         calc_id = (body.calc_id or body.calculation.calc_id or "").strip()
-        return body.calculation, calc_id
+        ya = None
+        if body.request is not None:
+            ya = getattr(body.request, "assessment_year", None)
+        return body.calculation, calc_id, ya
 
     calc_id = (body.calc_id or "").strip()
     try:
@@ -65,7 +68,10 @@ def resolve_calculation(
         raise ExplainError(str(exc)) from exc
     if stored is None:
         raise ExplainError(f"calculation not found: {calc_id}")
-    return stored.response, stored.calc_id
+    ya = None
+    if stored.request is not None:
+        ya = getattr(stored.request, "assessment_year", None)
+    return stored.response, stored.calc_id, ya
 
 
 def explain_tax(
@@ -78,13 +84,14 @@ def explain_tax(
 ) -> ExplainTaxResponseV1:
     """Full explain pipeline with empty-evidence short-circuit (never guess)."""
     cfg = settings or get_adaptive_tax_settings()
-    calculation, calc_id = resolve_calculation(body, settings=cfg)
+    calculation, calc_id, assessment_year = resolve_calculation(body, settings=cfg)
 
     evidence = gather_evidence(
         calculation,
         db=db,
         chroma_index=chroma_index,
         include_graph_modifies=include_graph_modifies,
+        assessment_year=assessment_year,
     )
 
     if has_insufficient_evidence(evidence):

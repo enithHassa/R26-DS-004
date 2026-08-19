@@ -1,0 +1,51 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.1",
+  "coverage_area": "employment_income",
+  "source_doc_id": "ird-ira-2017-base",
+  "section_key": "5",
+  "status": "approved_bootstrap",
+  "notes": "Curated Sec 5 harvest seed from IR Act No. 24 of 2017 processed text. Bootstrap provenance uses the same quotes so strict mode works offline; admin may re-harvest via scripts/adaptive_tax_section_harvest.py --section 5.",
+  "rules": [
+    {
+      "section": "5",
+      "paragraph": null,
+      "rule_type": "definition",
+      "concept_id": "employment_income",
+      "engine_handler": "sum_assessable",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "5. Employment income. The following shall be included in calculating a person's income from an employment for a year of assessment",
+      "relationship_hints": [
+        {
+          "rel_type": "CONTRIBUTES_TO",
+          "from_concept_id": "employment_income",
+          "to_concept_id": "assessable_income"
+        },
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "employment_income",
+          "to_section_uid": "ird-ira-2017-base::sec::section_5"
+        }
+      ]
+    },
+    {
+      "section": "5",
+      "paragraph": "3(a)",
+      "rule_type": "exemption",
+      "concept_id": "employment_final_withholding",
+      "engine_handler": "exclude_if_final_wht",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "(3) In calculating an individual's gains and profits from an employment for a year of assessment the following shall be excluded:- (a) exempt amounts and final withholding payments;",
+      "relationship_hints": [
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "employment_final_withholding",
+          "to_section_uid": "ird-ira-2017-base::sec::section_5"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,911 @@
+{
+  "generated_at": "2026-08-12T07:02:22.714979+00:00",
+  "phase": "9",
+  "headline": "Section-aware retrieval improved legal evidence Precision@3 from 13.33% to 52.0% (Recall@3 from 36.0% to 72.0%).",
+  "before": {
+    "label": "before",
+    "corpus_path": "D:/R26-DS-004/R26-DS-004/data/processed/adaptive-tax/corpus_v1.pre_section_aware.jsonl",
+    "exists": true,
+    "total_chunks": 1260,
+    "chunks_with_section_ref": 231,
+    "chunks_without_section_ref": 1029,
+    "section_ref_coverage_pct": 18.33,
+    "metadata_source_counts": {
+      "unknown": 1260
+    },
+    "deterministic_metadata_count": 0,
+    "gpt_assisted_metadata_count": 0,
+    "needs_review_count": 0,
+    "operative_count": 0,
+    "toc_count": 0,
+    "header_footer_count": 0,
+    "with_paragraph_ref": 0,
+    "with_parent_provision_id": 0,
+    "with_applicable_yas": 0,
+    "chunks_by_source_document": {
+      "ird-ira-2017-base": 435,
+      "ird-amend-2023-04": 33,
+      "ird-amend-2022-45": 58,
+      "ird-amend-2025-02": 12,
+      "ird-amend-2026-11": 78,
+      "ird-amend-2023-14": 8,
+      "ird-amend-2021-10": 124,
+      "ird-consolidated-2025": 512
+    },
+    "chunks_by_section_num_top": {
+      "10": 5,
+      "150": 3,
+      "84": 3,
+      "49": 2,
+      "2": 2,
+      "9": 2,
+      "52": 2,
+      "104": 2,
+      "73": 2,
+      "100": 2,
+      "113": 2,
+      "123": 2,
+      "182": 2,
+      "5": 2,
+      "16": 2,
+      "19": 2,
+      "46": 2,
+      "69": 2,
+      "87": 2,
+      "120": 2,
+      "68": 2,
+      "85": 2,
+      "103": 2,
+      "195": 2,
+      "37": 1,
+      "139": 1,
+      "154": 1,
+      "12": 1,
+      "54": 1,
+      "88": 1,
+      "133": 1,
+      "134": 1,
+      "136": 1,
+      "176": 1,
+      "8": 1,
+      "59": 1,
+      "72": 1,
+      "86": 1,
+      "91": 1,
+      "92": 1
+    },
+    "required_sections": {
+      "2": {
+        "total": 2,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-ira-2017-base": 1,
+          "ird-consolidated-2025": 1
+        },
+        "tagging_pass": false
+      },
+      "5": {
+        "total": 2,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-amend-2022-45": 1,
+          "ird-amend-2021-10": 1
+        },
+        "tagging_pass": false
+      },
+      "6": {
+        "total": 0,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {},
+        "tagging_pass": false
+      },
+      "7": {
+        "total": 0,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {},
+        "tagging_pass": false
+      },
+      "8": {
+        "total": 1,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-amend-2026-11": 1
+        },
+        "tagging_pass": false
+      },
+      "11": {
+        "total": 0,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {},
+        "tagging_pass": false
+      },
+      "16": {
+        "total": 2,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-amend-2022-45": 1,
+          "ird-amend-2021-10": 1
+        },
+        "tagging_pass": false
+      },
+      "52": {
+        "total": 2,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-ira-2017-base": 1,
+          "ird-consolidated-2025": 1
+        },
+        "tagging_pass": false
+      },
+      "89": {
+        "total": 0,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {},
+        "tagging_pass": false
+      },
+      "first_schedule": {
+        "total": 0,
+        "operative": 0,
+        "toc": 0,
+        "with_ya": 0,
+        "ya_values": {},
+        "with_paragraph_ref": 0,
+        "source_docs": {},
+        "tagging_pass": false
+      }
+    }
+  },
+  "after": {
+    "label": "after",
+    "corpus_path": "D:/R26-DS-004/R26-DS-004/data/processed/adaptive-tax/corpus_v1.jsonl",
+    "exists": true,
+    "total_chunks": 3421,
+    "chunks_with_section_ref": 3404,
+    "chunks_without_section_ref": 17,
+    "section_ref_coverage_pct": 99.5,
+    "metadata_source_counts": {
+      "deterministic": 3421
+    },
+    "deterministic_metadata_count": 3421,
+    "gpt_assisted_metadata_count": 0,
+    "needs_review_count": 2,
+    "operative_count": 1833,
+    "toc_count": 11,
+    "header_footer_count": 349,
+    "with_paragraph_ref": 2005,
+    "with_parent_provision_id": 3404,
+    "with_applicable_yas": 2904,
+    "chunks_by_source_document": {
+      "ird-ira-2017-base": 1318,
+      "ird-amend-2023-04": 80,
+      "ird-amend-2022-45": 147,
+      "ird-amend-2025-02": 28,
+      "ird-amend-2026-11": 195,
+      "ird-amend-2023-14": 16,
+      "ird-amend-2021-10": 274,
+      "ird-consolidated-2025": 1363
+    },
+    "chunks_by_section_num_top": {
+      "1": 91,
+      "195": 74,
+      "2": 73,
+      "4": 56,
+      "53": 50,
+      "3": 48,
+      "10": 44,
+      "33": 44,
+      "146": 40,
+      "24": 35,
+      "122": 35,
+      "19": 34,
+      "23": 34,
+      "28": 34,
+      "51": 34,
+      "5": 33,
+      "7": 33,
+      "8": 32,
+      "166": 32,
+      "76": 30,
+      "35": 29,
+      "9": 28,
+      "36": 28,
+      "37": 28,
+      "170": 28,
+      "120": 27,
+      "16": 26,
+      "176": 26,
+      "18": 25,
+      "21": 25,
+      "55": 25,
+      "77": 25,
+      "172": 25,
+      "6": 24,
+      "11": 24,
+      "32": 24,
+      "84": 24,
+      "17": 23,
+      "20": 23,
+      "31": 23
+    },
+    "required_sections": {
+      "2": {
+        "total": 73,
+        "operative": 43,
+        "toc": 0,
+        "with_ya": 52,
+        "ya_values": {
+          "2024_25": 20,
+          "2025_26": 52
+        },
+        "with_paragraph_ref": 43,
+        "source_docs": {
+          "ird-ira-2017-base": 20,
+          "ird-amend-2023-04": 2,
+          "ird-amend-2022-45": 4,
+          "ird-amend-2025-02": 5,
+          "ird-amend-2026-11": 6,
+          "ird-amend-2023-14": 10,
+          "ird-amend-2021-10": 5,
+          "ird-consolidated-2025": 21
+        },
+        "tagging_pass": true
+      },
+      "5": {
+        "total": 33,
+        "operative": 14,
+        "toc": 0,
+        "with_ya": 26,
+        "ya_values": {
+          "2024_25": 13,
+          "2025_26": 26
+        },
+        "with_paragraph_ref": 22,
+        "source_docs": {
+          "ird-ira-2017-base": 13,
+          "ird-amend-2023-04": 1,
+          "ird-amend-2022-45": 4,
+          "ird-amend-2025-02": 4,
+          "ird-amend-2021-10": 2,
+          "ird-consolidated-2025": 9
+        },
+        "tagging_pass": true
+      },
+      "6": {
+        "total": 24,
+        "operative": 15,
+        "toc": 0,
+        "with_ya": 18,
+        "ya_values": {
+          "2024_25": 7,
+          "2025_26": 18
+        },
+        "with_paragraph_ref": 10,
+        "source_docs": {
+          "ird-ira-2017-base": 7,
+          "ird-amend-2023-04": 2,
+          "ird-amend-2022-45": 3,
+          "ird-amend-2025-02": 2,
+          "ird-amend-2021-10": 1,
+          "ird-consolidated-2025": 9
+        },
+        "tagging_pass": true
+      },
+      "7": {
+        "total": 33,
+        "operative": 19,
+        "toc": 0,
+        "with_ya": 21,
+        "ya_values": {
+          "2024_25": 11,
+          "2025_26": 21
+        },
+        "with_paragraph_ref": 22,
+        "source_docs": {
+          "ird-ira-2017-base": 11,
+          "ird-amend-2023-04": 2,
+          "ird-amend-2022-45": 6,
+          "ird-amend-2021-10": 4,
+          "ird-consolidated-2025": 10
+        },
+        "tagging_pass": true
+      },
+      "8": {
+        "total": 32,
+        "operative": 16,
+        "toc": 0,
+        "with_ya": 25,
+        "ya_values": {
+          "2024_25": 8,
+          "2025_26": 25
+        },
+        "with_paragraph_ref": 19,
+        "source_docs": {
+          "ird-ira-2017-base": 8,
+          "ird-amend-2023-04": 1,
+          "ird-amend-2022-45": 5,
+          "ird-amend-2026-11": 4,
+          "ird-amend-2021-10": 1,
+          "ird-consolidated-2025": 13
+        },
+        "tagging_pass": true
+      },
+      "11": {
+        "total": 24,
+        "operative": 12,
+        "toc": 0,
+        "with_ya": 19,
+        "ya_values": {
+          "2024_25": 5,
+          "2025_26": 19
+        },
+        "with_paragraph_ref": 14,
+        "source_docs": {
+          "ird-ira-2017-base": 5,
+          "ird-amend-2023-04": 1,
+          "ird-amend-2022-45": 2,
+          "ird-amend-2026-11": 8,
+          "ird-amend-2021-10": 2,
+          "ird-consolidated-2025": 6
+        },
+        "tagging_pass": true
+      },
+      "16": {
+        "total": 26,
+        "operative": 9,
+        "toc": 0,
+        "with_ya": 20,
+        "ya_values": {
+          "2024_25": 7,
+          "2025_26": 20
+        },
+        "with_paragraph_ref": 19,
+        "source_docs": {
+          "ird-ira-2017-base": 7,
+          "ird-amend-2023-04": 1,
+          "ird-amend-2022-45": 4,
+          "ird-amend-2026-11": 7,
+          "ird-amend-2021-10": 1,
+          "ird-consolidated-2025": 6
+        },
+        "tagging_pass": true
+      },
+      "52": {
+        "total": 13,
+        "operative": 8,
+        "toc": 0,
+        "with_ya": 8,
+        "ya_values": {
+          "2024_25": 4,
+          "2025_26": 8
+        },
+        "with_paragraph_ref": 8,
+        "source_docs": {
+          "ird-ira-2017-base": 4,
+          "ird-amend-2021-10": 5,
+          "ird-consolidated-2025": 4
+        },
+        "tagging_pass": true
+      },
+      "89": {
+        "total": 8,
+        "operative": 4,
+        "toc": 0,
+        "with_ya": 8,
+        "ya_values": {
+          "2024_25": 4,
+          "2025_26": 8
+        },
+        "with_paragraph_ref": 2,
+        "source_docs": {
+          "ird-ira-2017-base": 4,
+          "ird-consolidated-2025": 4
+        },
+        "tagging_pass": true
+      },
+      "first_schedule": {
+        "total": 19,
+        "operative": 8,
+        "toc": 0,
+        "with_ya": 14,
+        "ya_values": {
+          "2024_25": 6,
+          "2025_26": 14
+        },
+        "with_paragraph_ref": 0,
+        "source_docs": {
+          "ird-ira-2017-base": 6,
+          "ird-amend-2023-04": 1,
+          "ird-amend-2021-10": 4,
+          "ird-consolidated-2025": 8
+        },
+        "tagging_pass": true
+      }
+    }
+  },
+  "tagging_delta": {
+    "total_chunks": {
+      "before": 1260,
+      "after": 3421
+    },
+    "section_ref_coverage_pct": {
+      "before": 18.33,
+      "after": 99.5
+    },
+    "operative_count": {
+      "before": 0,
+      "after": 1833
+    },
+    "with_paragraph_ref": {
+      "before": 0,
+      "after": 2005
+    },
+    "gpt_assisted_metadata_count": {
+      "before": 0,
+      "after": 0
+    },
+    "deterministic_metadata_count": {
+      "before": 0,
+      "after": 3421
+    }
+  },
+  "required_section_tagging_pass": {
+    "before": {
+      "2": false,
+      "5": false,
+      "6": false,
+      "7": false,
+      "8": false,
+      "11": false,
+      "16": false,
+      "52": false,
+      "89": false,
+      "first_schedule": false
+    },
+    "after": {
+      "2": true,
+      "5": true,
+      "6": true,
+      "7": true,
+      "8": true,
+      "11": true,
+      "16": true,
+      "52": true,
+      "89": true,
+      "first_schedule": true
+    }
+  },
+  "gold_eval": {
+    "before": {
+      "available": true,
+      "macro_precision_pct": 13.33,
+      "macro_recall_pct": 36.0,
+      "k": 3,
+      "min_score": 0.55,
+      "n_queries": 25,
+      "blocked_leak_queries": 0,
+      "path": "D:/R26-DS-004/R26-DS-004/evaluation/adaptive-tax/rag/gold_eval_before.json"
+    },
+    "after": {
+      "available": true,
+      "macro_precision_pct": 52.0,
+      "macro_recall_pct": 72.0,
+      "k": 3,
+      "min_score": 0.55,
+      "n_queries": 25,
+      "blocked_leak_queries": 0,
+      "path": "D:/R26-DS-004/R26-DS-004/evaluation/adaptive-tax/rag/gold_eval_after.json"
+    }
+  },
+  "retrieval_citation_correctness": {
+    "available": true,
+    "n_queries": 25,
+    "n_pass": 20,
+    "n_fail": 5,
+    "pass_rate_pct": 80.0,
+    "criteria": {
+      "min_precision_at_3": 0.3333,
+      "min_recall_at_3": 0.01,
+      "blocked_leak_must_be_false": true,
+      "note": "PASS = soft-relevant P@3 and R@3 clear floors; not legal confidence."
+    },
+    "queries": [
+      {
+        "query_id": "q01_sec5_employment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0012::c0005",
+          "ird-ira-2017-base::p0002::c0005",
+          "ird-consolidated-2025::p0003::c0005"
+        ]
+      },
+      {
+        "query_id": "q02_sec5_benefits",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 0.5,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0016::c0000",
+          "ird-consolidated-2025::p0003::c0005",
+          "ird-ira-2017-base::p0002::c0005"
+        ]
+      },
+      {
+        "query_id": "q03_sec52_qp",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0012::c0002",
+          "ird-consolidated-2025::p0052::c0002",
+          "ird-ira-2017-base::p0055::c0001"
+        ]
+      },
+      {
+        "query_id": "q04_sec52_reliefs_resident",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "blocked_leak": false,
+        "status": "FAIL",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-consolidated-2025::p0004::c0028",
+          "ird-consolidated-2025::p0052::c0002"
+        ]
+      },
+      {
+        "query_id": "q05_sec52_4_carry_forward",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "blocked_leak": false,
+        "status": "FAIL",
+        "hit_ids": [
+          "ird-consolidated-2025::p0012::c0002",
+          "ird-consolidated-2025::p0052::c0002",
+          "ird-ira-2017-base::p0055::c0001"
+        ]
+      },
+      {
+        "query_id": "q06_sec52_cap_2025",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-ira-2017-base::p0055::c0001",
+          "ird-consolidated-2025::p0052::c0002"
+        ]
+      },
+      {
+        "query_id": "q07_personal_relief",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000"
+        ]
+      },
+      {
+        "query_id": "q08_first_schedule_rates",
+        "assessment_year": "2024_25",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0198::c0000",
+          "ird-ira-2017-base::p0212::c0001",
+          "ird-ira-2017-base::p0011::c0014"
+        ]
+      },
+      {
+        "query_id": "q09_first_schedule_2022_bands",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "blocked_leak": false,
+        "status": "FAIL",
+        "hit_ids": [
+          "ird-ira-2017-base::p0011::c0014",
+          "ird-consolidated-2025::p0198::c0000",
+          "ird-ira-2017-base::p0212::c0001"
+        ]
+      },
+      {
+        "query_id": "q10_sec89_apit_credit",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 0.5,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0006::c0014",
+          "ird-consolidated-2025::p0006::c0007",
+          "ird-ira-2017-base::p0096::c0005"
+        ]
+      },
+      {
+        "query_id": "q11_sec89_2_credit_amount",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0094::c0001",
+          "ird-ira-2017-base::p0097::c0001",
+          "ird-ira-2017-base::p0096::c0005"
+        ]
+      },
+      {
+        "query_id": "q12_sec6_business",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 0.5,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0002::c0006",
+          "ird-consolidated-2025::p0003::c0006",
+          "ird-consolidated-2025::p0014::c0002"
+        ]
+      },
+      {
+        "query_id": "q13_sec6_2_calculating",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0017::c0002",
+          "ird-consolidated-2025::p0014::c0003",
+          "ird-consolidated-2025::p0015::c0001"
+        ]
+      },
+      {
+        "query_id": "q14_sec7_investment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0015::c0002",
+          "ird-ira-2017-base::p0002::c0007",
+          "ird-ira-2017-base::p0018::c0002"
+        ]
+      },
+      {
+        "query_id": "q15_sec7_2",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0018::c0003",
+          "ird-ira-2017-base::p0018::c0002",
+          "ird-consolidated-2025::p0016::c0001"
+        ]
+      },
+      {
+        "query_id": "q16_sec8_other_income",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 0.5,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0002::c0008",
+          "ird-consolidated-2025::p0003::c0008",
+          "ird-consolidated-2025::p0016::c0002"
+        ]
+      },
+      {
+        "query_id": "q17_sec8_exclusions",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0019::c0003",
+          "ird-consolidated-2025::p0016::c0003",
+          "ird-ira-2017-base::p0002::c0008"
+        ]
+      },
+      {
+        "query_id": "q18_digit_aware_sec5_vs_52",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0002::c0005",
+          "ird-consolidated-2025::p0003::c0005",
+          "ird-consolidated-2025::p0003::c0008"
+        ]
+      },
+      {
+        "query_id": "q19_sec52_vs_5_negative",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-ira-2017-base::p0055::c0001",
+          "ird-consolidated-2025::p0052::c0002"
+        ]
+      },
+      {
+        "query_id": "q20_ya_2024_base_act",
+        "assessment_year": "2024_25",
+        "precision_at_k": 0.3333,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0012::c0002",
+          "ird-consolidated-2025::p0052::c0002",
+          "ird-ira-2017-base::p0055::c0001"
+        ]
+      },
+      {
+        "query_id": "q21_ya_2025_amendment",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.6667,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-consolidated-2025::p0012::c0002",
+          "ird-consolidated-2025::p0052::c0002"
+        ]
+      },
+      {
+        "query_id": "q22_toc_should_not_win",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "blocked_leak": false,
+        "status": "FAIL",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-consolidated-2025::p0004::c0028",
+          "ird-ira-2017-base::p0004::c0011"
+        ]
+      },
+      {
+        "query_id": "q23_sec3_taxable_income_qp",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-ira-2017-base::p0014::c0003",
+          "ird-consolidated-2025::p0012::c0002",
+          "ird-consolidated-2025::p0052::c0002"
+        ]
+      },
+      {
+        "query_id": "q24_blocked_guide_never",
+        "assessment_year": "2025_26",
+        "precision_at_k": 0.0,
+        "recall_at_k": 0.0,
+        "blocked_leak": false,
+        "status": "FAIL",
+        "hit_ids": [
+          "ird-amend-2026-11::p0007::c0000",
+          "ird-ira-2017-base::p0212::c0000",
+          "ird-ira-2017-base::p0013::c0001"
+        ]
+      },
+      {
+        "query_id": "q25_donation_sec52_link",
+        "assessment_year": "2025_26",
+        "precision_at_k": 1.0,
+        "recall_at_k": 1.0,
+        "blocked_leak": false,
+        "status": "PASS",
+        "hit_ids": [
+          "ird-consolidated-2025::p0237::c0000",
+          "ird-consolidated-2025::p0004::c0028",
+          "ird-ira-2017-base::p0004::c0011"
+        ]
+      }
+    ]
+  },
+  "rag_min_score": {
+    "configured_rag_min_score": 0.55,
+    "chosen_rag_min_score": 0.55,
+    "recommended_from_sweep": 0.5,
+    "sweep": [
+      {
+        "min_score": 0.45,
+        "macro_precision_pct": 54.67,
+        "macro_recall_pct": 72.0,
+        "label": "after@min=0.45"
+      },
+      {
+        "min_score": 0.5,
+        "macro_precision_pct": 54.67,
+        "macro_recall_pct": 72.0,
+        "label": "after@min=0.5"
+      },
+      {
+        "min_score": 0.55,
+        "macro_precision_pct": 52.0,
+        "macro_recall_pct": 72.0,
+        "label": "after@min=0.55"
+      },
+      {
+        "min_score": 0.6,
+        "macro_precision_pct": 45.33,
+        "macro_recall_pct": 64.0,
+        "label": "after@min=0.6"
+      }
+    ],
+    "note": "Configured/experimental default RAG_MIN_SCORE=0.55. This is a retrieval similarity noise floor only — never legal confidence. Production value should be selected from measured P@K/R@K at 0.45 / 0.50 / 0.55 / 0.60. Sweep suggests candidate floor=0.5 (P@3=54.67%, R@3=72.0%). Report still records configured=0.55 as current experimental default."
+  },
+  "notes": [
+    "GPT-assisted metadata count is 0 unless scripts/adaptive_tax_enrich_corpus_metadata.py was run manually.",
+    "RAG_MIN_SCORE is a retrieval noise floor only — not legal confidence.",
+    "Guide (ird-guide-ira) and Master (ird-calc-ontology-v5) remain blocked from Chroma explain evidence.",
+    "Calc / Rule Engine path unchanged."
+  ]
+}

@@ -26,5 +26,5 @@ class ParamResetResponse(BaseModel):
     source: Literal["reset_to_pre_amend"] = "reset_to_pre_amend"
     override_path: str
     concept_id: str
-    qualifying_payment_cap: str
+    personal_relief_cap: str = Field(description="Personal relief cap amount (LKR) as decimal string.")
     override: dict[str, Any] | None = None

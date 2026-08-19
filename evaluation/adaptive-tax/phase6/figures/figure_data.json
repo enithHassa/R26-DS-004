@@ -1,0 +1,153 @@
+{
+  "run_id": "phase6_9_2026_08_11_101701",
+  "figures": {
+    "legal_coverage": {
+      "metric": "legal_coverage_section_grain",
+      "ok": true,
+      "area_coverage_pct": 100.0,
+      "n_areas_covered": 9,
+      "n_areas_planned": 9,
+      "section_5_pct": 100.0,
+      "section_5_components": "18/18",
+      "sections": [
+        {
+          "section_key": "5",
+          "label": "Section 5 \u2014 Employment",
+          "n_covered": 18,
+          "n_planned": 18,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "6",
+          "label": "Section 6 \u2014 Business",
+          "n_covered": 2,
+          "n_planned": 2,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "7",
+          "label": "Section 7 \u2014 Investment",
+          "n_covered": 15,
+          "n_planned": 15,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "8",
+          "label": "Section 8 \u2014 Other income",
+          "n_covered": 3,
+          "n_planned": 3,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "52",
+          "label": "Section 52 \u2014 Qualifying payments & donations",
+          "n_covered": 12,
+          "n_planned": 14,
+          "coverage_pct": 85.71
+        },
+        {
+          "section_key": "89",
+          "label": "Section 89 \u2014 Tax credits",
+          "n_covered": 1,
+          "n_planned": 1,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "first_schedule",
+          "label": "First Schedule \u2014 Progressive rates",
+          "n_covered": 1,
+          "n_planned": 1,
+          "coverage_pct": 100.0
+        },
+        {
+          "section_key": "third_schedule",
+          "label": "Third Schedule \u2014 Personal relief",
+          "n_covered": 1,
+          "n_planned": 1,
+          "coverage_pct": 100.0
+        }
+      ],
+      "target": "checklist 100% + section grain reported for viva"
+    },
+    "confidence": {
+      "metric": "catalog_confidence_distribution",
+      "total_active_supported": 54,
+      "distribution": {
+        "high": 49,
+        "medium": 5,
+        "low": 0,
+        "pending": 0
+      },
+      "distribution_pct": {
+        "high": 90.7,
+        "medium": 9.3,
+        "low": 0.0,
+        "pending": 0.0
+      },
+      "ok": true,
+      "target": "majority high/medium on supported resident-individual catalog"
+    },
+    "unsupported_queue": {
+      "metric": "unsupported_rule_queue",
+      "ok": true,
+      "count": 2,
+      "items": [
+        {
+          "component_id": "relief_fifth_sch_2f_expenditure",
+          "display_name": "Fifth Schedule 2(f) Expenditure Relief (Sunset)",
+          "section": "52",
+          "engine_handler": null,
+          "status": "inactive",
+          "source_doc_id": "ird-ira-2017-base"
+        },
+        {
+          "component_id": "qp_bank_merger",
+          "display_name": "Financial Institution Merger Acquisition Cost (Fifth Sch 1(e))",
+          "section": "52",
+          "engine_handler": "bank_merger_qp_handler",
+          "status": "pending_unsupported",
+          "source_doc_id": "ird-amend-2021-10"
+        }
+      ],
+      "act_11_2026_novelty_demo": {
+        "unsupported_candidates": [],
+        "supported_act_11_2026_example": {
+          "component_id": "qp_brought_forward",
+          "display_name": "Qualifying Payment Brought Forward (Sec 52(4))",
+          "source_doc_id": "ird-amend-2026-11",
+          "status": "approved",
+          "engine_support": "supported"
+        },
+        "narrative": "Act No. 11 of 2026 enables Sec 52(4) carry-forward (qp_brought_forward, supported). Unsupported queue holds rules awaiting handlers (e.g. qp_bank_merger)."
+      },
+      "target": "queue visible; Act 11/2026 novelty distinguishable"
+    },
+    "version_strip": {
+      "metric": "version_strip_checklist",
+      "ok": true,
+      "ya_2024_25": {
+        "act_version": "ird-consolidated-2025",
+        "act_version_label": "2025 Consolidated",
+        "catalog_version": "v1",
+        "rule_pack_version": "2024_25.current",
+        "knowledge_graph_version": "v5-calc-ontology",
+        "extraction_version": "bootstrap-other-income-catalog-v1"
+      },
+      "ya_2025_26": {
+        "act_version": "ird-consolidated-2025",
+        "act_version_label": "2025 Consolidated",
+        "catalog_version": "v1",
+        "rule_pack_version": "2025_26.current",
+        "knowledge_graph_version": "v5-calc-ontology",
+        "extraction_version": "bootstrap-other-income-catalog-v1"
+      },
+      "screenshot_checklist": [
+        "Calculator result: Calculated Using strip visible",
+        "Report page: sticky Calculated Using strip",
+        "Strip shows act_version_label + catalog_version + rule_pack_version",
+        "YA switch changes rule_pack_version label"
+      ],
+      "target": "knowledge_versions stamps present for both YAs"
+    }
+  }
+}
