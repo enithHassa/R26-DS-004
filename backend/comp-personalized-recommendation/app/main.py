@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__, models  # noqa: F401 — register ORM tables on Base.metadata
-from app.routers import health, hybrid, impact, profiles, rag, recommendations, strategies
+from app.routers import auth, health, hybrid, impact, profiles, rag, recommendations, strategies
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
 
@@ -47,6 +47,7 @@ def create_app() -> FastAPI:
 
     api_prefix = "/api/v1"
     app.include_router(health.router, tags=["health"])
+    app.include_router(auth.router, prefix=f"{api_prefix}/auth", tags=["auth"])
     app.include_router(profiles.router, prefix=f"{api_prefix}/profiles", tags=["profiles"])
     app.include_router(strategies.router, prefix=f"{api_prefix}/strategies", tags=["strategies"])
     app.include_router(

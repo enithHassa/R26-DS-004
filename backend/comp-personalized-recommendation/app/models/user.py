@@ -22,3 +22,6 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    # Plaintext login password (username = full_name). Prototype-only auth —
+    # see routers/auth.py; do not carry this pattern into a real deployment.
+    password: Mapped[str | None] = mapped_column(String(64), nullable=True)

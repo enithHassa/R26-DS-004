@@ -15,6 +15,7 @@ import { ImpactCharts } from "../components/impact-charts";
 import { ImpactExtraCharts } from "../components/impact-extra-charts";
 import { ImpactScenarioPanel } from "../components/impact-scenario-panel";
 import { ImpactSummaryCards } from "../components/impact-summary-cards";
+import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { CATALOG_STRATEGIES, recommendationCodeToCatalog } from "../constants/strategies";
 import { useDashboardStore } from "../store/dashboard-store";
@@ -75,14 +76,9 @@ export function ImpactPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Predictive impact</h1>
-        <p className="text-muted-foreground">
-          Monte Carlo fan charts, tax liability curves, and scenario toggles (FR7, FR8).
-        </p>
-      </div>
+      <PageHeader icon={BarChart3} title="Predictive impact" />
 
-      <Card className="max-w-4xl">
+      <Card className="max-w-4xl border-t-4 border-t-primary/70">
         <CardHeader>
           <CardTitle>Simulation setup</CardTitle>
           <CardDescription>
