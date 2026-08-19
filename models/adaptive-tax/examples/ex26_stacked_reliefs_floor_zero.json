@@ -1,0 +1,124 @@
+{
+  "id": "ex26",
+  "scenario": "Stacked QP + solar + rent + personal relief floor taxable at zero",
+  "key_assertion": "Order QP → solar → rent → PR. Later allowed amounts shrink to remaining income, not only statutory caps. Dual-YA PR is year-specific (1.2M / 1.8M) even when taxable is already 0.",
+  "variants": [
+    {
+      "id": "ex26_ya24",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "500000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current",
+        "filing_lines": [
+          {"component_id": "qp_approved_charitable", "amount": "75000"},
+          {"component_id": "inv_rents", "amount": "200000"},
+          {"component_id": "relief_solar_panel", "amount": "600000"},
+          {"component_id": "relief_rent", "amount": "50000"}
+        ]
+      },
+      "expected_final_tax_lkr": "0",
+      "expected_taxable_after_relief": "0",
+      "expected_personal_relief": "1200000",
+      "expected_sum_assessable": "700000",
+      "expected_rule_order": [
+        "deduct_qualifying_payment",
+        "deduct_solar_panel_relief",
+        "deduct_rent_relief",
+        "apply_personal_relief"
+      ],
+      "expected_rules_applied": [
+        "aggregate_investment_components",
+        "aggregate_qualifying_payment_components",
+        "sum_assessable",
+        "evaluate_qualifying_payment_categories",
+        "deduct_qualifying_payment",
+        "cap_solar_panel_relief",
+        "deduct_solar_panel_relief",
+        "cap_rent_relief",
+        "deduct_rent_relief",
+        "apply_personal_relief",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:qp_approved_charitable",
+        "bootstrap:solar_panel_relief",
+        "bootstrap:rent_relief",
+        "bootstrap:personal_relief_2024_25"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "75000",
+        "deduct_solar_panel_relief": "600000",
+        "deduct_rent_relief": "25000"
+      },
+      "expected_rent_statutory_allowed": "50000",
+      "expected_qp_category_allowable": {
+        "qp_approved_charitable": "75000"
+      }
+    },
+    {
+      "id": "ex26_ya25",
+      "inputs": {
+        "assessment_year": "2025_26",
+        "resident_status": "resident",
+        "employment_income": "500000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current",
+        "filing_lines": [
+          {"component_id": "qp_approved_charitable", "amount": "75000"},
+          {"component_id": "inv_rents", "amount": "200000"},
+          {"component_id": "relief_solar_panel", "amount": "600000"},
+          {"component_id": "relief_rent", "amount": "50000"}
+        ]
+      },
+      "expected_final_tax_lkr": "0",
+      "expected_taxable_after_relief": "0",
+      "expected_personal_relief": "1800000",
+      "expected_sum_assessable": "700000",
+      "expected_rule_order": [
+        "deduct_qualifying_payment",
+        "deduct_solar_panel_relief",
+        "deduct_rent_relief",
+        "apply_personal_relief"
+      ],
+      "expected_rules_applied": [
+        "aggregate_investment_components",
+        "aggregate_qualifying_payment_components",
+        "sum_assessable",
+        "evaluate_qualifying_payment_categories",
+        "deduct_qualifying_payment",
+        "carry_forward_qualifying_payment_out",
+        "cap_solar_panel_relief",
+        "deduct_solar_panel_relief",
+        "cap_rent_relief",
+        "deduct_rent_relief",
+        "apply_personal_relief",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:qp_approved_charitable",
+        "bootstrap:solar_panel_relief",
+        "bootstrap:rent_relief",
+        "bootstrap:personal_relief_2025_26"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "75000",
+        "deduct_solar_panel_relief": "600000",
+        "deduct_rent_relief": "25000"
+      },
+      "expected_rent_statutory_allowed": "50000",
+      "expected_qp_category_allowable": {
+        "qp_approved_charitable": "75000"
+      }
+    }
+  ]
+}

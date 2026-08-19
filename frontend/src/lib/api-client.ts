@@ -13,7 +13,7 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
       return "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
     }
     if (apiPrefix.includes("adaptive-tax")) {
-      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running; the first Chroma / explain call can take over a minute. Retry, or open the report again after a successful calculation.";
+      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes — wait and click Open review, or retry.";
     }
     return "Request timed out. Check your connection and try again.";
   }
@@ -74,11 +74,14 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
  *
  *   export const api = createApiClient("/api/v1/recommendation");
  */
-export function createApiClient(prefix: string): AxiosInstance {
+export function createApiClient(
+  prefix: string,
+  options?: { timeoutMs?: number },
+): AxiosInstance {
   const baseURL = `${GATEWAY_BASE_URL}${prefix}`;
   const client = axios.create({
     baseURL,
-    timeout: 30_000,
+    timeout: options?.timeoutMs ?? 30_000,
     headers: { "Content-Type": "application/json" },
   });
 

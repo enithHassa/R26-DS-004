@@ -1,0 +1,44 @@
+{
+  "id": "ex12",
+  "scenario": "Employment with Sec 5(3)(a) final withholding exclusion",
+  "key_assertion": "Final withholding / exempt employment amounts are excluded from assessable only when Act-backed exclude_if_final_wht provenance exists; tax below unexcluded baseline (ex01).",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "1800000",
+    "employment_final_withholding": "200000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "24000",
+  "expected_rules_applied": [
+    "exclude_employment_final_withholding",
+    "sum_assessable",
+    "apply_personal_relief",
+    "slab_band_1",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:exclude_if_final_wht",
+    "bootstrap:employment_income",
+    "ird-ira-2017-base",
+    "personal_relief",
+    "fs_2024_25_band_1",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief"
+  ],
+  "expected_assessable_concepts": [
+    "employment_income"
+  ],
+  "expected_personal_relief": "1200000",
+  "expected_taxable_after_relief": "400000",
+  "expected_deduction_allowed": {},
+  "notes": "Gross 1.8M \u2212 FWH 0.2M = net 1.6M \u2192 taxable 0.4M \u2192 6% band = 24000 (vs ex01 48000)."
+}

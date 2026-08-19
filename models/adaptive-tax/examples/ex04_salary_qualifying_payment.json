@@ -1,9 +1,9 @@
 {
   "id": "ex04",
   "scenario": "Salary + qualifying payment",
-  "key_assertion": "Section 52 aggregate cap 1_800_000 applied",
+  "key_assertion": "Per-category Fifth Sch para 1 limits; full QP deduct when within categories (YA 2025/26). Scalar-only QP does not invent Sec 52(4) CF.",
   "inputs": {
-    "assessment_year": "2024_25",
+    "assessment_year": "2025_26",
     "resident_status": "resident",
     "employment_income": "3000000",
     "business_income": "0",
@@ -16,18 +16,23 @@
   "expected_final_tax_lkr": "0",
   "expected_rules_applied": [
     "sum_assessable",
-    "cap_qualifying_payment_cap",
     "deduct_qualifying_payment",
     "apply_personal_relief",
     "final_tax"
   ],
   "expected_rule_source_ids": [
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
     "ird-ira-2017-base",
-    "sec52_qualifying_payment_cap",
+    "bootstrap:sec52_deduct_qp_2025_26",
+    "bootstrap:personal_relief",
+    "bootstrap:personal_relief_2025_26",
+    "personal_relief",
     "ird-amend-2025-02",
-    "personal_relief"
+    "bootstrap:first_schedule_rates",
+    "bootstrap:first_schedule_rates_2025_26"
   ],
   "expected_deduction_allowed": {
-    "deduct_qualifying_payment": "1800000"
+    "deduct_qualifying_payment": "2500000"
   }
 }

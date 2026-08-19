@@ -15,7 +15,11 @@ from adaptive_tax_app.schemas.explain import (
     ExplainNarrativePayload,
     ExplainStepV1,
 )
-from adaptive_tax_app.services.evidence import section_ref_matches, section_uid_to_label
+from adaptive_tax_app.services.evidence import (
+    STEP_EVIDENCE_UNAVAILABLE,
+    local_evidence_for_step,
+    section_uid_to_label,
+)
 from backend.shared.config.settings import PROJECT_ROOT
 
 PROMPT_VERSION = "v1"
@@ -27,10 +31,12 @@ You are explaining a Sri Lankan income-tax calculation for a research prototype.
 Return structured JSON only.
 Rules:
 1. sections_cited must be a subset of the sections_retrieved list provided.
-2. Every steps_explained entry must reference evidence_chunk_ids and/or rule_source_id from the evidence lists.
-3. Do not invent legal sections, numeric caps, or formulas absent from the trace/evidence.
-4. Keep the disclaimer exactly: Research prototype — not legal advice.
-5. final_tax_lkr must match the calculation result supplied.
+2. Every steps_explained entry that has local evidence must reference evidence_chunk_ids and/or rule_source_id from the evidence lists for THAT step's sections only.
+3. If step_evidence marks a step as evidence_available=false, set narrative exactly to "Evidence unavailable for this step", evidence_unavailable=true, and empty evidence_chunk_ids / null rule_source_id. Do not invent a narrative for that step.
+4. Do not invent legal sections, numeric caps, or formulas absent from the trace/evidence.
+5. Keep the disclaimer exactly: Research prototype — not legal advice.
+6. final_tax_lkr must match the calculation result supplied.
+7. Never use an unrelated chunk that passed the global gate to narrate a different step.
 """
 
 
@@ -97,8 +103,9 @@ def sanitize_narrative_payload(
     *,
     evidence: EvidenceBundle,
     final_tax_lkr: str,
+    calculation: CalculateTaxResponseV1 | None = None,
 ) -> tuple[ExplainNarrativePayload, list[str]]:
-    """Post-filter GPT/fixture output for citation faithfulness + evidence ids."""
+    """Post-filter GPT/fixture output for citation faithfulness + step gate."""
     warnings: list[str] = []
     cited, dropped = filter_sections_cited(
         payload.sections_cited, evidence.sections_retrieved
@@ -110,9 +117,50 @@ def sanitize_narrative_payload(
 
     chunk_ok = _allowed_chunk_ids(evidence)
     quote_ok = _allowed_rule_source_ids(evidence)
+    step_by_id = {
+        s.step_id: s for s in (calculation.calculation_trace if calculation else [])
+    }
+    status_by_id = {s.step_id: s for s in evidence.step_evidence}
+
     steps: list[ExplainStepV1] = []
     for step in payload.steps_explained:
-        ids = [cid for cid in step.evidence_chunk_ids if cid in chunk_ok]
+        calc_step = step_by_id.get(step.step_id)
+        status = status_by_id.get(step.step_id)
+
+        # Prefer precomputed gate; else recompute from calc step.
+        unavailable = False
+        local_ids: list[str] = []
+        local_rule: str | None = None
+        if status is not None:
+            unavailable = not status.evidence_available
+            local_ids = list(status.evidence_chunk_ids)
+            local_rule = status.rule_source_id
+        elif calc_step is not None:
+            local_ids, local_rule = local_evidence_for_step(calc_step, evidence)
+            if calc_step.section_uids and not (local_ids or local_rule):
+                unavailable = True
+
+        if unavailable:
+            steps.append(
+                ExplainStepV1(
+                    step_id=step.step_id,
+                    narrative=STEP_EVIDENCE_UNAVAILABLE,
+                    evidence_chunk_ids=[],
+                    rule_source_id=None,
+                    evidence_unavailable=True,
+                )
+            )
+            continue
+
+        # Intersect model ids with step-local evidence when we know the step.
+        allowed_local = set(local_ids) if (local_ids or calc_step is not None) else chunk_ok
+        if calc_step is not None and calc_step.section_uids:
+            ids = [cid for cid in step.evidence_chunk_ids if cid in allowed_local]
+            # If model omitted ids, attach local ones
+            if not ids and local_ids:
+                ids = list(local_ids)
+        else:
+            ids = [cid for cid in step.evidence_chunk_ids if cid in chunk_ok]
         bad_ids = [cid for cid in step.evidence_chunk_ids if cid not in chunk_ok]
         if bad_ids:
             warnings.append(
@@ -122,12 +170,34 @@ def sanitize_narrative_payload(
         if rule_id and rule_id not in quote_ok:
             warnings.append(f"step:{step.step_id}:dropped_rule_source_id:{rule_id}")
             rule_id = None
+        if calc_step is not None and calc_step.section_uids:
+            if rule_id and local_rule and rule_id != local_rule:
+                # Keep only if still in quote_ok and section-matched via local_rule preference
+                if rule_id not in quote_ok:
+                    rule_id = local_rule
+            elif not rule_id:
+                rule_id = local_rule
+
+        # If after sanitization a section-anchored step has no evidence, gate it.
+        if calc_step is not None and calc_step.section_uids and not (ids or rule_id):
+            steps.append(
+                ExplainStepV1(
+                    step_id=step.step_id,
+                    narrative=STEP_EVIDENCE_UNAVAILABLE,
+                    evidence_chunk_ids=[],
+                    rule_source_id=None,
+                    evidence_unavailable=True,
+                )
+            )
+            continue
+
         steps.append(
             ExplainStepV1(
                 step_id=step.step_id,
                 narrative=step.narrative,
                 evidence_chunk_ids=ids,
                 rule_source_id=rule_id,
+                evidence_unavailable=False,
             )
         )
 
@@ -141,66 +211,35 @@ def sanitize_narrative_payload(
     return cleaned, warnings
 
 
-def _chunks_for_step(
-    step_section_uids: list[str],
-    evidence: EvidenceBundle,
-) -> list[str]:
-    labels = [
-        lab
-        for uid in step_section_uids
-        if (lab := section_uid_to_label(uid)) is not None
-    ]
-    if not labels:
-        # Fall back to any retrieved chunks when the step has no section anchors.
-        return [c.chunk_id for c in evidence.chunks[:1]]
-    ids: list[str] = []
-    for chunk in evidence.chunks:
-        for lab in labels:
-            if section_ref_matches(chunk.section_ref, lab) or section_ref_matches(
-                chunk.text[:400], lab
-            ):
-                if chunk.chunk_id not in ids:
-                    ids.append(chunk.chunk_id)
-                break
-    return ids
-
-
-def _quote_for_step(
-    step_section_uids: list[str],
-    evidence: EvidenceBundle,
-) -> str | None:
-    labels = [
-        lab
-        for uid in step_section_uids
-        if (lab := section_uid_to_label(uid)) is not None
-    ]
-    if not labels and evidence.source_quotes:
-        return evidence.source_quotes[0].rule_source_id
-    for quote in evidence.source_quotes:
-        blob = f"{quote.section} {quote.amends_section or ''}".lower()
-        for lab in labels:
-            # Section 52 / "52"
-            if "52" in lab and ("52" in blob or "section 52" in blob):
-                return quote.rule_source_id
-            if "5" in lab and lab == "Section 5" and (
-                blob.strip() in {"5", "section 5"} or blob.startswith("5 ")
-            ):
-                return quote.rule_source_id
-            token = lab.lower().replace("section ", "").strip()
-            if token and token in blob:
-                return quote.rule_source_id
-    return None
-
-
 def build_fixture_narrative(
     calculation: CalculateTaxResponseV1,
     evidence: EvidenceBundle,
 ) -> NarrativeResult:
     """Deterministic template narrative (no network)."""
     steps: list[ExplainStepV1] = []
+    status_by_id = {s.step_id: s for s in evidence.step_evidence}
     for step in calculation.calculation_trace:
-        chunk_ids = _chunks_for_step(step.section_uids, evidence)
-        rule_id = _quote_for_step(step.section_uids, evidence)
+        status = status_by_id.get(step.step_id)
+        if status is not None:
+            chunk_ids = list(status.evidence_chunk_ids)
+            rule_id = status.rule_source_id
+            available = status.evidence_available
+        else:
+            chunk_ids, rule_id = local_evidence_for_step(step, evidence)
+            available = (not step.section_uids) or bool(chunk_ids or rule_id)
+
+        if not available:
+            steps.append(
+                ExplainStepV1(
+                    step_id=step.step_id,
+                    narrative=STEP_EVIDENCE_UNAVAILABLE,
+                    evidence_chunk_ids=[],
+                    rule_source_id=None,
+                    evidence_unavailable=True,
+                )
+            )
+            continue
+
         labels = [
             lab
             for uid in step.section_uids
@@ -217,6 +256,7 @@ def build_fixture_narrative(
                 narrative=narrative,
                 evidence_chunk_ids=chunk_ids,
                 rule_source_id=rule_id,
+                evidence_unavailable=False,
             )
         )
 
@@ -237,7 +277,10 @@ def build_fixture_narrative(
         disclaimer=DISCLAIMER,
     )
     cleaned, warnings = sanitize_narrative_payload(
-        payload, evidence=evidence, final_tax_lkr=calculation.final_tax_lkr
+        payload,
+        evidence=evidence,
+        final_tax_lkr=calculation.final_tax_lkr,
+        calculation=calculation,
     )
     return NarrativeResult(
         payload=cleaned,
@@ -260,6 +303,7 @@ def build_user_prompt(
             "inputs": s.inputs,
             "output": s.output,
             "section_uids": s.section_uids,
+            "concept_ids": s.concept_ids,
         }
         for s in calculation.calculation_trace
     ]
@@ -267,9 +311,12 @@ def build_user_prompt(
         "sections_retrieved": evidence.sections_retrieved,
         "chunks": [c.model_dump(mode="json") for c in evidence.chunks],
         "source_quotes": [q.model_dump(mode="json") for q in evidence.source_quotes],
+        "step_evidence": [s.model_dump(mode="json") for s in evidence.step_evidence],
     }
     return (
-        "Explain this tax calculation using ONLY the evidence below.\n\n"
+        "Explain this tax calculation using ONLY the evidence below.\n"
+        "For any step with evidence_available=false, reply exactly: "
+        f"{STEP_EVIDENCE_UNAVAILABLE!r}.\n\n"
         f"final_tax_lkr: {calculation.final_tax_lkr}\n\n"
         "--- CALCULATION TRACE ---\n"
         f"{json.dumps(trace_rows, indent=2)}\n"
@@ -338,7 +385,10 @@ def _generate_with_openai(
         raise ExplainGenerationError("OpenAI returned no parsed ExplainNarrativePayload")
 
     cleaned, warnings = sanitize_narrative_payload(
-        parsed, evidence=evidence, final_tax_lkr=calculation.final_tax_lkr
+        parsed,
+        evidence=evidence,
+        final_tax_lkr=calculation.final_tax_lkr,
+        calculation=calculation,
     )
     usage = getattr(completion, "usage", None)
     metrics: dict[str, Any] = {"step_count": len(cleaned.steps_explained)}

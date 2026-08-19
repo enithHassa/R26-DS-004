@@ -6,10 +6,12 @@ from adaptive_tax_app.schemas.calculate import (
     CalculationTraceStep,
     RuleSourceRef,
 )
+from adaptive_tax_app.schemas.legal_rule_evidence import LegalRuleEvidence
 
 __all__ = [
     "CalculateTaxRequestV1",
     "CalculateTaxResponseV1",
     "CalculationTraceStep",
     "RuleSourceRef",
+    "LegalRuleEvidence",
 ]

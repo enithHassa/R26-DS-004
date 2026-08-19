@@ -45,7 +45,7 @@ class RuleSource(Base):
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
     maximum: Mapped[float | None] = mapped_column(Float, nullable=True)
     effective_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    amends_section: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    amends_section: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_quote: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[RuleSourceStatus] = mapped_column(
         rule_source_status_enum,

@@ -16,10 +16,10 @@ router = APIRouter(prefix="/admin/params", tags=["admin-params"])
 @router.post(
     "/reset-to-pre-amend",
     response_model=ParamResetResponse,
-    summary="Seed pre-amend Sec 52 cap (1.2M) into runtime override for viva T1",
+    summary="Seed pre-amend personal relief (1.2M) into runtime override for viva T1",
 )
 def reset_to_pre_amend() -> ParamResetResponse:
-    """Copy ontology ``pre_amend_2025`` QP cap into the active override file."""
+    """Copy ontology ``pre_amend_2025`` personal relief into the active override file."""
     try:
         result = seed_pre_amend_override()
     except FileNotFoundError as exc:
@@ -37,6 +37,6 @@ def reset_to_pre_amend() -> ParamResetResponse:
         ok=True,
         override_path=str(result.path),
         concept_id=result.concept_id,
-        qualifying_payment_cap=format(result.cap_amount, "f"),
+        personal_relief_cap=format(result.cap_amount, "f"),
         override=read_param_override(),
     )
