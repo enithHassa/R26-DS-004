@@ -154,7 +154,14 @@ def test_sanitize_drops_bad_chunk_and_rule_ids() -> None:
 
 
 def test_fixture_narrative_attaches_evidence_ids() -> None:
-    result = build_fixture_narrative(_calc(), _evidence())
+    evidence = _evidence()
+    from adaptive_tax_app.services.evidence import build_step_evidence_statuses
+
+    calc = _calc()
+    evidence.step_evidence = build_step_evidence_statuses(
+        calc.calculation_trace, evidence
+    )
+    result = build_fixture_narrative(calc, evidence)
     assert result.mode == "fixture"
     assert result.payload.final_tax_lkr == "0"
     assert result.payload.sections_cited == ["Section 5", "Section 52"]
@@ -162,9 +169,56 @@ def test_fixture_narrative_attaches_evidence_ids() -> None:
     assert "chunk-5" in by_id["sum_assessable"].evidence_chunk_ids
     assert "chunk-52" in by_id["deduct_qualifying_payment"].evidence_chunk_ids
     assert by_id["deduct_qualifying_payment"].rule_source_id == "rs-52"
-    assert "formula" in by_id["final_tax"].narrative.lower() or "`" in by_id[
-        "final_tax"
-    ].narrative
+    # First Schedule was queried but not retrieved → step gate unavailable
+    assert by_id["final_tax"].evidence_unavailable is True
+    assert by_id["final_tax"].narrative == "Evidence unavailable for this step"
+
+
+def test_step_gate_blocks_unrelated_global_chunk() -> None:
+    """Sec 52 step must not narrate from a Sec 5-only global pass."""
+    from adaptive_tax_app.services.evidence import (
+        STEP_EVIDENCE_UNAVAILABLE,
+        build_step_evidence_statuses,
+    )
+
+    calc = CalculateTaxResponseV1(
+        final_tax_lkr="0",
+        calculation_trace=[
+            CalculationTraceStep(
+                step_id="deduct_qualifying_payment",
+                description="Apply QP",
+                formula="min",
+                output="1",
+                section_uids=["ird-ira-2017-base::sec::section_52"],
+            )
+        ],
+        rules_applied=["deduct_qualifying_payment"],
+        rule_source_refs=[],
+    )
+    evidence = EvidenceBundle(
+        chunks=[
+            EvidenceChunk(
+                chunk_id="chunk-5-only",
+                text="Section 5 employment income",
+                section_ref="Section 5",
+                source_doc_id="ird-ira-2017-base",
+                page=5,
+                score=0.95,
+                is_operative_provision=True,
+            )
+        ],
+        source_quotes=[],
+        sections_retrieved=["Section 5"],
+        sections_queried=["Section 52"],
+    )
+    evidence.step_evidence = build_step_evidence_statuses(
+        calc.calculation_trace, evidence
+    )
+    result = build_fixture_narrative(calc, evidence)
+    step = result.payload.steps_explained[0]
+    assert step.evidence_unavailable is True
+    assert step.narrative == STEP_EVIDENCE_UNAVAILABLE
+    assert step.evidence_chunk_ids == []
 
 
 def test_explain_insufficient_evidence_short_circuits() -> None:

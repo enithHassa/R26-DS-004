@@ -76,14 +76,14 @@ def _run_offline() -> dict[str, Any]:
             }
         )
 
-    pre = next(c for c in cases if "pre" in c["id"])
-    post = next(c for c in cases if "current" in c["id"])
-    delta_ok = pre["actual"] != post["actual"]
+    ya24 = next(c for c in cases if "2024_25" in c["id"] or "pre" in c["id"])
+    ya25 = next(c for c in cases if "2025_26" in c["id"] or "current" in c["id"])
+    delta_ok = ya24["actual"] != ya25["actual"]
     expected_delta = abs(
         Decimal(ex08["variants"][0]["expected_final_tax_lkr"])
         - Decimal(ex08["variants"][1]["expected_final_tax_lkr"])
     )
-    actual_delta = abs(Decimal(pre["actual"]) - Decimal(post["actual"]))
+    actual_delta = abs(Decimal(ya24["actual"]) - Decimal(ya25["actual"]))
 
     ex04 = json.loads(_EX04.read_text(encoding="utf-8"))
     ex04_inputs = CalculateTaxRequestV1.model_validate(ex04["inputs"])
@@ -104,7 +104,7 @@ def _run_offline() -> dict[str, Any]:
     clear_param_store_cache()
     t2 = calculate(ex04_inputs, kg=kg).final_tax_lkr
 
-    demo_ok = t1 != t2 and t1 == "48000" and t2 == "0"
+    demo_ok = t1 != t2 and t1 == "36000" and t2 == "0"
     reset_param_override(settings=settings)
     clear_param_store_cache()
 
@@ -112,8 +112,8 @@ def _run_offline() -> dict[str, Any]:
         "metric": "amendment_adaptivity",
         "ex08_cases": cases,
         "ex08_delta": {
-            "pre": pre["actual"],
-            "post": post["actual"],
+            "ya_2024_25": ya24["actual"],
+            "ya_2025_26": ya25["actual"],
             "expected_abs_delta": format(expected_delta, "f"),
             "actual_abs_delta": format(actual_delta, "f"),
             "ok": delta_ok and actual_delta == expected_delta,
@@ -121,7 +121,7 @@ def _run_offline() -> dict[str, Any]:
         "demo_ex04_override": {
             "t1": t1,
             "t2": t2,
-            "expected_t1": "48000",
+            "expected_t1": "36000",
             "expected_t2": "0",
             "ok": demo_ok,
         },

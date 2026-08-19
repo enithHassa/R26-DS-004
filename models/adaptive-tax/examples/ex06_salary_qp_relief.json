@@ -13,10 +13,9 @@
     "other_reliefs": {},
     "param_set": "current"
   },
-  "expected_final_tax_lkr": "498000",
+  "expected_final_tax_lkr": "390000",
   "expected_rules_applied": [
     "sum_assessable",
-    "cap_qualifying_payment_cap",
     "deduct_qualifying_payment",
     "apply_personal_relief",
     "slab_band_1",
@@ -27,10 +26,15 @@
     "final_tax"
   ],
   "expected_rule_source_ids": [
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
     "ird-ira-2017-base",
-    "sec52_qualifying_payment_cap",
-    "ird-amend-2025-02",
+    "bootstrap:sec52_deduct_qp_2024_25",
+    "bootstrap:personal_relief",
+    "bootstrap:personal_relief_2024_25",
     "personal_relief",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:first_schedule_rates_2024_25",
     "fs_2024_25_band_1",
     "fs_2024_25_band_2",
     "fs_2024_25_band_3",

@@ -1,0 +1,41 @@
+{
+  "id": "ex17",
+  "scenario": "Employment liability with APIT already paid (Phase 5.8)",
+  "key_assertion": "final_tax_lkr stays gross 42000; tax_payable_lkr = 22000 after Sec 89 credit of 20000 APIT",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "1800000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "apit_already_paid": "20000",
+    "other_reliefs": {},
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "42000",
+  "expected_tax_payable_lkr": "22000",
+  "expected_tax_credits_applied_lkr": "20000",
+  "expected_rules_applied": [
+    "sum_assessable",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "final_tax",
+    "apply_tax_credit"
+  ],
+  "expected_rule_source_ids": [
+    "ird-ira-2017-base",
+    "personal_relief",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief",
+    "bootstrap:tax_credit"
+  ]
+}

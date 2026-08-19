@@ -40,12 +40,16 @@ def _pending_rule(job_id: uuid.UUID) -> RuleSource:
     row = RuleSource(
         amendment_job_id=job_id,
         sort_order=0,
-        section="52",
+        section="Fifth Schedule",
         rule_type=RuleType.LIMIT,
+        concept_id="personal_relief",
         maximum=1_800_000.0,
         effective_date=date(2025, 4, 1),
-        amends_section="52",
-        source_quote="Section 52 of the principal enactment is hereby amended by substitution.",
+        amends_section="Fifth Schedule",
+        source_quote=(
+            "Personal relief for a resident individual shall be one million "
+            "eight hundred thousand rupees for the year of assessment."
+        ),
         status=RuleSourceStatus.PENDING,
     )
     row.id = uuid.uuid4()
@@ -91,8 +95,9 @@ def test_approve_creates_rule_versions_and_calls_merge() -> None:
     assert result.rule_versions[0].params["maximum"] == 1_800_000.0
     assert result.merge.merged is False
     assert result.merge.reason == "neo4j_unavailable"
-    assert result.param_override is not None
-    assert result.param_override.cap_amount == Decimal("1800000")
+    assert result.param_override is None
+    assert result.personal_relief_override is not None
+    assert result.personal_relief_override.cap_amount == Decimal("1800000")
     merge_fn.assert_called_once()
     kwargs = merge_fn.call_args.kwargs
     assert kwargs["rule_sources"] == [rule]

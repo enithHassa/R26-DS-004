@@ -1,0 +1,90 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.6",
+  "coverage_area": "business_income",
+  "source_doc_id": "ird-ira-2017-base",
+  "section_key": "6",
+  "status": "approved_bootstrap",
+  "notes": "Phase 5.6a net input + 5.6b optional gross/deductions/capital allowances. Simplified net formula (no full CA engine).",
+  "rules": [
+    {
+      "section": "6",
+      "paragraph": null,
+      "rule_type": "definition",
+      "concept_id": "business_income",
+      "engine_handler": "sum_assessable",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "6. Business income. The assessable income from a business, profession or vocation for a year of assessment shall be the profits of the business computed in accordance with this Act and included in calculating assessable income.",
+      "relationship_hints": [
+        {
+          "rel_type": "CONTRIBUTES_TO",
+          "from_concept_id": "business_income",
+          "to_concept_id": "assessable_income"
+        },
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "business_income",
+          "to_section_uid": "ird-ira-2017-base::sec::section_6"
+        },
+        {
+          "rel_type": "DEFINES",
+          "from_section_uid": "ird-ira-2017-base::sec::section_6",
+          "to_concept_id": "business_income"
+        }
+      ]
+    },
+    {
+      "section": "6",
+      "paragraph": null,
+      "rule_type": "definition",
+      "concept_id": "business_gross",
+      "engine_handler": "compute_business_net",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "6. Business income. The assessable income from a business, profession or vocation for a year of assessment shall be the profits of the business computed in accordance with this Act and included in calculating assessable income.",
+      "relationship_hints": [
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "business_gross",
+          "to_section_uid": "ird-ira-2017-base::sec::section_6"
+        }
+      ]
+    },
+    {
+      "section": "11",
+      "paragraph": "1",
+      "rule_type": "deduction",
+      "concept_id": "business_deductions",
+      "engine_handler": "deduct_business_expenses",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "11. (1) In calculating a person's income from a business or investment for a year of assessment, expenses to the extent they are incurred during the year by the person and in the production of income from the business or investment, shall be deducted.",
+      "relationship_hints": [
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "business_deductions",
+          "to_section_uid": "ird-ira-2017-base::sec::section_11"
+        }
+      ]
+    },
+    {
+      "section": "16",
+      "paragraph": "1",
+      "rule_type": "deduction",
+      "concept_id": "capital_allowances",
+      "engine_handler": "deduct_capital_allowances",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "16. (1) For the purposes of calculating a person's income from a business for a year of assessment — (a) the Capital allowances referred to in subsection (2) shall be deducted; and (b) the balancing allowances referred to in subsection (4) shall be deducted.",
+      "relationship_hints": [
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "capital_allowances",
+          "to_section_uid": "ird-ira-2017-base::sec::section_16"
+        }
+      ]
+    }
+  ]
+}

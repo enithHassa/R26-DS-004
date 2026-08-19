@@ -8,7 +8,8 @@
   "notes": [
     "source_doc_id values are adaptive-tax Phase 2 IDs (e.g. ird-ira-2017-base).",
     "Do not reuse Comp 4 evaluation/ird IDs such as ird-ira-2017.",
-    "ird-calc-ontology-v5 is for RAG/metadata only; calc edges come from ontology JSONL, not PDF convert."
+    "ird-calc-ontology-v5 is for RAG/metadata only; calc edges come from ontology JSONL, not PDF convert.",
+    "applicable_assessment_years / dates are project-known only — never invent. Empty YA means ranking treats YA as unknown."
   ],
   "documents": [
     {
@@ -22,7 +23,9 @@
       "authority_weight": "1.00",
       "is_draft": false,
       "publication_date": "2017-10-24",
-      "effective_start_date": "2018-04-01"
+      "effective_start_date": "2018-04-01",
+      "applicable_assessment_years": ["2024_25", "2025_26"],
+      "notes": "Base Act used by both YA param packs; still in force as amended."
     },
     {
       "file_name": "IR_Act_No._04_2023_E.pdf",
@@ -33,7 +36,8 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "notes": "Certified date / YA mapping not yet project-verified — leave YA empty."
     },
     {
       "file_name": "IR_Act_No._45_2022_E.pdf",
@@ -44,7 +48,9 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "publication_date": "2022-12-19",
+      "notes": "Publication date from Act certification line in corpus text; YA left empty until project-verified."
     },
     {
       "file_name": "IR_Act_No_02-2025_E.pdf",
@@ -55,7 +61,11 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "effective_start_date": "2025-04-01",
+      "effective_end_date": "2026-03-31",
+      "applicable_assessment_years": ["2025_26"],
+      "notes": "YA 2025/26 param packs (rate bands / relief caps) cite this Act."
     },
     {
       "file_name": "IR_Act_No_11-2026_E.pdf",
@@ -66,7 +76,9 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "applicable_assessment_years": ["2025_26"],
+      "notes": "Cited by project QP/carry-forward examples for YA 2025/26; exact Gazette date not stored yet."
     },
     {
       "file_name": "IR_Act_No14_2023_E.pdf",
@@ -77,7 +89,8 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "notes": "Dates/YA not yet project-verified."
     },
     {
       "file_name": "IR_Act_No._10_2021_E.pdf",
@@ -88,7 +101,9 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "publication_date": "2021-05-13",
+      "notes": "Publication date from Act certification line; YA left empty until project-verified."
     },
     {
       "file_name": "IRA_Cons_Act_-_2025_Changes.pdf",
@@ -99,7 +114,9 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "1.00",
-      "is_draft": false
+      "is_draft": false,
+      "applicable_assessment_years": ["2025_26"],
+      "notes": "Consolidated 2025 changes instrument — applicable to YA 2025/26 in this project."
     },
     {
       "file_name": "Guide to Inland Revenue Act.pdf",
@@ -110,7 +127,10 @@
       "doc_type": "pdf",
       "language": "en",
       "authority_weight": "0.60",
-      "is_draft": true
+      "is_draft": true,
+      "usable_for_explain": false,
+      "usable_for_executable_extract": false,
+      "notes": "Phase 6: UX/help wording only. Never source_doc_id for executable catalog/rule_source rows."
     },
     {
       "file_name": "Tax_Knowledge_Base_Master_v5.pdf",
@@ -120,9 +140,11 @@
       "instrument_type": "ontology_notes",
       "doc_type": "pdf",
       "language": "en",
-      "authority_weight": "0.40",
+      "authority_weight": "0.10",
       "is_draft": false,
-      "notes": "RAG/metadata only. Do not convert this PDF into calc graph edges; use models/adaptive-tax/ontology/*.jsonl instead."
+      "usable_for_explain": false,
+      "usable_for_executable_extract": false,
+      "notes": "NOT calc/legal SoT. Exclude from explain retrieval and GPT executable harvest. Use official Acts + models/adaptive-tax/ontology/*.jsonl instead."
     }
   ]
 }

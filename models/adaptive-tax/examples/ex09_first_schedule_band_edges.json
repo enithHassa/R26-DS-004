@@ -1,0 +1,148 @@
+{
+  "id": "ex09",
+  "scenario": "First Schedule band edge boundaries (Act-verified dual YA)",
+  "key_assertion": "Taxable income at band ceilings / first rupee into next band uses correct YA rates; slab steps carry First Schedule rule_source_id.",
+  "assert_variants_differ": true,
+  "variants": [
+    {
+      "id": "ex09_ya24_top_of_band1",
+      "label": "YA 2024/25 taxable exactly 500000 \u2192 only 6% band",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "1700000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "30000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "apply_personal_relief",
+        "slab_band_1",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "personal_relief",
+        "fs_2024_25_band_1",
+        "bootstrap:first_schedule_rates_2024_25",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "bootstrap:personal_relief_2024_25",
+        "bootstrap:personal_relief"
+      ],
+      "expected_taxable_after_relief": "500000"
+    },
+    {
+      "id": "ex09_ya24_full_through_12pct",
+      "label": "YA 2024/25 taxable 1000000 \u2192 6% + 12% bands full",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "2200000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "90000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "apply_personal_relief",
+        "slab_band_1",
+        "slab_band_2",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "personal_relief",
+        "fs_2024_25_band_1",
+        "fs_2024_25_band_2",
+        "bootstrap:first_schedule_rates_2024_25",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "bootstrap:personal_relief_2024_25",
+        "bootstrap:personal_relief"
+      ],
+      "expected_taxable_after_relief": "1000000"
+    },
+    {
+      "id": "ex09_ya25_top_of_band1",
+      "label": "YA 2025/26 taxable exactly 1000000 \u2192 only widened 6% band",
+      "inputs": {
+        "assessment_year": "2025_26",
+        "resident_status": "resident",
+        "employment_income": "2200000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "24000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "apply_personal_relief",
+        "slab_band_1",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "personal_relief",
+        "fs_2025_26_band_1",
+        "bootstrap:first_schedule_rates_2025_26",
+        "ird-amend-2025-02",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "bootstrap:personal_relief_2025_26",
+        "bootstrap:personal_relief"
+      ],
+      "expected_taxable_after_relief": "400000"
+    },
+    {
+      "id": "ex09_ya25_enter_18pct",
+      "label": "YA 2025/26 taxable 1000100 \u2192 opens 18% band (no 12%)",
+      "inputs": {
+        "assessment_year": "2025_26",
+        "resident_status": "resident",
+        "employment_income": "2200100",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "24006",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "apply_personal_relief",
+        "slab_band_1",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "ird-ira-2017-base",
+        "personal_relief",
+        "fs_2025_26_band_1",
+        "bootstrap:first_schedule_rates_2025_26",
+        "ird-amend-2025-02",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "bootstrap:personal_relief_2025_26",
+        "bootstrap:personal_relief"
+      ],
+      "expected_taxable_after_relief": "400100"
+    }
+  ]
+}

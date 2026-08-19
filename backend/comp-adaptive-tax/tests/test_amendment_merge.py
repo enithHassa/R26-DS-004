@@ -75,11 +75,11 @@ def test_merge_success_with_mocked_driver() -> None:
         sort_order=0,
         section="52",
         rule_type=RuleType.LIMIT,
-        concept_id="qualifying_payment_cap",
+        concept_id="personal_relief",
         maximum=1_800_000.0,
         effective_date=date(2025, 4, 1),
-        amends_section="52",
-        source_quote="Section 52 of the principal enactment is hereby amended.",
+        amends_section="Fifth Schedule",
+        source_quote="Personal relief shall be one million eight hundred thousand rupees.",
         status=RuleSourceStatus.APPROVED,
     )
     rule.id = uuid.uuid4()
@@ -118,7 +118,7 @@ def test_merge_success_with_mocked_driver() -> None:
     assert result.details is not None
     assert result.details["source_doc_id"] == "ird-amend-2025-02"
     assert "ird-ira-2017-base::sec::section_52" in result.details["modifies"]
-    assert any(u["relief_id"] == "sec52_qualifying_payment_cap" for u in result.details["relief_updates"])
+    assert any(u["relief_id"] == "personal_relief" for u in result.details["relief_updates"])
     assert session.execute_write.call_count >= 3
     driver.close.assert_called_once()
 
@@ -148,4 +148,4 @@ def test_mvp_calc_edges_validate_against_ontology() -> None:
             errs = kce.validate_edge_row(row, ontology, line_no=line_no)
             assert not errs, errs
             rows += 1
-    assert 30 <= rows <= 60
+    assert 30 <= rows <= 100

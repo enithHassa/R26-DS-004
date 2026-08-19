@@ -39,6 +39,8 @@ class AmendmentExtractRun(Base):
     )
     warnings: Mapped[list | dict | None] = mapped_column(JSONB, nullable=True)
     metrics: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Viva audit: prompts + focused text + raw GPT completion + structured rules.
+    audit_payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
