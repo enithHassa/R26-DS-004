@@ -367,7 +367,7 @@ Frontend dev server proxies `/api` to the gateway (configurable in `vite.config.
 - Always run component tests separately (see [Common Commands → Run all tests](#run-all-tests))
 
 **Database connection refused:**
-- If using Azure: ask team lead to start the server or run `az postgres flexible-server start --resource-group tax-advisory-rg --name tax-advisory-db`
+- If using Azure: ask team lead to start the server or run `az postgres flexible-server start --resource-group tax-advisory-rg --name tax-advisory-db-tax`
 - Switch to local Postgres: `docker compose -f docker/docker-compose.yml up -d postgres` and set `DATABASE_MODE=local` in `.env`
 
 **Port already in use:**
