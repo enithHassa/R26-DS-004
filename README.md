@@ -155,7 +155,8 @@ alembic upgrade head
 
 The project uses a shared **Azure Database for PostgreSQL - Flexible Server** (Central India region).
 
-- **Host:** `tax-advisory-db.postgres.database.azure.com`
+- **Host:** `tax-advisory-db-tax.postgres.database.azure.com`
+- **Admin user:** `taxadvisor_admin`
 - **Database:** `tax_advisory`
 - **SSL:** Required
 
@@ -164,7 +165,7 @@ The server is stopped when not in use to conserve Azure for Students credits. If
 ```bash
 az postgres flexible-server start \
   --resource-group tax-advisory-rg \
-  --name tax-advisory-db
+  --name tax-advisory-db-tax
 ```
 
 To stop when done for the day:
@@ -172,7 +173,7 @@ To stop when done for the day:
 ```bash
 az postgres flexible-server stop \
   --resource-group tax-advisory-rg \
-  --name tax-advisory-db
+  --name tax-advisory-db-tax
 ```
 
 ### Local Postgres fallback (when Azure is stopped)
