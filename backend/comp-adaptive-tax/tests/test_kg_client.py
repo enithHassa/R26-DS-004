@@ -40,22 +40,29 @@ def test_bolt_uri_rewrites_neo4j_scheme() -> None:
 def test_file_kg_income_and_deduction_caps() -> None:
     kg = FileOntologyKgClient()
     hit = kg.resolve_applicable_concepts(
-        income_types=["employment_income", "investment_income", "business_income"],
-        claimed_deductions=["qualifying_payment", "donation"],
+        income_types=[
+            "employment_income",
+            "investment_income",
+            "business_income",
+            "other_income",
+        ],
+        claimed_deductions=["qualifying_payment", "solar_panel_relief", "rent_relief"],
     )
     assert hit.income_concept_ids == (
         "employment_income",
         "investment_income",
         "business_income",
+        "other_income",
     )
     assert hit.resident_individual_present is True
     by_id = {d.concept_id: d for d in hit.deductions}
-    assert by_id["qualifying_payment"].cap_concept_id == "qualifying_payment_cap"
-    assert by_id["donation"].cap_concept_id == "donation_cap"
+    assert by_id["qualifying_payment"].cap_concept_id is None
+    assert by_id["solar_panel_relief"].cap_concept_id == "solar_panel_relief_cap"
+    assert by_id["rent_relief"].cap_concept_id == "rent_relief_cap"
     # Section anchors via DEFINES / COVERS_RELIEF
     assert any("section_5" in u for u in hit.income_section_uids.get("employment_income", ()))
     assert any("section_52" in u for u in by_id["qualifying_payment"].section_uids)
-    assert any("section_52" in u for u in by_id["donation"].section_uids)
+    assert any("fifth_schedule" in u for u in by_id["solar_panel_relief"].section_uids)
 
 
 def test_file_kg_ignores_unknown_and_non_contributing_income() -> None:
@@ -75,8 +82,7 @@ def test_file_kg_deductions_without_income() -> None:
         claimed_deductions=["donation"],
     )
     assert hit.income_concept_ids == ()
-    assert len(hit.deductions) == 1
-    assert hit.deductions[0].concept_id == "donation"
+    assert hit.deductions == ()
 
 
 def test_get_kg_client_file_mode() -> None:
@@ -89,7 +95,7 @@ def test_rows_to_applicable_collapses_cartesian_product() -> None:
         {
             "income_id": "employment_income",
             "ded_id": "qualifying_payment",
-            "cap_id": "qualifying_payment_cap",
+            "cap_id": None,
             "taxable_id": "taxable_income",
             "taxpayer_id": "resident_individual",
         },
@@ -103,7 +109,7 @@ def test_rows_to_applicable_collapses_cartesian_product() -> None:
         {
             "income_id": "business_income",
             "ded_id": "qualifying_payment",
-            "cap_id": "qualifying_payment_cap",
+            "cap_id": None,
             "taxable_id": "taxable_income",
             "taxpayer_id": "resident_individual",
         },
@@ -122,7 +128,7 @@ def test_rows_to_applicable_collapses_cartesian_product() -> None:
         "ird-ira-2017-base::sec::section_5",
     )
     qp = next(d for d in hit.deductions if d.concept_id == "qualifying_payment")
-    assert qp.cap_concept_id == "qualifying_payment_cap"
+    assert qp.cap_concept_id is None
     assert "ird-ira-2017-base::sec::section_52" in qp.section_uids
 
 

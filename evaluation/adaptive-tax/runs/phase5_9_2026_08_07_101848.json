@@ -1,0 +1,167 @@
+{
+  "run_id": "phase5_9_2026_08_07_101848",
+  "component": "adaptive-tax",
+  "phase": "5.9",
+  "scored_at_utc": "2026-08-07T10:18:48.143796+00:00",
+  "ok": true,
+  "metrics": {
+    "coverage": {
+      "n_covered": 8,
+      "n_planned": 8,
+      "coverage_pct": 100.0,
+      "ok": true,
+      "covered_area_ids": [
+        "employment_income",
+        "first_schedule_rates",
+        "personal_relief",
+        "sec52_qualifying_payment_cap",
+        "donations",
+        "business_income",
+        "investment_income",
+        "tax_credits"
+      ],
+      "pending_area_ids": [],
+      "target": "\u2265 8/8 core areas"
+    },
+    "calculation_accuracy": {
+      "metric": "calculation_accuracy",
+      "ok": true,
+      "pytest_returncode": 0,
+      "n_example_files": 17,
+      "summary_line": "23 passed in 0.46s",
+      "target": "all covered-area goldens pass"
+    },
+    "provenance_completeness": {
+      "ok": true,
+      "mode": "strict",
+      "n_cases": 21,
+      "target": 1.0,
+      "rate": 1.0
+    },
+    "citation_faithfulness": {
+      "metric": "citation_faithfulness",
+      "passed": 1,
+      "total": 1,
+      "rate": 1.0,
+      "ok": true,
+      "cases": [
+        {
+          "case_id": "explain_ex04_sample",
+          "ok": true,
+          "sections_cited": [
+            "Section 5",
+            "Section 52",
+            "First Schedule"
+          ],
+          "sections_retrieved": [
+            "First Schedule",
+            "Section 5",
+            "Section 52"
+          ],
+          "hallucinated": []
+        }
+      ],
+      "target": 1.0
+    },
+    "explanation_grounding": {
+      "metric": "explanation_grounding",
+      "passed": 3,
+      "total": 3,
+      "rate": 1.0,
+      "ok": true,
+      "cases": [
+        {
+          "case_id": "ground_ok_ex04_sample",
+          "ok": true,
+          "grounded_sentences": 6,
+          "total_sentences": 6
+        },
+        {
+          "case_id": "ground_insufficient_empty",
+          "ok": true,
+          "grounded_sentences": 0,
+          "total_sentences": 0
+        },
+        {
+          "case_id": "explain_ex04_sample",
+          "ok": true,
+          "grounded_sentences": 10,
+          "total_sentences": 10
+        }
+      ],
+      "target": 1.0
+    },
+    "amendment_adaptivity": {
+      "ok": true,
+      "ex08_delta": "42000",
+      "target": "T1 \u2260 T2 with Sec 52 quotes"
+    },
+    "extraction_precision_labeled_sec52": {
+      "metric": "extraction_precision",
+      "correct": 20,
+      "total": 20,
+      "precision": 1.0,
+      "mismatches": [],
+      "ok": true
+    },
+    "extraction_precision_harvest_sections": {
+      "ok": true,
+      "precision": 1.0,
+      "correct": 100,
+      "total": 100,
+      "n_sections": 8,
+      "sections": [
+        {
+          "section_key": "52",
+          "coverage_area": "donations",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "first_schedule",
+          "coverage_area": "first_schedule_rates",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "personal_relief",
+          "coverage_area": "personal_relief",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "52",
+          "coverage_area": "sec52_qualifying_payment_cap",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "5",
+          "coverage_area": "employment_income",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "6",
+          "coverage_area": "business_income",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "7",
+          "coverage_area": "investment_income",
+          "precision": 1.0,
+          "ok": true
+        },
+        {
+          "section_key": "89",
+          "coverage_area": "tax_credits",
+          "precision": 1.0,
+          "ok": true
+        }
+      ],
+      "target": 1.0
+    }
+  },
+  "notes": "Phase 5.9 Chapter 4 metrics \u2014 calculator track; graph size is not a success gate."
+}

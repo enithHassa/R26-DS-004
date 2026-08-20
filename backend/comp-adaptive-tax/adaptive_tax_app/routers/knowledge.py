@@ -8,6 +8,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from adaptive_tax_app.config import get_adaptive_tax_settings
+from adaptive_tax_app.schemas.legal_coverage import LegalCoverageResponseV1
+from adaptive_tax_app.services.kg_client import REQUIRED_CALC_CONCEPTS
+from adaptive_tax_app.services.legal_coverage import build_legal_coverage
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -17,6 +20,17 @@ class RagSearchRequest(BaseModel):
     section_ref: str | None = None
     source_doc_id: str | None = None
     top_k: int = Field(default=5, ge=1, le=20)
+    # Retrieval noise floor only — NOT legal confidence (Phase 7/8).
+    min_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional similarity floor (defaults to settings.RAG_MIN_SCORE when null).",
+    )
+    assessment_year: str | None = Field(
+        default=None,
+        description="Optional YA hint for clients; ranking uses legal precedence in gather_evidence.",
+    )
 
 
 class RagHitOut(BaseModel):
@@ -31,6 +45,8 @@ class RagHitOut(BaseModel):
 class RagSearchResponse(BaseModel):
     query: str
     section_ref: str | None = None
+    min_score: float | None = None
+    assessment_year: str | None = None
     hits: list[RagHitOut]
 
 
@@ -78,7 +94,18 @@ def graph_stats() -> dict[str, Any]:
                 ORDER BY count DESC
                 """
             ).data()
-            calc_types = ("DEFINES", "COVERS_RELIEF", "APPLIES_TO")
+            calc_types = (
+                "DEFINES",
+                "COVERS_RELIEF",
+                "APPLIES_TO",
+                "CONTRIBUTES_TO",
+                "DEDUCTED_FROM",
+                "LIMITED_BY",
+                "GOVERNED_BY",
+                "SUPPORTED_BY",
+                "CALCULATED_USING",
+                "MENTIONS",
+            )
             calc_total = session.run(
                 """
                 MATCH ()-[r]->()
@@ -87,33 +114,92 @@ def graph_stats() -> dict[str, Any]:
                 """,
                 types=list(calc_types),
             ).single()
+            executable_types = [
+                t for t in calc_types if t != "MENTIONS"
+            ]
+            executable_total = session.run(
+                """
+                MATCH ()-[r]->()
+                WHERE type(r) IN $types
+                RETURN count(r) AS count
+                """,
+                types=executable_types,
+            ).single()
             modifies = session.run(
                 "MATCH ()-[r:MODIFIES]->() RETURN count(r) AS count"
             ).single()
+            required_rows = session.run(
+                """
+                UNWIND $ids AS cid
+                OPTIONAL MATCH (c:Concept {concept_id: cid})
+                RETURN cid AS concept_id, c IS NOT NULL AS present
+                """,
+                ids=list(REQUIRED_CALC_CONCEPTS),
+            ).data()
     finally:
         driver.close()
+
+    presence = {
+        str(row["concept_id"]): bool(row.get("present"))
+        for row in required_rows
+        if row.get("concept_id")
+    }
+    missing = [cid for cid, ok in presence.items() if not ok]
 
     return {
         "nodes": {row["label"]: row["count"] for row in nodes if row.get("label")},
         "relationships": {row["type"]: row["count"] for row in edges if row.get("type")},
         "calc_edge_total": int(calc_total["count"]) if calc_total else 0,
+        "executable_calc_edge_total": (
+            int(executable_total["count"]) if executable_total else 0
+        ),
         "modifies_total": int(modifies["count"]) if modifies else 0,
         "calc_rel_types": list(calc_types),
+        "required_concepts": presence,
+        "required_concepts_missing": missing,
+        "notes": (
+            "calc_edge_total includes MENTIONS (Phase 5.10 breadth). "
+            "Coverage is checklist-based and is not inflated by bulk MENTIONS. "
+            "required_concepts lists calculator concepts that must exist in Neo4j."
+        ),
     }
+
+
+@router.get(
+    "/legal-coverage",
+    response_model=LegalCoverageResponseV1,
+    summary="Legal coverage dashboard — checklist + catalog section grain (Phase 6.8)",
+)
+def legal_coverage(
+    include_optional: bool = False,
+) -> LegalCoverageResponseV1:
+    """Section-grain coverage for viva / Chapter 4 export."""
+    try:
+        return build_legal_coverage(include_optional=include_optional)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/rag/search", response_model=RagSearchResponse)
 def rag_search(body: RagSearchRequest) -> RagSearchResponse:
     """Semantic search over the embedded adaptive-tax Chroma collection."""
+    settings = get_adaptive_tax_settings()
+    floor = body.min_score
+    if floor is None:
+        floor = float(settings.RAG_MIN_SCORE)
     try:
         from adaptive_tax_app.services.chroma_index import get_chroma_index
 
         index = get_chroma_index()
-        hits = index.search(
+        # Over-fetch then apply score floor client-side (noise filter only).
+        raw = index.search(
             body.query,
             section_ref=body.section_ref,
             source_doc_id=body.source_doc_id,
-            top_k=body.top_k,
+            top_k=max(body.top_k * 4, body.top_k),
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
@@ -121,9 +207,17 @@ def rag_search(body: RagSearchRequest) -> RagSearchResponse:
             detail=f"Chroma unavailable: {exc}",
         ) from exc
 
+    hits = [
+        h
+        for h in raw
+        if h.score is None or float(h.score) >= float(floor)
+    ][: body.top_k]
+
     return RagSearchResponse(
         query=body.query,
         section_ref=body.section_ref,
+        min_score=floor,
+        assessment_year=body.assessment_year,
         hits=[
             RagHitOut(
                 chunk_id=h.chunk_id,

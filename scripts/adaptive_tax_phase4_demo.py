@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Adaptive Tax Phase 4 end-to-end viva demo (amendment adaptivity + explain).
+"""Adaptive Tax Phase 4/5 end-to-end viva demo (YA adaptivity + optional approve).
 
-Requires Adaptive Tax API on ``--base-url`` (default ``http://127.0.0.1:8005``)
-with Postgres reachable for amendments, and preferably:
+Requires Adaptive Tax API on ``--base-url`` (default ``http://127.0.0.1:8005``).
 
-* ``COMP_ADAPTIVE_TAX_EXTRACTION_MODE=fixture`` (offline Act 02/2025 Sec 52 extract)
-* ``COMP_ADAPTIVE_TAX_EXPLAIN_MODE=fixture`` (offline narrative)
-* Chroma indexed for non-empty explain evidence (optional; insufficient_evidence ok)
+**Primary demo (Phase 5.4):** ex08 dual-YA switch — same employment + QP inputs,
+``assessment_year=2024_25`` → T1, ``2025_26`` → T2 ≠ T1 (personal relief 1.2M vs 1.8M).
 
-Sequence::
-
-  health -> reset-to-pre-amend -> calc ex04 (T1) -> upload/extract/approve Act
-  -> calc ex04 (T2 != T1) -> explain both calc_ids -> print report URLs
+**Optional approve path:** ``--with-approve`` runs pre-amend personal relief reset →
+approve Act 02/2025 personal relief → T2 ≠ T1 on runtime override.
 
 Example::
 
@@ -33,13 +29,15 @@ _SCRIPTS = Path(__file__).resolve().parent
 _REPO = _SCRIPTS.parent
 
 _DEFAULT_PDF = _REPO / "data" / "raw" / "adaptive-tax" / "IR_Act_No_02-2025_E.pdf"
-_EX04 = _REPO / "models" / "adaptive-tax" / "examples" / "ex04_salary_qualifying_payment.json"
+_EX08 = _REPO / "models" / "adaptive-tax" / "examples" / "ex08_post_amendment_sec52.json"
+_VIVA_INPUTS = {
+    "assessment_year": "2025_26",
+    "resident_status": "resident",
+    "employment_income": "3000000",
+    "qualifying_payments": "0",
+    "param_set": "current",
+}
 _MINIMAL_PDF = b"%PDF-1.4\n% Adaptive Tax Phase 4 demo stub (fixture extract)\n%%EOF\n"
-
-
-def _load_ex04_inputs() -> dict[str, Any]:
-    raw = json.loads(_EX04.read_text(encoding="utf-8"))
-    return dict(raw["inputs"])
 
 
 def _banner(title: str) -> None:
@@ -88,6 +86,128 @@ def _resolve_pdf(path: Path, *, allow_stub: bool) -> Path:
     return stub
 
 
+def _personal_relief_quote(body: dict[str, Any]) -> str | None:
+    pr_step = next(
+        (
+            s
+            for s in body.get("calculation_trace") or []
+            if s.get("step_id") == "apply_personal_relief"
+        ),
+        None,
+    )
+    if not pr_step:
+        return None
+    pr_ids = pr_step.get("rule_source_ids") or []
+    for ref in body.get("rule_source_refs") or []:
+        if ref.get("id") in pr_ids and ref.get("source_quote"):
+            return str(ref["source_quote"])[:120] + "..."
+    return None
+
+
+def run_ya_switch_demo(client: httpx.Client, *, fe: str) -> tuple[str, str, str, str]:
+    """ex08 dual YA: T1 (2024/25) vs T2 (2025/26)."""
+    doc = json.loads(_EX08.read_text(encoding="utf-8"))
+    v24 = next(v for v in doc["variants"] if "2024_25" in v["id"])
+    v25 = next(v for v in doc["variants"] if "2025_26" in v["id"])
+
+    _banner("2) Calculate ex08 YA 2024/25 -> T1")
+    t1 = _require_ok(
+        client.post(f"{client.base_url}/api/v1/calculate", json=v24["inputs"]),
+        step="POST /calculate (ex08 YA24)",
+    )
+    tax1 = str(t1.get("final_tax_lkr", ""))
+    calc_id_1 = str(t1.get("calc_id", ""))
+    print(f"T1 final_tax_lkr = {tax1}  (expected {v24['expected_final_tax_lkr']})")
+    print(f"calc_id_1        = {calc_id_1}")
+    q1 = _personal_relief_quote(t1)
+    if q1:
+        print(f"Personal relief quote (T1): {q1}")
+
+    _banner("3) Calculate ex08 YA 2025/26 -> T2 (same inputs, different personal relief)")
+    t2 = _require_ok(
+        client.post(f"{client.base_url}/api/v1/calculate", json=v25["inputs"]),
+        step="POST /calculate (ex08 YA25)",
+    )
+    tax2 = str(t2.get("final_tax_lkr", ""))
+    calc_id_2 = str(t2.get("calc_id", ""))
+    print(f"T2 final_tax_lkr = {tax2}  (expected {v25['expected_final_tax_lkr']})")
+    print(f"calc_id_2        = {calc_id_2}")
+    q2 = _personal_relief_quote(t2)
+    if q2:
+        print(f"Personal relief quote (T2): {q2}")
+
+    if tax1 == tax2:
+        raise SystemExit(
+            f"[FAIL] expected T2 != T1 for dual-YA ex08; both={tax1!r}"
+        )
+    print(f"[ok] T2 != T1  ({tax2} != {tax1})  |Δ| = {abs(int(tax1) - int(tax2))}")
+
+    _banner("4) Report URLs (frontend)")
+    url1 = f"{fe}/adaptive-tax/report/{calc_id_1}"
+    url2 = f"{fe}/adaptive-tax/report/{calc_id_2}"
+    print(f"Report T1 (YA 2024/25): {url1}")
+    print(f"Report T2 (YA 2025/26): {url2}")
+    return tax1, tax2, calc_id_1, calc_id_2
+
+
+def run_approve_demo(
+    client: httpx.Client,
+    *,
+    pdf: Path,
+) -> None:
+    """Pre-amend personal relief reset → approve Act 02/2025 → T2 ≠ T1."""
+    inputs = dict(_VIVA_INPUTS)
+
+    _banner("A) Reset params -> pre-amend personal relief (1.2M)")
+    reset = _require_ok(
+        client.post(f"{client.base_url}/api/v1/admin/params/reset-to-pre-amend"),
+        step="POST /admin/params/reset-to-pre-amend",
+    )
+    print(_pretty(reset))
+
+    _banner("B) Calculate viva inputs -> T1 (pre-amend override)")
+    t1 = _require_ok(
+        client.post(f"{client.base_url}/api/v1/calculate", json=inputs),
+        step="POST /calculate (T1)",
+    )
+    tax1 = str(t1.get("final_tax_lkr", ""))
+    print(f"T1 = {tax1}")
+
+    _banner("C) Upload + extract + approve Act 02/2025")
+    with pdf.open("rb") as fh:
+        upload = _require_ok(
+            client.post(
+                f"{client.base_url}/api/v1/admin/amendments/upload",
+                files={"file": (pdf.name, fh, "application/pdf")},
+            ),
+            step="POST /admin/amendments/upload",
+        )
+    job_id = str(upload.get("id", ""))
+    _require_ok(
+        client.post(f"{client.base_url}/api/v1/admin/amendments/{job_id}/extract"),
+        step="POST .../extract",
+    )
+    approved = _require_ok(
+        client.post(f"{client.base_url}/api/v1/admin/amendments/{job_id}/approve"),
+        step="POST .../approve",
+    )
+    print(
+        "personal_relief_override:",
+        _pretty(approved.get("personal_relief_override") or {}),
+    )
+
+    _banner("D) Re-calculate -> T2")
+    t2 = _require_ok(
+        client.post(f"{client.base_url}/api/v1/calculate", json=inputs),
+        step="POST /calculate (T2)",
+    )
+    tax2 = str(t2.get("final_tax_lkr", ""))
+    print(f"T2 = {tax2}")
+    if tax1 == tax2:
+        raise SystemExit(f"[FAIL] approve demo: T2 == T1 ({tax1})")
+    print(f"[ok] approve T2 != T1 ({tax2} != {tax1})")
+
+
 def run_demo(
     *,
     base_url: str,
@@ -95,176 +215,60 @@ def run_demo(
     pdf_path: Path,
     allow_stub_pdf: bool,
     skip_explain: bool,
+    with_approve: bool,
     timeout: float,
 ) -> int:
     api = base_url.rstrip("/")
     fe = frontend_url.rstrip("/")
-    inputs = _load_ex04_inputs()
     pdf = _resolve_pdf(pdf_path, allow_stub=allow_stub_pdf)
 
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+    with httpx.Client(base_url=api, timeout=timeout, follow_redirects=True) as client:
         _banner("1) Health check")
-        health = _require_ok(client.get(f"{api}/health"), step="GET /health")
+        health = _require_ok(client.get("/health"), step="GET /health")
         print(_pretty(health))
 
-        _banner("2) Reset params -> pre-amend Sec 52 cap (1.2M)")
-        reset = _require_ok(
-            client.post(f"{api}/api/v1/admin/params/reset-to-pre-amend"),
-            step="POST /admin/params/reset-to-pre-amend",
-        )
-        print(_pretty(reset))
-        print(f"override_path: {reset.get('override_path')}")
-        print(f"qualifying_payment_cap: {reset.get('qualifying_payment_cap')}")
+        tax1, tax2, calc_id_1, calc_id_2 = run_ya_switch_demo(client, fe=fe)
 
-        _banner("3) Calculate ex04 inputs -> T1")
-        t1 = _require_ok(
-            client.post(f"{api}/api/v1/calculate", json=inputs),
-            step="POST /calculate (T1)",
-        )
-        tax1 = str(t1.get("final_tax_lkr", ""))
-        calc_id_1 = str(t1.get("calc_id", ""))
-        print(f"T1 final_tax_lkr = {tax1}")
-        print(f"calc_id_1        = {calc_id_1}")
-        if not calc_id_1:
-            raise SystemExit("[FAIL] calculate did not return calc_id")
+        if with_approve:
+            run_approve_demo(client, pdf=pdf)
 
-        _banner("4) Upload Act 02/2025 PDF")
-        print(f"pdf: {pdf}")
-        with pdf.open("rb") as fh:
-            upload = _require_ok(
-                client.post(
-                    f"{api}/api/v1/admin/amendments/upload",
-                    files={"file": (pdf.name, fh, "application/pdf")},
-                ),
-                step="POST /admin/amendments/upload",
-            )
-        job_id = str(upload.get("id", ""))
-        print(f"job_id = {job_id}  status={upload.get('status')}")
-        if not job_id:
-            raise SystemExit("[FAIL] upload did not return job id")
-
-        _banner("5) Extract rules (fixture|openai per server env)")
-        extracted = _require_ok(
-            client.post(f"{api}/api/v1/admin/amendments/{job_id}/extract"),
-            step="POST .../extract",
-        )
-        print(
-            f"mode={extracted.get('mode')} model={extracted.get('model_name')} "
-            f"rule_count={extracted.get('rule_count')}"
-        )
-        if extracted.get("warnings"):
-            print(f"warnings: {extracted['warnings']}")
-
-        _banner("6) Approve -> Neo4j MODIFIES + Chroma + param override")
-        approved = _require_ok(
-            client.post(f"{api}/api/v1/admin/amendments/{job_id}/approve"),
-            step="POST .../approve",
-        )
-        merge = approved.get("merge") or {}
-        override = approved.get("param_override") or {}
-        print("merge:")
-        print(_pretty(merge))
-        print("param_override:")
-        print(_pretty(override))
-        details = merge.get("details") if isinstance(merge, dict) else None
-        if isinstance(details, dict):
-            print(f"MODIFIES targets: {details.get('modifies') or details.get('section_uids')}")
-            print(f"chroma / merge details keys: {sorted(details.keys())}")
-
-        _banner("7) Re-calculate same ex04 inputs -> T2")
-        t2 = _require_ok(
-            client.post(f"{api}/api/v1/calculate", json=inputs),
-            step="POST /calculate (T2)",
-        )
-        tax2 = str(t2.get("final_tax_lkr", ""))
-        calc_id_2 = str(t2.get("calc_id", ""))
-        print(f"T2 final_tax_lkr = {tax2}")
-        print(f"calc_id_2        = {calc_id_2}")
-        if tax1 == tax2:
-            raise SystemExit(
-                f"[FAIL] expected T2 != T1 after Sec 52 approve; both={tax1!r}"
-            )
-        print(f"[ok] T2 != T1  ({tax2} != {tax1})")
-
-        explain_1: dict[str, Any] | None = None
-        explain_2: dict[str, Any] | None = None
         if not skip_explain:
-            _banner("8) Explain both calc_ids")
-            explain_1 = _require_ok(
-                client.post(f"{api}/api/v1/explain", json={"calc_id": calc_id_1}),
-                step="POST /explain (calc_id_1)",
-            )
-            explain_2 = _require_ok(
-                client.post(f"{api}/api/v1/explain", json={"calc_id": calc_id_2}),
-                step="POST /explain (calc_id_2)",
-            )
-            for label, body in (("calc_id_1", explain_1), ("calc_id_2", explain_2)):
+            _banner("5) Explain both calc_ids (YA switch)")
+            for label, cid in (("calc_id_1", calc_id_1), ("calc_id_2", calc_id_2)):
+                if not cid:
+                    continue
+                body = _require_ok(
+                    client.post("/api/v1/explain", json={"calc_id": cid}),
+                    step=f"POST /explain ({label})",
+                )
                 print(
                     f"{label}: insufficient_evidence={body.get('insufficient_evidence')} "
-                    f"sections_cited={body.get('sections_cited')} "
-                    f"final_tax_lkr={body.get('final_tax_lkr')}"
+                    f"sections_cited={body.get('sections_cited')}"
                 )
-        else:
-            print("\n[skip] --skip-explain set; not calling POST /explain")
 
-        _banner("9) Report URLs (frontend)")
-        url1 = f"{fe}/adaptive-tax/report/{calc_id_1}"
-        url2 = f"{fe}/adaptive-tax/report/{calc_id_2}"
-        print(f"Report T1: {url1}")
-        print(f"Report T2: {url2}")
         print()
         print("Summary")
-        print(f"  T1={tax1}  calc_id_1={calc_id_1}")
-        print(f"  T2={tax2}  calc_id_2={calc_id_2}")
-        print(f"  job_id={job_id}")
-        if override.get("path"):
-            print(f"  override_path={override.get('path')}")
-        if explain_1 is not None:
-            print(
-                f"  explain_1 insufficient={explain_1.get('insufficient_evidence')}"
-            )
-        if explain_2 is not None:
-            print(
-                f"  explain_2 insufficient={explain_2.get('insufficient_evidence')}"
-            )
-        print("[ok] Phase 4 demo sequence complete")
+        print(f"  ex08 YA24 T1={tax1}  calc_id_1={calc_id_1}")
+        print(f"  ex08 YA25 T2={tax2}  calc_id_2={calc_id_2}")
+        if with_approve:
+            print("  (also ran personal relief approve override demo)")
+        print("[ok] Phase 5.4 viva demo sequence complete")
         return 0
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--base-url", default="http://127.0.0.1:8005")
+    p.add_argument("--frontend-url", default="http://127.0.0.1:5173")
+    p.add_argument("--pdf", type=Path, default=_DEFAULT_PDF)
+    p.add_argument("--allow-stub-pdf", action="store_true")
+    p.add_argument("--skip-explain", action="store_true")
     p.add_argument(
-        "--base-url",
-        default="http://127.0.0.1:8005",
-        help="Adaptive Tax service base URL",
-    )
-    p.add_argument(
-        "--frontend-url",
-        default="http://127.0.0.1:5173",
-        help="Vite frontend origin for report links",
-    )
-    p.add_argument(
-        "--pdf",
-        type=Path,
-        default=_DEFAULT_PDF,
-        help="Path to Act 02/2025 PDF (or any PDF when extraction_mode=fixture)",
-    )
-    p.add_argument(
-        "--allow-stub-pdf",
+        "--with-approve",
         action="store_true",
-        help="If --pdf is missing, write a minimal PDF stub (fixture extract only)",
+        help="Also run pre-amend personal relief → approve → T2≠T1 path",
     )
-    p.add_argument(
-        "--skip-explain",
-        action="store_true",
-        help="Skip POST /explain (still asserts T2 != T1)",
-    )
-    p.add_argument(
-        "--timeout",
-        type=float,
-        default=180.0,
-        help="HTTP timeout seconds (extract may be slow in openai mode)",
-    )
+    p.add_argument("--timeout", type=float, default=180.0)
     args = p.parse_args()
     try:
         return run_demo(
@@ -273,6 +277,7 @@ def main() -> int:
             pdf_path=args.pdf if args.pdf.is_absolute() else _REPO / args.pdf,
             allow_stub_pdf=args.allow_stub_pdf,
             skip_explain=args.skip_explain,
+            with_approve=args.with_approve,
             timeout=args.timeout,
         )
     except httpx.ConnectError as exc:

@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from adaptive_tax_app.schemas.legal_rule_evidence import LegalRuleEvidence
+
 
 class EvidenceChunk(BaseModel):
     """One Chroma hit used as legal evidence."""
@@ -18,6 +20,19 @@ class EvidenceChunk(BaseModel):
     source_doc_id: str | None = None
     page: int | None = None
     score: float | None = None
+    paragraph_ref: str | None = None
+    instrument_type: str | None = None
+    legal_precedence_tier: int | None = Field(
+        default=None,
+        description="Lower is better; legal authority rank (not similarity).",
+    )
+    is_operative_provision: bool | None = Field(
+        default=None,
+        description="True when chunk is tagged as operative Act text (not TOC).",
+    )
+    is_toc: bool | None = None
+    is_header_footer: bool | None = None
+    is_cross_reference: bool | None = None
 
 
 class EvidenceSourceQuote(BaseModel):
@@ -47,6 +62,23 @@ class GraphModifiesEdge(BaseModel):
     effective_from: str | None = None
 
 
+class StepEvidenceStatus(BaseModel):
+    """Per-step evidence gate result (Phase 7b)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    step_id: str
+    evidence_available: bool
+    section_labels: list[str] = Field(default_factory=list)
+    paragraph_ref: str | None = None
+    evidence_chunk_ids: list[str] = Field(default_factory=list)
+    rule_source_id: str | None = None
+    reason: str | None = Field(
+        default=None,
+        description="Why evidence is unavailable when evidence_available is False.",
+    )
+
+
 class EvidenceBundle(BaseModel):
     """Structured evidence for GPT/fixture explanation (Phase 4)."""
 
@@ -64,10 +96,22 @@ class EvidenceBundle(BaseModel):
     )
     graph_modifies: list[GraphModifiesEdge] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    step_evidence: list[StepEvidenceStatus] = Field(
+        default_factory=list,
+        description="Per-step local evidence gate (Phase 7b).",
+    )
+    legal_rule_evidence: list[LegalRuleEvidence] = Field(
+        default_factory=list,
+        description=(
+            "Phase 11c: optional LegalRuleEvidence candidates from operative RAG "
+            "chunks (structured legal evidence — not RAG calculation; "
+            "executable always false)."
+        ),
+    )
 
     @property
     def insufficient_evidence(self) -> bool:
-        """True when neither RAG chunks nor Postgres quotes are available."""
+        """True when neither RAG chunks nor Postgres/bootstrap quotes are available."""
         return not self.chunks and not self.source_quotes
 
     def model_dump_public(self) -> dict[str, Any]:

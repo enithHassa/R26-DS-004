@@ -1,0 +1,52 @@
+{
+  "id": "ex25",
+  "scenario": "Other income catalog components (Phase 6.5) — residual + custom Sec 8",
+  "key_assertion": "oth_residual + oth_custom filing_lines normalize to other_income then sum_assessable; tax matches 1.8M baseline.",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "0",
+    "business_income": "0",
+    "investment_income": "0",
+    "other_income": "0",
+    "other_final_withholding": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current",
+    "filing_lines": [
+      {"component_id": "oth_residual", "amount": "1000000"},
+      {
+        "component_id": "oth_custom",
+        "amount": "800000",
+        "label_override": "Freelance residual receipts"
+      }
+    ]
+  },
+  "expected_final_tax_lkr": "42000",
+  "expected_rules_applied": [
+    "aggregate_other_income_components",
+    "sum_assessable",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:aggregate_other_income_components",
+    "bootstrap:other_income",
+    "ird-ira-2017-base",
+    "personal_relief",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief"
+  ],
+  "expected_assessable_concepts": [
+    "other_income"
+  ],
+  "notes": "Phase 6.5 catalog path: residual 1.0M + custom 0.8M = other_income 1.8M → tax 42000."
+}

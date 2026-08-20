@@ -177,7 +177,7 @@ def test_explain_api_calc_id_round_trip(
     body = response.json()
     assert body["calc_id"] == calc_id
     assert body["insufficient_evidence"] is False
-    assert body["final_tax_lkr"] == "48000"
+    assert body["final_tax_lkr"] == "42000"
     ExplainTaxResponseV1.model_validate(body)
 
 

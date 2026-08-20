@@ -39,6 +39,23 @@ class RuleSourceOut(BaseModel):
     created_at: datetime | None = None
 
 
+class ExtractRunOut(BaseModel):
+    """Latest extract-run audit row for viva / admin review."""
+
+    id: UUID
+    amendment_job_id: UUID
+    model_name: str
+    prompt_version: str | None = None
+    status: str
+    mode: str | None = None
+    warnings: list[str] | dict[str, Any] | None = None
+    metrics: dict[str, Any] | None = None
+    audit_payload: dict[str, Any] | None = None
+    error_message: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 class AmendmentJobOut(BaseModel):
     id: UUID
     original_filename: str
@@ -54,6 +71,7 @@ class AmendmentJobOut(BaseModel):
     extracted_at: datetime | None = None
     reviewed_at: datetime | None = None
     rule_sources: list[RuleSourceOut] = Field(default_factory=list)
+    latest_extract_run: ExtractRunOut | None = None
 
 
 class AmendmentExtractResponse(BaseModel):
@@ -78,7 +96,7 @@ class MergeStubOut(BaseModel):
 
 
 class ParamOverrideStubOut(BaseModel):
-    """Phase 4: Sec 52 runtime override written on approve (when applicable)."""
+    """Runtime override written on approve (Sec 52 and/or First Schedule rates)."""
 
     written: bool
     source: str | None = None
@@ -87,6 +105,12 @@ class ParamOverrideStubOut(BaseModel):
     cap_amount: str | None = None
     rule_source_id: str | None = None
     amendment_job_id: str | None = None
+    kind: str | None = Field(
+        default=None,
+        description="relief | rate — which override payload was written.",
+    )
+    band_update_count: int | None = None
+    assessment_years: list[str] | None = None
 
 
 class AmendmentApproveResponse(BaseModel):
@@ -94,6 +118,7 @@ class AmendmentApproveResponse(BaseModel):
     rule_version_ids: list[UUID]
     merge: MergeStubOut
     param_override: ParamOverrideStubOut | None = None
+    rate_override: ParamOverrideStubOut | None = None
 
 
 class AmendmentRejectResponse(BaseModel):

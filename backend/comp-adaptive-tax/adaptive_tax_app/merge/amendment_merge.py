@@ -1,19 +1,27 @@
-"""Approve hook: merge approved rules into Neo4j + re-index Chroma (Phase 2)."""
+"""Approve hook: merge approved rules into Neo4j + re-index Chroma (Phase 2).
+
+Phase 5.0: also append relationship_hints to calculation_edges_full.jsonl with
+``rule_source_id`` for provenance.
+"""
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from adaptive_tax_app.config import get_adaptive_tax_settings
 from adaptive_tax_app.db_loader import AmendmentJob, RuleSource, RuleVersion
+from backend.shared.config.settings import PROJECT_ROOT
 
 _BASE_ACT_SOURCE_DOC_ID = "ird-ira-2017-base"
+_EDGES_FULL_REL = Path("models/adaptive-tax/ontology/calculation_edges_full.jsonl")
 
 # Filename stem patterns → adaptive-tax corpus source_doc_id
 _FILENAME_SOURCE_DOC: list[tuple[re.Pattern[str], str]] = [
@@ -30,8 +38,7 @@ _FILENAME_SOURCE_DOC: list[tuple[re.Pattern[str], str]] = [
 ]
 
 _RELIEF_BY_CONCEPT: dict[str, str] = {
-    "qualifying_payment_cap": "sec52_qualifying_payment_cap",
-    "qualifying_payment": "sec52_qualifying_payment_cap",
+    "qualifying_payment": "qualifying_payment",
     "personal_relief": "personal_relief",
 }
 
@@ -44,6 +51,59 @@ class AmendmentMergeResult:
     reason: str
     amendment_job_id: uuid.UUID
     details: dict[str, Any] | None = None
+
+
+def append_calc_edges_from_rules(
+    rule_sources: list[RuleSource],
+    rule_versions: list[RuleVersion] | None = None,
+    *,
+    edges_path: Path | None = None,
+) -> dict[str, Any]:
+    """Append relationship_hints from approved rule_versions to edges JSONL.
+
+    Returns a small summary dict (never raises).
+    """
+    path = edges_path or (PROJECT_ROOT / _EDGES_FULL_REL)
+    version_by_rs: dict[str, RuleVersion] = {}
+    for ver in rule_versions or []:
+        version_by_rs[str(ver.rule_source_id)] = ver
+
+    appended = 0
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            for rule in rule_sources:
+                ver = version_by_rs.get(str(rule.id))
+                params = ver.params if ver is not None and isinstance(ver.params, dict) else {}
+                hints = params.get("relationship_hints") or []
+                if not isinstance(hints, list):
+                    continue
+                for hint in hints:
+                    if not isinstance(hint, dict):
+                        continue
+                    frm = str(hint.get("from_concept") or "").strip()
+                    rel = str(hint.get("rel_type") or "").strip()
+                    to = str(hint.get("to_concept") or "").strip()
+                    if not (frm and rel and to):
+                        continue
+                    edge = {
+                        "rel_type": rel,
+                        "from_label": "Concept",
+                        "from_key": "concept_id",
+                        "from_id": frm,
+                        "to_label": "Concept",
+                        "to_key": "concept_id",
+                        "to_id": to,
+                        "confidence": 0.8,
+                        "review_status": "approved_merge",
+                        "source_note": (rule.source_quote or "")[:240],
+                        "rule_source_id": str(rule.id),
+                    }
+                    fh.write(json.dumps(edge, ensure_ascii=False) + "\n")
+                    appended += 1
+        return {"ok": True, "appended": appended, "path": str(path)}
+    except OSError as exc:
+        return {"ok": False, "appended": appended, "error": str(exc), "path": str(path)}
 
 
 def map_filename_to_source_doc_id(filename: str | None) -> str:
@@ -216,10 +276,11 @@ def _chroma_reindex_quotes(
 
 def merge_approved_amendment(
     *,
-    db: Session,
+    db: Session | None,
     amendment_job_id: uuid.UUID,
     rule_sources: list[RuleSource],
     rule_versions: list[RuleVersion] | None = None,
+    original_filename: str | None = None,
 ) -> AmendmentMergeResult:
     """Merge approved rules into Neo4j + Chroma.
 
@@ -227,14 +288,14 @@ def merge_approved_amendment(
     function never raises for Neo4j/Chroma failures — it returns
     ``merged=False`` with ``reason='neo4j_unavailable'`` (or partial).
     """
-    _ = db  # reserved for future merge audit rows
-    job = None
-    try:
-        job = db.get(AmendmentJob, amendment_job_id)
-    except Exception:  # noqa: BLE001
+    filename = original_filename
+    if filename is None and db is not None:
         job = None
-
-    filename = getattr(job, "original_filename", None) if job is not None else None
+        try:
+            job = db.get(AmendmentJob, amendment_job_id)
+        except Exception:  # noqa: BLE001
+            job = None
+        filename = getattr(job, "original_filename", None) if job is not None else None
     source_doc_id = map_filename_to_source_doc_id(filename)
     title = filename or source_doc_id
 
@@ -320,6 +381,10 @@ def merge_approved_amendment(
         section_uids=modifies,
     )
     details["chroma"] = chroma_info
+    details["calc_edges"] = append_calc_edges_from_rules(
+        rule_sources,
+        rule_versions,
+    )
 
     if not modifies:
         return AmendmentMergeResult(

@@ -2,25 +2,10 @@
   "assessment_year": "2024/25",
   "currency": "LKR",
   "param_set": "current",
-  "source_note": "Personal relief YA 2024/25 from sl_tax_2024_25.yaml; Section 52 qualifying-payment cap post Act 02/2025 (1_800_000); donation cap 33% of assessable (no absolute ceiling in YA 2024/25).",
+  "source_note": "Personal relief YA 2024/25 from sl_tax_2024_25.yaml; donation_cap is a Fifth Sch 1(a) alias (Rs 75,000 / one-third), not a live 33% deduct.",
   "reliefs": [
     {
-      "relief_id": "sec52_qualifying_payment_cap",
-      "display_name": "Section 52 qualifying payments aggregate cap",
-      "statutory_label": "Section 52",
-      "concept_id": "qualifying_payment_cap",
-      "section_ref": "52",
-      "section_uid": "ird-ira-2017-base::sec::section_52",
-      "cap_amount": 1800000,
-      "currency": "LKR",
-      "effective_start_date": "2025-04-01",
-      "effective_end_date": null,
-      "source_doc_id": "ird-amend-2025-02",
-      "review_status": "manual_seed"
-    },
-    {
-      "relief_id": "personal_relief",
-      "display_name": "Personal relief (annual tax-free amount)",
+      "relief_id": "personal_relief",      "display_name": "Personal relief (annual tax-free amount)",
       "statutory_label": "Personal relief",
       "concept_id": "personal_relief",
       "section_ref": "First Schedule",
@@ -30,21 +15,52 @@
       "effective_start_date": "2024-04-01",
       "effective_end_date": "2025-03-31",
       "source_doc_id": "ird-ira-2017-base",
-      "review_status": "manual_seed"
+      "review_status": "manual_seed",
+      "rule_source_id": null
     },
     {
       "relief_id": "donation_cap",
-      "display_name": "Charitable donation cap (percent of assessable income)",
-      "statutory_label": "Charitable donations",
+      "display_name": "Fifth Schedule 1(a) dual cap (alias of qp_approved_charitable)",
+      "statutory_label": "Fifth Sch 1(a)",
       "concept_id": "donation_cap",
       "section_ref": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
-      "cap_pct_of_assessable": 0.33,
+      "cap_amount": 75000,
       "currency": "LKR",
       "effective_start_date": "2024-04-01",
       "effective_end_date": "2025-03-31",
       "source_doc_id": "ird-ira-2017-base",
-      "review_status": "manual_seed"
+      "review_status": "manual_seed",
+      "rule_source_id": null
+    },
+    {
+      "relief_id": "solar_panel_relief",
+      "display_name": "Solar panel relief (Fifth Sch 2(g))",
+      "statutory_label": "Fifth Sch 2(g)",
+      "concept_id": "solar_panel_relief",
+      "section_ref": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "cap_amount": 600000,
+      "currency": "LKR",
+      "effective_start_date": "2021-04-01",
+      "effective_end_date": null,
+      "source_doc_id": "ird-amend-2021-10",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:solar_panel_relief"
+    },
+    {
+      "relief_id": "rent_relief",
+      "display_name": "Rent relief (Fifth Sch 2(c))",
+      "statutory_label": "Fifth Sch 2(c)",
+      "concept_id": "rent_relief",
+      "section_ref": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "currency": "LKR",
+      "effective_start_date": "2018-04-01",
+      "effective_end_date": null,
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:rent_relief"
     }
   ]
 }

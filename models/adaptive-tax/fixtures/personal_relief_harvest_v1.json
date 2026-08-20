@@ -1,0 +1,53 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.3",
+  "coverage_area": "personal_relief",
+  "source_doc_ids": ["ird-ira-2017-base", "ird-amend-2025-02"],
+  "section_key": "personal_relief",
+  "status": "approved_bootstrap",
+  "notes": "Personal relief limits versioned per YA. Resident/non-resident citizen condition enforced in engine (resident_status=resident).",
+  "rules": [
+    {
+      "section": "First Schedule",
+      "paragraph": null,
+      "rule_type": "limit",
+      "concept_id": "personal_relief",
+      "engine_handler": "personal_relief_resident",
+      "executable": true,
+      "assessment_years": ["2024_25"],
+      "schedule_ref": "First Schedule",
+      "maximum": 1200000,
+      "condition": "resident individual or non-resident citizen of Sri Lanka",
+      "source_quote": "Personal relief for a resident individual for YA 2024/25: one million two hundred thousand rupees per year of assessment (First Schedule / IRD Tax Chart 2024/25).",
+      "relationship_hints": [
+        {
+          "from_concept": "personal_relief",
+          "rel_type": "GOVERNED_BY",
+          "to_concept": "ird-ira-2017-base::sec::first_schedule"
+        }
+      ]
+    },
+    {
+      "section": "First Schedule",
+      "paragraph": null,
+      "rule_type": "limit",
+      "concept_id": "personal_relief",
+      "engine_handler": "personal_relief_resident",
+      "executable": true,
+      "assessment_years": ["2025_26"],
+      "schedule_ref": "First Schedule",
+      "amends_section": "First Schedule",
+      "maximum": 1800000,
+      "condition": "resident individual or non-resident citizen of Sri Lanka",
+      "source_quote": "Personal relief for a resident individual commencing YA 2025/26 has been increased to one million eight hundred thousand rupees (Act No. 02 of 2025 / IRD PN IT/2025-01).",
+      "relationship_hints": [
+        {
+          "from_concept": "personal_relief",
+          "rel_type": "GOVERNED_BY",
+          "to_concept": "ird-ira-2017-base::sec::first_schedule"
+        }
+      ]
+    }
+  ]
+}
