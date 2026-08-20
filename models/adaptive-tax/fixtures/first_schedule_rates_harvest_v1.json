@@ -1,0 +1,49 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.2",
+  "coverage_area": "first_schedule_rates",
+  "source_doc_ids": ["ird-ira-2017-base", "ird-amend-2025-02"],
+  "section_key": "first_schedule",
+  "status": "approved_bootstrap",
+  "notes": "Curated First Schedule harvest seed. YA 2024/25 includes 12% band; YA 2025/26 (Act 02/2025) widens 6% to 1M and removes 12%. Quotes mirror IRD Tax Chart / PN IT/2025-01.",
+  "rules": [
+    {
+      "section": "First Schedule",
+      "paragraph": "1",
+      "rule_type": "rate",
+      "concept_id": "first_schedule_rates",
+      "engine_handler": "slab_band",
+      "executable": true,
+      "assessment_years": ["2024_25"],
+      "schedule_ref": "First Schedule",
+      "source_quote": "First Schedule progressive rates for YA 2024/25 (resident individual): First Rs. 500,000 at 6%; Next Rs. 500,000 at 12%; Next Rs. 500,000 at 18%; Next Rs. 500,000 at 24%; Next Rs. 500,000 at 30%; On the Balance at 36%.",
+      "relationship_hints": [
+        {
+          "from_concept": "taxable_income",
+          "rel_type": "CALCULATED_USING",
+          "to_concept": "first_schedule_rates"
+        }
+      ]
+    },
+    {
+      "section": "First Schedule",
+      "paragraph": "1(1D)",
+      "rule_type": "rate",
+      "concept_id": "first_schedule_rates",
+      "engine_handler": "slab_band",
+      "executable": true,
+      "assessment_years": ["2025_26"],
+      "schedule_ref": "First Schedule",
+      "amends_section": "First Schedule",
+      "source_quote": "First Schedule progressive rates for YA 2025/26 (Act No. 02 of 2025): First Rs. 1,000,000 at 6%; Next Rs. 500,000 at 18%; Next Rs. 500,000 at 24%; Next Rs. 500,000 at 30%; On the Balance at 36% (12% bracket removed).",
+      "relationship_hints": [
+        {
+          "from_concept": "taxable_income",
+          "rel_type": "CALCULATED_USING",
+          "to_concept": "first_schedule_rates"
+        }
+      ]
+    }
+  ]
+}

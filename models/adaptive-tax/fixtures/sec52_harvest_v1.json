@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.4",
+  "coverage_area": "sec52_qualifying_payments",
+  "source_doc_ids": ["ird-ira-2017-base", "ird-amend-2026-11"],
+  "section_key": "52",
+  "status": "approved_bootstrap",
+  "notes": "Sec 52(1) deduct qualifying payments per Fifth Sch para 1 category limits (no fictional aggregate pool). Sec 52(4) CF from Act 11/2026 when assessable income insufficient for 1(b)(i)/(v).",
+  "rules": [
+    {
+      "section": "52",
+      "paragraph": "1",
+      "rule_type": "deduction",
+      "concept_id": "qualifying_payment",
+      "engine_handler": "deduct_qualifying_payment",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "formula": "sum(category_allowables) subject to assessable income",
+      "source_quote": "52. (1) A resident individual shall be entitled to deduct qualifying payments made by such individual in a year of assessment in arriving at the taxable income of that individual, subject to the limits specified in the Fifth Schedule to this Act."
+    },
+    {
+      "section": "52(4)",
+      "paragraph": "4",
+      "rule_type": "condition",
+      "concept_id": "qualifying_payment_carry_forward",
+      "engine_handler": "carry_forward_qp",
+      "executable": true,
+      "assessment_years": ["2025_26"],
+      "source_doc_id": "ird-amend-2026-11",
+      "source_quote": "Where the deduction of any qualifying payment referred to in items (i) and (v) of sub-paragraph (b) of paragraph 1 of the Fifth Schedule to this Act, is not possible, for any year of assessment commencing on or after April 1, 2025, due to the absence or inadequacy of assessable income of the individual or entity for that year of assessment, such amount which cannot be deducted shall be carried forward",
+      "relationship_hints": [
+        {
+          "from_concept": "qualifying_payment_carry_forward",
+          "rel_type": "GOVERNED_BY",
+          "to_concept": "ird-ira-2017-base::sec::section_52"
+        }
+      ]
+    }
+  ]
+}

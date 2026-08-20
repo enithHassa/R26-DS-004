@@ -1,7 +1,7 @@
 {
   "id": "ex02",
   "scenario": "Business income only",
-  "key_assertion": "Business → assessable path; same tax as ex01",
+  "key_assertion": "Business \u2192 assessable path; same tax as ex01",
   "inputs": {
     "assessment_year": "2024_25",
     "resident_status": "resident",
@@ -13,7 +13,7 @@
     "other_reliefs": {},
     "param_set": "current"
   },
-  "expected_final_tax_lkr": "48000",
+  "expected_final_tax_lkr": "42000",
   "expected_rules_applied": [
     "sum_assessable",
     "apply_personal_relief",
@@ -25,7 +25,15 @@
     "ird-ira-2017-base",
     "personal_relief",
     "fs_2024_25_band_1",
-    "fs_2024_25_band_2"
+    "fs_2024_25_band_2",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief",
+    "bootstrap:business_income"
   ],
-  "expected_assessable_concepts": ["business_income"]
+  "expected_assessable_concepts": [
+    "business_income"
+  ]
 }

@@ -18,12 +18,90 @@ import {
   approveAmendment,
   getAmendment,
   rejectAmendment,
+  type ExtractRunItem,
   type RuleSourceItem,
 } from "../api";
 
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return new Intl.NumberFormat("en-LK").format(value);
+}
+
+function GptAuditPanel({ run }: { run: ExtractRunItem }) {
+  const audit = run.audit_payload ?? null;
+  const structured = audit?.structured_rules ?? null;
+  const focused =
+    typeof audit?.focused_text === "string" ? audit.focused_text : null;
+  const rawCompletion = audit?.raw_completion ?? null;
+  const userPrompt =
+    typeof audit?.user_prompt === "string" ? audit.user_prompt : null;
+  const systemPrompt =
+    typeof audit?.system_prompt === "string" ? audit.system_prompt : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">GPT audit</CardTitle>
+        <CardDescription>
+          Original PDF focus window → model prompts / raw completion → structured
+          rules. Mode:{" "}
+          <span className="font-medium text-foreground">
+            {run.mode ?? "—"}
+          </span>
+          {" · "}
+          model{" "}
+          <code className="text-xs">{run.model_name}</code>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {!audit ? (
+          <p className="text-muted-foreground">
+            No audit_payload on this extract run (re-extract after Phase 2 to
+            capture prompts and raw GPT output).
+          </p>
+        ) : (
+          <>
+            <details className="rounded-md border bg-muted/30 p-3">
+              <summary className="cursor-pointer font-medium">
+                Structured rules (JSON)
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">
+                {JSON.stringify(structured, null, 2)}
+              </pre>
+            </details>
+            <details className="rounded-md border bg-muted/30 p-3">
+              <summary className="cursor-pointer font-medium">
+                Focused PDF text
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">
+                {focused || "—"}
+              </pre>
+            </details>
+            <details className="rounded-md border bg-muted/30 p-3">
+              <summary className="cursor-pointer font-medium">
+                System + user prompts
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">
+                {systemPrompt
+                  ? `--- SYSTEM ---\n${systemPrompt}\n\n--- USER ---\n${userPrompt ?? ""}`
+                  : (userPrompt ?? "—")}
+              </pre>
+            </details>
+            <details className="rounded-md border bg-muted/30 p-3">
+              <summary className="cursor-pointer font-medium">
+                Raw GPT completion
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">
+                {rawCompletion
+                  ? JSON.stringify(rawCompletion, null, 2)
+                  : "— (fixture mode has no live completion)"}
+              </pre>
+            </details>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function RuleReviewRow({ rule }: { rule: RuleSourceItem }) {
@@ -262,6 +340,10 @@ export function AdaptiveTaxAdminReviewPage() {
               )}
             </CardContent>
           </Card>
+
+          {job.latest_extract_run ? (
+            <GptAuditPanel run={job.latest_extract_run} />
+          ) : null}
         </>
       ) : null}
     </div>

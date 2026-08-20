@@ -1,0 +1,65 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "description": "Phase 5 calculator-first section harvest order for resident individual APIT.",
+  "taxpayer_scope": "resident_individual",
+  "default_source_doc_id": "ird-ira-2017-base",
+  "targets": [
+    {
+      "order": 1,
+      "section_key": "5",
+      "label": "Section 5",
+      "coverage_area": "employment_income",
+      "search_patterns": ["Section 5", "Employment income"],
+      "source_doc_ids": ["ird-ira-2017-base"]
+    },
+    {
+      "order": 2,
+      "section_key": "first_schedule",
+      "label": "First Schedule",
+      "coverage_area": "first_schedule_rates",
+      "search_patterns": ["First Schedule", "FIRST SCHEDULE"],
+      "source_doc_ids": ["ird-ira-2017-base", "ird-amend-2025-02"]
+    },
+    {
+      "order": 3,
+      "section_key": "personal_relief",
+      "label": "Personal relief",
+      "coverage_area": "personal_relief",
+      "search_patterns": ["personal relief", "Personal relief"],
+      "source_doc_ids": ["ird-ira-2017-base"]
+    },
+    {
+      "order": 4,
+      "section_key": "52",
+      "label": "Section 52",
+      "coverage_area": "sec52_qualifying_payment_cap",
+      "search_patterns": ["Section 52", "qualifying payment"],
+      "source_doc_ids": ["ird-ira-2017-base", "ird-amend-2025-02"]
+    },
+    {
+      "order": 5,
+      "section_key": "donations",
+      "label": "Charitable donations",
+      "coverage_area": "donations",
+      "search_patterns": ["donation", "charitable"],
+      "source_doc_ids": ["ird-ira-2017-base"]
+    },
+    {
+      "order": 6,
+      "section_key": "6",
+      "label": "Section 6 / business income",
+      "coverage_area": "business_income",
+      "search_patterns": ["Section 6", "Business income"],
+      "source_doc_ids": ["ird-ira-2017-base"]
+    },
+    {
+      "order": 7,
+      "section_key": "investment",
+      "label": "Investment income",
+      "coverage_area": "investment_income",
+      "search_patterns": ["Investment income", "Section 7"],
+      "source_doc_ids": ["ird-ira-2017-base"]
+    }
+  ]
+}

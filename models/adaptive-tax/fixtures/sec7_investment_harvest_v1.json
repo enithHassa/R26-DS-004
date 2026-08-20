@@ -1,0 +1,56 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.7",
+  "coverage_area": "investment_income",
+  "source_doc_id": "ird-ira-2017-base",
+  "section_key": "7",
+  "status": "approved_bootstrap",
+  "notes": "Phase 5.7: Sec 7 investment → assessable; optional Sec 7(3)(a) final-WHT / exempt exclusion when provenance resolves.",
+  "rules": [
+    {
+      "section": "7",
+      "paragraph": null,
+      "rule_type": "definition",
+      "concept_id": "investment_income",
+      "engine_handler": "sum_assessable",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "7. Investment income. The following shall be included in calculating a person's income from an investment for a year of assessment",
+      "relationship_hints": [
+        {
+          "rel_type": "CONTRIBUTES_TO",
+          "from_concept_id": "investment_income",
+          "to_concept_id": "assessable_income"
+        },
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "investment_income",
+          "to_section_uid": "ird-ira-2017-base::sec::section_7"
+        },
+        {
+          "rel_type": "DEFINES",
+          "from_section_uid": "ird-ira-2017-base::sec::section_7",
+          "to_concept_id": "investment_income"
+        }
+      ]
+    },
+    {
+      "section": "7",
+      "paragraph": "3(a)",
+      "rule_type": "exemption",
+      "concept_id": "investment_final_withholding",
+      "engine_handler": "exclude_investment_final_wht",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "(3) In calculating a person's gains and profits from an investment for a year of assessment the following shall be excluded:- (a) exempt amounts and final withholding payments; and (b) amounts that are included in calculating the person's income from an employment or business.",
+      "relationship_hints": [
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "investment_final_withholding",
+          "to_section_uid": "ird-ira-2017-base::sec::section_7"
+        }
+      ]
+    }
+  ]
+}
