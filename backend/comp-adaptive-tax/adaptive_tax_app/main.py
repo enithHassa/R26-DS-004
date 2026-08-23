@@ -14,11 +14,14 @@ from adaptive_tax_app.routers import (
     amendments,
     calculate,
     calculations,
+    catalog_admin,
+    catalog_engine,
     explain,
     filing_catalog,
     health,
     knowledge,
     params,
+    relief_interview,
 )
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -71,6 +74,9 @@ def create_app() -> FastAPI:
     app.include_router(params.router, prefix="/api/v1")
     app.include_router(knowledge.router, prefix="/api/v1")
     app.include_router(filing_catalog.router, prefix="/api/v1")
+    app.include_router(relief_interview.router, prefix="/api/v1")  # Phase 3 catalogs
+    app.include_router(catalog_engine.router, prefix="/api/v1")  # Phase 8 catalog rates
+    app.include_router(catalog_admin.router, prefix="/api/v1")  # Add New Act (gated)
     app.include_router(calculate.router, prefix="/api/v1")
     app.include_router(calculations.router, prefix="/api/v1")
     app.include_router(explain.router, prefix="/api/v1")

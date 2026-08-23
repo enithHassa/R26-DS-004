@@ -71,6 +71,7 @@ def test_filing_catalog_employment_investment_and_qp_for_ya() -> None:
     statutory_ids = {f.component_id for f in statutory.fields}
     assert "relief_solar_panel" in statutory_ids
     assert "relief_rent" in statutory_ids
+    assert "relief_senior_citizen_interest" in statutory_ids
     assert "donations" not in card_ids
     charity = next(f for f in qp.fields if f.component_id == "qp_approved_charitable")
     gov = next(f for f in qp.fields if f.component_id == "qp_government_sri_lanka")
@@ -103,8 +104,8 @@ def test_filing_catalog_employment_investment_and_qp_for_ya() -> None:
 def test_unsupported_queue_lists_pending_qp_rows() -> None:
     rows = list_unsupported_components()
     ids = {r.component_id for r in rows}
-    assert "qp_bank_merger" in ids
-    # Combined film/cinema placeholder retired; typed 1(f) lines are supported.
+    # Bank/financial-institution merger QP removed from individual filing catalog.
+    assert "qp_bank_merger" not in ids
 
 
 def test_filing_catalog_api_and_explain() -> None:
@@ -119,7 +120,10 @@ def test_filing_catalog_api_and_explain() -> None:
     assert unsupported.status_code == 200
     uns = unsupported.json()
     uns_ids = {row["component_id"] for row in uns["items"]}
-    assert "qp_bank_merger" in uns_ids
+    assert "qp_bank_merger" not in uns_ids
+    qp_card = next(c for c in body["cards"] if c["card_id"] == "qualifying_payments")
+    qp_ids = {f["component_id"] for f in qp_card["fields"]}
+    assert "qp_bank_merger" not in qp_ids
 
     explain = client.get("/api/v1/filing-catalog/emp_housing_allowance/explain")
     assert explain.status_code == 200
@@ -198,7 +202,7 @@ def test_normalize_qp_and_donation_lines() -> None:
             FilingLineV1(component_id="qp_government_sri_lanka", amount=Decimal("500000")),
             FilingLineV1(component_id="qp_other_sec52", amount=Decimal("100000")),
             FilingLineV1(component_id="don_approved_charitable", amount=Decimal("200000")),
-            FilingLineV1(component_id="qp_bank_merger", amount=Decimal("999999")),
+            FilingLineV1(component_id="relief_fifth_sch_2f_expenditure", amount=Decimal("999999")),
         ],
     )
     result = normalize_request(req)
@@ -208,7 +212,7 @@ def test_normalize_qp_and_donation_lines() -> None:
     assert result.request.donations == Decimal("0")
     assert any("legacy_qp_other_mapped_to_unclassified_review" in w for w in result.warnings)
     assert any("legacy_don_approved_charitable_mapped_to_qp_approved_charitable" in w for w in result.warnings)
-    assert any("unsupported_ignored:qp_bank_merger" in w for w in result.warnings)
+    assert any("unsupported_ignored:relief_fifth_sch_2f_expenditure" in w for w in result.warnings)
     assert any(r.component_id == "qp_unclassified_review" for r in result.component_trace)
 
 

@@ -1058,36 +1058,12 @@
       "source_quote": "in the case of a resident individual, following expenditure up to a total sum of Rs. 1,200,000, incurred for a year of assessment on or after January 1, 2020, but prior to April 1, 2022"
     },
     {
-      "component_id": "qp_bank_merger",
-      "card_id": "qualifying_payments",
-      "display_name": "Financial Institution Merger Acquisition Cost (Fifth Sch 1(e))",
-      "sort_order": 920,
       "input_kind": "money_line",
-      "default_treatment": "deduct",
       "user_overridable": false,
       "ya_effective": [
         "2024_25",
         "2025_26"
       ],
-      "section": "52",
-      "paragraph": "Fifth Sch 1(e)",
-      "section_uid": "ird-ira-2017-base::sec::section_52",
-      "concept_id": "qualifying_payment",
-      "engine_handler": "bank_merger_qp_handler",
-      "engine_support": "unsupported",
-      "status": "pending_unsupported",
-      "legal_confidence": "pending",
-      "confidence_basis": "direct_section",
-      "confidence_reason": "Fifth Schedule 1(e) applies to financial institutions, outside resident-individual scope of this calculator.",
-      "reason_short": "Queued as unsupported: not in resident-individual filing scope.",
-      "source_doc_id": "ird-amend-2021-10",
-      "rule_source_id": null,
-      "source_quote": "expenditure incurred by any financial institution by way of cost of acquisition, partial acquisition, absorption of business or merger of, any other bank..."
-    },
-    {
-      "input_kind": "money_line",
-      "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1115,7 +1091,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1143,7 +1122,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1171,7 +1153,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1199,7 +1184,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1227,7 +1215,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1255,7 +1246,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1283,7 +1277,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1311,7 +1308,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1339,7 +1339,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1367,7 +1370,9 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2025_26"],
+      "ya_effective": [
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "carry_forward_qp",
@@ -1395,7 +1400,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": true,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "52",
       "section_uid": "ird-ira-2017-base::sec::section_52",
       "engine_handler": "aggregate_qualifying_payment_components",
@@ -1422,7 +1430,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "6",
       "section_uid": "ird-ira-2017-base::sec::section_6",
       "engine_handler": "aggregate_business_components",
@@ -1448,7 +1459,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "6",
       "section_uid": "ird-ira-2017-base::sec::section_6",
       "engine_handler": "aggregate_business_components",
@@ -1474,7 +1488,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "11",
       "section_uid": "ird-ira-2017-base::sec::section_11",
       "engine_handler": "aggregate_business_components",
@@ -1500,7 +1517,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "16",
       "section_uid": "ird-ira-2017-base::sec::section_16",
       "engine_handler": "aggregate_business_components",
@@ -1526,7 +1546,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "8",
       "section_uid": "ird-ira-2017-base::sec::section_8",
       "engine_handler": "aggregate_other_income_components",
@@ -1552,7 +1575,10 @@
     {
       "input_kind": "custom_list",
       "user_overridable": true,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "8",
       "section_uid": "ird-ira-2017-base::sec::section_8",
       "engine_handler": "aggregate_other_income_components",
@@ -1578,7 +1604,10 @@
     {
       "input_kind": "money_line",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "8",
       "section_uid": "ird-ira-2017-base::sec::section_8",
       "engine_handler": "exclude_other_final_wht",
@@ -1609,7 +1638,10 @@
       "input_kind": "money_line",
       "default_treatment": "deduct",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "effective_from": "2021-04-01",
       "section": "Fifth Schedule",
       "paragraph": "Fifth Sch 2(g)",
@@ -1635,7 +1667,10 @@
       "input_kind": "money_line",
       "default_treatment": "deduct",
       "user_overridable": false,
-      "ya_effective": ["2024_25", "2025_26"],
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
       "section": "Fifth Schedule",
       "paragraph": "Fifth Sch 2(c)",
       "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
@@ -1651,6 +1686,34 @@
       "rule_source_id": "bootstrap:rent_relief",
       "source_quote": "a relief of an amount equal to twenty five per centum of the total rental income from any land or building",
       "statutory_scope": "Paragraph 2 relief deducted after qualifying payments and solar. Cap = min(claimed, floor(0.25 × included inv_rents)). Do not reduce the 25% base by investment_final_withholding (head-level Sec 7(3)(a) exclusion, not allocated to rents)."
+    },
+    {
+      "component_id": "relief_senior_citizen_interest",
+      "card_id": "statutory_reliefs",
+      "display_name": "Senior citizen interest relief",
+      "sort_order": 30,
+      "input_kind": "money_line",
+      "default_treatment": "deduct",
+      "user_overridable": false,
+      "ya_effective": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "Fifth Schedule",
+      "paragraph": "Fifth Sch 2(d)",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "concept_id": "senior_citizen_interest_relief",
+      "engine_handler": "deduct_senior_citizen_interest_relief",
+      "engine_support": "supported",
+      "status": "approved",
+      "legal_confidence": "high",
+      "confidence_basis": "schedule",
+      "confidence_reason": "Fifth Schedule 2(d): senior citizen with interest from a financial institution; Rs 1,500,000 per YA up to total interest income. Engine uses included inv_interest; resident gate; age/citizenship affirmed in interview.",
+      "reason_short": "min(claimed, 1,500,000, included inv_interest). Enter Interest on inv_interest.",
+      "source_doc_id": "ird-ira-2017-base",
+      "rule_source_id": "bootstrap:senior_citizen_interest_relief",
+      "source_quote": "in the case of an individual who is a senior citizen in a year with interest income derived from a financial institution, Rs. 1,500,000 for each year of assessment, up to the total of the individual’s interest income for the year;",
+      "statutory_scope": "Paragraph 2 relief after QP, solar, and rent. Cap = min(claimed, 1500000, included inv_interest)."
     }
   ]
 }

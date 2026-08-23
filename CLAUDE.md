@@ -8,11 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **AI Tax Advisory System** — a monorepo for final-year research on intelligent, explainable tax advisory.
 
-Four research components:
+Five research components:
 1. **Component 1** — Transaction Semantic Reasoning (`:8001`)
 2. **Component 2** — Tax Strategy Optimization (`:8002`)
 3. **Component 3** — Personalized Recommendation (`:8003`)
 4. **Component 4** — Intelligent Tax Advisory Language Model (`:8004`)
+5. **Component 5** — Adaptive Tax Configuration (`:8005`, or shares `:8002` in Phase 2)
 
 Plus an **API Gateway** (`:8000`) that proxies `/api/v1/{component}/**` routes to the appropriate backend, and a **Frontend** (Vite, `:5173`) that consumes the gateway.
 
@@ -64,7 +65,7 @@ pip install -r models/requirements-ml.txt
 
 ### Run all tests
 
-> **Critical:** Never run `pytest backend/ scripts/` together in one command. Multiple packages named `app` live under `backend/`, triggering `ImportPathMismatchError`. Run **three** separate passes:
+> **Critical:** Never run `pytest backend/ scripts/` together in one command. Multiple packages named `app` live under `backend/`, triggering `ImportPathMismatchError`. Run each component separately:
 
 ```powershell
 # Scripts (chunking, SQLite, outline helpers)
@@ -73,6 +74,18 @@ pip install -r models/requirements-ml.txt
 # Language-model component
 $env:PYTHONPATH = "backend/comp-language-model;$PWD"
 .\.venv-backend\Scripts\python.exe -m pytest backend/comp-language-model/app/tests -q --tb=short
+
+# Tax Optimization component
+$env:PYTHONPATH = "backend/comp-tax-optimization;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-tax-optimization/tax_opt_b_app/tests -q --tb=short
+
+# Personalized Recommendation component
+$env:PYTHONPATH = "backend/comp-personalized-recommendation;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-personalized-recommendation/app/tests -q --tb=short
+
+# Adaptive Tax component
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-adaptive-tax/adaptive_tax_app/tests -q --tb=short
 
 # API gateway
 $env:PYTHONPATH = "backend/api-gateway;$PWD"
@@ -147,20 +160,40 @@ npm run dev
 
 ### Start other components (if needed)
 
-All from repo root with `$env:PYTHONPATH = "$PWD"`:
+All from repo root. **Note:** Tax Optimization and Adaptive Tax both use port `:8002` by default; run them in separate environments or on different ports.
 
+**Component 1 — Transaction Semantic (`:8001`):**
 ```powershell
-# Component 1 — Transaction Semantic (port 8001)
+$env:PYTHONPATH = "$PWD"
 python scripts/run_transaction_semantic_api.py
-
-# Component 2 — Tax Optimization (port 8002)
-.\.venv-backend\Scripts\python.exe -m uvicorn tax_opt_b_app.main:app `
-  --app-dir backend/comp-tax-optimization --reload --port 8002
-
-# Component 3 — Personalized Recommendation (port 8003)
-.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
-  --app-dir backend/comp-personalized-recommendation --reload --port 8003
 ```
+
+**Component 2 — Tax Optimization (`:8002`):**
+```powershell
+$env:PYTHONPATH = "backend/comp-tax-optimization;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn tax_opt_b_app.main:app `
+  --app-dir backend/comp-tax-optimization --reload --host 127.0.0.1 --port 8002
+```
+
+**Component 3 — Personalized Recommendation (`:8003`):**
+```powershell
+$env:PYTHONPATH = "backend/comp-personalized-recommendation;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
+  --app-dir backend/comp-personalized-recommendation --reload --host 127.0.0.1 --port 8003
+```
+
+**Component 5 — Adaptive Tax (`:8005`, or `:8002` if Tax Optimization not running):**
+```powershell
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn adaptive_tax_app.main:app `
+  --app-dir backend/comp-adaptive-tax --reload --host 127.0.0.1 --port 8005
+```
+
+**Port allocation notes:**
+- Components 2 and 5 both default to `:8002`, so they cannot run simultaneously on the same machine.
+- If running both, start one on `:8002` and the other on `:8005` (or another free port).
+- Frontend proxies (in `vite.config.ts`) are pre-configured to reach both services.
+- API Gateway (`:8000`) dynamically routes to whichever service is running based on the request path.
 
 ### Database setup
 
@@ -191,11 +224,12 @@ docker compose -f docker/docker-compose.yml up -d postgres
 
 | Path | Purpose |
 |------|---------|
-| `backend/api-gateway/app/main.py` | Router; registers proxy routes for all 4 components |
+| `backend/api-gateway/app/main.py` | Router; registers proxy routes for all 5 components |
 | `backend/shared/` | DB, settings, schemas, logging, middleware (shared by all components) |
-| `backend/comp-language-model/` | Component 4 (LLM); NLU parse, query with citations |
-| `backend/comp-tax-optimization/` | Component 2 tax strategy optimization |
-| `backend/comp-personalized-recommendation/` | Component 3 recommendations |
+| `backend/comp-language-model/app/main.py` | Component 4 (LLM); NLU parse, query with citations |
+| `backend/comp-tax-optimization/tax_opt_b_app/main.py` | Component 2 tax strategy optimization |
+| `backend/comp-personalized-recommendation/app/main.py` | Component 3 recommendations |
+| `backend/comp-adaptive-tax/adaptive_tax_app/main.py` | Component 5 adaptive tax configuration |
 | `backend/comp-transaction-semantic/` | Component 1 transaction parsing |
 | `backend/migrations/` | Alembic schema migrations (PostgreSQL) |
 | `frontend/src/` | React app; `features/language-model/` for Component 4 UI |
@@ -228,19 +262,31 @@ Migrations run against the configured database (set `DATABASE_MODE` in `.env`).
 
 ## PYTHONPATH Gotchas
 
-Multiple packages named `app` live under `backend/`. When running a service or tests, set `PYTHONPATH` to include both:
-1. The component directory (so `app/` resolves)
+Multiple packages named `app` live under `backend/`, and some components use custom module names. When running a service or tests, set `PYTHONPATH` to include both:
+1. The component directory (so the app module resolves)
 2. The repo root (so `backend.shared` imports work)
+
+**App module names by component:**
+- Component 1 (Transaction Semantic): `scripts/run_transaction_semantic_api.py` (custom runner)
+- Component 2 (Tax Optimization): `tax_opt_b_app.main:app`
+- Component 3 (Personalized Recommendation): `app.main:app`
+- Component 4 (Language Model): `app.main:app`
+- Component 5 (Adaptive Tax): `adaptive_tax_app.main:app`
+- API Gateway: `app.main:app`
 
 Examples:
 ```powershell
-# Language-model component
+# Language-model component (uses app/main.py)
 $env:PYTHONPATH = "backend/comp-language-model;$PWD"
 .\.venv-backend\Scripts\python.exe -m uvicorn app.main:app --app-dir backend/comp-language-model
 
-# API gateway
-$env:PYTHONPATH = "backend/api-gateway;$PWD"
-.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app --app-dir backend/api-gateway
+# Tax Optimization component (uses tax_opt_b_app/main.py)
+$env:PYTHONPATH = "backend/comp-tax-optimization;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn tax_opt_b_app.main:app --app-dir backend/comp-tax-optimization
+
+# Adaptive Tax component (uses adaptive_tax_app/main.py)
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn adaptive_tax_app.main:app --app-dir backend/comp-adaptive-tax
 
 # Scripts and general backend code
 $env:PYTHONPATH = "$PWD"
@@ -263,6 +309,7 @@ Key vars in `.env` (copy from `.env.example` and fill in):
 | `COMP_LLM_URL` | `http://localhost:8004` | Component 4 discovery (for gateway) |
 | `COMP_LLM_CORPUS_JSONL` | (optional) | Path to Phase 2 corpus (relative to repo root) |
 | `COMP_LLM_RETRIEVAL_BACKEND` | `tfidf` | Retrieval mode: `tfidf` \| `dense` |
+| `COMP_ADAPTIVE_TAX_URL` | `http://localhost:8005` | Component 5 discovery (for gateway, if running on `:8005`) |
 
 ---
 
@@ -320,7 +367,14 @@ npm run lint                # eslint check
 npm run preview             # Preview prod build locally
 ```
 
-Frontend dev server proxies `/api` to the gateway (configurable in `vite.config.ts` → `VITE_API_BASE_URL`, default `http://127.0.0.1:8000`).
+Frontend dev server proxies:
+- `/api` → API Gateway (default `http://127.0.0.1:8000`, configurable via `VITE_API_BASE_URL`)
+- `/api/v1/optimization` → Component 2 directly (default `http://127.0.0.1:8002`, configurable via `VITE_DEV_OPTIMIZATION_URL`)
+- `/api/v1/adaptive-tax` → Component 5 directly (default `http://127.0.0.1:8002`, configurable via `VITE_DEV_ADAPTIVE_TAX_URL`)
+- `/api/v1/recommendation` → Component 3 directly (default `http://127.0.0.1:8003`, configurable via `VITE_DEV_RECOMMENDATION_URL`)
+- `/api/v1/transactions`, `/api/v1/documents`, etc. → Component 1 directly (default `http://127.0.0.1:8001`, configurable via `VITE_DEV_TRANSACTION_SEMANTIC_URL`)
+
+Direct proxies allow development without restarting the gateway and are pre-configured in [frontend/vite.config.ts](frontend/vite.config.ts).
 
 ---
 
@@ -338,10 +392,12 @@ Frontend dev server proxies `/api` to the gateway (configurable in `vite.config.
 ## Common Patterns & Conventions
 
 ### Adding a new backend service
-1. Create `backend/comp-{name}/app/main.py` (FastAPI entry point)
+1. Create `backend/comp-{name}/{app_module}/main.py` (FastAPI entry point; use `app` or a custom module name)
 2. Add `COMP_{NAME}_URL` to `backend/shared/config/settings.py`
 3. Register proxy route in `backend/api-gateway/app/main.py`
-4. Update `docs/PHASES_RUNBOOK.md` with startup command
+4. Update `vite.config.ts` proxy if frontend needs direct access (optional, bypasses gateway)
+5. Update `docs/PHASES_RUNBOOK.md` with startup command
+6. Add startup example to CLAUDE.md "Start other components" section with correct PYTHONPATH and app module name
 
 ### Adding a new database migration
 1. Edit SQLAlchemy models in the relevant component or `backend/shared/db/`
