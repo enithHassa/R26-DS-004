@@ -38,12 +38,12 @@ export function UserLoginPage() {
     mutationFn: () => login({ username, password }),
     onSuccess: (result) => {
       setSession(result.role, result.profile_id, result.full_name);
-      navigate(result.role === "auditor" ? "/" : "/portal/about-you", { replace: true });
+      navigate(result.role === "auditor" ? "/" : "/portal", { replace: true });
     },
   });
 
   if (isAuthenticated) {
-    return <Navigate to={role === "auditor" ? "/" : "/portal/about-you"} replace />;
+    return <Navigate to={role === "auditor" ? "/" : "/portal"} replace />;
   }
 
   const onSubmit = (e: FormEvent) => {
