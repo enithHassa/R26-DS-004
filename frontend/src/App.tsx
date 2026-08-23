@@ -6,6 +6,7 @@ import { AboutYouPage } from "@/features/personalized-recommendation/pages/about
 import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
 import { UserPortalPage } from "@/features/personalized-recommendation/pages/user-portal";
 import { demoRoutes } from "@/pages/demo";
+import { userViewRoutes } from "@/pages/user-view";
 
 function buildOutletChildren(): RouteObject[] {
   return features.flatMap((feature) => {
@@ -29,7 +30,8 @@ export default function App() {
     { path: "/tax-optimization/filing", element: <Navigate to="/tax/filing" replace /> },
     { path: "/login", element: <UserLoginPage /> },
     { path: "/portal/about-you", element: <AboutYouPage /> },
-    { path: "/portal", element: <UserPortalPage /> },
+    { path: "/portal/summary", element: <UserPortalPage /> },
+    ...userViewRoutes,
     ...demoRoutes,
   ];
   return useRoutes(routes);
