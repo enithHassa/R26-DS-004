@@ -1,0 +1,17 @@
+/* Scoped dark theme for demo/marketing pages only — does not affect AppShell. */
+.demo-landing {
+  --demo-bg: #0b1120;
+  --demo-bg-elevated: #111827;
+  --demo-bg-card: #151c2e;
+  --demo-border: rgba(148, 163, 184, 0.12);
+  --demo-text: #f8fafc;
+  --demo-text-muted: #94a3b8;
+  --demo-accent: #2dd4bf;
+  --demo-accent-hover: #14b8a6;
+  --demo-accent-foreground: #0b1120;
+
+  min-height: 100vh;
+  background: var(--demo-bg);
+  color: var(--demo-text);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
