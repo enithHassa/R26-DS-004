@@ -411,6 +411,17 @@ def normalize_request(
     if inv_rents > 0:
         head_subtotals["inv_rents"] = inv_rents
 
+    inv_interest = sum(
+        (
+            row.amount
+            for row in trace
+            if row.component_id == "inv_interest" and row.included_in_assessable
+        ),
+        Decimal("0"),
+    )
+    if inv_interest > 0:
+        head_subtotals["inv_interest"] = inv_interest
+
     relief = buckets["statutory_reliefs"]
     if relief.touched:
         solar = sum(
@@ -421,12 +432,23 @@ def normalize_request(
             (row.amount for row in trace if row.component_id == "relief_rent"),
             Decimal("0"),
         )
+        senior = sum(
+            (
+                row.amount
+                for row in trace
+                if row.component_id == "relief_senior_citizen_interest"
+            ),
+            Decimal("0"),
+        )
         if solar > 0:
             updates["solar_panel_relief"] = solar
             head_subtotals["solar_panel_relief"] = solar
         if rent > 0:
             updates["rent_relief"] = rent
             head_subtotals["rent_relief"] = rent
+        if senior > 0:
+            updates["senior_citizen_interest_relief"] = senior
+            head_subtotals["senior_citizen_interest_relief"] = senior
 
     updated = request.model_copy(update=updates)
     return NormalizeResult(

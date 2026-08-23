@@ -25,6 +25,7 @@ export type ReportNarrativeCitation = {
 const CAP_DEDUCT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["cap_solar_panel_relief", "deduct_solar_panel_relief"],
   ["cap_rent_relief", "deduct_rent_relief"],
+  ["cap_senior_citizen_interest_relief", "deduct_senior_citizen_interest_relief"],
 ];
 
 export type ReportNarrativeStep = {

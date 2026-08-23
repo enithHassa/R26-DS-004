@@ -102,6 +102,11 @@ class AdaptiveTaxSettings(BaseSettings):
     )
     COMP_ADAPTIVE_TAX_RAW_PDF_DIR: str = "data/raw/adaptive-tax"
 
+    # Catalog-admin upload/review (Add New Act). Empty → refuse to serve (503).
+    COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN: str = ""
+    # Optional isolate dir for jobs / hash index / proposed scan (tests). Empty = repo defaults.
+    COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR: str = ""
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",
@@ -174,6 +179,14 @@ class AdaptiveTaxSettings(BaseSettings):
     def raw_pdf_dir(self) -> Path:
         """Project corpus PDF root (``data/raw/adaptive-tax``)."""
         return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_RAW_PDF_DIR)
+
+    @property
+    def catalog_admin_work_dir(self) -> Path | None:
+        """Override root for catalog-admin jobs/index (tests). None = repo paths."""
+        raw = (self.COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR or "").strip()
+        if not raw:
+            return None
+        return self._resolve_under_project(raw)
 
     def resolve_kg_mode(self) -> Literal["neo4j", "file"]:
         """Effective KG backend for ``get_kg_client()`` after applying ``auto``.

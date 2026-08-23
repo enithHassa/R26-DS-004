@@ -91,6 +91,8 @@ REQUIRED_CALC_CONCEPTS: tuple[str, ...] = (
     "solar_panel_relief_cap",
     "rent_relief",
     "rent_relief_cap",
+    "senior_citizen_interest_relief",
+    "senior_citizen_interest_relief_cap",
 )
 
 

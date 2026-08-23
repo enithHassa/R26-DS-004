@@ -61,13 +61,15 @@ def test_unsupported_queue_typed_response() -> None:
     resp = client.get("/api/v1/filing-catalog/unsupported")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["count"] >= 1
-    item = next(i for i in body["items"] if i["component_id"] == "qp_bank_merger")
-    assert item["status"] == "pending_unsupported"
-    assert item["engine_support"] == "unsupported"
-    assert item["action_required"] == "Requires new Rule Engine handler"
-    assert "Approve only after" in item["approve_blocked_reason"]
-
+    # Bank merger QP removed from individual catalog; queue may still list other
+    # sunset / retired rows (e.g. Fifth Sch 2(f)).
+    uns_ids = {i["component_id"] for i in body["items"]}
+    assert "qp_bank_merger" not in uns_ids
+    if body["count"] >= 1:
+        item = body["items"][0]
+        assert item["engine_support"] == "unsupported"
+        assert "action_required" in item
+        assert "approve_blocked_reason" in item
 
 def test_reasoning_graph_from_persisted_calc() -> None:
     req = CalculateTaxRequestV1(

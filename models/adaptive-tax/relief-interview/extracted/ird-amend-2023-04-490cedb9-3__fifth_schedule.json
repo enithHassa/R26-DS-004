@@ -1,0 +1,16 @@
+{
+  "spec_version": "1.0.0",
+  "run_id": "20260822T184501Z",
+  "model": "gpt-4o",
+  "temperature": 0,
+  "source_doc_id": "ird-amend-2023-04-490cedb9-3",
+  "act_title": "Act No. 04 of 2023",
+  "pdf_file_name": "IR_Act_No._04_2023_E.pdf",
+  "section_key": "Fifth Schedule",
+  "focus_chars": 6701,
+  "extracted_at": "2026-08-22T18:45:20.171910+00:00",
+  "row_count": 0,
+  "included_count": 0,
+  "rows": [],
+  "note": "Staging only. Never promoted without Phase 5 human review."
+}

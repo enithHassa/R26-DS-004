@@ -35,11 +35,13 @@ HANDLER_CAP_QP = "cap_absolute:qualifying_payment_cap"
 HANDLER_CAP_DONATION = "cap_percent_assessable:donation_cap"
 HANDLER_CAP_SOLAR = "cap_absolute:solar_panel_relief"
 HANDLER_CAP_RENT = "cap_rent_relief"
+HANDLER_CAP_SENIOR = "cap_senior_citizen_interest_relief"
 HANDLER_DEDUCT_QP = "deduct_qualifying_payment"
 HANDLER_CARRY_FORWARD_QP = "carry_forward_qp"
 HANDLER_DEDUCT_DONATION = "deduct_donation"
 HANDLER_DEDUCT_SOLAR = "deduct_solar_panel_relief"
 HANDLER_DEDUCT_RENT = "deduct_rent_relief"
+HANDLER_DEDUCT_SENIOR = "deduct_senior_citizen_interest_relief"
 HANDLER_PERSONAL_RELIEF = "personal_relief_resident"
 HANDLER_SLAB_BAND = "slab_band"
 HANDLER_FINAL_TAX = "final_tax"
@@ -88,6 +90,8 @@ def cap_handler_id(cap_concept_id: str) -> str:
         return HANDLER_CAP_SOLAR
     if cap_concept_id == "rent_relief":
         return HANDLER_CAP_RENT
+    if cap_concept_id == "senior_citizen_interest_relief":
+        return HANDLER_CAP_SENIOR
     return f"cap_absolute:{cap_concept_id}"
 
 
@@ -135,11 +139,13 @@ HANDLER_REGISTRY: dict[str, Callable[..., HandlerGate]] = {
     HANDLER_CAP_DONATION: lambda year, **kw: gate(HANDLER_CAP_DONATION, year, **kw),
     HANDLER_CAP_SOLAR: lambda year, **kw: gate(HANDLER_CAP_SOLAR, year, **kw),
     HANDLER_CAP_RENT: lambda year, **kw: gate(HANDLER_CAP_RENT, year, **kw),
+    HANDLER_CAP_SENIOR: lambda year, **kw: gate(HANDLER_CAP_SENIOR, year, **kw),
     HANDLER_DEDUCT_QP: lambda year, **kw: gate(HANDLER_DEDUCT_QP, year, **kw),
     HANDLER_CARRY_FORWARD_QP: lambda year, **kw: gate(HANDLER_CARRY_FORWARD_QP, year, **kw),
     HANDLER_DEDUCT_DONATION: lambda year, **kw: gate(HANDLER_DEDUCT_DONATION, year, **kw),
     HANDLER_DEDUCT_SOLAR: lambda year, **kw: gate(HANDLER_DEDUCT_SOLAR, year, **kw),
     HANDLER_DEDUCT_RENT: lambda year, **kw: gate(HANDLER_DEDUCT_RENT, year, **kw),
+    HANDLER_DEDUCT_SENIOR: lambda year, **kw: gate(HANDLER_DEDUCT_SENIOR, year, **kw),
     HANDLER_PERSONAL_RELIEF: lambda year, **kw: gate(HANDLER_PERSONAL_RELIEF, year, **kw),
     HANDLER_SLAB_BAND: lambda year, **kw: gate(HANDLER_SLAB_BAND, year, **kw),
     HANDLER_FINAL_TAX: lambda year, **kw: gate(HANDLER_FINAL_TAX, year, **kw),

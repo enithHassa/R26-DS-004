@@ -1,0 +1,74 @@
+{
+  "spec_version": "1.0.0",
+  "phase": 4,
+  "assessment_year": "2025/26",
+  "currency": "LKR",
+  "status": "candidate_pending_phase5_review",
+  "note": "Extractor-only candidate built from Phase 4 staging. Not promoted to rates/{ya}.json — that is Phase 5 human review.",
+  "source_doc_id": "ird-amend-2025-02",
+  "act_title": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+  "effective_from": "2025-04-01",
+  "effective_from_source": "extracted",
+  "bands": [
+    {
+      "band_index": 1,
+      "lower": 0,
+      "upper": 1000000,
+      "rate_percent": 6.0,
+      "band_label": "Not exceeding Rs. 1,000,000",
+      "act_name": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "section_ref": "First Schedule",
+      "quote": "Taxable income | Tax Payable\nNot exceeding Rs. 1,000,000 | 6% of the amount in excess of Rs.0",
+      "quote_source": "table_render",
+      "source_doc_id": "ird-amend-2025-02"
+    },
+    {
+      "band_index": 2,
+      "lower": 1000000,
+      "upper": 1500000,
+      "rate_percent": 18.0,
+      "band_label": "Exceeding Rs. 1,000,000 but not exceeding Rs. 1,500,000",
+      "act_name": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "section_ref": "First Schedule",
+      "quote": "Taxable income | Tax Payable\nExceeding Rs. 1,000,000 but not exceeding Rs. 1,500,000 | Rs. 60,000 plus 18% of the amount in excess of Rs. 1,000,000",
+      "quote_source": "table_render",
+      "source_doc_id": "ird-amend-2025-02"
+    },
+    {
+      "band_index": 3,
+      "lower": 1500000,
+      "upper": 2000000,
+      "rate_percent": 24.0,
+      "band_label": "Exceeding Rs. 1,500,000 but not exceeding Rs. 2,000,000",
+      "act_name": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "section_ref": "First Schedule",
+      "quote": "Taxable income | Tax Payable\nExceeding Rs. 1,500,000 but not exceeding Rs. 2,000,000 | Rs. 150,000 plus 24% of the amount in excess of Rs. 1,500,000",
+      "quote_source": "table_render",
+      "source_doc_id": "ird-amend-2025-02"
+    },
+    {
+      "band_index": 4,
+      "lower": 2000000,
+      "upper": 2500000,
+      "rate_percent": 30.0,
+      "band_label": "Exceeding Rs. 2,000,000 but not exceeding Rs. 2,500,000",
+      "act_name": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "section_ref": "First Schedule",
+      "quote": "Taxable income | Tax Payable\nExceeding Rs. 2,000,000 but not exceeding Rs. 2,500,000 | Rs. 270,000 plus 30% of the amount in excess of Rs. 2,000,000",
+      "quote_source": "table_render",
+      "source_doc_id": "ird-amend-2025-02"
+    },
+    {
+      "band_index": 5,
+      "lower": 2500000,
+      "upper": null,
+      "rate_percent": 36.0,
+      "band_label": "Exceeding Rs. 2,500,000",
+      "act_name": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "section_ref": "First Schedule",
+      "quote": "Exceeding Rs. 2,500,000 | Rs. 420,000 plus 36% of the amount in excess of Rs. 2,500,000",
+      "quote_source": "table_render",
+      "source_doc_id": "ird-amend-2025-02"
+    }
+  ]
+}
