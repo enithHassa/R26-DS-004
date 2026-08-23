@@ -147,6 +147,7 @@ export type CalculateTaxRequest = {
   other_reliefs?: Record<string, string>;
   solar_panel_relief?: string;
   rent_relief?: string;
+  senior_citizen_interest_relief?: string;
   param_set: "current" | "pre_amend_2025";
   filing_lines?: FilingLine[];
 };
@@ -391,6 +392,148 @@ export async function getFilingCatalogExplain(
   const { data } = await adaptiveTaxApi.get<FilingCatalogExplain>(
     `/filing-catalog/${encodeURIComponent(componentId)}/explain`,
     { params: { assessment_year: assessmentYear } },
+  );
+  return data;
+}
+
+export type ReliefInterviewApprovedYear = {
+  spec_version?: string;
+  assessment_year: string;
+  phase1_empty_skeleton?: boolean;
+  notes?: string | null;
+  entries: Array<Record<string, unknown>>;
+  entry_count: number;
+  catalog_path?: string;
+};
+
+export type ReliefInterviewApprovedAll = {
+  assessment_years: string[];
+  years: Array<{
+    assessment_year: string;
+    phase1_empty_skeleton?: boolean;
+    entries: Array<Record<string, unknown>>;
+    entry_count: number;
+    missing?: boolean;
+  }>;
+};
+
+export async function getReliefInterviewApproved(
+  assessmentYear: string,
+): Promise<ReliefInterviewApprovedYear> {
+  const { data } = await adaptiveTaxApi.get<ReliefInterviewApprovedYear>(
+    `/relief-interview/approved/${encodeURIComponent(assessmentYear)}`,
+  );
+  return data;
+}
+
+export async function getReliefInterviewApprovedAll(): Promise<ReliefInterviewApprovedAll> {
+  const { data } = await adaptiveTaxApi.get<ReliefInterviewApprovedAll>(
+    "/relief-interview/approved",
+  );
+  return data;
+}
+
+export type ReliefInterviewRatesYear = {
+  spec_version?: string;
+  assessment_year: string;
+  currency?: string;
+  needs_manual_verification?: boolean;
+  bands?: Array<Record<string, unknown>>;
+  surcharges?: Array<Record<string, unknown>>;
+  special_formulas?: Array<{
+    rule_id?: string;
+    rule_kind?: string;
+    description?: string;
+    value?: string;
+    effective_from?: string;
+    act_name?: string;
+    section_ref?: string;
+    quote?: string;
+    source_doc_id?: string;
+  }>;
+  notes?: string | null;
+  catalog_path?: string;
+};
+
+export async function getReliefInterviewRates(
+  assessmentYear: string,
+): Promise<ReliefInterviewRatesYear> {
+  const { data } = await adaptiveTaxApi.get<ReliefInterviewRatesYear>(
+    `/relief-interview/rates/${encodeURIComponent(assessmentYear)}`,
+  );
+  return data;
+}
+
+export type CatalogEngineReceipt = {
+  kind: string;
+  label: string;
+  amount_lkr: string;
+  act_name: string;
+  section_ref: string;
+  quote: string;
+  source_doc_id: string;
+};
+
+export type CatalogEngineResponse = {
+  spec_version?: string;
+  engine: string;
+  assessment_year: string;
+  currency?: string;
+  needs_manual_verification: boolean;
+  verification_badge: {
+    show: boolean;
+    label: string;
+    needs_manual_verification: boolean;
+    cleared: boolean;
+  };
+  gross_income_lkr: string;
+  personal_relief_lkr: string;
+  solar_panel_relief_lkr?: string;
+  rent_relief_lkr?: string;
+  senior_citizen_interest_relief_lkr?: string;
+  taxable_income_lkr: string;
+  final_tax_lkr: string;
+  tax_payable_lkr: string;
+  reliefs_applied?: Array<{
+    compare_group_id?: string;
+    display_name?: string;
+    amount_lkr?: string;
+    [key: string]: unknown;
+  }>;
+  band_slices?: Array<{
+    band_label?: string;
+    taxable_in_slice_lkr?: string;
+    tax_slice_lkr?: string;
+    rate_percent?: number;
+    [key: string]: unknown;
+  }>;
+  receipts: CatalogEngineReceipt[];
+  notes?: string;
+};
+
+export type CatalogEngineClaim = {
+  compare_group_id: string;
+  amount: string;
+};
+
+export type CatalogEngineRequest = {
+  assessment_year: string;
+  employment_income: string;
+  business_income: string;
+  investment_income: string;
+  other_income: string;
+  solar_panel_relief: string;
+  rent_relief: string;
+  senior_citizen_interest_relief: string;
+  claims?: CatalogEngineClaim[];
+};
+
+export async function calculateCatalogTax(
+  body: CatalogEngineRequest,
+): Promise<CatalogEngineResponse> {
+  const { data } = await adaptiveTaxApi.post<CatalogEngineResponse>(
+    "/catalog-engine/calculate",
+    body,
   );
   return data;
 }

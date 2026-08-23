@@ -1970,7 +1970,16 @@ export function AdaptiveTaxCalculatorPage() {
         ) => {
           const next: Record<string, string> = {};
           for (const field of card?.fields ?? []) {
-            next[field.component_id] = prev[field.component_id] ?? "0";
+            const id = field.component_id;
+            const prevVal = prev[id];
+            if (id === "inv_interest") {
+              next[id] =
+                prevVal !== undefined && prevVal !== "" && prevVal !== "0"
+                  ? prevVal
+                  : "2000000";
+            } else {
+              next[id] = prevVal ?? "0";
+            }
           }
           return next;
         };

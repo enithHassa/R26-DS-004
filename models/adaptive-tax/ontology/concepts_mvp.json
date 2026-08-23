@@ -153,6 +153,20 @@
       "aliases": ["rent cap", "twenty five per centum of rental income"]
     },
     {
+      "concept_id": "senior_citizen_interest_relief",
+      "display_name": "Senior citizen interest relief (Fifth Sch 2(d))",
+      "aliases": [
+        "senior citizen relief",
+        "interest income relief",
+        "relief_senior_citizen_interest"
+      ]
+    },
+    {
+      "concept_id": "senior_citizen_interest_relief_cap",
+      "display_name": "Senior citizen interest relief cap (Rs 1,500,000)",
+      "aliases": ["senior interest cap", "one million five hundred thousand"]
+    },
+    {
       "concept_id": "tax_credit",
       "display_name": "Tax credit (non-final WHT / APIT)",
       "aliases": ["tax credits", "credit for withholding tax", "section 89 tax credit"]

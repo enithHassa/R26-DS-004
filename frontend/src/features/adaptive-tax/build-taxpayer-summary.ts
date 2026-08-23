@@ -155,6 +155,8 @@ export function buildTaxpayerSummary(
   const solarCap = findStep(trace, "cap_solar_panel_relief");
   const rent = findStep(trace, "deduct_rent_relief");
   const rentCap = findStep(trace, "cap_rent_relief");
+  const senior = findStep(trace, "deduct_senior_citizen_interest_relief");
+  const seniorCap = findStep(trace, "cap_senior_citizen_interest_relief");
   const personal = findStep(trace, "apply_personal_relief");
   const credit = findStep(trace, "apply_tax_credit");
   const finalTax = findStep(trace, "final_tax");
@@ -206,6 +208,18 @@ export function buildTaxpayerSummary(
       note: cappedNote(
         rentCap?.inputs.claimed ?? rent.inputs.claimed,
         rentCap?.inputs.allowed ?? rent.inputs.allowed,
+      ),
+    });
+  }
+
+  if (senior && isPositiveMoney(senior.inputs.allowed)) {
+    rows.push({
+      kind: "deduction",
+      label: DEDUCTION_STEP_LABELS.deduct_senior_citizen_interest_relief,
+      amount: senior.inputs.allowed,
+      note: cappedNote(
+        seniorCap?.inputs.claimed ?? senior.inputs.claimed,
+        seniorCap?.inputs.allowed ?? senior.inputs.allowed,
       ),
     });
   }
@@ -278,6 +292,9 @@ export function buildTaxpayerSummary(
   }
   if (rent && isPositiveMoney(rent.inputs.allowed)) {
     reliefNames.push(RELIEF_SENTENCE.deduct_rent_relief);
+  }
+  if (senior && isPositiveMoney(senior.inputs.allowed)) {
+    reliefNames.push(RELIEF_SENTENCE.deduct_senior_citizen_interest_relief);
   }
   if (mentionPersonal) {
     reliefNames.push(RELIEF_SENTENCE.apply_personal_relief);

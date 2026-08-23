@@ -223,6 +223,11 @@ Desktop.ini
 *.rej
 .direnv/
 
+# Catalog-admin uploaded PDFs + job JSON (never commit taxpayer/admin uploads)
+models/adaptive-tax/relief-interview/review/catalog-admin-jobs/
+models/adaptive-tax/relief-interview/review/catalog-admin-uploads/
+models/adaptive-tax/relief-interview/harvest/watcher_commencements/
+
 # ---------- Viva / demo recordings (keep path notes in docs only) ----------
 *.mp4
 *.mkv
