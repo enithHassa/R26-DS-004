@@ -1043,6 +1043,32 @@
       "source_quote": "a relief of an amount equal to twenty five per centum of the total rental income from any land or building",
       "confidence_reason": "Act text: 25% of total rental income; engine uses the included inv_rents line (gross rents entered as include), not post-Sec 7(3)(a) net investment income, because FWH is a head-level exclusion and is not allocated to rents.",
       "notes": "Act text: 25% of total rental income; engine uses the included inv_rents line (gross rents entered as include), not post-Sec 7(3)(a) net investment income, because FWH is a head-level exclusion and is not allocated to rents."
+    },
+    {
+      "id": "bootstrap:senior_citizen_interest_relief",
+      "handler_ids": [
+        "cap_senior_citizen_interest_relief",
+        "deduct_senior_citizen_interest_relief"
+      ],
+      "aliases": [
+        "senior_citizen_interest_relief",
+        "relief_senior_citizen_interest",
+        "bootstrap:senior_citizen_interest_relief_2024_25",
+        "bootstrap:senior_citizen_interest_relief_2025_26",
+        "bootstrap:deduct_senior_citizen_interest_relief_2024_25",
+        "bootstrap:deduct_senior_citizen_interest_relief_2025_26"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "senior_citizen_interest_relief",
+      "kind": "source_doc",
+      "source_quote": "in the case of an individual who is a senior citizen in a year with interest income derived from a financial institution, Rs. 1,500,000 for each year of assessment, up to the total of the individual’s interest income for the year;",
+      "notes": "Fifth Sch 2(d). Cap = min(claimed, 1500000, included inv_interest). Resident senior citizen (Interpretation: citizen + resident + age 60+); interview affirms age/citizenship."
     }
   ]
 }

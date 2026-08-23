@@ -328,6 +328,15 @@ class CalculateTaxRequestV1(BaseModel):
             "Also accepted via filing_lines component_id relief_rent."
         ),
     )
+    senior_citizen_interest_relief: MoneyLkr = Field(
+        default=Decimal("0"),
+        description=(
+            "Fifth Schedule 2(d) senior citizen interest relief claimed (LKR). "
+            "Resident only; capped at min(claimed, 1_500_000, included "
+            "inv_interest). Also accepted via filing_lines component_id "
+            "relief_senior_citizen_interest."
+        ),
+    )
     param_set: ParamSet = Field(
         default="current",
         description=(
@@ -361,6 +370,7 @@ class CalculateTaxRequestV1(BaseModel):
         "apit_already_paid",
         "solar_panel_relief",
         "rent_relief",
+        "senior_citizen_interest_relief",
         mode="before",
     )
     @classmethod

@@ -61,6 +61,21 @@
       "source_doc_id": "ird-ira-2017-base",
       "review_status": "act_verified",
       "rule_source_id": "bootstrap:rent_relief"
+    },
+    {
+      "relief_id": "senior_citizen_interest_relief",
+      "display_name": "Senior citizen interest relief (Fifth Sch 2(d))",
+      "statutory_label": "Fifth Sch 2(d)",
+      "concept_id": "senior_citizen_interest_relief",
+      "section_ref": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "cap_amount": 1500000,
+      "currency": "LKR",
+      "effective_start_date": "2018-04-01",
+      "effective_end_date": null,
+      "source_doc_id": "ird-ira-2017-base",
+      "review_status": "act_verified",
+      "rule_source_id": "bootstrap:senior_citizen_interest_relief"
     }
   ]
 }

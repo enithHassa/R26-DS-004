@@ -61,7 +61,12 @@ from adaptive_tax_app.services.request_normalize import normalize_request
 logger = logging.getLogger(__name__)
 
 # Locked order among claimed, graph-backed deductions (personal relief is pack-driven).
-_DEDUCTION_ORDER = ("qualifying_payment", "solar_panel_relief", "rent_relief")
+_DEDUCTION_ORDER = (
+    "qualifying_payment",
+    "solar_panel_relief",
+    "rent_relief",
+    "senior_citizen_interest_relief",
+)
 
 _INCOME_FIELD_TO_CONCEPT = {
     "employment_income": "employment_income",
@@ -74,15 +79,18 @@ _CLAIM_FIELD_TO_CONCEPT = {
     "qualifying_payments": "qualifying_payment",
     "solar_panel_relief": "solar_panel_relief",
     "rent_relief": "rent_relief",
+    "senior_citizen_interest_relief": "senior_citizen_interest_relief",
 }
 
 _CONCEPT_TO_COMPONENT = {
     "solar_panel_relief": "relief_solar_panel",
     "rent_relief": "relief_rent",
+    "senior_citizen_interest_relief": "relief_senior_citizen_interest",
 }
 
 _SOLAR_CAP = Decimal("600000")
 _RENT_PCT = Decimal("0.25")
+_SENIOR_INTEREST_CAP = Decimal("1500000")
 
 
 def _q1(value: Decimal) -> Decimal:
@@ -393,6 +401,124 @@ def _apply_solar_panel_relief(
             },
             output=running,
             concept_ids=["solar_panel_relief", "taxable_income"],
+            section_uids=list(dict.fromkeys([*sections, *ded_secs])),
+            rule_source_ids=ded_ids,
+            provenance=combined,
+        )
+    )
+    rule_source_refs.extend(enrich_refs_from_ids(ded_ids, year, settings=cfg))
+    return running
+
+
+def _senior_interest_cap_amount(pack: TaxParamPack) -> Decimal:
+    relief = pack.relief_for_concept("senior_citizen_interest_relief")
+    if relief is not None and relief.cap_amount is not None:
+        return _q1(relief.cap_amount)
+    return _SENIOR_INTEREST_CAP
+
+
+def _apply_senior_citizen_interest_relief(
+    *,
+    claimed_amt: Decimal,
+    link: Any,
+    pack: TaxParamPack,
+    running: Decimal,
+    year: str,
+    inv_interest: Decimal,
+    resident_status: str,
+    cfg: AdaptiveTaxSettings,
+    trace: list[CalculationTraceStep],
+    rules_applied: list[str],
+    rule_source_refs: list[RuleSourceRef],
+) -> Decimal:
+    """Fifth Schedule 2(d) — min(claimed, pack cap 1,500,000, included inv_interest).
+
+    Senior citizen (IRA 2017 Interpretation) requires citizen + resident + age 60+;
+    the engine gates on resident_status and leaves age/citizenship to the interview
+    affirmation. Cap base is the Sec 7 ``inv_interest`` include line.
+    """
+    cap_amt = _senior_interest_cap_amount(pack)
+    if resident_status != "resident":
+        allowed = Decimal("0")
+        formula = (
+            "allowed = 0 (non-resident; Fifth Sch 2(d) senior citizen is resident-only)"
+        )
+    else:
+        allowed = min(claimed_amt, cap_amt, inv_interest)
+        formula = (
+            f"allowed = min(claimed, {cap_amt}, inv_interest={_money(inv_interest)})"
+        )
+
+    cap_gate = handlers.gate(
+        handlers.HANDLER_CAP_SENIOR,
+        year,
+        settings=cfg,
+        extra_keys=[
+            "senior_citizen_interest_relief",
+            f"bootstrap:senior_citizen_interest_relief_{year}",
+            "bootstrap:senior_citizen_interest_relief",
+        ],
+    )
+    ded_gate = handlers.gate(
+        handlers.HANDLER_DEDUCT_SENIOR,
+        year,
+        settings=cfg,
+        extra_keys=[
+            "senior_citizen_interest_relief",
+            f"bootstrap:deduct_senior_citizen_interest_relief_{year}",
+        ],
+    )
+    cap_ids, cap_secs, cap_tag = _apply_gate(cap_gate.resolution, [])
+    sections = list(dict.fromkeys([*link.section_uids, *cap_secs]))
+    rules_applied.append("cap_senior_citizen_interest_relief")
+    trace.append(
+        _step(
+            step_id="cap_senior_citizen_interest_relief",
+            description=(
+                "Apply Fifth Schedule 2(d) senior citizen interest relief cap "
+                "(min of claim, Rs 1,500,000, and included inv_interest)"
+            ),
+            formula=formula,
+            inputs={
+                "claimed": _money(claimed_amt),
+                "cap": _money(cap_amt),
+                "inv_interest": _money(inv_interest),
+                "resident_status": resident_status,
+                "allowed": _money(allowed),
+            },
+            output=allowed,
+            concept_ids=["senior_citizen_interest_relief"],
+            section_uids=sections,
+            rule_source_ids=cap_ids,
+            provenance=cap_tag,
+        )
+    )
+    rule_source_refs.extend(enrich_refs_from_ids(cap_ids, year, settings=cfg))
+
+    ded_ids, ded_secs, ded_tag = _apply_gate(ded_gate.resolution, [])
+    tags = [cap_tag, ded_tag]
+    combined = (
+        "missing"
+        if "missing" in tags
+        else ("legacy_seed" if "legacy_seed" in tags else "approved")
+    )
+    before = running
+    allowed = _clamp_to_running(allowed, before)
+    running = _q1(max(Decimal("0"), before - allowed))
+    rules_applied.append("deduct_senior_citizen_interest_relief")
+    trace.append(
+        _step(
+            step_id="deduct_senior_citizen_interest_relief",
+            description="Deduct Fifth Schedule 2(d) senior citizen interest relief",
+            formula="after = max(0, before - min(statutory_allowed, before))",
+            inputs={
+                "claimed": _money(claimed_amt),
+                "allowed": _money(allowed),
+                "before": _money(before),
+                "after": _money(running),
+            },
+            output=running,
+            concept_ids=["senior_citizen_interest_relief", "taxable_income"],
             section_uids=list(dict.fromkeys([*sections, *ded_secs])),
             rule_source_ids=ded_ids,
             provenance=combined,
@@ -1860,6 +1986,25 @@ def calculate(
                 running=running,
                 year=year,
                 inv_rents=inv_rents,
+                cfg=cfg,
+                trace=trace,
+                rules_applied=rules_applied,
+                rule_source_refs=rule_source_refs,
+            )
+            continue
+
+        if concept_id == "senior_citizen_interest_relief":
+            inv_interest = _q1(
+                normalized.head_subtotals.get("inv_interest", Decimal("0"))
+            )
+            running = _apply_senior_citizen_interest_relief(
+                claimed_amt=claimed_amt,
+                link=link,
+                pack=pack,
+                running=running,
+                year=year,
+                inv_interest=inv_interest,
+                resident_status=request.resident_status,
                 cfg=cfg,
                 trace=trace,
                 rules_applied=rules_applied,

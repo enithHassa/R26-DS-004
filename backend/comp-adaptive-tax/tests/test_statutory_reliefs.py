@@ -29,7 +29,11 @@ def test_statutory_card_has_solar_and_rent_not_on_qp() -> None:
         assert "statutory_reliefs" in card_ids
         statutory = next(c for c in catalog.cards if c.card_id == "statutory_reliefs")
         ids = {f.component_id for f in statutory.fields}
-        assert ids == {"relief_solar_panel", "relief_rent"}
+        assert ids == {
+            "relief_solar_panel",
+            "relief_rent",
+            "relief_senior_citizen_interest",
+        }
         qp = next(c for c in catalog.cards if c.card_id == "qualifying_payments")
         qp_ids = {f.component_id for f in qp.fields}
         assert not any("solar" in i for i in qp_ids)
@@ -97,15 +101,17 @@ def test_rent_cap_is_25pct_of_included_inv_rents() -> None:
     assert result.final_tax_lkr == "153000"
 
 
-def test_order_qp_then_solar_then_rent_then_personal() -> None:
+def test_order_qp_then_solar_then_rent_then_senior_then_personal() -> None:
     result = _calc(
         employment_income="4000000",
         resident_status="resident",
         filing_lines=[
             {"component_id": "qp_approved_charitable", "amount": "75000"},
             {"component_id": "inv_rents", "amount": "400000"},
+            {"component_id": "inv_interest", "amount": "800000"},
             {"component_id": "relief_solar_panel", "amount": "400000"},
             {"component_id": "relief_rent", "amount": "100000"},
+            {"component_id": "relief_senior_citizen_interest", "amount": "800000"},
         ],
     )
     rules = result.rules_applied
@@ -113,7 +119,47 @@ def test_order_qp_then_solar_then_rent_then_personal() -> None:
         "deduct_solar_panel_relief"
     )
     assert rules.index("deduct_solar_panel_relief") < rules.index("deduct_rent_relief")
-    assert rules.index("deduct_rent_relief") < rules.index("apply_personal_relief")
+    assert rules.index("deduct_rent_relief") < rules.index(
+        "deduct_senior_citizen_interest_relief"
+    )
+    assert rules.index("deduct_senior_citizen_interest_relief") < rules.index(
+        "apply_personal_relief"
+    )
+
+
+def test_senior_cap_min_claim_15m_inv_interest() -> None:
+    clear_provenance_cache()
+    result = _calc(
+        assessment_year="2024_25",
+        resident_status="resident",
+        employment_income="3000000",
+        filing_lines=[
+            {"component_id": "inv_interest", "amount": "900000"},
+            {"component_id": "relief_senior_citizen_interest", "amount": "2000000"},
+        ],
+    )
+    steps = _step_map(result)
+    assert steps["cap_senior_citizen_interest_relief"].inputs["inv_interest"] == "900000"
+    assert steps["cap_senior_citizen_interest_relief"].inputs["cap"] == "1500000"
+    assert steps["cap_senior_citizen_interest_relief"].inputs["allowed"] == "900000"
+    # Gross 3.9M − 900k senior − 1.2M PR = 1.8M → 30k+60k+90k+72k = 252000
+    assert result.final_tax_lkr == "252000"
+
+
+def test_senior_non_resident_zero() -> None:
+    clear_provenance_cache()
+    result = _calc(
+        assessment_year="2024_25",
+        resident_status="non_resident",
+        employment_income="3000000",
+        filing_lines=[
+            {"component_id": "inv_interest", "amount": "900000"},
+            {"component_id": "relief_senior_citizen_interest", "amount": "900000"},
+        ],
+    )
+    assert (
+        _step_map(result)["cap_senior_citizen_interest_relief"].inputs["allowed"] == "0"
+    )
 
 
 def test_each_relief_floors_running_at_zero() -> None:

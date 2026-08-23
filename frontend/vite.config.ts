@@ -38,6 +38,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // Windows often binds Vite to IPv6 ::1 only; the runbook URL is 127.0.0.1.
+      host: "127.0.0.1",
       port: 5173,
       /** Strategy explorer (Component B) — primary dissertation UI for this module. */
       open: "/tax-optimization/explorer",

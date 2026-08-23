@@ -36,6 +36,7 @@ export const DEDUCTION_STEP_LABELS: Record<string, string> = {
   deduct_qualifying_payment: "Qualifying payments",
   deduct_solar_panel_relief: "Solar panel relief",
   deduct_rent_relief: "Rent relief",
+  deduct_senior_citizen_interest_relief: "Senior citizen interest relief",
   apply_personal_relief: "Personal relief",
   apply_tax_credit: "Tax already paid (APIT)",
 };
@@ -44,6 +45,7 @@ export const RELIEF_SENTENCE: Record<string, string> = {
   deduct_qualifying_payment: "qualifying payments",
   deduct_solar_panel_relief: "solar panel relief",
   deduct_rent_relief: "rent relief",
+  deduct_senior_citizen_interest_relief: "senior citizen interest relief",
   apply_personal_relief: "personal relief",
 };
 
@@ -68,6 +70,10 @@ export const STEP_LABELS: Record<string, string> = {
   deduct_solar_panel_relief: DEDUCTION_STEP_LABELS.deduct_solar_panel_relief,
   cap_rent_relief: DEDUCTION_STEP_LABELS.deduct_rent_relief,
   deduct_rent_relief: DEDUCTION_STEP_LABELS.deduct_rent_relief,
+  cap_senior_citizen_interest_relief:
+    DEDUCTION_STEP_LABELS.deduct_senior_citizen_interest_relief,
+  deduct_senior_citizen_interest_relief:
+    DEDUCTION_STEP_LABELS.deduct_senior_citizen_interest_relief,
   apply_personal_relief: DEDUCTION_STEP_LABELS.apply_personal_relief,
   apply_tax_credit: DEDUCTION_STEP_LABELS.apply_tax_credit,
   final_tax: "Income tax",
@@ -84,6 +90,8 @@ export const CLAIM_CONCEPT_LABELS: Record<string, string> = {
   qualifying_payment: RELIEF_SENTENCE.deduct_qualifying_payment,
   qualifying_payment_cap: RELIEF_SENTENCE.deduct_qualifying_payment,
   rent_relief: RELIEF_SENTENCE.deduct_rent_relief,
+  senior_citizen_interest_relief:
+    RELIEF_SENTENCE.deduct_senior_citizen_interest_relief,
 };
 
 export const SOURCE_DOC_LABELS: Record<string, string> = {
