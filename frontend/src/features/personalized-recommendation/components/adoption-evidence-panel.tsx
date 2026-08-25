@@ -3,18 +3,30 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Banknote, PiggyBank, Sparkles, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
+import {
+  Banknote,
+  Check,
+  Gauge,
+  PiggyBank,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-import type { AdoptionEvidence } from "../utils/adoption-evidence";
+import type { AdoptionEvidence, Signal } from "../utils/adoption-evidence";
 import { formatLkr } from "../utils/format-lkr";
 
 const VERDICT_STYLES: Record<
@@ -41,6 +53,13 @@ const VERDICT_STYLES: Record<
   },
 };
 
+const INDEXED_SERIES: { key: "income" | "debt" | "liquidSavings" | "investments"; name: string; color: string }[] = [
+  { key: "income", name: "Income", color: "var(--color-primary)" },
+  { key: "debt", name: "Debt", color: "#e11d48" },
+  { key: "liquidSavings", name: "Liquid savings", color: "#0ea5e9" },
+  { key: "investments", name: "Investments", color: "#059669" },
+];
+
 function StatTile({
   icon: Icon,
   label,
@@ -65,6 +84,35 @@ function StatTile({
   );
 }
 
+function SignalRow({ signal }: { signal: Signal }) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg border bg-white px-3 py-2">
+      <div
+        className={cn(
+          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+          signal.met ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+        )}
+      >
+        {signal.met ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          {signal.label}
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              signal.weight === "model" ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-600",
+            )}
+          >
+            {signal.weight === "model" ? "model" : "trend"}
+          </span>
+        </div>
+        <div className="text-xs text-muted-foreground">{signal.detail}</div>
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   evidence: AdoptionEvidence;
   strategyName: string;
@@ -74,6 +122,7 @@ type Props = {
 export function AdoptionEvidenceModal({ evidence, strategyName, onClose }: Props) {
   const style = VERDICT_STYLES[evidence.verdict];
   const TrendIcon = evidence.incomeGrowthPct >= 0 ? TrendingUp : TrendingDown;
+  const hasDebtSeries = evidence.indexedChartData.some((d) => d.debt !== null);
 
   return (
     <div
@@ -81,7 +130,7 @@ export function AdoptionEvidenceModal({ evidence, strategyName, onClose }: Props
       onClick={onClose}
     >
       <Card
-        className={cn("flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden p-0 ring-1", style.ring)}
+        className={cn("flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden p-0 ring-1", style.ring)}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={cn("relative shrink-0 overflow-hidden bg-gradient-to-br px-6 py-5 text-white", style.gradient)}>
@@ -114,7 +163,20 @@ export function AdoptionEvidenceModal({ evidence, strategyName, onClose }: Props
         </div>
 
         <CardContent className="flex-1 space-y-5 overflow-y-auto bg-muted/20 p-6">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border-l-4 border-l-primary bg-white p-4 shadow-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Verdict — why {style.label.toLowerCase()}
+            </div>
+            <div className="text-sm leading-relaxed text-foreground">{evidence.verdictSummary}</div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile
+              icon={Gauge}
+              label="Model probability"
+              value={`${(evidence.adoptionProbability * 100).toFixed(0)}%`}
+              positive={evidence.adoptionProbability >= 0.6}
+            />
             <StatTile
               icon={Banknote}
               label="Income growth"
@@ -136,8 +198,21 @@ export function AdoptionEvidenceModal({ evidence, strategyName, onClose }: Props
           </div>
 
           <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <div className="mb-3 text-sm font-semibold text-foreground">24-month income &amp; savings-rate trend</div>
-            <div className="h-[220px] w-full">
+            <div className="mb-3 text-sm font-semibold text-foreground">
+              Signal checklist ({evidence.signals.filter((s) => s.met).length}/{evidence.signals.length} met)
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {evidence.signals.map((signal) => (
+                <SignalRow key={signal.key} signal={signal} />
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-foreground">
+              {evidence.chartData.length}-month income &amp; savings-rate trend
+            </div>
+            <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={evidence.chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <defs>
@@ -185,8 +260,55 @@ export function AdoptionEvidenceModal({ evidence, strategyName, onClose }: Props
             </div>
           </div>
 
-          <div className="rounded-xl border-l-4 border-l-primary bg-white p-4 text-sm leading-relaxed text-foreground shadow-sm">
-            {evidence.narrative}
+          <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <div className="mb-1 text-sm font-semibold text-foreground">
+              Indexed trend comparison (first month = 100)
+            </div>
+            <div className="mb-3 text-xs text-muted-foreground">
+              Puts income, debt, liquid savings, and investments on the same scale so you can see which
+              are rising and which are falling relative to where this profile started — a line above 100
+              has grown, below 100 has shrunk.
+            </div>
+            <div className="h-[220px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={evidence.indexedChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} minTickGap={28} />
+                  <YAxis tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => `${v}`} />
+                  <ReferenceLine y={100} stroke="var(--muted-foreground)" strokeDasharray="4 4" />
+                  <Tooltip
+                    formatter={(v: number, name: string) => [`${v} (index)`, name]}
+                    contentStyle={{ borderRadius: 10, fontSize: 12, border: "1px solid var(--border)" }}
+                  />
+                  {INDEXED_SERIES.filter((s) => s.key !== "debt" || hasDebtSeries).map((s) => (
+                    <Line
+                      key={s.key}
+                      type="monotone"
+                      dataKey={s.key}
+                      stroke={s.color}
+                      strokeWidth={2}
+                      dot={false}
+                      name={s.name}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {evidence.sections.map((section) => (
+              <div
+                key={section.heading}
+                className="rounded-xl border-l-4 border-l-primary bg-white p-4 shadow-sm"
+              >
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {section.heading}
+                </div>
+                <div className="text-sm leading-relaxed text-foreground">{section.body}</div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

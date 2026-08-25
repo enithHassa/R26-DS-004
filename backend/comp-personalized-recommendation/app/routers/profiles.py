@@ -34,10 +34,21 @@ def _profile_or_404(db: Session, profile_id: UUID) -> object:
 @router.post("", response_model=FinancialProfile, status_code=status.HTTP_201_CREATED)
 def create_profile(
     payload: FinancialProfileCreate,
+    user_id: UUID | None = Query(
+        None, description="Attach to an existing account instead of creating a placeholder user."
+    ),
     db: Session = DBSession,
 ) -> FinancialProfile:
-    """Create a new financial profile (auto-creates a placeholder user)."""
-    orm = profile_service.create_profile(db, payload)
+    """Create a new financial profile.
+
+    If ``user_id`` is omitted, a placeholder user is auto-created (admin
+    tooling / synthetic data); if given, the profile is attached to that
+    already-registered account (first-login financial intake).
+    """
+    try:
+        orm = profile_service.create_profile(db, payload, user_id=user_id)
+    except profile_service.ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return FinancialProfile.model_validate(orm)
 
 
@@ -100,7 +111,7 @@ def get_profile_features(profile_id: UUID, db: Session = DBSession) -> DerivedFe
 @router.get("/{profile_id}/history", response_model=list[ProfileHistorySnapshot])
 def get_profile_history(
     profile_id: UUID,
-    months: int = Query(24, ge=1, le=60),
+    months: int = Query(36, ge=1, le=60),
     db: Session = DBSession,
 ) -> list[ProfileHistorySnapshot]:
     """Synthetic monthly financial history (income, expenses, balances) used

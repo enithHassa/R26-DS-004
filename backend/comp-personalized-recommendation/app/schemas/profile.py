@@ -84,6 +84,27 @@ class MaritalStatus(StrEnum):
     WIDOWED = "widowed"
 
 
+class ResidencyStatus(StrEnum):
+    RESIDENT = "resident"
+    NON_RESIDENT = "non_resident"
+    DUAL = "dual"
+
+
+class EmploymentType(StrEnum):
+    PERMANENT = "permanent"
+    CONTRACT = "contract"
+    PART_TIME = "part_time"
+    FREELANCE = "freelance"
+    UNEMPLOYED = "unemployed"
+
+
+class EmployerSector(StrEnum):
+    PRIVATE = "private"
+    PUBLIC = "public"
+    NGO = "ngo"
+    SELF_EMPLOYED = "self_employed"
+
+
 class IncomeSource(BaseModel):
     kind: str = Field(description="employment|business|rental|interest|dividend|capital_gain|other")
     monthly_amount: Decimal = Field(ge=0)
@@ -97,11 +118,16 @@ class FinancialProfileBase(BaseModel):
     gender: Gender = Gender.OTHER
     district: str = Field(default="Colombo", max_length=64)
     marital_status: MaritalStatus = MaritalStatus.SINGLE
+    residency_status: ResidencyStatus = ResidencyStatus.RESIDENT
+    nationality: str | None = Field(default=None, max_length=64)
     occupation: Occupation
+    employment_type: EmploymentType = EmploymentType.PERMANENT
+    employer_sector: EmployerSector = EmployerSector.PRIVATE
     dependents: int = Field(ge=0, le=20, default=0)
     years_employed: int = Field(ge=0, le=60, default=0)
 
     gross_monthly_income: Decimal = Field(ge=0)
+    annual_bonus_lkr: Decimal = Field(ge=0, default=Decimal("0"))
     monthly_expenses: Decimal = Field(ge=0)
     monthly_debt_service: Decimal = Field(ge=0, default=Decimal("0"))
     liquid_savings: Decimal = Field(ge=0, default=Decimal("0"))
@@ -109,6 +135,8 @@ class FinancialProfileBase(BaseModel):
     total_debt: Decimal = Field(ge=0, default=Decimal("0"))
     epf_balance: Decimal = Field(ge=0, default=Decimal("0"))
     etf_balance: Decimal = Field(ge=0, default=Decimal("0"))
+    vehicle_value: Decimal = Field(ge=0, default=Decimal("0"))
+    property_value: Decimal = Field(ge=0, default=Decimal("0"))
 
     health_insurance: bool = False
     life_insurance_premium_annual: Decimal = Field(ge=0, default=Decimal("0"))
@@ -117,6 +145,7 @@ class FinancialProfileBase(BaseModel):
 
     risk_tolerance: RiskTolerance = RiskTolerance.MEDIUM
     investment_horizon_years: int = Field(ge=0, le=50, default=10)
+    retirement_age_target: int = Field(ge=40, le=75, default=60)
     income_sources: list[IncomeSource] = Field(default_factory=list)
 
     tax_year: str = Field(default="2026_27", pattern=r"^\d{4}_\d{2}$")
@@ -143,10 +172,15 @@ class FinancialProfileUpdate(BaseModel):
     gender: Gender | None = None
     district: str | None = Field(default=None, max_length=64)
     marital_status: MaritalStatus | None = None
+    residency_status: ResidencyStatus | None = None
+    nationality: str | None = Field(default=None, max_length=64)
     occupation: Occupation | None = None
+    employment_type: EmploymentType | None = None
+    employer_sector: EmployerSector | None = None
     dependents: int | None = Field(default=None, ge=0, le=20)
     years_employed: int | None = Field(default=None, ge=0, le=60)
     gross_monthly_income: Decimal | None = Field(default=None, ge=0)
+    annual_bonus_lkr: Decimal | None = Field(default=None, ge=0)
     monthly_expenses: Decimal | None = Field(default=None, ge=0)
     monthly_debt_service: Decimal | None = Field(default=None, ge=0)
     liquid_savings: Decimal | None = Field(default=None, ge=0)
@@ -154,12 +188,15 @@ class FinancialProfileUpdate(BaseModel):
     total_debt: Decimal | None = Field(default=None, ge=0)
     epf_balance: Decimal | None = Field(default=None, ge=0)
     etf_balance: Decimal | None = Field(default=None, ge=0)
+    vehicle_value: Decimal | None = Field(default=None, ge=0)
+    property_value: Decimal | None = Field(default=None, ge=0)
     health_insurance: bool | None = None
     life_insurance_premium_annual: Decimal | None = Field(default=None, ge=0)
     home_loan_interest_annual: Decimal | None = Field(default=None, ge=0)
     donations_annual: Decimal | None = Field(default=None, ge=0)
     risk_tolerance: RiskTolerance | None = None
     investment_horizon_years: int | None = Field(default=None, ge=0, le=50)
+    retirement_age_target: int | None = Field(default=None, ge=40, le=75)
     income_sources: list[IncomeSource] | None = None
     tax_year: str | None = Field(default=None, pattern=r"^\d{4}_\d{2}$")
 
@@ -204,6 +241,8 @@ class DerivedFeatures(ORMBase):
 __all__ = [
     "DerivedFeatures",
     "EligibilityOverrideUpdate",
+    "EmployerSector",
+    "EmploymentType",
     "FinancialProfile",
     "FinancialProfileBase",
     "FinancialProfileCreate",
@@ -212,4 +251,5 @@ __all__ = [
     "IncomeSource",
     "MaritalStatus",
     "Occupation",
+    "ResidencyStatus",
 ]
