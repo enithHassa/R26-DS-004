@@ -11,6 +11,13 @@ def test_health_root(client: TestClient) -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["component"] == "adaptive-tax"
+    assert "required_concepts" in payload
+    assert "solar_panel_relief" in payload["required_concepts"]
+    assert "solar_panel_relief_cap" in payload["required_concepts"]
+    assert "rent_relief" in payload["required_concepts"]
+    assert "rent_relief_cap" in payload["required_concepts"]
+    assert "qualifying_payment" in payload["required_concepts"]
+    assert "required_concepts_missing" in payload
 
 
 def test_ready(client: TestClient) -> None:

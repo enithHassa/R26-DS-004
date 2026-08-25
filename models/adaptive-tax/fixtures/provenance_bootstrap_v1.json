@@ -1,0 +1,1074 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "description": "Phase 5.0b bootstrap approved rule_source rows with official Act quotes (not Master PDF). Enables COMP_ADAPTIVE_TAX_PROVENANCE_MODE=strict without breaking MVP goldens.",
+  "status": "approved",
+  "rules": [
+    {
+      "id": "bootstrap:sum_assessable",
+      "handler_ids": [
+        "sum_assessable"
+      ],
+      "aliases": [
+        "ird-ira-2017-base"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "5",
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "assessable_income",
+      "kind": "source_doc",
+      "source_quote": "5. Employment income. The following shall be included in calculating a person's income from an employment for a year of assessment"
+    },
+    {
+      "id": "bootstrap:employment_income",
+      "handler_ids": [
+        "sum_assessable:employment_income"
+      ],
+      "aliases": [
+        "employment_income"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "5",
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "employment_income",
+      "kind": "source_doc",
+      "source_quote": "5. Employment income. The following shall be included in calculating a person's income from an employment for a year of assessment"
+    },
+    {
+      "id": "bootstrap:aggregate_employment_components",
+      "handler_ids": [
+        "aggregate_employment_components"
+      ],
+      "aliases": [
+        "aggregate_employment_components",
+        "emp_salary",
+        "emp_wages",
+        "emp_bonus",
+        "bootstrap:emp_salary",
+        "bootstrap:emp_wages",
+        "bootstrap:emp_bonus",
+        "bootstrap:emp_overtime",
+        "bootstrap:emp_commission",
+        "bootstrap:emp_pension",
+        "bootstrap:emp_gratuity",
+        "bootstrap:emp_leave_pay",
+        "bootstrap:emp_housing_allowance",
+        "bootstrap:emp_travel_allowance",
+        "bootstrap:emp_cost_of_living_allowance",
+        "bootstrap:emp_entertainment_allowance",
+        "bootstrap:emp_gifts",
+        "bootstrap:emp_employee_share_scheme",
+        "bootstrap:emp_other_employment_benefits"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "5(2)",
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "employment_income",
+      "kind": "source_doc",
+      "source_quote": "(2) In calculating an individual's gains and profits from an employment for a year of assessment the following amounts received or derived by the individual during the year of assessment from the employment shall be included:- (a) payments of salary, wages, leave pay, overtime pay, fees, pensions, commissions, gratuities, bonuses and other similar payments;"
+    },
+    {
+      "id": "bootstrap:exclude_employment_exempt_lines",
+      "handler_ids": [
+        "exclude_employment_exempt_lines"
+      ],
+      "aliases": [
+        "exclude_employment_exempt_lines",
+        "emp_medical_benefits",
+        "emp_employer_retirement_contributions",
+        "bootstrap:emp_medical_benefits",
+        "bootstrap:emp_employer_retirement_contributions"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "5(3)",
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "employment_final_withholding",
+      "kind": "source_doc",
+      "source_quote": "(3) In calculating an individual's gains and profits from an employment for a year of assessment the following shall be excluded:- (a) exempt amounts and final withholding payments; (c) a discharge or reimbursement of the person's dental, medical or health insurance expenses where the benefit is available to all full-time employees on equal terms;"
+    },
+    {
+      "id": "bootstrap:exclude_if_final_wht",
+      "handler_ids": [
+        "exclude_if_final_wht"
+      ],
+      "aliases": [
+        "employment_final_withholding",
+        "exclude_employment_final_withholding"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "5(3)(a)",
+      "section_uid": "ird-ira-2017-base::sec::section_5",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "employment_final_withholding",
+      "kind": "source_doc",
+      "source_quote": "(3) In calculating an individual's gains and profits from an employment for a year of assessment the following shall be excluded:- (a) exempt amounts and final withholding payments;"
+    },
+    {
+      "id": "bootstrap:business_income",
+      "handler_ids": [
+        "sum_assessable:business_income"
+      ],
+      "aliases": [
+        "business_income"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "6",
+      "section_uid": "ird-ira-2017-base::sec::section_6",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "business_income",
+      "kind": "source_doc",
+      "source_quote": "6. Business income. The assessable income from a business, profession or vocation for a year of assessment shall be the profits of the business computed in accordance with this Act and included in calculating assessable income."
+    },
+    {
+      "id": "bootstrap:compute_business_net",
+      "handler_ids": [
+        "compute_business_net"
+      ],
+      "aliases": [
+        "business_gross",
+        "compute_business_net"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "6",
+      "section_uid": "ird-ira-2017-base::sec::section_6",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "business_gross",
+      "kind": "source_doc",
+      "source_quote": "6. Business income. The assessable income from a business, profession or vocation for a year of assessment shall be the profits of the business computed in accordance with this Act and included in calculating assessable income."
+    },
+    {
+      "id": "bootstrap:business_deductions",
+      "handler_ids": [
+        "deduct_business_expenses"
+      ],
+      "aliases": [
+        "business_deductions",
+        "deduct_business_expenses"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "11",
+      "section_uid": "ird-ira-2017-base::sec::section_11",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "business_deductions",
+      "kind": "source_doc",
+      "source_quote": "11. (1) In calculating a person's income from a business or investment for a year of assessment, expenses to the extent they are incurred during the year by the person and in the production of income from the business or investment, shall be deducted."
+    },
+    {
+      "id": "bootstrap:capital_allowances",
+      "handler_ids": [
+        "deduct_capital_allowances"
+      ],
+      "aliases": [
+        "capital_allowances",
+        "deduct_capital_allowances"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "16",
+      "section_uid": "ird-ira-2017-base::sec::section_16",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "capital_allowances",
+      "kind": "source_doc",
+      "source_quote": "16. (1) For the purposes of calculating a person's income from a business for a year of assessment — (a) the Capital allowances referred to in subsection (2) shall be deducted; and (b) the balancing allowances referred to in subsection (4) shall be deducted."
+    },
+    {
+      "id": "bootstrap:aggregate_business_components",
+      "handler_ids": [
+        "aggregate_business_components"
+      ],
+      "aliases": [
+        "aggregate_business_components",
+        "biz_net_profits",
+        "biz_gross",
+        "biz_deductions",
+        "biz_capital_allowances",
+        "bootstrap:biz_net_profits",
+        "bootstrap:biz_gross",
+        "bootstrap:biz_deductions",
+        "bootstrap:biz_capital_allowances",
+        "bootstrap:business_income",
+        "bootstrap:compute_business_net",
+        "bootstrap:business_deductions",
+        "bootstrap:capital_allowances"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "6",
+      "section_uid": "ird-ira-2017-base::sec::section_6",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "business_income",
+      "kind": "source_doc",
+      "source_quote": "6. Business income. The assessable income from a business, profession or vocation for a year of assessment shall be the profits of the business computed in accordance with this Act and included in calculating assessable income."
+    },
+    {
+      "id": "bootstrap:investment_income",
+      "handler_ids": [
+        "sum_assessable:investment_income"
+      ],
+      "aliases": [
+        "investment_income"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "7",
+      "section_uid": "ird-ira-2017-base::sec::section_7",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "investment_income",
+      "kind": "source_doc",
+      "source_quote": "7. Investment income. The following shall be included in calculating a person's income from an investment for a year of assessment"
+    },
+    {
+      "id": "bootstrap:aggregate_investment_components",
+      "handler_ids": [
+        "aggregate_investment_components"
+      ],
+      "aliases": [
+        "aggregate_investment_components",
+        "inv_dividends",
+        "inv_interest",
+        "inv_rents",
+        "inv_royalties",
+        "bootstrap:inv_dividends",
+        "bootstrap:inv_interest",
+        "bootstrap:inv_discounts",
+        "bootstrap:inv_charges",
+        "bootstrap:inv_annuities",
+        "bootstrap:inv_natural_resource_payments",
+        "bootstrap:inv_rents",
+        "bootstrap:inv_premiums",
+        "bootstrap:inv_royalties",
+        "bootstrap:inv_gains_investment_assets",
+        "bootstrap:inv_restriction_consideration",
+        "bootstrap:inv_gifts",
+        "bootstrap:inv_winnings",
+        "bootstrap:inv_other_amounts"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "7(2)",
+      "section_uid": "ird-ira-2017-base::sec::section_7",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "investment_income",
+      "kind": "source_doc",
+      "source_quote": "(2) In calculating a person's gains and profits from an investment derived or received during a year of assessment the following amounts received or derived by the person during the year of assessment from the investment shall be included:- (a) dividends, interest, discounts, charges, annuities, natural resource payments, rents, premiums and royalties;"
+    },
+    {
+      "id": "bootstrap:exclude_investment_final_wht",
+      "handler_ids": [
+        "exclude_investment_final_wht"
+      ],
+      "aliases": [
+        "investment_final_withholding",
+        "exclude_investment_final_withholding",
+        "investment_exempt_interest",
+        "inv_final_withholding",
+        "bootstrap:exclude_investment_final_wht"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "7(3)(a)",
+      "section_uid": "ird-ira-2017-base::sec::section_7",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "investment_final_withholding",
+      "kind": "source_doc",
+      "source_quote": "(3) In calculating a person's gains and profits from an investment for a year of assessment the following shall be excluded:- (a) exempt amounts and final withholding payments; and (b) amounts that are included in calculating the person's income from an employment or business."
+    },
+    {
+      "id": "bootstrap:other_income",
+      "handler_ids": [
+        "sum_assessable:other_income"
+      ],
+      "aliases": [
+        "other_income"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "8",
+      "section_uid": "ird-ira-2017-base::sec::section_8",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "other_income",
+      "kind": "source_doc",
+      "source_quote": "8. (1) A person's income from other sources for a year of assessment shall be that person's gains and profits from any source whatsoever for the year, not including profits of a casual and non-recurring nature."
+    },
+    {
+      "id": "bootstrap:aggregate_other_income_components",
+      "handler_ids": [
+        "aggregate_other_income_components"
+      ],
+      "aliases": [
+        "aggregate_other_income_components",
+        "oth_residual",
+        "oth_custom",
+        "bootstrap:oth_residual",
+        "bootstrap:oth_custom",
+        "bootstrap:other_income"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "8",
+      "section_uid": "ird-ira-2017-base::sec::section_8",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "other_income",
+      "kind": "source_doc",
+      "source_quote": "8. (1) A person's income from other sources for a year of assessment shall be that person's gains and profits from any source whatsoever for the year, not including profits of a casual and non-recurring nature."
+    },
+    {
+      "id": "bootstrap:exclude_other_final_wht",
+      "handler_ids": [
+        "exclude_other_final_wht"
+      ],
+      "aliases": [
+        "other_final_withholding",
+        "exclude_other_final_withholding",
+        "oth_final_withholding",
+        "bootstrap:exclude_other_final_wht"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "8(2)(a)",
+      "section_uid": "ird-ira-2017-base::sec::section_8",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "other_final_withholding",
+      "kind": "source_doc",
+      "source_quote": "(2) In calculating a person's gains or profits from any source whatsoever, the following shall be excluded:- (a) exempt amounts and final withholding payments; and (b) amounts that are included in calculating the person's income from an employment, business or investment."
+    },
+    {
+      "id": "bootstrap:tax_credit",
+      "handler_ids": [
+        "tax_credit"
+      ],
+      "aliases": [
+        "apit_already_paid",
+        "apply_tax_credit",
+        "bootstrap:tax_credit",
+        "credit_apit",
+        "tax_credit",
+        "tax_credits"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "89",
+      "section_uid": "ird-ira-2017-base::sec::section_89",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "tax_credit",
+      "kind": "source_doc",
+      "source_quote": "89. (1) The withholdee of a payment that is not a final withholding payment shall be treated as having paid any tax — (a) withheld from the payment under this Division; or (b) paid with respect to the payment in accordance with subsection (3) or (4) of section 86. (2) A withholdee shall be entitled to a tax credit in an amount equal to the tax treated as paid under subsection (1) for the year of assessment in which the payment is derived."
+    },
+    {
+      "id": "bootstrap:sec52_deduct_qp_2024_25",
+      "handler_ids": [
+        "deduct_qualifying_payment"
+      ],
+      "aliases": [
+        "qualifying_payment"
+      ],
+      "assessment_years": [
+        "2024_25"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "relief",
+      "source_quote": "52. Qualifying payments and reliefs. Qualifying payments made by a resident individual in a year of assessment shall be deducted in arriving at the taxable income of that individual subject to the limits specified in this section."
+    },
+    {
+      "id": "bootstrap:sec52_deduct_qp_2025_26",
+      "handler_ids": [
+        "deduct_qualifying_payment"
+      ],
+      "aliases": [
+        "qualifying_payment"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "relief",
+      "source_quote": "52. (1) A resident individual shall be entitled to deduct qualifying payments made by such individual in a year of assessment in arriving at the taxable income of that individual, subject to the limits specified in the Fifth Schedule to this Act."
+    },
+    {
+      "id": "bootstrap:sec52_carry_forward_2025_26",
+      "handler_ids": [
+        "carry_forward_qp"
+      ],
+      "aliases": [
+        "sec52_carry_forward",
+        "qualifying_payment_carry_forward",
+        "qp_government_sri_lanka",
+        "qp_government_fund",
+        "bootstrap:qp_government_sri_lanka",
+        "bootstrap:qp_government_fund",
+        "ird-amend-2026-11"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "52(4)",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-amend-2026-11",
+      "concept_id": "qualifying_payment_carry_forward",
+      "kind": "relief",
+      "source_quote": "Where the deduction of any qualifying payment referred to in items (i) and (v) of sub-paragraph (b) of paragraph 1 of the Fifth Schedule to this Act, is not possible, for any year of assessment commencing on or after April 1, 2025, due to the absence or inadequacy of assessable income of the individual or entity for that year of assessment, such amount which cannot be deducted shall be carried forward"
+    },
+    {
+      "id": "bootstrap:donation_cap",
+      "handler_ids": [
+        "cap_percent_assessable:donation_cap"
+      ],
+      "aliases": [
+        "donation_cap"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation_cap",
+      "kind": "relief",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "notes": "Alias of Fifth Sch 1(a). Live cap is min(claimed, 75000, floor(assessable/3)); not a 33% deduct."
+    },
+    {
+      "id": "bootstrap:donation_cap_2024_25",
+      "handler_ids": [
+        "cap_percent_assessable:donation_cap"
+      ],
+      "aliases": [
+        "donation_cap"
+      ],
+      "assessment_years": [
+        "2024_25"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation_cap",
+      "kind": "relief",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "notes": "YA 2024/25 alias of Fifth Sch 1(a). Live cap is min(claimed, 75000, floor(assessable/3)); not a 33% deduct."
+    },
+    {
+      "id": "bootstrap:donation_cap_2025_26",
+      "handler_ids": [
+        "cap_percent_assessable:donation_cap"
+      ],
+      "aliases": [
+        "donation_cap"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation_cap",
+      "kind": "relief",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "notes": "YA 2025/26 alias of Fifth Sch 1(a). Live cap is min(claimed, 75000, floor(assessable/3)); not a 33% deduct."
+    },
+    {
+      "id": "bootstrap:donation_deduct_2024_25",
+      "handler_ids": [
+        "deduct_donation"
+      ],
+      "aliases": [
+        "donation"
+      ],
+      "assessment_years": [
+        "2024_25"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation",
+      "kind": "relief",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "notes": "Superseded alias of qp_approved_charitable. No live deduct_donation / 33% path; LIMITED_BY donation_cap documents the 75k / one-third ceiling."
+    },
+    {
+      "id": "bootstrap:donation_deduct_2025_26",
+      "handler_ids": [
+        "deduct_donation"
+      ],
+      "aliases": [
+        "donation"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation",
+      "kind": "relief",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "notes": "Superseded alias of qp_approved_charitable. No live deduct_donation / 33% path; LIMITED_BY donation_cap documents the 75k / one-third ceiling."
+    },
+    {
+      "id": "bootstrap:personal_relief",
+      "handler_ids": [
+        "personal_relief_resident",
+        "apply_personal_relief"
+      ],
+      "aliases": [
+        "personal_relief"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "personal_relief",
+      "kind": "relief",
+      "source_quote": "FIRST SCHEDULE (Section 2). A resident individual is entitled to a personal relief in arriving at taxable income for a year of assessment as provided for in the First Schedule to this Act."
+    },
+    {
+      "id": "bootstrap:personal_relief_2024_25",
+      "handler_ids": [
+        "personal_relief_resident",
+        "apply_personal_relief"
+      ],
+      "aliases": [
+        "personal_relief"
+      ],
+      "assessment_years": [
+        "2024_25"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "personal_relief",
+      "kind": "relief",
+      "source_quote": "Personal relief for a resident individual for YA 2024/25: one million two hundred thousand rupees per year of assessment (First Schedule / IRD Tax Chart 2024/25)."
+    },
+    {
+      "id": "bootstrap:personal_relief_2025_26",
+      "handler_ids": [
+        "personal_relief_resident",
+        "apply_personal_relief"
+      ],
+      "aliases": [
+        "personal_relief",
+        "ird-amend-2025-02"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-amend-2025-02",
+      "concept_id": "personal_relief",
+      "kind": "relief",
+      "source_quote": "Personal relief for a resident individual commencing YA 2025/26 has been increased to one million eight hundred thousand rupees (Act No. 02 of 2025 / IRD PN IT/2025-01)."
+    },
+    {
+      "id": "bootstrap:first_schedule_rates",
+      "handler_ids": [
+        "slab_band",
+        "final_tax"
+      ],
+      "aliases": [
+        "first_schedule_rates",
+        "fs_2024_25_band_1",
+        "fs_2024_25_band_2",
+        "fs_2024_25_band_3",
+        "fs_2024_25_band_4",
+        "fs_2024_25_band_5",
+        "fs_2024_25_band_6"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "first_schedule_rates",
+      "kind": "rate_band",
+      "source_quote": "FIRST SCHEDULE (Section 2). The tax on the taxable income of a resident individual for a year of assessment shall be computed at the rates set out in the First Schedule to this Act."
+    },
+    {
+      "id": "bootstrap:first_schedule_rates_2024_25",
+      "handler_ids": [
+        "slab_band",
+        "final_tax"
+      ],
+      "aliases": [
+        "first_schedule_rates",
+        "fs_2024_25_band_1",
+        "fs_2024_25_band_2",
+        "fs_2024_25_band_3",
+        "fs_2024_25_band_4",
+        "fs_2024_25_band_5",
+        "fs_2024_25_band_6"
+      ],
+      "assessment_years": [
+        "2024_25"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "first_schedule_rates",
+      "kind": "rate_band",
+      "source_quote": "First Schedule progressive rates for YA 2024/25 (resident individual): First Rs. 500,000 at 6%; Next Rs. 500,000 at 12%; Next Rs. 500,000 at 18%; Next Rs. 500,000 at 24%; Next Rs. 500,000 at 30%; On the Balance at 36%."
+    },
+    {
+      "id": "bootstrap:first_schedule_rates_2025_26",
+      "handler_ids": [
+        "slab_band",
+        "final_tax"
+      ],
+      "aliases": [
+        "first_schedule_rates",
+        "fs_2025_26_band_1",
+        "fs_2025_26_band_2",
+        "fs_2025_26_band_3",
+        "fs_2025_26_band_4",
+        "fs_2025_26_band_5",
+        "ird-amend-2025-02"
+      ],
+      "assessment_years": [
+        "2025_26"
+      ],
+      "section": "First Schedule",
+      "section_uid": "ird-ira-2017-base::sec::first_schedule",
+      "source_doc_id": "ird-amend-2025-02",
+      "concept_id": "first_schedule_rates",
+      "kind": "rate_band",
+      "source_quote": "First Schedule progressive rates for YA 2025/26 (Act No. 02 of 2025): First Rs. 1,000,000 at 6%; Next Rs. 500,000 at 18%; Next Rs. 500,000 at 24%; Next Rs. 500,000 at 30%; On the Balance at 36% (12% bracket removed)."
+    },
+    {
+      "id": "bootstrap:bulk_graph_breadth",
+      "handler_ids": [],
+      "aliases": [
+        "bulk_graph_breadth",
+        "bulk_mentions"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "corpus",
+      "section_uid": "ird-ira-2017-base::sec::section_2",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "assessable_income",
+      "kind": "source_doc",
+      "executable": false,
+      "source_quote": "2. (1) Income tax shall be payable for each year of assessment by – (a) a person who has taxable income for that year; or (b) a person who receives a final withholding payment during that year. (Phase 5.10 bulk graph breadth marker — non-executable.)"
+    },
+    {
+      "id": "bootstrap:aggregate_qualifying_payment_components",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "aggregate_qualifying_payment_components",
+        "qp_approved_charitable",
+        "qp_government_sri_lanka",
+        "qp_local_authority",
+        "qp_university_hei",
+        "qp_government_fund",
+        "qp_other_listed_funds",
+        "qp_samurdhi_shop",
+        "qp_film_production",
+        "qp_cinema_construction",
+        "qp_cinema_upgrading",
+        "qp_unclassified_review",
+        "qp_gov_local_authority",
+        "qp_gov_local_university_funds",
+        "qp_approved_funds",
+        "bootstrap:qp_approved_charitable",
+        "bootstrap:qp_government_sri_lanka",
+        "bootstrap:qp_local_authority",
+        "bootstrap:qp_university_hei",
+        "bootstrap:qp_government_fund",
+        "bootstrap:qp_other_listed_funds",
+        "bootstrap:qp_samurdhi_shop",
+        "bootstrap:qp_film_production",
+        "bootstrap:qp_cinema_construction",
+        "bootstrap:qp_cinema_upgrading"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "(1) In arriving at the taxable income of an individual or entity for a year of assessment under section 3, the aggregate qualifying payments referred to in the Fifth Schedule to this Act shall be deducted."
+    },
+    {
+      "id": "bootstrap:aggregate_donation_components",
+      "handler_ids": [
+        "aggregate_donation_components"
+      ],
+      "aliases": [
+        "aggregate_donation_components",
+        "don_approved_charitable",
+        "bootstrap:don_approved_charitable",
+        "donation"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy;"
+    },
+    {
+      "id": "bootstrap:qp_approved_charitable",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_approved_charitable"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph, subject to a maximum of – (iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less;",
+      "confidence_reason": "Act text says taxable income; engine uses assessable income (pre-QP, pre-reliefs) as the one-third base to avoid circularity because 1(a) is deducted under Sec 52(1) in arriving at taxable income. Act No. 11 of 2026 (YA commencing on or after 1 April 2025) does not change the Rs 75,000 / one-third ceiling; keep this consolidated Fifth Sch 1(a) quote. Sec 52(4) carry-forward is a separate 2026 change.",
+      "notes": "Act text says taxable income; engine uses assessable income (pre-QP, pre-reliefs) as the one-third base to avoid circularity because 1(a) is deducted under Sec 52(1) in arriving at taxable income. Act No. 11 of 2026 does not change the 75k / one-third ceiling. Approved-institution eligibility is self-declared; engine does not invent an expanded 1(a) institution list. Sec 52(4) BF is a separate 2026 change."
+    },
+    {
+      "id": "bootstrap:qp_government_sri_lanka",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_government_sri_lanka",
+        "qp_gov_local_authority",
+        "qp_gov_local_university_funds"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money or otherwise to the following:- (i) the Government of Sri Lanka;"
+    },
+    {
+      "id": "bootstrap:qp_local_authority",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_local_authority"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money or otherwise to the following:- (ii) a local authority;"
+    },
+    {
+      "id": "bootstrap:qp_university_hei",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_university_hei"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money or otherwise to the following:- (iii) any Higher Education Institution established or deemed to be established under the Universities Act, No. 16 of 1978;"
+    },
+    {
+      "id": "bootstrap:qp_government_fund",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_government_fund"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "(v) a fund established by the Government of Sri Lanka;"
+    },
+    {
+      "id": "bootstrap:qp_other_listed_funds",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_other_listed_funds",
+        "qp_approved_funds"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money or otherwise to the following:- (vi) a fund established by a local authority and approved by the Commissioner-General;"
+    },
+    {
+      "id": "bootstrap:qp_samurdhi_shop",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_samurdhi_shop"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-amend-2021-10",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "with effect from April 1, 2021, contribution made by a resident individual in money or otherwise to establish a shop for a female individual who is from a Samurdhi beneficiary family"
+    },
+    {
+      "id": "bootstrap:qp_film_production",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_film_production"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-amend-2021-10",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "expenditure incurred on or after April 1, 2021, by any person- (i) in the production of a film at a cost of (including promotional expenditure of such film) not less than five million rupees;"
+    },
+    {
+      "id": "bootstrap:qp_cinema_construction",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_cinema_construction"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-amend-2021-10",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "(ii) in the construction and equipping of a new cinema at a cost of not exceeding twenty five million rupees;"
+    },
+    {
+      "id": "bootstrap:qp_cinema_upgrading",
+      "handler_ids": [
+        "aggregate_qualifying_payment_components"
+      ],
+      "aliases": [
+        "qp_cinema_upgrading"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-amend-2021-10",
+      "concept_id": "qualifying_payment",
+      "kind": "source_doc",
+      "source_quote": "(iii) in the upgrading of a cinema at a cost of not exceeding ten million rupees: Provided that, the deduction under this subparagraph shall be restricted to one third of the taxable income of the year of assessment"
+    },
+    {
+      "id": "bootstrap:don_approved_charitable",
+      "handler_ids": [
+        "aggregate_donation_components",
+        "deduct_donation"
+      ],
+      "aliases": [
+        "don_approved_charitable"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "52",
+      "section_uid": "ird-ira-2017-base::sec::section_52",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "donation",
+      "kind": "source_doc",
+      "source_quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy;",
+      "notes": "Retired catalog field. Live path is qp_approved_charitable (Fifth Sch 1(a)); don_* lines map into that category."
+    },
+    {
+      "id": "bootstrap:solar_panel_relief",
+      "handler_ids": [
+        "cap_absolute:solar_panel_relief",
+        "deduct_solar_panel_relief"
+      ],
+      "aliases": [
+        "solar_panel_relief",
+        "relief_solar_panel",
+        "bootstrap:solar_panel_relief_2024_25",
+        "bootstrap:solar_panel_relief_2025_26",
+        "bootstrap:deduct_solar_panel_relief_2024_25",
+        "bootstrap:deduct_solar_panel_relief_2025_26"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "source_doc_id": "ird-amend-2021-10",
+      "concept_id": "solar_panel_relief",
+      "kind": "source_doc",
+      "source_quote": "a relief of an amount equal to the expenditure incurred on solar panels to be used by him for his premises and connected to the national grid, or rupees six hundred thousand, whichever is less, to a resident individual",
+      "notes": "Act No. 10 of 2021, w.e.f. 1 April 2021. Paragraph 2(g) relief, not a QP. Claimed amount is expenditure or bank-loan payments; engine cap min(claimed, 600000) both YAs. Resident only."
+    },
+    {
+      "id": "bootstrap:rent_relief",
+      "handler_ids": [
+        "cap_rent_relief",
+        "deduct_rent_relief"
+      ],
+      "aliases": [
+        "rent_relief",
+        "relief_rent",
+        "bootstrap:rent_relief_2024_25",
+        "bootstrap:rent_relief_2025_26",
+        "bootstrap:deduct_rent_relief_2024_25",
+        "bootstrap:deduct_rent_relief_2025_26"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "rent_relief",
+      "kind": "source_doc",
+      "source_quote": "a relief of an amount equal to twenty five per centum of the total rental income from any land or building",
+      "confidence_reason": "Act text: 25% of total rental income; engine uses the included inv_rents line (gross rents entered as include), not post-Sec 7(3)(a) net investment income, because FWH is a head-level exclusion and is not allocated to rents.",
+      "notes": "Act text: 25% of total rental income; engine uses the included inv_rents line (gross rents entered as include), not post-Sec 7(3)(a) net investment income, because FWH is a head-level exclusion and is not allocated to rents."
+    },
+    {
+      "id": "bootstrap:senior_citizen_interest_relief",
+      "handler_ids": [
+        "cap_senior_citizen_interest_relief",
+        "deduct_senior_citizen_interest_relief"
+      ],
+      "aliases": [
+        "senior_citizen_interest_relief",
+        "relief_senior_citizen_interest",
+        "bootstrap:senior_citizen_interest_relief_2024_25",
+        "bootstrap:senior_citizen_interest_relief_2025_26",
+        "bootstrap:deduct_senior_citizen_interest_relief_2024_25",
+        "bootstrap:deduct_senior_citizen_interest_relief_2025_26"
+      ],
+      "assessment_years": [
+        "2024_25",
+        "2025_26"
+      ],
+      "section": "Fifth Schedule",
+      "section_uid": "ird-ira-2017-base::sec::fifth_schedule",
+      "source_doc_id": "ird-ira-2017-base",
+      "concept_id": "senior_citizen_interest_relief",
+      "kind": "source_doc",
+      "source_quote": "in the case of an individual who is a senior citizen in a year with interest income derived from a financial institution, Rs. 1,500,000 for each year of assessment, up to the total of the individual’s interest income for the year;",
+      "notes": "Fifth Sch 2(d). Cap = min(claimed, 1500000, included inv_interest). Resident senior citizen (Interpretation: citizen + resident + age 60+); interview affirms age/citizenship."
+    }
+  ]
+}

@@ -33,6 +33,10 @@ class AdaptiveTaxSettings(BaseSettings):
     # Local filesystem root for amendment PDF storage (hash + path on job row).
     COMP_ADAPTIVE_TAX_UPLOAD_ROOT: str = Field(default=_DEFAULT_UPLOAD_ROOT)
 
+    # Amendment job persistence: ``postgres`` (default) or ``file`` (JSON, no DB).
+    COMP_ADAPTIVE_TAX_AMENDMENT_STORE: Literal["postgres", "file"] = "postgres"
+    COMP_ADAPTIVE_TAX_AMENDMENT_STORE_DIR: str = "data/dev/amendment-jobs"
+
     # OpenAI credentials / model for structured amendment extraction.
     OPENAI_API_KEY: str | None = None
     COMP_ADAPTIVE_TAX_OPENAI_MODEL: str = "gpt-4o-mini"
@@ -57,8 +61,9 @@ class AdaptiveTaxSettings(BaseSettings):
     # Phase 3 — calc ontology + param JSON (rate bands, relief caps, calc edges).
     COMP_ADAPTIVE_TAX_ONTOLOGY_DIR: str = "models/adaptive-tax/ontology"
 
-    # Phase 3 — knowledge-graph backend for the rule engine.
+    # Phase 3 — knowledge-graph backend for ``get_kg_client()`` default / tests / explain.
     # ``auto`` = Neo4j when NEO4J_PASSWORD is set, otherwise file ontology.
+    # Exception: HTTP POST /calculate always forces neo4j (no file-ontology fallback).
     COMP_ADAPTIVE_TAX_KG_MODE: Literal["auto", "neo4j", "file"] = "auto"
 
     # Phase 4 — RAG-grounded explanation narrative.
@@ -67,6 +72,10 @@ class AdaptiveTaxSettings(BaseSettings):
     COMP_ADAPTIVE_TAX_EXPLAIN_MODE: Literal["openai", "fixture"] = "fixture"
     COMP_ADAPTIVE_TAX_OPENAI_EXPLAIN_MODEL: str = "gpt-4o-mini"
 
+    # Retrieval similarity noise floor only — NOT legal confidence.
+    # Initial experimental default; choose production value from P@K / R@K eval.
+    RAG_MIN_SCORE: float = 0.55
+
     # Phase 4 — persisted CalculateTaxResponse JSON keyed by calc_id (UUID).
     COMP_ADAPTIVE_TAX_CALC_STORE_DIR: str = "data/processed/adaptive-tax/calculations"
 
@@ -74,6 +83,29 @@ class AdaptiveTaxSettings(BaseSettings):
     COMP_ADAPTIVE_TAX_PARAM_OVERRIDE_PATH: str = (
         "data/processed/adaptive-tax/active_relief_caps.json"
     )
+
+    # Phase 5.0 — provenance contract (enforcement lands in 5.0b).
+    # ``legacy`` = MVP packs may lack approved rule_source_id (default during 5.0).
+    # ``strict`` = refuse executable handlers without Act-backed approved rule_source.
+    COMP_ADAPTIVE_TAX_PROVENANCE_MODE: Literal["legacy", "strict"] = "legacy"
+
+    # Phase 5.0 — section harvest targets + coverage checklist.
+    COMP_ADAPTIVE_TAX_HARVEST_DIR: str = "models/adaptive-tax/harvest"
+
+    # Phase 6.0 — filing component catalog (UI + normalize + confidence metadata).
+    COMP_ADAPTIVE_TAX_FILING_CATALOG_PATH: str = (
+        "models/adaptive-tax/fixtures/filing_component_catalog_v1.json"
+    )
+    # Desktop IRD_Docs sync source (optional; scripts/adaptive_tax_sync_ird_docs.py).
+    COMP_ADAPTIVE_TAX_IRD_DOCS_DIR: str = (
+        r"c:\Users\H P\Desktop\Research_Project\IRD_Docs"
+    )
+    COMP_ADAPTIVE_TAX_RAW_PDF_DIR: str = "data/raw/adaptive-tax"
+
+    # Catalog-admin upload/review (Add New Act). Empty → refuse to serve (503).
+    COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN: str = ""
+    # Optional isolate dir for jobs / hash index / proposed scan (tests). Empty = repo defaults.
+    COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR: str = ""
 
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),
@@ -93,6 +125,15 @@ class AdaptiveTaxSettings(BaseSettings):
     def upload_root(self) -> Path:
         """Expanded absolute path for amendment PDF storage."""
         return Path(self.COMP_ADAPTIVE_TAX_UPLOAD_ROOT).expanduser().resolve()
+
+    @property
+    def amendment_store_mode(self) -> Literal["postgres", "file"]:
+        return self.COMP_ADAPTIVE_TAX_AMENDMENT_STORE
+
+    @property
+    def amendment_store_dir(self) -> Path:
+        """Absolute directory for file-mode amendment job JSON records."""
+        return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_AMENDMENT_STORE_DIR)
 
     @property
     def chroma_persist_dir(self) -> Path:
@@ -119,8 +160,39 @@ class AdaptiveTaxSettings(BaseSettings):
         """Absolute path to runtime relief-cap override JSON (may not exist yet)."""
         return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_PARAM_OVERRIDE_PATH)
 
+    @property
+    def harvest_dir(self) -> Path:
+        """Absolute path to Phase 5 harvest targets / coverage checklist."""
+        return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_HARVEST_DIR)
+
+    @property
+    def filing_catalog_path(self) -> Path:
+        """Absolute path to Phase 6 filing component catalog JSON."""
+        return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_FILING_CATALOG_PATH)
+
+    @property
+    def ird_docs_dir(self) -> Path:
+        """Desktop (or configured) IRD_Docs folder used to sync official Act PDFs."""
+        return Path(self.COMP_ADAPTIVE_TAX_IRD_DOCS_DIR).expanduser().resolve()
+
+    @property
+    def raw_pdf_dir(self) -> Path:
+        """Project corpus PDF root (``data/raw/adaptive-tax``)."""
+        return self._resolve_under_project(self.COMP_ADAPTIVE_TAX_RAW_PDF_DIR)
+
+    @property
+    def catalog_admin_work_dir(self) -> Path | None:
+        """Override root for catalog-admin jobs/index (tests). None = repo paths."""
+        raw = (self.COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR or "").strip()
+        if not raw:
+            return None
+        return self._resolve_under_project(raw)
+
     def resolve_kg_mode(self) -> Literal["neo4j", "file"]:
-        """Effective KG backend after applying ``auto``."""
+        """Effective KG backend for ``get_kg_client()`` after applying ``auto``.
+
+        Does not apply to HTTP POST /calculate, which always forces neo4j.
+        """
         mode = self.COMP_ADAPTIVE_TAX_KG_MODE
         if mode == "auto":
             return "neo4j" if (self.NEO4J_PASSWORD or "").strip() else "file"

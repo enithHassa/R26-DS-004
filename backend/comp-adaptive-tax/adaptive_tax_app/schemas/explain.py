@@ -25,6 +25,13 @@ class ExplainStepV1(BaseModel):
         default=None,
         description="Postgres rule_source UUID when a quote was used; else null.",
     )
+    evidence_unavailable: bool = Field(
+        default=False,
+        description=(
+            "True when this step lacks step-local Act-backed evidence "
+            "(Phase 7b). Narrative is the unavailable message; GPT must not invent."
+        ),
+    )
 
 
 class ExplainNarrativePayload(BaseModel):

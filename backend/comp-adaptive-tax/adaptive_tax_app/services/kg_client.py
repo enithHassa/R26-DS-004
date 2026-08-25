@@ -41,7 +41,7 @@ RETURN null AS income_id,
        tp.concept_id AS taxpayer_id
 """
 
-# Section anchors for explainability traces (DEFINES + COVERS_RELIEF).
+# Section anchors for explainability traces (DEFINES + COVERS_RELIEF + GOVERNED_BY).
 SECTION_DEFINES_CYPHER = """
 MATCH (sec:Section)-[:DEFINES]->(c:Concept)
 WHERE c.concept_id IN $concept_ids
@@ -53,6 +53,12 @@ MATCH (sec:Section)-[:COVERS_RELIEF]->(r:Relief)
 WHERE r.concept_id IN $concept_ids OR r.relief_id IN $concept_ids
 RETURN coalesce(r.concept_id, r.relief_id) AS concept_id,
        collect(DISTINCT sec.section_uid) AS section_uids
+"""
+
+SECTION_GOVERNED_BY_CYPHER = """
+MATCH (c:Concept)-[:GOVERNED_BY]->(sec:Section)
+WHERE c.concept_id IN $concept_ids
+RETURN c.concept_id AS concept_id, collect(DISTINCT sec.section_uid) AS section_uids
 """
 
 
@@ -73,6 +79,23 @@ class ApplicableConcepts:
     resident_individual_present: bool = True
 
 
+UnresolvedClaimReason = Literal["concept_missing_in_kg", "no_deducted_from_edge"]
+
+# Concepts the calculator needs in Neo4j / file ontology (graph-stats + verify).
+REQUIRED_CALC_CONCEPTS: tuple[str, ...] = (
+    "qualifying_payment",
+    "personal_relief",
+    "assessable_income",
+    "taxable_income",
+    "solar_panel_relief",
+    "solar_panel_relief_cap",
+    "rent_relief",
+    "rent_relief_cap",
+    "senior_citizen_interest_relief",
+    "senior_citizen_interest_relief_cap",
+)
+
+
 @runtime_checkable
 class KgClient(Protocol):
     def resolve_applicable_concepts(
@@ -81,6 +104,16 @@ class KgClient(Protocol):
         income_types: list[str],
         claimed_deductions: list[str],
     ) -> ApplicableConcepts: ...
+
+    def classify_unresolved_claims(
+        self,
+        claimed_ids: list[str],
+    ) -> dict[str, UnresolvedClaimReason]: ...
+
+    def required_concept_presence(
+        self,
+        concept_ids: tuple[str, ...] | list[str] | None = None,
+    ) -> dict[str, bool]: ...
 
 
 def bolt_uri(uri: str) -> str:
@@ -195,7 +228,15 @@ class FileOntologyKgClient:
         }
 
     def _load_edges(self) -> list[dict[str, Any]]:
-        path = self._root / "mvp_calc_edges_seed.jsonl"
+        """Prefer Phase 5.10 ``calculation_edges_full.jsonl`` when present.
+
+        Falls back to the curated MVP seed. MENTIONS and other bulk rows are
+        ignored by ``_index_edges`` (only DEFINES / GOVERNED_BY / CONTRIBUTES_TO /
+        DEDUCTED_FROM / LIMITED_BY affect resolve).
+        """
+        full = self._root / "calculation_edges_full.jsonl"
+        seed = self._root / "mvp_calc_edges_seed.jsonl"
+        path = full if full.is_file() and full.stat().st_size > 0 else seed
         rows: list[dict[str, Any]] = []
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -239,6 +280,9 @@ class FileOntologyKgClient:
             elif rel == "COVERS_RELIEF" and str(row.get("from_label")) == "Section":
                 concept_id = self._relief_concept_by_id.get(tid, tid)
                 self._add_section(concept_id, fid)
+            elif rel == "GOVERNED_BY" and str(row.get("to_label")) == "Section":
+                # Concept / Relief → Section (Phase 5 provenance bridge).
+                self._add_section(fid, tid)
             elif rel == "CONTRIBUTES_TO":
                 self._contributes.setdefault(fid, []).append(tid)
             elif rel == "DEDUCTED_FROM":
@@ -307,6 +351,28 @@ class FileOntologyKgClient:
             resident_individual_present="resident_individual" in self._concept_ids,
         )
 
+    def classify_unresolved_claims(
+        self,
+        claimed_ids: list[str],
+    ) -> dict[str, UnresolvedClaimReason]:
+        """Map unresolved claim ids to missing-node vs missing-DEDUCTED_FROM."""
+        out: dict[str, UnresolvedClaimReason] = {}
+        for cid in claimed_ids:
+            if cid not in self._concept_ids:
+                out[cid] = "concept_missing_in_kg"
+                continue
+            targets = self._deducted_from.get(cid) or []
+            if "taxable_income" not in targets:
+                out[cid] = "no_deducted_from_edge"
+        return out
+
+    def required_concept_presence(
+        self,
+        concept_ids: tuple[str, ...] | list[str] | None = None,
+    ) -> dict[str, bool]:
+        ids = list(concept_ids or REQUIRED_CALC_CONCEPTS)
+        return {cid: cid in self._concept_ids for cid in ids}
+
 
 class Neo4jKgClient:
     """Live Neo4j Desktop / Bolt client for the Phase 3 calc Cypher."""
@@ -318,7 +384,11 @@ class Neo4jKgClient:
         if not concept_ids:
             return {}
         buckets: dict[str, list[str]] = {}
-        for query in (SECTION_DEFINES_CYPHER, SECTION_COVERS_RELIEF_CYPHER):
+        for query in (
+            SECTION_DEFINES_CYPHER,
+            SECTION_COVERS_RELIEF_CYPHER,
+            SECTION_GOVERNED_BY_CYPHER,
+        ):
             for row in session.run(query, concept_ids=list(concept_ids)).data():
                 cid = row.get("concept_id")
                 if not cid:
@@ -379,13 +449,83 @@ class Neo4jKgClient:
             )
         return result
 
+    def classify_unresolved_claims(
+        self,
+        claimed_ids: list[str],
+    ) -> dict[str, UnresolvedClaimReason]:
+        if not claimed_ids:
+            return {}
+        driver = open_neo4j_driver(self._settings)
+        try:
+            with driver.session() as session:
+                rows = session.run(
+                    """
+                    UNWIND $ids AS cid
+                    OPTIONAL MATCH (c:Concept {concept_id: cid})
+                    OPTIONAL MATCH (c)-[:DEDUCTED_FROM]->(
+                        ti:Concept {concept_id: 'taxable_income'}
+                    )
+                    RETURN cid AS concept_id,
+                           c IS NOT NULL AS exists,
+                           ti IS NOT NULL AS has_edge
+                    """,
+                    ids=list(claimed_ids),
+                ).data()
+        finally:
+            driver.close()
+        out: dict[str, UnresolvedClaimReason] = {}
+        seen: set[str] = set()
+        for row in rows:
+            cid = str(row.get("concept_id") or "")
+            if not cid:
+                continue
+            seen.add(cid)
+            if not row.get("exists"):
+                out[cid] = "concept_missing_in_kg"
+            elif not row.get("has_edge"):
+                out[cid] = "no_deducted_from_edge"
+        for cid in claimed_ids:
+            if cid not in seen:
+                out.setdefault(cid, "concept_missing_in_kg")
+        return out
+
+    def required_concept_presence(
+        self,
+        concept_ids: tuple[str, ...] | list[str] | None = None,
+    ) -> dict[str, bool]:
+        ids = list(concept_ids or REQUIRED_CALC_CONCEPTS)
+        driver = open_neo4j_driver(self._settings)
+        try:
+            with driver.session() as session:
+                rows = session.run(
+                    """
+                    UNWIND $ids AS cid
+                    OPTIONAL MATCH (c:Concept {concept_id: cid})
+                    RETURN cid AS concept_id, c IS NOT NULL AS present
+                    """,
+                    ids=ids,
+                ).data()
+        finally:
+            driver.close()
+        present = {
+            str(row["concept_id"]): bool(row.get("present"))
+            for row in rows
+            if row.get("concept_id")
+        }
+        return {cid: bool(present.get(cid)) for cid in ids}
+
 
 def get_kg_client(
     *,
     mode: Literal["neo4j", "file", "auto"] | None = None,
     ontology_dir: Path | None = None,
 ) -> KgClient:
-    """Factory: ``auto`` → Neo4j when password set, else file ontology."""
+    """Factory for tests / demos / explain.
+
+    ``auto`` (or omitted mode) → Neo4j when ``NEO4J_PASSWORD`` is set, else file
+    ontology. HTTP POST /calculate does not use this default: it calls
+    ``get_kg_client(mode="neo4j")`` and returns 503 if Desktop is down.
+    """
     settings = get_adaptive_tax_settings()
     effective: Literal["neo4j", "file"]
     if mode is None or mode == "auto":

@@ -48,6 +48,20 @@ _SECTIONS_AMENDED_FALLBACK_RE = re.compile(
 
 _SECTION_TOKEN_RE = re.compile(r"\bSection\s+(\d+[A-Za-z]?)\b", re.IGNORECASE)
 
+# Phase 5.0 — section / schedule headings for official-Act harvest (not whole Act).
+_SECTION_HEADING_RE = re.compile(
+    r"(?P<head>"
+    r"Section\s+(?P<section>\d+[A-Za-z]?)\b"
+    r"|FIRST\s+SCHEDULE\b"
+    r"|SECOND\s+SCHEDULE\b"
+    r"|THIRD\s+SCHEDULE\b"
+    r"|FOURTH\s+SCHEDULE\b"
+    r")",
+    re.IGNORECASE,
+)
+
+_DEFAULT_SECTION_WINDOW_CHARS = 12_000
+
 
 @dataclass
 class FocusedAmendmentText:
@@ -60,6 +74,8 @@ class FocusedAmendmentText:
     truncated: bool = False
     char_count_full: int = 0
     char_count_focused: int = 0
+    harvest_mode: str = "amendment"
+    section_key: str | None = None
 
 
 def extract_pdf_pages(path: Path | str) -> list[tuple[int, str]]:
@@ -154,7 +170,121 @@ def focus_amendment_text(
         truncated=truncated,
         char_count_full=len(normalized),
         char_count_focused=len(focused),
+        harvest_mode="amendment",
     )
+
+
+def focus_section_text(
+    full_text: str,
+    section_key: str,
+    *,
+    max_chars: int = DEFAULT_MAX_FOCUS_CHARS,
+    window_chars: int = _DEFAULT_SECTION_WINDOW_CHARS,
+    search_patterns: list[str] | None = None,
+) -> FocusedAmendmentText:
+    """Build a capped prompt window around a named section / schedule.
+
+    Used by Phase 5 section harvest — never sends the whole Act to GPT.
+    """
+    normalized = full_text.replace("\r\n", "\n").replace("\r", "\n")
+    key = (section_key or "").strip()
+    patterns = list(search_patterns or [])
+    if key and key not in patterns:
+        if key.lower() in {"first_schedule", "first schedule"}:
+            patterns.insert(0, "First Schedule")
+            patterns.insert(0, "FIRST SCHEDULE")
+        elif key.isdigit() or re.fullmatch(r"\d+[A-Za-z]?", key):
+            patterns.insert(0, f"Section {key}")
+        else:
+            patterns.insert(0, key)
+
+    start = -1
+    matched_label = key
+    for pat in patterns:
+        if not pat:
+            continue
+        m = re.search(re.escape(pat), normalized, flags=re.IGNORECASE)
+        if m is not None:
+            start = m.start()
+            matched_label = m.group(0)
+            break
+
+    if start < 0:
+        # Fallback: try generic section heading scan for numeric keys.
+        for m in _SECTION_HEADING_RE.finditer(normalized):
+            sec = m.groupdict().get("section")
+            if sec and key and sec.lower() == key.lower():
+                start = m.start()
+                matched_label = m.group("head")
+                break
+
+    if start < 0:
+        head = normalized[: min(max_chars, window_chars)].strip()
+        focused = (
+            f"### Section harvest fallback (key={key!r} not found)\n{head}"
+        )
+        truncated = len(focused) > max_chars
+        if truncated:
+            focused = focused[:max_chars].rstrip() + "\n\n[… truncated …]"
+        return FocusedAmendmentText(
+            full_text=normalized,
+            focused_text=focused,
+            amends_section_candidates=_unique_preserve(_section_ids_in(focused)),
+            truncated=truncated,
+            char_count_full=len(normalized),
+            char_count_focused=len(focused),
+            harvest_mode="section",
+            section_key=key or None,
+        )
+
+    # End at next major heading or window budget.
+    end = min(len(normalized), start + window_chars)
+    next_heading = _SECTION_HEADING_RE.search(normalized, pos=start + 20)
+    if next_heading is not None and next_heading.start() > start:
+        end = min(end, next_heading.start())
+
+    block = normalized[start:end].strip()
+    focused = f"### Official Act section harvest — {matched_label}\n{block}"
+    truncated = False
+    if len(focused) > max_chars:
+        focused = focused[:max_chars].rstrip() + "\n\n[… truncated for prompt budget …]"
+        truncated = True
+
+    candidates = _unique_preserve(
+        ([key] if key else []) + _section_ids_in(focused)
+    )
+    return FocusedAmendmentText(
+        full_text=normalized,
+        focused_text=focused,
+        amends_section_candidates=candidates,
+        truncated=truncated,
+        char_count_full=len(normalized),
+        char_count_focused=len(focused),
+        harvest_mode="section",
+        section_key=key or None,
+    )
+
+
+def extract_focused_section_text(
+    path: Path | str,
+    section_key: str,
+    *,
+    max_chars: int = DEFAULT_MAX_FOCUS_CHARS,
+    search_patterns: list[str] | None = None,
+) -> FocusedAmendmentText:
+    """Extract PDF text and shrink to a section-scoped harvest window."""
+    pages = extract_pdf_pages(path)
+    full_text = "".join(
+        f"\n\n--- Page {page_num} ---\n\n{text}" for page_num, text in pages
+    ).strip()
+    focused = focus_section_text(
+        full_text,
+        section_key,
+        max_chars=max_chars,
+        search_patterns=search_patterns,
+    )
+    focused.page_count = len(pages)
+    return focused
 
 
 def _extract_sections_amended_summary(text: str) -> str:

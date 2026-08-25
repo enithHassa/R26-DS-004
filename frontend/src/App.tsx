@@ -6,6 +6,7 @@ import { AboutYouPage } from "@/features/personalized-recommendation/pages/about
 import { FinancialIntakePage } from "@/features/personalized-recommendation/pages/financial-intake";
 import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
 import { UserPortalPage } from "@/features/personalized-recommendation/pages/user-portal";
+import { demoRoutes } from "@/pages/demo";
 
 function buildOutletChildren(): RouteObject[] {
   return features.flatMap((feature) => {
@@ -30,7 +31,9 @@ export default function App() {
     { path: "/login", element: <UserLoginPage /> },
     { path: "/portal/financial-intake", element: <FinancialIntakePage /> },
     { path: "/portal/about-you", element: <AboutYouPage /> },
+    { path: "/portal/summary", element: <UserPortalPage /> },
     { path: "/portal", element: <UserPortalPage /> },
+    ...demoRoutes,
   ];
   return useRoutes(routes);
 }

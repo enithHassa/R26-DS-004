@@ -1,8 +1,9 @@
 {
-  "ontology_version": "1.3.0",
+  "ontology_version": "1.3.1",
+  "schema_version": "1.0",
   "phase": "3a-step10",
   "title": "Tax Knowledge Graph — ontology v1 (nodes + relationships)",
-  "description": "IRD-grounded corpus → Neo4j. Step 10 adds ConsolidatedViewPassage + VIEW_* relationships for honest traceability from consolidated PDF text to underlying sections and amendment instruments. v1.3.0 adds Adaptive Tax calc edges CONTRIBUTES_TO, DEDUCTED_FROM, LIMITED_BY (Concept→Concept).",
+  "description": "IRD-grounded corpus → Neo4j. Step 10 adds ConsolidatedViewPassage + VIEW_* relationships for honest traceability from consolidated PDF text to underlying sections and amendment instruments. v1.3.0 adds Adaptive Tax calc edges CONTRIBUTES_TO, DEDUCTED_FROM, LIMITED_BY (Concept→Concept). v1.3.1 adds GOVERNED_BY, CALCULATED_USING, SUPPORTED_BY for Phase 5 provenance.",
   "design_rules": [
     "Every corpus chunk_id must link to at least one graph node (typically TextChunk).",
     "Prefer manifest source_doc_id as the join key for LawInstrument.",
@@ -297,6 +298,27 @@
       "from_labels": ["Concept"],
       "to_labels": ["Concept"],
       "lex_specialis_relevant": false
+    },
+    {
+      "type": "GOVERNED_BY",
+      "description": "Concept / Relief is governed by a statutory Section (Adaptive Tax Phase 5 provenance bridge).",
+      "from_labels": ["Concept", "Relief"],
+      "to_labels": ["Section"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "CALCULATED_USING",
+      "description": "Taxable / chargeable Concept is calculated using a schedule or rate construct (e.g. taxable_income → First Schedule).",
+      "from_labels": ["Concept"],
+      "to_labels": ["Concept", "Section"],
+      "lex_specialis_relevant": false
+    },
+    {
+      "type": "SUPPORTED_BY",
+      "description": "Concept / edge is supported by an approved rule_source id (stored as edge property rule_source_id when node absent).",
+      "from_labels": ["Concept", "Relief", "Section"],
+      "to_labels": ["Concept", "Section"],
+      "lex_specialis_relevant": false
     }
   ],
   "optional_edge_properties": [
@@ -305,6 +327,7 @@
     "effective_from",
     "effective_to",
     "source_note",
-    "specificity_rank"
+    "specificity_rank",
+    "rule_source_id"
   ]
 }

@@ -230,7 +230,7 @@ $env:NEO4J_PASSWORD = "adaptive-tax-dev"
   --warn-miss
 ```
 
-Expect calc edges including `DEFINES` / `COVERS_RELIEF` / `APPLIES_TO` plus Phase 3 `CONTRIBUTES_TO` / `DEDUCTED_FROM` / `LIMITED_BY` (Sec 52 cap **1_800_000**, personal relief **1_200_000**, donation **33%** of assessable, five First Schedule bands).
+Expect calc edges including `DEFINES` / `COVERS_RELIEF` / `APPLIES_TO` plus Phase 3 `CONTRIBUTES_TO` / `DEDUCTED_FROM` / `LIMITED_BY` (Sec 52 qualifying payments per Fifth Sch para 1 — **no fictional aggregate cap**; personal relief **1.2M / 1.8M**; Fifth Sch 1(a) donation alias **75k / one-third of assessable**, five First Schedule bands).
 
 #### Step D — Embedded Chroma index
 
@@ -289,13 +289,13 @@ Pure-Python tax calculation driven by the Phase 2 calc ontology (Neo4j or file m
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `COMP_ADAPTIVE_TAX_ONTOLOGY_DIR` | `models/adaptive-tax/ontology` | Concepts, edges, rate bands, relief caps |
-| `COMP_ADAPTIVE_TAX_KG_MODE` | `auto` | `auto` (Neo4j if password set, else file) \| `neo4j` \| `file` |
+| `COMP_ADAPTIVE_TAX_KG_MODE` | `auto` | `auto` applies to `get_kg_client()` default / tests / explain (`auto` → Neo4j if password set, else file). HTTP `POST /calculate` always forces Neo4j (see below). |
 
-Force offline/unit behaviour with `COMP_ADAPTIVE_TAX_KG_MODE=file`.
+Force offline/unit behaviour with `COMP_ADAPTIVE_TAX_KG_MODE=file`. That env var does **not** change HTTP `POST /calculate`, which always uses Neo4j.
 
-#### Reload Phase 3 calc ontology into Neo4j
+#### Reload Phase 3 / Phase 5 calc ontology into Neo4j
 
-After pulling new `CONTRIBUTES_TO` / `DEDUCTED_FROM` / `LIMITED_BY` edges (or new concepts):
+After pulling new concepts or edges in `models/adaptive-tax/ontology/` (e.g. Phase 5.6 business income — `business_gross`, `business_deductions`, `capital_allowances`, Sec 6/11/16):
 
 ```powershell
 $env:NEO4J_URI = "bolt://127.0.0.1:7687"
@@ -306,13 +306,52 @@ $env:NEO4J_PASSWORD = "adaptive-tax-dev"
   --edges-jsonl models/adaptive-tax/ontology/mvp_calc_edges_seed.jsonl --warn-miss
 ```
 
-If Neo4j is missing those edges, `POST /calculate` falls back to the file ontology so income is not dropped (avoids silent tax `0`).
+**Preferred (sync + verify all stores after each Phase 5 area):**
+
+```powershell
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+$env:NEO4J_URI = "bolt://127.0.0.1:7687"
+$env:NEO4J_USER = "neo4j"
+$env:NEO4J_PASSWORD = "adaptive-tax-dev"
+.\.venv-backend\Scripts\python.exe scripts/adaptive_tax_phase5_sync_verify.py --apply-neo4j
+# Corpus / PDF changes also need:
+# .\.venv-backend\Scripts\python.exe scripts/adaptive_tax_phase5_sync_verify.py --apply-neo4j --apply-chroma --chroma-smoke
+```
+
+Both Neo4j loaders are **idempotent** (MERGE only — safe to re-run). Expect `0 missing endpoint(s)` when concepts and section stubs are current.
+
+**Phase 5.8 verification (Neo4j Browser) — tax credits / APIT:**
+
+```cypher
+MATCH (c:Concept)-[r:GOVERNED_BY]->(s:Section)
+WHERE c.concept_id IN ['tax_credit','apit_already_paid']
+RETURN c.concept_id, s.section_uid, r.rule_source_id;
+```
+
+Expect Sec **89** edges and bootstrap `bootstrap:tax_credit`. Live calc: `final_tax_lkr` stays gross; `tax_payable_lkr = max(0, liability − apit_already_paid)` when provenance resolves.
+
+**Phase 5.6 verification (Neo4j Browser):**
+
+```cypher
+MATCH (c:Concept)
+WHERE c.concept_id IN ['business_income','business_gross','business_deductions','capital_allowances']
+RETURN c.concept_id, c.display_name ORDER BY c.concept_id;
+
+MATCH (bi:Concept {concept_id:'business_income'})-[:CONTRIBUTES_TO]->(ai:Concept {concept_id:'assessable_income'})
+RETURN bi.concept_id, ai.concept_id;
+
+MATCH (c:Concept)-[:GOVERNED_BY]->(s:Section)
+WHERE c.concept_id IN ['business_income','business_gross','business_deductions','capital_allowances']
+RETURN c.concept_id, s.section_uid ORDER BY c.concept_id;
+```
+
+`POST /api/v1/calculate` always uses **Neo4j** (`get_kg_client(mode="neo4j")`) — it does **not** fall back to the file ontology. Reload Neo4j after ontology changes or business income heads may not resolve.
 
 #### Start Adaptive Tax (:8005)
 
 ```powershell
 $env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
-$env:COMP_ADAPTIVE_TAX_KG_MODE = "auto"   # or file for offline
+$env:COMP_ADAPTIVE_TAX_KG_MODE = "auto"   # factory default (tests/explain); HTTP /calculate still forces neo4j
 .\.venv-backend\Scripts\python.exe -m uvicorn adaptive_tax_app.main:app `
   --app-dir backend/comp-adaptive-tax --reload --host 127.0.0.1 --port 8005
 ```
@@ -376,7 +415,7 @@ Settings: `backend/comp-adaptive-tax/adaptive_tax_app/config.py` (`calc_store_di
 |--------|------|--------|
 | `POST` | `/api/v1/calculate` | Done — returns `calc_id` (persists JSON under calc store) |
 | `GET` | `/api/v1/calculations/{calc_id}` | Done (Step 1) — reload for report page |
-| `POST` | `/api/v1/admin/params/reset-to-pre-amend` | Done (Step 2) — seed 1.2M Sec 52 cap override for viva T1 |
+| `POST` | `/api/v1/admin/params/reset-to-pre-amend` | Done (Step 2) — seed 1.2M **personal relief** override for viva T1 |
 | — | `services/evidence.gather_evidence` | Done (Step 3) — Chroma + PG quotes + optional Neo4j MODIFIES |
 | `POST` | `/api/v1/explain` | Done (Step 4) — fixture\|openai; empty evidence → `insufficient_evidence` |
 
@@ -398,20 +437,20 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8005/api/v1/explain `
 #### Param override / T1≠T2 smoke (Step 2)
 
 ```powershell
-# 1) Seed pre-amend Sec 52 cap (1.2M) into runtime override
+# 1) Seed pre-amend personal relief (1.2M) into runtime override
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8005/api/v1/admin/params/reset-to-pre-amend
 
-# 2) ex04-style calc → T1 (expect 48000 with 1.2M cap)
+# 2) Viva calc → T1 (3M salary, no QP; expect higher tax with 1.2M PR override on YA 2025/26)
 $t1 = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8005/api/v1/calculate `
   -ContentType "application/json" `
-  -Body '{"assessment_year":"2024_25","resident_status":"resident","employment_income":"3000000","qualifying_payments":"2500000","param_set":"current"}'
-$t1.final_tax_lkr   # "48000"
+  -Body '{"assessment_year":"2025_26","resident_status":"resident","employment_income":"3000000","qualifying_payments":"0","param_set":"current"}'
+$t1.final_tax_lkr   # e.g. "222000"
 
-# 3) Upload + extract + approve Act 02/2025 (fixture mode writes Sec 52 override 1.8M)
-# ... then re-run the same calculate body → T2 "0" (≠ T1)
+# 3) Upload + extract + approve Act 02/2025 (fixture mode writes personal relief override 1.8M)
+# ... then re-run the same calculate body → T2 lower tax (≠ T1)
 ```
 
-Approve response includes `param_override` when a Sec 52 cap rule was written.
+Approve response includes `personal_relief_override` when a personal relief rule was written.
 
 #### Calculate + calc_id smoke (Step 1)
 
@@ -464,12 +503,12 @@ $fe  = "http://127.0.0.1:5173"
 # 0) Health
 Invoke-RestMethod "$api/health"
 
-# 1) Seed pre-amend Sec 52 cap (1.2M)
+# 1) Seed pre-amend personal relief (1.2M)
 Invoke-RestMethod -Method Post -Uri "$api/api/v1/admin/params/reset-to-pre-amend"
 
-# 2) ex04 inputs → T1 (expect 48000 with 1.2M cap)
-$ex04 = '{"assessment_year":"2024_25","resident_status":"resident","employment_income":"3000000","business_income":"0","investment_income":"0","qualifying_payments":"2500000","donations":"0","param_set":"current"}'
-$t1 = Invoke-RestMethod -Method Post -Uri "$api/api/v1/calculate" -ContentType "application/json" -Body $ex04
+# 2) Viva inputs → T1 (3M salary, no QP; YA 2025/26)
+$viva = '{"assessment_year":"2025_26","resident_status":"resident","employment_income":"3000000","qualifying_payments":"0","param_set":"current"}'
+$t1 = Invoke-RestMethod -Method Post -Uri "$api/api/v1/calculate" -ContentType "application/json" -Body $viva
 "T1=$($t1.final_tax_lkr)  calc_id_1=$($t1.calc_id)"
 
 # 3) Upload + extract + approve Act 02/2025
@@ -479,7 +518,7 @@ $jobId = $upload.id
 Invoke-RestMethod -Method Post -Uri "$api/api/v1/admin/amendments/$jobId/extract"
 $approved = Invoke-RestMethod -Method Post -Uri "$api/api/v1/admin/amendments/$jobId/approve"
 $approved.merge
-$approved.param_override
+$approved.personal_relief_override
 
 # 4) Same inputs → T2 (expect 0 with 1.8M cap; must differ from T1)
 $t2 = Invoke-RestMethod -Method Post -Uri "$api/api/v1/calculate" -ContentType "application/json" -Body $ex04
@@ -515,6 +554,36 @@ Filled Chapter 4 table: [`evaluation/adaptive-tax/metrics_table.md`](../evaluati
 .\.venv-backend\Scripts\python.exe evaluation/adaptive-tax/extraction/score_extraction.py
 $env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
 .\.venv-backend\Scripts\python.exe evaluation/adaptive-tax/amendment_adaptivity/score_adaptivity.py
+```
+
+#### Adaptive Tax Phase 5.9 — Evaluation & viva hardening
+
+Calculator-first Chapter 4 metrics. **Graph size is not a success gate.**
+
+```powershell
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+$env:COMP_ADAPTIVE_TAX_KG_MODE = "file"
+$env:COMP_ADAPTIVE_TAX_PROVENANCE_MODE = "strict"
+.\.venv-backend\Scripts\python.exe evaluation/adaptive-tax/phase5/run_chapter4_metrics.py --write-metrics-md
+.\.venv-backend\Scripts\python.exe scripts/adaptive_tax_phase5_demo.py
+# Optional live API on :8005:
+# .\.venv-backend\Scripts\python.exe scripts/adaptive_tax_phase5_demo.py --http
+```
+
+Viva checklist: [`evaluation/adaptive-tax/viva_recording_checklist.md`](../evaluation/adaptive-tax/viva_recording_checklist.md).
+
+#### Adaptive Tax Phase 5.10 — Bulk graph import (≥300 edges)
+
+Optional scale **after** 5.9. Graph size is dissertation breadth, not the accuracy claim.
+
+```powershell
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+$env:NEO4J_URI = "bolt://127.0.0.1:7687"
+$env:NEO4J_USER = "neo4j"
+$env:NEO4J_PASSWORD = "adaptive-tax-dev"
+.\.venv-backend\Scripts\python.exe scripts/adaptive_tax_import_calc_edges.py --min-edges 300 --load-neo4j
+# Expect GET /api/v1/knowledge/graph-stats calc_edge_total >= 300
+# Coverage stays checklist-based (bulk MENTIONS do not inflate Coverage)
 ```
 
 #### Adaptive Tax Phase 4 — Viva recording checklist (Step 8)
@@ -1167,7 +1236,55 @@ Suggested future headings:
 - Phase 3 — Tax KG + Neo4j (or chosen store)
 - Phase 4 — Retrieval / GraphRAG
 - Phase 5 — Symbolic / Think-Twice
-- Phase 6 — Proof map / UI
+
+### Phase 6 — Filing catalog + viva surfaces (6.0–6.9)
+
+**Status:** Phase 6.0–6.9 implemented (catalog-driven calculator, field explain, coverage dashboard, eval runners).
+
+**Dependency graph:**
+
+```
+6.0 Foundation → 6.1 Employment → 6.2 Investment → 6.3 QP → 6.4 Business
+  → 6.5 Other → 6.6 Field explain → 6.7 UI versions → 6.8 Coverage dashboard → 6.9 Eval
+```
+
+#### Phase 6.9 — Eval / viva (metrics + figures)
+
+One-shot Chapter 4 metrics (extends Phase 5.9):
+
+```powershell
+$env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
+$env:COMP_ADAPTIVE_TAX_KG_MODE = "file"
+$env:COMP_ADAPTIVE_TAX_PROVENANCE_MODE = "strict"
+.\.venv-backend\Scripts\python.exe evaluation/adaptive-tax/phase6/run_chapter4_metrics.py --write-metrics-md
+.\.venv-backend\Scripts\python.exe evaluation/adaptive-tax/phase6/generate_figures.py
+.\.venv-backend\Scripts\python.exe scripts/adaptive_tax_phase6_demo.py
+```
+
+**Outputs:**
+
+| Artifact | Path |
+|----------|------|
+| Run JSON | `evaluation/adaptive-tax/runs/phase6_9_*.json` |
+| Metrics table | `evaluation/adaptive-tax/metrics_table.md` |
+| Figure markdown | `evaluation/adaptive-tax/phase6/figures/FIGURES.md` |
+| Screenshot checklist | `evaluation/adaptive-tax/phase6/viva_figure_checklist.md` |
+
+**Phase 6.9 regression suite** (included in runner):
+
+- Phase 5 goldens: `test_rule_engine_examples.py`
+- Filing-line suite: `test_phase6_foundation.py`, `test_phase68_viva.py`, employment/investment/QP/business/other/qp_ya tests
+- Provenance target: **1.0** (strict)
+- Guide/Master: never in executable cites (`phase6/score_executable_cites.py`)
+
+**UI viva narrative:**
+
+1. Coverage dashboard — `http://127.0.0.1:5173/adaptive-tax/coverage`
+2. Unsupported queue — Act 11/2026: supported `qp_brought_forward` vs pending `qp_bank_merger`
+3. Calculated Using strip — calculator + report
+4. Legal reasoning graph — report panel
+
+See [`evaluation/adaptive-tax/phase6/README.md`](../evaluation/adaptive-tax/phase6/README.md).
 
 ---
 
@@ -1186,7 +1303,7 @@ Suggested future headings:
 
 | Date | Change |
 |------|--------|
-| 2026-08-03 | Adaptive Tax Phase 4 Step 8: viva recording checklist in runbook + `evaluation/adaptive-tax/viva_recording_checklist.md` (path note in eval README). |
+| 2026-08-11 | Adaptive Tax Phase 6.9: `evaluation/adaptive-tax/phase6/` metrics runner, figure generator, viva checklist; `scripts/adaptive_tax_phase6_demo.py`. |
 | 2026-08-03 | Adaptive Tax Phase 4 Step 7: `evaluation/adaptive-tax/` scorers + filled `metrics_table.md` (Chapter 4). |
 | 2026-08-03 | Adaptive Tax Phase 4 Step 6: `scripts/adaptive_tax_phase4_demo.py` + runbook viva copy-paste (T1≠T2, explain both calc ids, report URLs). |
 | 2026-08-03 | Adaptive Tax Phase 4 Step 5: report UI `/adaptive-tax/report/:calcId` (trace, evidence, MODIFIES, narrative); calculator View report link. |

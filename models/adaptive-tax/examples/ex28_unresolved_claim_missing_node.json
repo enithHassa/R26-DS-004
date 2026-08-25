@@ -1,0 +1,20 @@
+{
+  "id": "ex28",
+  "skip_default_kg": true,
+  "scenario": "Solar claimed but solar_panel_relief node missing from File KG",
+  "key_assertion": "unresolved_claims reason=concept_missing_in_kg (reload-time node missing); amount not deducted; calculate still returns; trace includes unresolved_solar_panel_relief.",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "3000000",
+    "solar_panel_relief": "400000",
+    "donations": "0",
+    "qualifying_payments": "0",
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "252000",
+  "expected_unresolved_concept_id": "solar_panel_relief",
+  "expected_unresolved_claimed_lkr": "400000",
+  "expected_unresolved_reason": "concept_missing_in_kg",
+  "expected_unresolved_step": "unresolved_solar_panel_relief"
+}

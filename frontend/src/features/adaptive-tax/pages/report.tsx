@@ -15,12 +15,23 @@ import {
 import {
   explainByCalcId,
   getCalculation,
+  getReasoningGraph,
   type CalculationTraceStep,
   type EvidenceSourceQuote,
   type ExplainTaxResponse,
+  type ReasoningGraphResponse,
   type StoredCalculation,
 } from "../api";
 import { formatLkr } from "../format-lkr";
+import { buildReportNarrative } from "../build-report-narrative";
+import { CalculatedUsingStrip } from "../components/calculated-using-strip";
+import { UnresolvedClaimsBanner } from "../components/unresolved-claims-banner";
+import {
+  ComponentTraceByCard,
+  HeadSubtotalsPanel,
+} from "../components/head-subtotals-panel";
+import { LegalReasoningGraphPanel } from "../components/legal-reasoning-graph";
+import { ReportNarrative } from "../components/report-narrative";
 
 function Chip({
   children,
@@ -107,6 +118,11 @@ function TraceStepAccordion({
             {step.rule_source_ids.map((id) => (
               <Chip key={`r-${step.step_id}-${id}`}>{id}</Chip>
             ))}
+            {step.provenance ? (
+              <Chip highlight={step.provenance !== "approved"}>
+                {`provenance=${step.provenance}`}
+              </Chip>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -158,12 +174,16 @@ function QuoteRow({
 function ReportBody({
   stored,
   explanation,
+  reasoningGraph,
+  reasoningLoading = false,
   explainLoading = false,
   explainError = null,
   onRetryExplain,
 }: {
   stored: StoredCalculation;
   explanation: ExplainTaxResponse | undefined;
+  reasoningGraph?: ReasoningGraphResponse;
+  reasoningLoading?: boolean;
   explainLoading?: boolean;
   explainError?: string | null;
   onRetryExplain?: () => void;
@@ -178,11 +198,14 @@ function ReportBody({
 
   return (
     <div className="space-y-6">
+      <CalculatedUsingStrip versions={result.knowledge_versions} sticky />
+      <UnresolvedClaimsBanner claims={result.unresolved_claims ?? []} />
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Final tax</CardTitle>
+          <CardTitle className="text-lg">Tax result</CardTitle>
           <CardDescription>
-            Deterministic rule-engine liability for calc{" "}
+            Deterministic rule-engine result for calc{" "}
             <code className="text-xs">{stored.calc_id}</code>
             {stored.param_set_effective
               ? ` · param set ${stored.param_set_effective}`
@@ -190,14 +213,115 @@ function ReportBody({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-4xl font-semibold tracking-tight">
-            {formatLkr(result.final_tax_lkr)}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {result.rules_applied.map((rule) => (
-              <Chip key={rule}>{rule}</Chip>
-            ))}
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Gross liability</p>
+            <p className="text-4xl font-semibold tracking-tight">
+              {formatLkr(result.final_tax_lkr)}
+            </p>
           </div>
+          {result.tax_payable_lkr ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">
+                Tax payable after credits
+              </p>
+              <p className="text-2xl font-semibold tracking-tight">
+                {formatLkr(result.tax_payable_lkr)}
+              </p>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {explainLoading && !explanation ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading legal evidence and narrative (first Chroma load can take a minute)…
+        </div>
+      ) : explainError && !explanation ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+              <FileText className="h-4 w-4" />
+              Explanation unavailable
+            </CardTitle>
+            <CardDescription>{explainError}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {onRetryExplain ? (
+              <Button type="button" variant="secondary" onClick={onRetryExplain}>
+                Retry explanation
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : (
+        <ReportNarrative view={buildReportNarrative(stored, explanation)} />
+      )}
+
+      <details className="rounded-xl border bg-card text-card-foreground shadow">
+        <summary className="cursor-pointer px-6 py-4 text-sm font-medium">
+          Full technical audit
+        </summary>
+        <div className="space-y-6 border-t px-6 pb-6 pt-4">
+          <LegalReasoningGraphPanel graph={reasoningGraph} loading={reasoningLoading} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Tax result</CardTitle>
+              <CardDescription>
+                Head subtotals, component trace, and rules applied.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <HeadSubtotalsPanel subtotals={result.head_subtotals} />
+              <ComponentTraceByCard trace={result.component_trace} cards={[]} />
+              <div className="flex flex-wrap gap-1.5">
+                {result.rules_applied.map((rule) => (
+                  <Chip key={rule}>{rule}</Chip>
+                ))}
+                {result.provenance_complete != null ? (
+                  <Chip highlight={!result.provenance_complete}>
+                    {result.provenance_complete
+                      ? "provenance_complete=true"
+                      : "provenance_complete=false"}
+                  </Chip>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Provenance</CardTitle>
+          <CardDescription>
+            Every executable step must resolve to an approved official Act section +
+            verbatim source quote (Phase 5.0b).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(result.rule_source_refs?.filter((r) => r.source_quote).length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No Act-backed quotes attached to this calculation (legacy seed or missing
+              bootstrap).
+            </p>
+          ) : (
+            result.rule_source_refs
+              .filter((r) => r.source_quote)
+              .map((ref) => (
+                <div key={`prov-${ref.id}`} className="space-y-2 rounded-md border p-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Chip highlight>{ref.id}</Chip>
+                    {ref.section ? <Chip>{`Section ${ref.section}`}</Chip> : null}
+                    {ref.source_doc_id ? <Chip>{ref.source_doc_id}</Chip> : null}
+                    {ref.status ? <Chip>{ref.status}</Chip> : null}
+                    {ref.concept_id ? <Chip>{ref.concept_id}</Chip> : null}
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-foreground/90">
+                    {ref.source_quote}
+                  </p>
+                </div>
+              ))
+          )}
         </CardContent>
       </Card>
 
@@ -218,32 +342,6 @@ function ReportBody({
           ))}
         </CardContent>
       </Card>
-
-      {explainLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading legal evidence and narrative (first Chroma load can take a minute)…
-        </div>
-      ) : null}
-
-      {explainError && !explanation ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg text-destructive">
-              <FileText className="h-4 w-4" />
-              Explanation unavailable
-            </CardTitle>
-            <CardDescription>{explainError}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {onRetryExplain ? (
-              <Button type="button" variant="secondary" onClick={onRetryExplain}>
-                Retry explanation
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Card>
         <CardHeader>
@@ -360,67 +458,8 @@ function ReportBody({
           )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Explanation narrative</CardTitle>
-          <CardDescription>
-            RAG-grounded GPT / fixture narrative — evidence only; never invents
-            sections.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!explanation && explainLoading ? (
-            <p className="text-sm text-muted-foreground">Generating narrative…</p>
-          ) : !explanation ? (
-            <p className="text-sm text-muted-foreground">
-              Narrative will appear once explanation succeeds.
-            </p>
-          ) : explanation.insufficient_evidence ? (
-            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Insufficient evidence</p>
-              <p className="mt-1">
-                No Chroma chunks or approved source quotes were available for the
-                sections in this calculation. The system did not generate a narrative
-                (no guessing).
-              </p>
-            </div>
-          ) : (
-            <>
-              <p className="text-sm leading-relaxed">{explanation.summary}</p>
-              {explanation.sections_cited.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {explanation.sections_cited.map((label) => (
-                    <Chip key={label}>{label}</Chip>
-                  ))}
-                </div>
-              ) : null}
-              <ol className="space-y-3">
-                {explanation.steps_explained.map((step) => (
-                  <li key={step.step_id} className="rounded-md border p-3 text-sm">
-                    <p className="font-medium">{step.step_id}</p>
-                    <p className="mt-1 text-foreground/90">{step.narrative}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {step.evidence_chunk_ids.map((id) => (
-                        <Chip key={id}>{id}</Chip>
-                      ))}
-                      {step.rule_source_id ? (
-                        <Chip highlight>{`rule_source ${step.rule_source_id}`}</Chip>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {explanation ? (
-        <p className="border-t pt-4 text-center text-xs text-muted-foreground">
-          {explanation.disclaimer}
-        </p>
-      ) : null}
+        </div>
+      </details>
     </div>
   );
 }
@@ -438,6 +477,13 @@ export function AdaptiveTaxReportPage() {
   const explainQuery = useQuery({
     queryKey: ["adaptive-tax", "explain", calcId],
     queryFn: () => explainByCalcId(calcId),
+    enabled: Boolean(calcId) && storedQuery.isSuccess,
+    retry: false,
+  });
+
+  const reasoningQuery = useQuery({
+    queryKey: ["adaptive-tax", "reasoning-graph", calcId],
+    queryFn: () => getReasoningGraph(calcId),
     enabled: Boolean(calcId) && storedQuery.isSuccess,
     retry: false,
   });
@@ -503,6 +549,8 @@ export function AdaptiveTaxReportPage() {
         <ReportBody
           stored={storedQuery.data}
           explanation={explainQuery.data}
+          reasoningGraph={reasoningQuery.data}
+          reasoningLoading={reasoningQuery.isLoading || reasoningQuery.isFetching}
           explainLoading={explainQuery.isLoading || explainQuery.isFetching}
           explainError={explainError}
           onRetryExplain={() => void explainQuery.refetch()}

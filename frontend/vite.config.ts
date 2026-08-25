@@ -38,6 +38,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // Windows often binds Vite to IPv6 ::1 only; the runbook URL is 127.0.0.1.
+      host: "127.0.0.1",
       port: 5173,
       /** Strategy explorer (Component B) — primary dissertation UI for this module. */
       open: "/tax-optimization/explorer",
@@ -62,9 +64,9 @@ export default defineConfig(({ mode }) => {
         "/api/v1/adaptive-tax": {
           target: adaptiveTaxUrl,
           changeOrigin: true,
-          /** Explain / Chroma cold-start and GPT extract can exceed the default proxy window. */
-          timeout: 180_000,
-          proxyTimeout: 180_000,
+          /** GPT-5 extract/approve can take several minutes; keep in sync with axios timeouts. */
+          timeout: 300_000,
+          proxyTimeout: 300_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
         },
         "/api/v1/documents": transactionSemanticProxy,

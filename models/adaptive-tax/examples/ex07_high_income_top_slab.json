@@ -13,7 +13,7 @@
     "other_reliefs": {},
     "param_set": "current"
   },
-  "expected_final_tax_lkr": "1038000",
+  "expected_final_tax_lkr": "918000",
   "expected_rules_applied": [
     "sum_assessable",
     "apply_personal_relief",
@@ -22,6 +22,7 @@
     "slab_band_3",
     "slab_band_4",
     "slab_band_5",
+    "slab_band_6",
     "final_tax"
   ],
   "expected_rule_source_ids": [
@@ -31,6 +32,13 @@
     "fs_2024_25_band_2",
     "fs_2024_25_band_3",
     "fs_2024_25_band_4",
-    "fs_2024_25_band_5"
+    "fs_2024_25_band_5",
+    "fs_2024_25_band_6",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "bootstrap:first_schedule_rates_2024_25",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief"
   ]
 }

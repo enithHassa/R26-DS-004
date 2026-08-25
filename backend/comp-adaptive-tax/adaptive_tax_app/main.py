@@ -9,14 +9,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from adaptive_tax_app import __version__
+from adaptive_tax_app.config import get_adaptive_tax_settings
 from adaptive_tax_app.routers import (
     amendments,
     calculate,
     calculations,
+    catalog_admin,
+    catalog_engine,
     explain,
+    filing_catalog,
     health,
     knowledge,
     params,
+    relief_interview,
 )
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -25,7 +30,14 @@ from backend.shared.utils.logging import configure_logging, logger
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging(service_name="comp-adaptive-tax")
-    logger.info("Adaptive Tax component starting (version={})", __version__)
+    get_adaptive_tax_settings.cache_clear()
+    cfg = get_adaptive_tax_settings()
+    logger.info(
+        "Adaptive Tax component starting (version={}, extraction_mode={}, openai_key_set={})",
+        __version__,
+        cfg.COMP_ADAPTIVE_TAX_EXTRACTION_MODE,
+        bool(cfg.OPENAI_API_KEY and cfg.OPENAI_API_KEY.strip()),
+    )
     yield
     logger.info("Adaptive Tax component shutting down")
 
@@ -61,6 +73,10 @@ def create_app() -> FastAPI:
     app.include_router(amendments.router, prefix="/api/v1")
     app.include_router(params.router, prefix="/api/v1")
     app.include_router(knowledge.router, prefix="/api/v1")
+    app.include_router(filing_catalog.router, prefix="/api/v1")
+    app.include_router(relief_interview.router, prefix="/api/v1")  # Phase 3 catalogs
+    app.include_router(catalog_engine.router, prefix="/api/v1")  # Phase 8 catalog rates
+    app.include_router(catalog_admin.router, prefix="/api/v1")  # Add New Act (gated)
     app.include_router(calculate.router, prefix="/api/v1")
     app.include_router(calculations.router, prefix="/api/v1")
     app.include_router(explain.router, prefix="/api/v1")

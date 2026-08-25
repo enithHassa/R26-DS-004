@@ -1,0 +1,56 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "phase": "5.8",
+  "coverage_area": "tax_credits",
+  "source_doc_id": "ird-ira-2017-base",
+  "section_key": "89",
+  "status": "approved_bootstrap",
+  "notes": "Phase 5.8: Sec 89 non-final WHT / APIT credit; Sec 2(3) deducts credits from liability. final_tax_lkr stays gross; tax_payable_lkr = max(0, liability − credits).",
+  "rules": [
+    {
+      "section": "89",
+      "paragraph": null,
+      "rule_type": "tax_credit",
+      "concept_id": "tax_credit",
+      "engine_handler": "tax_credit",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "89. (1) The withholdee of a payment that is not a final withholding payment shall be treated as having paid any tax — (a) withheld from the payment under this Division; or (b) paid with respect to the payment in accordance with subsection (3) or (4) of section 86. (2) A withholdee shall be entitled to a tax credit in an amount equal to the tax treated as paid under subsection (1) for the year of assessment in which the payment is derived.",
+      "relationship_hints": [
+        {
+          "rel_type": "DEFINES",
+          "from_section_uid": "ird-ira-2017-base::sec::section_89",
+          "to_concept_id": "tax_credit"
+        },
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "tax_credit",
+          "to_section_uid": "ird-ira-2017-base::sec::section_89"
+        },
+        {
+          "rel_type": "GOVERNED_BY",
+          "from_concept_id": "apit_already_paid",
+          "to_section_uid": "ird-ira-2017-base::sec::section_89"
+        }
+      ]
+    },
+    {
+      "section": "2",
+      "paragraph": "3(c)",
+      "rule_type": "definition",
+      "concept_id": "tax_payable",
+      "engine_handler": "tax_credit",
+      "executable": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "source_quote": "(3) The income tax payable by a person under paragraph (a) of subsection (1) shall be calculated by — (a) applying the relevant rates of income tax set out in the First Schedule to this Act to that person's taxable income; (b) deducting any foreign tax credit claimed by and allowed to the person for the year under section 80 of this Act; and (c) deducting any other tax credit granted or allowed to the person for the year under this Act.",
+      "relationship_hints": [
+        {
+          "rel_type": "DEFINES",
+          "from_section_uid": "ird-ira-2017-base::sec::section_2",
+          "to_concept_id": "tax_payable"
+        }
+      ]
+    }
+  ]
+}

@@ -155,7 +155,8 @@ alembic upgrade head
 
 The project uses a shared **Azure Database for PostgreSQL - Flexible Server** (Central India region).
 
-- **Host:** `tax-advisory-db.postgres.database.azure.com`
+- **Host:** `tax-advisory-db-tax.postgres.database.azure.com`
+- **Admin user:** `taxadvisor_admin`
 - **Database:** `tax_advisory`
 - **SSL:** Required
 
@@ -164,7 +165,7 @@ The server is stopped when not in use to conserve Azure for Students credits. If
 ```bash
 az postgres flexible-server start \
   --resource-group tax-advisory-rg \
-  --name tax-advisory-db
+  --name tax-advisory-db-tax
 ```
 
 To stop when done for the day:
@@ -172,7 +173,126 @@ To stop when done for the day:
 ```bash
 az postgres flexible-server stop \
   --resource-group tax-advisory-rg \
-  --name tax-advisory-db
+  --name tax-advisory-db-tax
+```
+
+### Local Postgres fallback (when Azure is stopped)
+
+A `docker/docker-compose.yml` ships a local Postgres (and optional MLflow)
+so development isn't blocked when the Azure server is off.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d postgres
+# then in .env
+# DATABASE_MODE=local
+```
+
+## Running the services
+
+### Component 4 — Language model backend + API gateway + frontend (this module)
+
+The **dashboard** (`frontend/`) sends browser calls to **`/api` → API gateway (`:8000`)**. Routes under **`/api/v1/llm/**`** are proxied to the **language-model service** (default **`http://127.0.0.1:8004`**, see `COMP_LLM_URL` in `backend/shared/config/settings.py` or `.env`). You need **three terminals** from the repo root (or use your IDE run configs).
+
+**Windows (PowerShell)**
+
+```powershell
+# Terminal 1 — Language model (Component 4), port 8004
+$env:PYTHONPATH = "backend/comp-language-model;$PWD"
+# Optional — Phase 2 retrieval + intent + citations (paths relative to repo root):
+# $env:COMP_LLM_CORPUS_JSONL = "data/processed/corpus_v1.jsonl"
+# $env:COMP_LLM_INTENT_BENCHMARK_JSONL = "evaluation/benchmark_seed_template.jsonl"
+# $env:COMP_LLM_RETRIEVAL_BACKEND = "tfidf"   # or "dense" after: pip install -r backend/requirements-retrieval-dense.txt
+.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
+  --app-dir backend/comp-language-model --reload --host 127.0.0.1 --port 8004
+```
+
+```powershell
+# Terminal 2 — API gateway, port 8000 (if the port is busy, stop the other process first)
+$env:PYTHONPATH = "backend/api-gateway;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn app.main:app `
+  --app-dir backend/api-gateway --reload --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# Terminal 3 — Frontend (Vite)
+cd frontend
+npm install   # first time only
+npm run dev   # http://127.0.0.1:5173 (see terminal if another port is used)
+```
+
+**Linux / macOS / Git Bash**
+
+```bash
+cd /path/to/R26-DS-004
+source .venv-backend/bin/activate
+export PYTHONPATH="backend/comp-language-model:${PYTHONPATH:-.}"
+# Optional: export COMP_LLM_CORPUS_JSONL=... COMP_LLM_INTENT_BENCHMARK_JSONL=...
+uvicorn app.main:app --app-dir backend/comp-language-model --reload --host 127.0.0.1 --port 8004
+```
+
+```bash
+# Second terminal
+source .venv-backend/bin/activate
+export PYTHONPATH="backend/api-gateway:${PYTHONPATH:-.}"
+uvicorn app.main:app --app-dir backend/api-gateway --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
+# Third terminal
+cd frontend && npm install && npm run dev
+```
+
+**Quick URLs**
+
+| What | URL |
+|------|-----|
+| Language model OpenAPI | http://127.0.0.1:8004/docs |
+| Gateway health | http://127.0.0.1:8000/health |
+| NLU parse (via gateway) | `POST http://127.0.0.1:8000/api/v1/llm/nlu/parse` |
+| Query + citations (via gateway) | `POST http://127.0.0.1:8000/api/v1/llm/query` |
+| **Dashboard — Language Model** (after `npm run dev`) | http://127.0.0.1:5173/language-model/nlu and …/query |
+
+The sidebar section **Language Model** links to **NLU parse** and **Law query** pages (`frontend/src/features/language-model/`). They call the gateway at `/api/v1/llm/nlu/parse` and `/api/v1/llm/query`.
+
+Frontend dev server proxies **`/api`** to the gateway (`VITE_API_BASE_URL`, default `http://127.0.0.1:8000`). More detail: [docs/PHASES_RUNBOOK.md](docs/PHASES_RUNBOOK.md) (Dashboard + Phase 2 env vars).
+
+---
+
+### Other backends (optimization, recommendation) + gateway
+
+```bash
+source .venv-backend/bin/activate
+
+# Component 1 (Transaction Semantic Reasoning — port 8001)
+python scripts/run_transaction_semantic_api.py
+
+# Component 2 (Tax Strategy Optimization — Function 1 compliance)
+PYTHONPATH=. uvicorn tax_opt_b_app.main:app \
+  --app-dir backend/comp-tax-optimization \
+  --reload --port 8002
+
+# Component 3 (Personalized Recommendation)
+PYTHONPATH=. uvicorn app.main:app \
+  --app-dir backend/comp-personalized-recommendation \
+  --reload --port 8003
+
+# API Gateway (proxies /api/v1/recommendation/**, /api/v1/optimization/**, /api/v1/llm/**, …)
+PYTHONPATH=. uvicorn app.main:app \
+  --app-dir backend/api-gateway \
+  --reload --port 8000
+```
+
+Use this block when you need the **tax optimization explorer** (direct Vite proxy to `:8002`) and related services; see the runbook **Dashboard** section for the full four-backend layout.
+
+## Quality gates
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files                 # ruff + black + mypy + standard hooks
+
+PYTHONPATH=. pytest                         # run all backend tests
+cd frontend && npm run typecheck && npm run lint
 ```
 
 ### Local Postgres fallback (when Azure is stopped)

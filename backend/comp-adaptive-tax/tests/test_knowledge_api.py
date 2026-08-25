@@ -36,10 +36,18 @@ def test_graph_stats_ok_with_mocked_driver(client: TestClient) -> None:
                 {"type": "DEFINES", "count": 15},
                 {"type": "APPLIES_TO", "count": 20},
                 {"type": "COVERS_RELIEF", "count": 2},
+                {"type": "MENTIONS", "count": 300},
             ]
         ),
+        MagicMock(single=lambda: {"count": 337}),
         MagicMock(single=lambda: {"count": 37}),
         MagicMock(single=lambda: {"count": 1}),
+        MagicMock(
+            data=lambda: [
+                {"concept_id": "qualifying_payment", "present": True},
+                {"concept_id": "solar_panel_relief", "present": True},
+            ]
+        ),
     ]
     driver = MagicMock()
     driver.session.return_value.__enter__.return_value = session
@@ -49,9 +57,14 @@ def test_graph_stats_ok_with_mocked_driver(client: TestClient) -> None:
         response = client.get("/api/v1/knowledge/graph-stats")
     assert response.status_code == 200
     body = response.json()
-    assert body["calc_edge_total"] == 37
+    assert body["calc_edge_total"] == 337
+    assert body["executable_calc_edge_total"] == 37
     assert body["modifies_total"] == 1
     assert body["nodes"]["TextChunk"] == 10
+    assert "MENTIONS" in body["calc_rel_types"]
+    assert "required_concepts" in body
+    assert body["required_concepts"]["qualifying_payment"] is True
+    assert body["required_concepts"]["solar_panel_relief"] is True
 
 
 def test_rag_search_ok_with_mocked_index(client: TestClient) -> None:
@@ -65,7 +78,16 @@ def test_rag_search_ok_with_mocked_index(client: TestClient) -> None:
             section_ref="Section 52",
             page=1,
             metadata={},
-        )
+        ),
+        RagHit(
+            chunk_id="c-weak",
+            text="weak",
+            score=0.40,
+            source_doc_id="ird-ira-2017-base",
+            section_ref="Section 52",
+            page=2,
+            metadata={},
+        ),
     ]
     with patch(
         "adaptive_tax_app.services.chroma_index.get_chroma_index",
@@ -73,11 +95,20 @@ def test_rag_search_ok_with_mocked_index(client: TestClient) -> None:
     ):
         response = client.post(
             "/api/v1/knowledge/rag/search",
-            json={"query": "qualifying payment", "section_ref": "52", "top_k": 3},
+            json={
+                "query": "qualifying payment",
+                "section_ref": "52",
+                "top_k": 3,
+                "min_score": 0.55,
+                "assessment_year": "2025_26",
+            },
         )
     assert response.status_code == 200
     body = response.json()
     assert body["query"] == "qualifying payment"
+    assert body["min_score"] == 0.55
+    assert body["assessment_year"] == "2025_26"
     assert len(body["hits"]) == 1
+    assert body["hits"][0]["chunk_id"] == "c1"
     assert "52" in (body["hits"][0]["section_ref"] or "")
     index.search.assert_called_once()
