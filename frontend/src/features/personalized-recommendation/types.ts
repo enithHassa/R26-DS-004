@@ -5,13 +5,34 @@
  * the wire and convert at the form boundary.
  */
 
-export type Occupation = "employee" | "business_owner" | "professional";
+export type Occupation =
+  | "employee"
+  | "self_employed"
+  | "business_owner"
+  | "investor"
+  | "professional"
+  | "other";
 
-export type Gender = "male" | "female";
+export type Gender = "male" | "female" | "other";
 
-export type MaritalStatus = "single" | "married" | "divorced";
+export type MaritalStatus = "single" | "married" | "divorced" | "widowed";
+
+export type ResidencyStatus = "resident" | "non_resident" | "dual";
+
+export type EmploymentType = "permanent" | "contract" | "part_time" | "freelance" | "unemployed";
+
+export type EmployerSector = "private" | "public" | "ngo" | "self_employed";
 
 export type RiskTolerance = "low" | "medium" | "high";
+
+export type IncomeSourceKind =
+  | "employment"
+  | "business"
+  | "rental"
+  | "interest"
+  | "dividend"
+  | "capital_gain"
+  | "other";
 
 export interface IncomeSource {
   kind: string;
@@ -26,10 +47,15 @@ export interface FinancialProfileBase {
   gender: Gender;
   district: string;
   marital_status: MaritalStatus;
+  residency_status: ResidencyStatus;
+  nationality?: string | null;
   occupation: Occupation;
+  employment_type: EmploymentType;
+  employer_sector: EmployerSector;
   dependents: number;
   years_employed: number;
   gross_monthly_income: string;
+  annual_bonus_lkr: string;
   monthly_expenses: string;
   monthly_debt_service: string;
   liquid_savings: string;
@@ -37,12 +63,15 @@ export interface FinancialProfileBase {
   total_debt: string;
   epf_balance: string;
   etf_balance: string;
+  vehicle_value: string;
+  property_value: string;
   health_insurance: boolean;
   life_insurance_premium_annual: string;
   home_loan_interest_annual: string;
   donations_annual: string;
   risk_tolerance: RiskTolerance;
   investment_horizon_years: number;
+  retirement_age_target: number;
   income_sources: IncomeSource[];
   tax_year: string;
 }
@@ -53,10 +82,15 @@ export interface FinancialProfileCreate {
   province: string;
   gender: Gender;
   marital_status: MaritalStatus;
+  residency_status: ResidencyStatus;
+  nationality?: string | null;
   occupation: Occupation;
+  employment_type: EmploymentType;
+  employer_sector: EmployerSector;
   dependents: number;
   years_employed: number;
   gross_monthly_income: string;
+  annual_bonus_lkr: string;
   monthly_expenses: string;
   monthly_debt_service: string;
   liquid_savings: string;
@@ -64,12 +98,15 @@ export interface FinancialProfileCreate {
   total_debt: string;
   epf_balance: string;
   etf_balance: string;
+  vehicle_value: string;
+  property_value: string;
   health_insurance: boolean;
   life_insurance_premium_annual: string;
   home_loan_interest_annual: string;
   donations_annual: string;
   risk_tolerance: RiskTolerance;
   investment_horizon_years: number;
+  retirement_age_target: number;
   income_sources: IncomeSource[];
   tax_year: string;
 }
@@ -205,7 +242,12 @@ export const SL_PROVINCES = [
   "Western",
   "Central",
   "Southern",
+  "Northern",
+  "Eastern",
   "North Western",
+  "North Central",
+  "Uva",
+  "Sabaragamuwa",
 ] as const;
 
 export const AGE_BANDS = [

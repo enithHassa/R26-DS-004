@@ -1,4 +1,4 @@
-"""Catalog-admin Step 5: stage proposed/{id}.json only, via Phase 6 save_proposed.
+﻿"""Catalog-admin Step 5: stage proposed/{id}.json only, via Phase 6 save_proposed.
 
 Never writes approved/, rates/, or corpus_manifest.json. Attribution fields are
 independent: a later action must not overwrite an earlier trail.

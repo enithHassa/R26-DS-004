@@ -107,6 +107,19 @@ def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
             raise ProfileNotFoundError(f"User {user_id} does not exist")
         return user
 
+    # Reuse an existing row with this display name so creating another
+    # profile for the same Taxpayer_NNNNN does not leave duplicate logins
+    # (which used to 500 ``scalar_one_or_none`` on User View sign-in).
+    existing = db.execute(
+        select(UserORM)
+        .where(UserORM.full_name == full_name)
+        .order_by(UserORM.created_at.desc())
+    ).scalars().first()
+    if existing is not None:
+        if not existing.password:
+            existing.password = _derive_login_password(full_name)
+        return existing
+
     placeholder_email = f"profile-{uuid4().hex[:12]}@synthetic.local"
     user = UserORM(
         email=placeholder_email,
@@ -252,29 +265,101 @@ class InvalidCredentialsError(LookupError):
     """Raised when a username/password pair doesn't match a user record."""
 
 
-def authenticate_user(db: Session, username: str, password: str) -> tuple[UserORM, FinancialProfileORM]:
-    """Verify credentials and return the user's most recent profile.
+class EmailTakenError(ValueError):
+    """Raised at signup when the email is already registered to another user."""
 
-    Username is the profile owner's ``full_name``; see
-    ``migrations/versions/0004_add_user_password.py`` for how passwords are
-    derived for pre-seeded profiles.
+
+def create_account(
+    db: Session,
+    *,
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str,
+    mobile_number: str,
+    country: str,
+    date_of_birth: date,
+    gender: str,
+    address: str,
+    city: str,
+    postal_code: str,
+    profile_picture: str | None = None,
+) -> UserORM:
+    """Create a taxpayer account (personal/contact details only).
+
+    No financial profile is created here — that (plus the behavioural
+    questions) happens on first login, see ``routers.profiles`` and
+    ``app.routers.auth``. Login afterwards uses ``email`` as the username.
     """
-    user = db.execute(
-        select(UserORM).where(UserORM.full_name == username)
+    existing_email = db.execute(
+        select(UserORM).where(UserORM.email == email)
     ).scalar_one_or_none()
-    if user is None or user.password != password:
-        raise InvalidCredentialsError("Invalid username or password")
+    if existing_email is not None:
+        raise EmailTakenError(f"'{email}' is already registered")
 
-    profile = db.execute(
+    user = UserORM(
+        email=email,
+        full_name=f"{first_name} {last_name}".strip(),
+        first_name=first_name,
+        last_name=last_name,
+        password=password,
+        mobile_number=mobile_number,
+        country=country,
+        date_of_birth=date_of_birth,
+        gender=gender,
+        address=address,
+        city=city,
+        postal_code=postal_code,
+        profile_picture=profile_picture,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _latest_profile_for_user(db: Session, user_id: UUID) -> FinancialProfileORM | None:
+    return db.execute(
         select(FinancialProfileORM)
-        .where(FinancialProfileORM.user_id == user.id)
+        .where(FinancialProfileORM.user_id == user_id)
         .order_by(FinancialProfileORM.created_at.desc())
         .limit(1)
     ).scalar_one_or_none()
-    if profile is None:
-        raise InvalidCredentialsError("No profile exists for this user")
 
-    return user, profile
+
+def authenticate_user(
+    db: Session, username: str, password: str
+) -> tuple[UserORM, FinancialProfileORM | None]:
+    """Verify credentials and return the user's most recent profile, if any.
+
+    ``username`` matches either the account email (new sign-ups) or the
+    legacy profile ``full_name`` (pre-seeded demo data, e.g. Taxpayer_25265;
+    see ``migrations/versions/0004_add_user_password.py``). A ``None``
+    profile means the account exists but hasn't completed the financial
+    intake yet — the caller should route to that flow instead of the portal.
+
+    Duplicate ``users`` rows with the same ``full_name`` can exist after
+    re-seeding or creating extra profiles; pick a password match (preferring
+    one that already has a financial profile) instead of raising
+    ``MultipleResultsFound``.
+    """
+    candidates = list(
+        db.execute(
+            select(UserORM)
+            .where((UserORM.email == username) | (UserORM.full_name == username))
+            .order_by(UserORM.created_at.desc())
+        ).scalars().all()
+    )
+    matching = [user for user in candidates if user.password == password]
+    if not matching:
+        raise InvalidCredentialsError("Invalid username or password")
+
+    for user in matching:
+        profile = _latest_profile_for_user(db, user.id)
+        if profile is not None:
+            return user, profile
+
+    return matching[0], None
 
 
 # ---------------------------------------------------------------------------
@@ -288,13 +373,26 @@ def _age_years(dob: date, snapshot: date | None = None) -> int:
 
 
 def _annual_taxable_income(profile: FinancialProfileORM) -> Decimal:
+    """Annual taxable income used by the ranker and the impact engine.
+
+    Seeded/synthetic profiles decompose ``gross_monthly_income`` into
+    ``income_sources`` (the two totals match). User-intake profiles often list
+    extra sources (rent, interest) *on top of* salary without repeating it —
+    using only those extras undercounted income and projected a LKR 0 tax bill.
+    """
+    bonus = profile.annual_bonus_lkr or Decimal("0")
+    gross_annual = profile.gross_monthly_income * Decimal("12")
     sources = profile.income_sources or []
-    if sources:
-        annual = sum(
-            Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)
-        ) * Decimal("12")
-        return annual
-    return profile.gross_monthly_income * Decimal("12")
+    sources_annual = sum(
+        (Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)),
+        start=Decimal("0"),
+    ) * Decimal("12")
+    if not sources:
+        return gross_annual + bonus
+    # Sources already explain primary income (breakdown, or a fuller listing).
+    if sources_annual >= gross_annual * Decimal("0.90"):
+        return sources_annual + bonus
+    return gross_annual + sources_annual + bonus
 
 
 def _eligibility_flags(
@@ -320,6 +418,8 @@ def _eligibility_flags(
         "has_existing_investments": profile.existing_investments > 0,
         "has_long_investment_horizon": profile.investment_horizon_years >= 10,
         "high_debt_to_income": debt_to_income > 0.4,
+        "has_vehicle": profile.vehicle_value > 0,
+        "has_property": profile.property_value > 0,
     }
     overrides = profile.eligibility_overrides or {}
     return {**computed, **{k: v for k, v in overrides.items() if k in computed}}
@@ -348,12 +448,14 @@ def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
     monthly_tax = baseline_tax / Decimal("12")
     monthly_disposable = (
         profile.gross_monthly_income
+        + profile.annual_bonus_lkr / Decimal("12")
         - profile.monthly_expenses
         - profile.monthly_debt_service
         - monthly_tax
     )
     annual_disposable = monthly_disposable * Decimal("12")
-    savings_rate = float(monthly_disposable / profile.gross_monthly_income) if profile.gross_monthly_income > 0 else 0.0
+    monthly_gross_with_bonus = profile.gross_monthly_income + profile.annual_bonus_lkr / Decimal("12")
+    savings_rate = float(monthly_disposable / monthly_gross_with_bonus) if monthly_gross_with_bonus > 0 else 0.0
     savings_rate = max(0.0, min(1.0, savings_rate))
 
     debt_to_income = float(profile.total_debt / annual_income) if annual_income > 0 else 0.0
@@ -382,10 +484,12 @@ def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
 
 
 __all__ = [
+    "EmailTakenError",
     "InvalidCredentialsError",
     "ProfileNotFoundError",
     "authenticate_user",
     "compute_derived_features",
+    "create_account",
     "create_profile",
     "delete_profile",
     "get_profile",

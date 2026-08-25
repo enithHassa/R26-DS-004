@@ -1,4 +1,4 @@
-"""Catalog-admin Step 7a: UPDATE promote writes only changed year files."""
+﻿"""Catalog-admin Step 7a: UPDATE promote writes only changed year files."""
 
 from __future__ import annotations
 

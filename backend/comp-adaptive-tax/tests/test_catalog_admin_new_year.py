@@ -1,4 +1,4 @@
-"""Catalog-admin Step 7b: confirm new year, then Phase 6 cmd_promote."""
+﻿"""Catalog-admin Step 7b: confirm new year, then Phase 6 cmd_promote."""
 
 from __future__ import annotations
 

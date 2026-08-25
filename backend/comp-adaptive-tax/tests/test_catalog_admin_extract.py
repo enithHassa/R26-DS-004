@@ -1,4 +1,4 @@
-"""Catalog-admin Step 3: background extract_proposal, failure, retry, delete."""
+﻿"""Catalog-admin Step 3: background extract_proposal, failure, retry, delete."""
 
 from __future__ import annotations
 

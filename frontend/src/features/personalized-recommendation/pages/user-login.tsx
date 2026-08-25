@@ -29,6 +29,7 @@ export function UserLoginPage() {
   const navigate = useNavigate();
   const isAuthenticated = useUserSessionStore((s) => s.isAuthenticated);
   const role = useUserSessionStore((s) => s.role);
+  const profileId = useUserSessionStore((s) => s.profileId);
   const setSession = useUserSessionStore((s) => s.login);
 
   const [username, setUsername] = useState("");
@@ -37,13 +38,23 @@ export function UserLoginPage() {
   const loginMutation = useMutation({
     mutationFn: () => login({ username, password }),
     onSuccess: (result) => {
-      setSession(result.role, result.profile_id, result.full_name);
-      navigate(result.role === "auditor" ? "/" : "/portal/about-you", { replace: true });
+      setSession(result.role, result.user_id, result.profile_id, result.full_name);
+      // First login (no financial profile yet) goes through the intake
+      // questions; returning users land straight on their recommendations.
+      navigate(
+        result.role === "auditor" ? "/" : result.profile_id ? "/portal" : "/portal/financial-intake",
+        { replace: true },
+      );
     },
   });
 
   if (isAuthenticated) {
-    return <Navigate to={role === "auditor" ? "/" : "/portal/about-you"} replace />;
+    return (
+      <Navigate
+        to={role === "auditor" ? "/" : profileId ? "/portal" : "/portal/financial-intake"}
+        replace
+      />
+    );
   }
 
   const onSubmit = (e: FormEvent) => {

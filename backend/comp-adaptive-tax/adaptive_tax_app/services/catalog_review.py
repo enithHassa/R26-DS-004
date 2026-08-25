@@ -1,4 +1,4 @@
-"""Catalog-admin Step 6: Phase 5 review wrapper (not a second ledger)."""
+﻿"""Catalog-admin Step 6: Phase 5 review wrapper (not a second ledger)."""
 
 from __future__ import annotations
 
@@ -55,10 +55,10 @@ SOLE_CHECK_LABEL = (
     "I have read the Act text and accept this rate without an independent check"
 )
 SOLE_CHECK_BANNER = (
-    "No independent verification source exists for this year — approval relies "
+    "No independent verification source exists for this year ΓÇö approval relies "
     "entirely on manual reading of the Act text."
 )
-# Phase 7 viva series — the only known-table that can block promote this pass.
+# Phase 7 viva series ΓÇö the only known-table that can block promote this pass.
 PERSONAL_RELIEF_KNOWN_CAPS: dict[str, int] = {
     "2018_19": 500_000,
     "2019_20": 500_000,
@@ -83,7 +83,7 @@ EXTRACT_PERSONAL_RELIEF_ALIASES = frozenset(
 
 def tax_effect_copy(kind: str | None, *, component_id: str | None = None) -> str:
     if not kind:
-        return "Calculator rule not chosen — pick Step 1 before you can approve this row."
+        return "Calculator rule not chosen ΓÇö pick Step 1 before you can approve this row."
     if kind == "none":
         return (
             "Standard calculator rule saved. Tax uses the cap and the taxpayer's "
@@ -91,7 +91,7 @@ def tax_effect_copy(kind: str | None, *, component_id: str | None = None) -> str
         )
     engines: list[str] = []
     if kind in TAX_REDUCING_KINDS:
-        engines.append("official calculate() on 2024/25–2025/26")
+        engines.append("official calculate() on 2024/25ΓÇô2025/26")
         engines.append("catalog estimate")
     extra = ""
     if kind == "filing_line":
@@ -235,7 +235,7 @@ def _cap_int(value: Any) -> int | None:
 
 
 def live_catalog_groups() -> tuple[set[str], dict[str, str]]:
-    """Live approved compare_group_id set and display_name → group."""
+    """Live approved compare_group_id set and display_name ΓåÆ group."""
     ids: set[str] = set()
     by_name: dict[str, str] = {}
     if not APPROVED_DIR.is_dir():
@@ -493,7 +493,7 @@ def build_review_row(
             None
             if can_approve
             else (
-                "Gate-fail rows cannot be approved — request re-extract."
+                "Gate-fail rows cannot be approved ΓÇö request re-extract."
                 if not _gate_ok(row)
                 else "Set human classification first."
                 if not (provision or {}).get("kind_human")
@@ -674,7 +674,7 @@ def enrich_review(proposal: dict[str, Any], paths: CatalogAdminPaths) -> dict[st
             reasons.append(
                 "Already promoted."
                 if status == "promoted"
-                else "UPDATE already promoted — remaining NEW_YEAR rows wait for Step 7b."
+                else "UPDATE already promoted ΓÇö remaining NEW_YEAR rows wait for Step 7b."
             )
         elif not has_update:
             reasons.append(
@@ -1092,7 +1092,7 @@ def touched_update_groups(
     paths: CatalogAdminPaths,
     mod: Any,
 ) -> dict[str, set[str]]:
-    """catalog compare_group_id → extractor ids, for approved UPDATE reliefs only."""
+    """catalog compare_group_id ΓåÆ extractor ids, for approved UPDATE reliefs only."""
     by_id = _provisions_by_id(proposal)
     sid = str(proposal.get("source_doc_id") or "")
     extract_for_group: dict[str, set[str]] = {}
@@ -1233,9 +1233,9 @@ def promote_preview(
                 if drift:
                     known_ok = False
                     known_note = (
-                        "personal_relief known-table drift — "
+                        "personal_relief known-table drift ΓÇö "
                         + "; ".join(drift)
-                        + " — promote is blocked."
+                        + " ΓÇö promote is blocked."
                     )
             else:
                 known_note = "No known-table verification exists for this group."

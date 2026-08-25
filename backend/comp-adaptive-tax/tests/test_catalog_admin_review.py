@@ -1,4 +1,4 @@
-"""Catalog-admin Step 6: Phase 5 review wrapper, engine_binding, impact preview."""
+﻿"""Catalog-admin Step 6: Phase 5 review wrapper, engine_binding, impact preview."""
 
 from __future__ import annotations
 

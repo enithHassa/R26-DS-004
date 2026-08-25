@@ -1,4 +1,4 @@
-"""Catalog-admin gate, duplicate check, extract, and per-row classification."""
+﻿"""Catalog-admin gate, duplicate check, extract, and per-row classification."""
 # WatchFiles reload so COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN is picked up.
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def require_catalog_admin_token(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Catalog admin is not configured — set COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN "
+                "Catalog admin is not configured ΓÇö set COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN "
                 "in .env and restart Adaptive Tax."
             ),
         )
@@ -65,7 +65,7 @@ def require_catalog_admin_token(
 def require_catalog_admin_reviewer(
     x_catalog_admin_reviewer: Annotated[str | None, Header()] = None,
 ) -> str:
-    """Attribution only — not a second password. Required on mutating routes."""
+    """Attribution only ΓÇö not a second password. Required on mutating routes."""
     name = (x_catalog_admin_reviewer or "").strip()
     if not name:
         raise HTTPException(

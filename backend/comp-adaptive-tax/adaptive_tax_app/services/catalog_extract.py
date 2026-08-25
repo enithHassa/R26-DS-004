@@ -1,4 +1,4 @@
-"""Catalog-admin Step 3: background extract_proposal (no forked quote gate)."""
+﻿"""Catalog-admin Step 3: background extract_proposal (no forked quote gate)."""
 
 from __future__ import annotations
 

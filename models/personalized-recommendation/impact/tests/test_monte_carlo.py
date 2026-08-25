@@ -14,7 +14,7 @@ if str(ML_ROOT) not in sys.path:
 
 from impact.monte_carlo import median_projection, projection_bands, run_monte_carlo  # noqa: E402
 from impact.strategy_effects import estimate_first_year_tax_savings  # noqa: E402
-from impact.types import DeductionProfile, ScenarioParams, SimulationSnapshot  # noqa: E402
+from impact.types import DeductionProfile, PathMatrices, ScenarioParams, SimulationSnapshot  # noqa: E402
 from rules.engine import load_tax_rules  # noqa: E402
 
 
@@ -139,3 +139,19 @@ def test_projection_bands_ordered(rules_engine) -> None:
     assert len(bands) == 3
     for row in bands:
         assert row["p10"] <= row["p50"] <= row["p90"]
+
+
+def test_projection_bands_percentile_is_per_year() -> None:
+    """Bands must percentile across paths for each year, not across years."""
+    paths = PathMatrices(
+        years=[1, 2],
+        salary=[[10.0, 10.0], [20.0, 20.0]],
+        tax_liability=[[100.0, 300.0], [1000.0, 3000.0]],
+        savings=[[0.0, 0.0], [0.0, 0.0]],
+        net_worth=[[0.0, 0.0], [0.0, 0.0]],
+    )
+    bands = projection_bands(paths, field="tax_liability")
+    assert bands[0]["p50"] == 200.0
+    assert bands[1]["p50"] == 2000.0
+    assert bands[0]["p10"] == 120.0
+    assert bands[0]["p90"] == 280.0

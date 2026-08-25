@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Relief Interview Phase 6 — amendment watcher.
+﻿#!/usr/bin/env python3
+"""Relief Interview Phase 6 ΓÇö amendment watcher.
 
 Future Acts propose catalog changes without rewriting the past.
 
@@ -12,7 +12,7 @@ Flow
 5. ``promote`` creates only ``approved/{ya}.json`` + ``rates/{ya}.json`` for that YA
 6. Every previously existing year-file hash is re-checked and must be unchanged
 
-Act 04/2023 (``ird-amend-2023-04``) is already in the extract corpus — it is
+Act 04/2023 (``ird-amend-2023-04``) is already in the extract corpus ΓÇö it is
 refused here on purpose. The watcher demo uses a synthetic fixture PDF that is
 not in the manifest.
 
@@ -58,7 +58,7 @@ HASH_BASELINE_PATH = REVIEW_DIR / "immutable_baseline.json"
 DEMO_DIR = OUT_ROOT / "watcher-demo"
 DEMO_PDF_PATH = DEMO_DIR / "IR_Act_No_Watcher_Demo_2026_E.pdf"
 DEMO_SOURCE_DOC_ID = "ird-amend-watcher-demo-2026"
-DEMO_TITLE = "Inland Revenue Amendment Act (Watcher Demo 2026) — SYNTHETIC FIXTURE"
+DEMO_TITLE = "Inland Revenue Amendment Act (Watcher Demo 2026) ΓÇö SYNTHETIC FIXTURE"
 EXTRACT_SCRIPT = REPO_ROOT / "scripts" / "relief_interview_phase4_extract.py"
 PHASE5_SCRIPT = REPO_ROOT / "scripts" / "relief_interview_phase5_review.py"
 
@@ -489,7 +489,7 @@ def extract_proposal(
         "included_count": len(included),
         "rows": all_rows,
         "notes": (
-            "Watcher proposal only — not live. A human must set "
+            "Watcher proposal only ΓÇö not live. A human must set "
             "proposed_for_assessment_year and run promote. Past approved/rates "
             "year files are never rewritten by this pipeline."
         ),
@@ -569,8 +569,8 @@ def cmd_make_demo_pdf(args: argparse.Namespace) -> int:
         print(f"  exists: {DEMO_PDF_PATH.relative_to(REPO_ROOT).as_posix()} (use --force)")
         return 0
 
-    text = """INLAND REVENUE (AMENDMENT) ACT — WATCHER DEMO 2026
-SYNTHETIC FIXTURE — NOT A REAL STATUTE — RESEARCH DEMO ONLY
+    text = """INLAND REVENUE (AMENDMENT) ACT ΓÇö WATCHER DEMO 2026
+SYNTHETIC FIXTURE ΓÇö NOT A REAL STATUTE ΓÇö RESEARCH DEMO ONLY
 
 An Act to amend the Inland Revenue Act, No. 24 of 2017.
 [Certified on 1st January, 2026 for watcher-demo purposes only.]
@@ -895,7 +895,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
 
     APPROVED_DIR.mkdir(parents=True, exist_ok=True)
     RATES_DIR.mkdir(parents=True, exist_ok=True)
-    # Never use Phase 5's overwrite path on past years — write only the new YA.
+    # Never use Phase 5's overwrite path on past years ΓÇö write only the new YA.
     approved_path.write_text(
         json.dumps(approved_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -1019,7 +1019,7 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument(
         "--past-only",
         action="store_true",
-        help="Only check 2018/19–2025/26 (ignore later watcher-created years)",
+        help="Only check 2018/19ΓÇô2025/26 (ignore later watcher-created years)",
     )
     p_check.set_defaults(func=cmd_check_immutable)
 

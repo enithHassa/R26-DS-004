@@ -116,6 +116,36 @@ def test_features_endpoint_computes_tax_and_disposable_income(client: TestClient
     assert feats["eligibility_flags"]["has_health_insurance"] is True
 
 
+def test_taxable_income_adds_side_sources_when_they_do_not_cover_salary(
+    client: TestClient,
+) -> None:
+    """User-intake style: salary in gross_monthly_income, extras in income_sources.
+
+    Using only the extras (rental + interest) kept annual income under the
+    tax-free relief and flattened the impact tax chart to LKR 0.
+    """
+    payload = _payload(
+        gross_monthly_income="100000.00",
+        annual_bonus_lkr="30000.00",
+        monthly_expenses="60000.00",
+        monthly_debt_service="0",
+        life_insurance_premium_annual="0",
+        home_loan_interest_annual="0",
+        donations_annual="0",
+        health_insurance=False,
+        income_sources=[
+            {"kind": "rental", "monthly_amount": "40000.00", "is_taxable": True},
+            {"kind": "interest", "monthly_amount": "20000.00", "is_taxable": True},
+        ],
+    )
+    created = client.post("/api/v1/profiles", json=payload).json()
+    feats = client.get(f"/api/v1/profiles/{created['id']}/features").json()
+    # (100k + 40k + 20k) * 12 + 30k bonus = 1,950,000
+    assert Decimal(feats["gross_annual_taxable_income"]) == Decimal("1950000.00")
+    assert Decimal(feats["baseline_tax_liability_annual"]) > 0
+    assert feats["eligibility_flags"]["above_tax_threshold"] is True
+
+
 def test_zero_tax_for_low_income(client: TestClient) -> None:
     payload = _payload(
         gross_monthly_income="80000.00",

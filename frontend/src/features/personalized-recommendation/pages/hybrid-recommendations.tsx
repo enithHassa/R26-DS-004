@@ -229,7 +229,7 @@ export function HybridRecommendationsPage() {
 
   const historyQuery = useQuery({
     queryKey: ["profile-history", profileId],
-    queryFn: () => getProfileHistory(profileId, 24),
+    queryFn: () => getProfileHistory(profileId, 36),
     enabled: profileId.length > 0,
   });
 

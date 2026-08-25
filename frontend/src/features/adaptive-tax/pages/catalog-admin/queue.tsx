@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -99,7 +99,7 @@ export function CatalogAdminQueuePage() {
           <h2 className="text-lg font-semibold">Review queue</h2>
           <p className="max-w-xl text-sm text-muted-foreground">
             Acts you have uploaded. Open a finished extract to classify rows and
-            promote. If extract failed, retry that job — do not upload the same
+            promote. If extract failed, retry that job ΓÇö do not upload the same
             PDF again.
           </p>
         </div>
@@ -121,7 +121,7 @@ export function CatalogAdminQueuePage() {
             : "Could not load queue."}
         </p>
       ) : queueQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading queue…</p>
+        <p className="text-sm text-muted-foreground">Loading queueΓÇª</p>
       ) : (
         <div className="space-y-6">
           <QueueSection
@@ -148,7 +148,7 @@ export function CatalogAdminQueuePage() {
           <QueueSection
             title="Still processing"
             count={processing.length}
-            hint="Uploaded, but not finished extracting yet — not ready to review."
+            hint="Uploaded, but not finished extracting yet ΓÇö not ready to review."
             empty="Nothing is extracting right now."
           >
             {processing.map((row) => (
@@ -253,8 +253,8 @@ function ProposalCard({
           <CardTitle className="text-base">{title}</CardTitle>
           <p className="text-xs text-muted-foreground">
             {row.extracted_at ? `Extracted ${formatWhen(row.extracted_at)}` : "Extracted"}
-            {row.included_count != null ? ` · ${row.included_count} rows to review` : ""}
-            {promoted ? ` · ${row.promotion_status}` : ""}
+            {row.included_count != null ? ` ┬╖ ${row.included_count} rows to review` : ""}
+            {promoted ? ` ┬╖ ${row.promotion_status}` : ""}
           </p>
           {file ? (
             <p className="text-xs text-muted-foreground">{file}</p>
@@ -271,7 +271,7 @@ function ProposalCard({
             disabled={removing}
             onClick={onRemove}
           >
-            {removing ? "Removing…" : "Remove"}
+            {removing ? "RemovingΓÇª" : "Remove"}
           </Button>
         </div>
       </CardHeader>
@@ -307,7 +307,7 @@ function JobCard({
           <CardTitle className="text-base">{title}</CardTitle>
           <p className={destructive ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
             {status}
-            {when ? ` · ${formatWhen(when)}` : ""}
+            {when ? ` ┬╖ ${formatWhen(when)}` : ""}
           </p>
           {filename ? (
             <p className="text-xs text-muted-foreground">{displayPdfName(filename)}</p>
@@ -325,7 +325,7 @@ function JobCard({
               disabled={removing}
               onClick={onRemove}
             >
-              {removing ? "Removing…" : "Remove"}
+              {removing ? "RemovingΓÇª" : "Remove"}
             </Button>
           ) : null}
         </div>

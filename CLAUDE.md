@@ -301,7 +301,6 @@ $env:PYTHONPATH = "backend/comp-tax-optimization;$PWD"
 # Adaptive Tax component (uses adaptive_tax_app/main.py)
 $env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
 .\.venv-backend\Scripts\python.exe -m uvicorn adaptive_tax_app.main:app --app-dir backend/comp-adaptive-tax
-
 # Optimization and Explainable (uses opt_explain_app/main.py)
 $env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
 .\.venv-backend\Scripts\python.exe -m uvicorn opt_explain_app.main:app --app-dir backend/comp-optimization-explainable

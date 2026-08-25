@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+﻿import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -76,14 +76,14 @@ export function CatalogAdminUploadPage() {
       }
       if (upload.case === "prior_failed" && upload.job_id) {
         setBlocked(upload);
-        setInfo("A previous extract failed for this PDF — retry that job.");
+        setInfo("A previous extract failed for this PDF ΓÇö retry that job.");
         return;
       }
 
       if ((upload.case === "a" || upload.case === "d") && upload.job_id) {
         setInfo(
           upload.case === "a"
-            ? `${actLabel(upload)} looks like an Act already in the catalog (${upload.matched_source_doc_id}). Starting a new draft extract for review — promote will show if caps already match live data.`
+            ? `${actLabel(upload)} looks like an Act already in the catalog (${upload.matched_source_doc_id}). Starting a new draft extract for review ΓÇö promote will show if caps already match live data.`
             : `Possible re-scan of ${upload.matched_source_doc_id}. Extracting as a new draft for review.`,
         );
         upload = await treatCatalogAdminAsNewSource(upload.job_id);
@@ -126,11 +126,11 @@ export function CatalogAdminUploadPage() {
           />
         </div>
         <Button type="submit" disabled={busy || !file}>
-          {busy ? "Uploading and starting extract…" : "Upload and extract"}
+          {busy ? "Uploading and starting extractΓÇª" : "Upload and extract"}
         </Button>
         <p className="text-xs text-muted-foreground">
           Extract runs in the background (GPT). Poll the job page, then open review when
-          finished. Same PDF twice is OK for a demo — duplicate overlap is checked at promote.
+          finished. Same PDF twice is OK for a demo ΓÇö duplicate overlap is checked at promote.
         </p>
       </form>
 
@@ -178,7 +178,7 @@ export function CatalogAdminUploadPage() {
             disabled={refreshing}
             onClick={() => void onRefreshIndex()}
           >
-            {refreshing ? "Refreshing…" : "Refresh corpus hash index"}
+            {refreshing ? "RefreshingΓÇª" : "Refresh corpus hash index"}
           </Button>
         </div>
       </details>

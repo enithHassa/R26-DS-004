@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Relief Interview Phase 4: gpt-4o two-pass extraction + deterministic quote gate.
 
 Standalone by design: copies the focus-window / quote-check pattern from the
@@ -162,13 +162,13 @@ PASS1_SYSTEM = """You are a Sri Lankan Inland Revenue Act extraction analyst.
 You are given a focus window copied verbatim from ONE official Act PDF.
 Extract, from that window ONLY:
 
-1. reliefs — personal relief, deductions, qualifying payments, relief caps.
-2. rate_bands — progressive income tax bands (lower, upper, rate).
-3. rules — surcharges, special formulas, other rate rules.
+1. reliefs ΓÇö personal relief, deductions, qualifying payments, relief caps.
+2. rate_bands ΓÇö progressive income tax bands (lower, upper, rate).
+3. rules ΓÇö surcharges, special formulas, other rate rules.
 
 An amending Act usually states a relief change as a substituted or newly added
 item that is nothing but an amount and a date, with the word "relief" nowhere
-nearby — for example: `by the addition immediately after item (iv) of that
+nearby ΓÇö for example: `by the addition immediately after item (iv) of that
 subparagraph, of the following new item: - "(v) Rs. 1,800,000, for each year of
 assessment commencing on or after April 1, 2025"`. That IS a relief row. Capture
 the amount as `cap_amount` and the date as `effective_from`, and read the
@@ -177,7 +177,7 @@ history of the same relief at different dates: emit one row per item, each with
 its own `effective_from` and `effective_to`, and never merge them.
 
 Be complete: return every relief, band and rule the target provision states.
-Most provisions are ordinary prose, not tables — extract those the same way.
+Most provisions are ordinary prose, not tables ΓÇö extract those the same way.
 
 When the Target provision is the Fifth Schedule (or an amendment of it):
 - Paragraph 1 lists QUALIFYING PAYMENTS (donations to approved funds/charities,
@@ -187,7 +187,7 @@ When the Target provision is the Fifth Schedule (or an amendment of it):
   such as "Charitable donation qualifying payment", "Approved charity donation",
   etc. Never omit a middle lettered/Roman sub-item by skipping from one clause
   opening to a later clause in the same quote.
-- Paragraph 2 lists RELIEFS (personal, employment, rent, solar, expenditure…).
+- Paragraph 2 lists RELIEFS (personal, employment, rent, solar, expenditureΓÇª).
   Emit one row per lettered item / dated amount, as already required.
 - Do not skip paragraph 1 in favour of paragraph 2. If both appear in the
   window, extract both.
@@ -206,7 +206,7 @@ Hard rules for `quote` (a downstream checker re-tests this mechanically):
   breaks are fine to include. A quote may start or stop mid-sentence.
 - Aim for 15-300 characters.
 
-If — and only if — a row comes from a table:
+If ΓÇö and only if ΓÇö a row comes from a table:
 - The raw PDF text lists table cells interleaved and out of logical reading
   order, so never stitch those cells into a readable sentence and never pair a
   band with a rate by guessing from that order.
@@ -218,12 +218,12 @@ If — and only if — a row comes from a table:
   row together. Never join two body rows, and never reach across the blank line
   that separates one block from the next.
 
-Scope — this matters as much as the quotes:
+Scope ΓÇö this matters as much as the quotes:
 - Extract ONLY what belongs to the stated Target provision. The window reaches a
   little past that provision to keep clause openings intact, so neighbouring
   provisions may be visible. Ignore them entirely.
 - In an amending Act, `section_ref` must name the provision of the PRINCIPAL Act
-  (Inland Revenue Act, No. 24 of 2017) that is being amended — read it from the
+  (Inland Revenue Act, No. 24 of 2017) that is being amended ΓÇö read it from the
   marginal note ("Amendment of section 150 of Act, No. 24 of 2017") or from
   "Section 150 of the principal enactment". NEVER cite the amending Act's own
   clause number (e.g. "Section 2(1)(a)" of the amending Act is wrong).
@@ -253,12 +253,12 @@ Other hard rules:
 - `effective_to` (reliefs only): exclusive end date as YYYY-MM-DD when the
   window states an upper bound, e.g. "prior to April 1, 2022" / "but prior to
   April 1, 2022" -> "2022-04-01". Use "" when the window only says "on or after
-  …" with no upper bound, or does not state an end. Never invent an end date
+  ΓÇª" with no upper bound, or does not state an end. Never invent an end date
   from a later Act or from outside knowledge.
 - `applies_to`: who or what the table taxes, in a few words, copied in substance
   from the introducing sentence (e.g. "resident or non-resident individual",
   "employees' trust fund", "gains on realisation of investment assets").
-- If a value is not stated in the window, use "" — never guess.
+- If a value is not stated in the window, use "" ΓÇö never guess.
 - If the window contains nothing extractable for a list, return that list empty.
 - Do not use outside knowledge of Sri Lankan tax law. The window is the only source.
 """
@@ -343,7 +343,7 @@ class ActText:
     """Two deterministic renderings of one Act PDF, from a single read.
 
     ``stream`` is the linear text layer. Rate schedules are laid out
-    column-major there, so a band and its rate are never contiguous — and
+    column-major there, so a band and its rate are never contiguous ΓÇö and
     reading them linearly pairs the wrong cells. ``tables`` is the
     layout-reconstructed rendering of the same table objects, which restores
     the row pairing. Both are verbatim renderings of the same PDF, so a quote
@@ -372,7 +372,7 @@ class ActText:
 def _render_tables(page: Any, page_no: int) -> str:
     try:
         finder = page.find_tables()
-    except Exception:  # noqa: BLE001 — table detection is best-effort
+    except Exception:  # noqa: BLE001 ΓÇö table detection is best-effort
         return ""
     lines: list[str] = []
     for table in getattr(finder, "tables", []):
@@ -566,11 +566,11 @@ def build_focus_window(act: ActText, section_key: str, *, is_base_act: bool) -> 
 
 
 def extract_section_prose(focus_text: str, *, max_chars: int = 3500) -> str:
-    """Act prose for schedule rate rows — intro plus inline table text from the PDF."""
+    """Act prose for schedule rate rows ΓÇö intro plus inline table text from the PDF."""
     if not focus_text or not str(focus_text).strip():
         return ""
     prose = str(focus_text).split("### Tables on these pages")[0]
-    prose = prose.replace("\n\n[...]\n\n", "\n\n…\n\n").strip()
+    prose = prose.replace("\n\n[...]\n\n", "\n\nΓÇª\n\n").strip()
     if not prose:
         return ""
 
@@ -596,14 +596,14 @@ def extract_section_prose(focus_text: str, *, max_chars: int = 3500) -> str:
         "\nFOURTH SCHEDULE",
         "\n2. Tax rates for",
         "\n2. Tax rates on",
-        "\n\n…\n\n",
+        "\n\nΓÇª\n\n",
     ):
         idx = chunk.find(stop)
         if idx > 400:
             end = min(end, idx)
     chunk = chunk[:end].strip()
     if len(chunk) > max_chars:
-        chunk = chunk[:max_chars].rsplit("\n", 1)[0] + "…"
+        chunk = chunk[:max_chars].rsplit("\n", 1)[0] + "ΓÇª"
     return chunk.strip()
 
 
@@ -727,7 +727,7 @@ def call_with_retry(client: Any, budget: Budget, model: str, **kwargs: Any) -> A
             completion = _parse(client, model=model, temperature=0, **kwargs)
             budget.record(getattr(completion, "usage", None))
             return completion
-        except Exception as exc:  # noqa: BLE001 — retry transient API errors
+        except Exception as exc:  # noqa: BLE001 ΓÇö retry transient API errors
             last = exc
             message = str(exc).lower()
             if "insufficient_quota" in message or "billing" in message:
@@ -794,7 +794,7 @@ def _merge_pass1(a: Pass1Payload, b: Pass1Payload) -> Pass1Payload:
 
 _SCHEDULE_PASS1_FOCUSES = (
     (
-        "FIFTH SCHEDULE — PARAGRAPH 1 ONLY (qualifying payments / donations).\n"
+        "FIFTH SCHEDULE ΓÇö PARAGRAPH 1 ONLY (qualifying payments / donations).\n"
         "Extract every distinct paragraph-1 category or sub-item, INCLUDING "
         "uncapped ones. Cover: 1(a) approved charity ceilings for (iia) "
         "individuals AND (iib) entities as SEPARATE rows; every 1(b)(i) "
@@ -802,17 +802,17 @@ _SCHEDULE_PASS1_FOCUSES = (
         "university/HEI, Buddhist & Pali university, Government fund, local "
         "authority fund, Sevana, provincial fund, Api Wenuwen Api, National "
         "Kidney Fund, etc.); plus Samurdhi shop, film/cinema, bank-merger "
-        "cost, and any other ¶1 category with a stated Rs/% cap. "
+        "cost, and any other ┬╢1 category with a stated Rs/% cap. "
         "Ignore paragraph 2 reliefs in this pass. Emit one relief row per "
         "category / Roman sub-item.\n"
         "CONTIGUITY (1(a)): (iia) and (iib) MUST be separate rows. Each "
         "`quote` must be a contiguous run INSIDE that lettered ceiling clause "
-        "only — never start at the opening of 1(a) and jump over (iia) to "
+        "only ΓÇö never start at the opening of 1(a) and jump over (iia) to "
         "reach (iib).\n"
-        "UNCAPPED 1(b): emit one row per distinct 1(b)(i)–(x) even when no "
+        "UNCAPPED 1(b): emit one row per distinct 1(b)(i)ΓÇô(x) even when no "
         "Rs/% appears; set cap_amount to \"\". Do NOT skip a 1(b) sub-item "
         "merely because it lacks a monetary or percentage ceiling.\n"
-        "EXCLUDE 1(c): do NOT extract President’s Fund remittance / "
+        "EXCLUDE 1(c): do NOT extract PresidentΓÇÖs Fund remittance / "
         "paragraph 1(c).\n"
         "CRITICAL: each row's `quote` MUST be a contiguous passage that names "
         "THAT category (and states ITS own cap when one exists, e.g. 'Rupees "
@@ -823,7 +823,7 @@ _SCHEDULE_PASS1_FOCUSES = (
         "when the window states no monetary ceiling for that category."
     ),
     (
-        "FIFTH SCHEDULE — PARAGRAPH 2 ONLY (reliefs).\n"
+        "FIFTH SCHEDULE ΓÇö PARAGRAPH 2 ONLY (reliefs).\n"
         "Extract every lettered relief item and every dated amount history "
         "(personal, employment, rent, senior, foreign FX, solar, expenditure, "
         "etc.), including amending substitutions that only change dates or "
@@ -833,8 +833,8 @@ _SCHEDULE_PASS1_FOCUSES = (
         "For a substitution that both closes an open period ('but prior to "
         "April 1, 2022') and adds a nine-month amount for the YA commencing "
         "April 1, 2022: emit TWO relief rows when both amounts/dates are "
-        "stated — one with the closed open period (effective_to from 'prior "
-        "to …') and one for the nine-month YA amount (effective_from = that "
+        "stated ΓÇö one with the closed open period (effective_to from 'prior "
+        "to ΓÇª') and one for the nine-month YA amount (effective_from = that "
         "YA start; effective_to = next YA start when the window limits it to "
         "that one year of assessment)."
     ),
@@ -879,7 +879,7 @@ def run_pass2(
 def section_ref_on_target(section_ref: str, section_key: str) -> bool:
     """Does the cited provision match the section we asked for?
 
-    Review signal for window bleed into a neighbouring provision — not a veto,
+    Review signal for window bleed into a neighbouring provision ΓÇö not a veto,
     since a genuine cross-reference can be legitimate.
     """
     ref = (section_ref or "").lower()
@@ -972,7 +972,7 @@ def main(argv: list[str] | None = None) -> int:
     for row in path_rows:
         print(f"  [{'OK' if row['exists'] else 'MISSING'}] {row['source_doc_id']} -> {row['file_name']}")
     if errors:
-        print("\nPATH CHECK FAILED — stopping before any PDF read.", file=sys.stderr)
+        print("\nPATH CHECK FAILED ΓÇö stopping before any PDF read.", file=sys.stderr)
         for err in errors:
             print(f"  - {err}", file=sys.stderr)
         return 1

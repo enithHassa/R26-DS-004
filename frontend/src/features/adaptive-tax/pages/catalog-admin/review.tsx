@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, CheckCircle2, CircleDashed, FileText, XCircle } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -45,7 +45,7 @@ function catalogAdminActionError(err: unknown): string {
   if (/HTTP 404|Not Found/i.test(msg)) {
     return (
       `${msg} Adaptive Tax is still the old process (classification works, ` +
-      `tax-effect / approve do not). Stop the :8006 uvicorn fully and start it again — ` +
+      `tax-effect / approve do not). Stop the :8006 uvicorn fully and start it again ΓÇö ` +
       `--reload does not pick up the new engine-binding routes.`
     );
   }
@@ -60,9 +60,9 @@ function promoteIndexRefreshNote(
     const years = Array.isArray(indexRefresh.body?.years) ? indexRefresh.body.years : [];
     const latest = years.length ? years[years.length - 1] : null;
     if (latest) {
-      return ` OE index updated — YA ${yearLabel(latest)} is now available in the interview, reliefs, and compare.`;
+      return ` OE index updated ΓÇö YA ${yearLabel(latest)} is now available in the interview, reliefs, and compare.`;
     }
-    return " OE index updated — taxpayer Reliefs and Compare will use the latest catalog.";
+    return " OE index updated ΓÇö taxpayer Reliefs and Compare will use the latest catalog.";
   }
   const detail =
     typeof indexRefresh.error === "string"
@@ -92,7 +92,7 @@ function provisionAsRow(provision: CatalogAdminProvision): CatalogAdminReviewRow
     classification: provision,
     engine_binding: provision.engine_binding,
     tax_effect: isReliefKind(kind)
-      ? "Calculator rule not chosen — approve is blocked until you pick Step 1 below."
+      ? "Calculator rule not chosen ΓÇö approve is blocked until you pick Step 1 below."
       : null,
     can_approve: false,
     approve_label: RATE_KINDS.has(kind)
@@ -106,7 +106,7 @@ function provisionAsRow(provision: CatalogAdminProvision): CatalogAdminReviewRow
 const BINDING_OPTIONS: Array<{ value: CatalogAdminEngineBindingKind; label: string }> = [
   {
     value: "none",
-    label: "Standard relief (default — personal, claims, auto-applied caps)",
+    label: "Standard relief (default ΓÇö personal, claims, auto-applied caps)",
   },
   { value: "solar_panel_relief", label: "Solar panel relief" },
   { value: "rent_relief", label: "Rental income relief" },
@@ -134,14 +134,14 @@ function recommendedBindingKind(row: CatalogAdminReviewRow): CatalogAdminEngineB
 function bindingOptionLabel(kind: string | undefined): string {
   const match = BINDING_OPTIONS.find((option) => option.value === kind);
   if (!match) return "Standard relief";
-  return match.label.split("—")[0]?.trim() || match.label;
+  return match.label.split("ΓÇö")[0]?.trim() || match.label;
 }
 
 function bindingRecommendation(row: CatalogAdminReviewRow): string | null {
   const group = (row.catalog_compare_group_id || row.compare_group_id || "").trim();
   const inputKind = row.input_kind || "";
   if (STANDARD_BINDING_GROUPS.has(group) || inputKind === "notice") {
-    return "Quick approve picks Standard relief — fine for personal relief and most Fifth Schedule items.";
+    return "Quick approve picks Standard relief ΓÇö fine for personal relief and most Fifth Schedule items.";
   }
   if (inputKind === "yes_no_amount" || inputKind === "amount") {
     return "Quick approve picks Standard relief for yes/no + amount reliefs like this one.";
@@ -167,7 +167,7 @@ function friendlyTaxEffectCopy(raw: string | null | undefined): string {
   if (raw.includes("WILL reduce calculated tax")) {
     return raw.replace(
       "This relief WILL reduce calculated tax",
-      "Special rule saved — this relief will reduce calculated tax",
+      "Special rule saved ΓÇö this relief will reduce calculated tax",
     );
   }
   return raw;
@@ -189,7 +189,7 @@ function formatWhen(iso?: string | null): string {
 
 function formatRowCap(row: CatalogAdminReviewRow): string {
   const raw = row.cap_amount;
-  if (raw == null || raw === "") return "—";
+  if (raw == null || raw === "") return "ΓÇö";
   const text = String(raw).trim();
   if (/%$/.test(text)) return text;
   const group = `${row.catalog_compare_group_id || ""} ${row.compare_group_id || ""}`.toLowerCase();
@@ -229,23 +229,23 @@ function formatRowExtractedValue(row: CatalogAdminReviewRow): string {
   const panel = rowPanelKind(row);
   if (panel === "relief") {
     const cap = formatRowCap(row);
-    if (cap !== "—") return cap;
+    if (cap !== "ΓÇö") return cap;
   }
   if (panel === "rate") {
     const parts: string[] = [];
     if (row.rate_percent != null) parts.push(`${row.rate_percent}%`);
     else if (row.value != null && row.value !== "") parts.push(String(row.value));
     if (row.lower != null || row.upper != null) {
-      parts.push(`${row.lower ?? "0"} – ${row.upper ?? "∞"}`);
+      parts.push(`${row.lower ?? "0"} ΓÇô ${row.upper ?? "Γê₧"}`);
     }
-    if (parts.length) return parts.join(" · ");
+    if (parts.length) return parts.join(" ┬╖ ");
   }
   if (row.description?.trim()) {
     const text = row.description.trim();
-    return text.length > 96 ? `${text.slice(0, 93)}…` : text;
+    return text.length > 96 ? `${text.slice(0, 93)}ΓÇª` : text;
   }
   if (row.value != null && row.value !== "") return String(row.value);
-  return "—";
+  return "ΓÇö";
 }
 
 function formatRowTaxEngineLabel(row: CatalogAdminReviewRow): string {
@@ -254,7 +254,7 @@ function formatRowTaxEngineLabel(row: CatalogAdminReviewRow): string {
     const binding = row.engine_binding?.kind ?? row.classification?.engine_binding?.kind;
     if (binding === "none") return "Interview only";
     if (binding) return bindingOptionLabel(binding);
-    return "—";
+    return "ΓÇö";
   }
   if (panel === "rate") return rowKindLabel(row.row_kind);
   return "Catalog note";
@@ -314,7 +314,7 @@ function dedupePromoteIncludedRows(rows: CatalogAdminReviewRow[]): PromoteInclud
 
 function promoteIncludedSubLabel(view: PromoteIncludedRowView): string | null {
   if (view.sections.length > 1) {
-    return `Same extract in ${view.sections.join(" · ")}`;
+    return `Same extract in ${view.sections.join(" ┬╖ ")}`;
   }
   if (view.sections.length === 1) {
     return view.sections[0];
@@ -356,7 +356,7 @@ function updateTargetYaSlug(
   return null;
 }
 
-/** Human label for UPDATE vs NEW_YEAR — NEW uses act-derived YA; UPDATE uses live catalog YA. */
+/** Human label for UPDATE vs NEW_YEAR ΓÇö NEW uses act-derived YA; UPDATE uses live catalog YA. */
 function kindDecisionLabel(
   kind: CatalogAdminKind | null | undefined,
   provision?: CatalogAdminProvision | null,
@@ -366,17 +366,17 @@ function kindDecisionLabel(
   const updateSlug = updateTargetYaSlug(provision, options?.yearCtx);
   const updateYa = yearLabel(updateSlug);
   if (kind === "NEW_YEAR") {
-    return newYa ? `Create a new year · YA ${newYa}` : "Create a new year";
+    return newYa ? `Create a new year ┬╖ YA ${newYa}` : "Create a new year";
   }
   if (kind === "UPDATE") {
-    return updateYa ? `Update existing year · YA ${updateYa}` : "Update existing year";
+    return updateYa ? `Update existing year ┬╖ YA ${updateYa}` : "Update existing year";
   }
   if (options?.defaultSuffix) {
     return updateYa
-      ? `Update existing year · YA ${updateYa} (default)`
+      ? `Update existing year ┬╖ YA ${updateYa} (default)`
       : "Update existing year (default)";
   }
-  return updateYa ? `Update existing year · YA ${updateYa}` : "Update existing year";
+  return updateYa ? `Update existing year ┬╖ YA ${updateYa}` : "Update existing year";
 }
 
 function derivedYearHint(
@@ -398,7 +398,7 @@ function derivedYearHint(
     return `From the act date, this row updates YA ${newYa} in the live catalog on promote.`;
   }
   return updateYa && updateYa !== newYa
-    ? `Act date → YA ${newYa}. Update existing year → YA ${updateYa}; Create a new year → YA ${newYa}.`
+    ? `Act date ΓåÆ YA ${newYa}. Update existing year ΓåÆ YA ${updateYa}; Create a new year ΓåÆ YA ${newYa}.`
     : `From the act date, this row targets YA ${newYa}.`;
 }
 
@@ -596,7 +596,7 @@ function ActQuoteBlock({ row }: { row: CatalogAdminReviewRow }) {
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">
             From the Act (schedule text)
-            {row.section_ref ? ` · ${row.section_ref}` : ""}
+            {row.section_ref ? ` ┬╖ ${row.section_ref}` : ""}
           </p>
           <blockquote className="max-h-80 overflow-y-auto rounded-lg border-l-4 border-primary/30 bg-muted/40 px-4 py-3">
             <SectionActProseDisplay prose={sectionProse} />
@@ -607,8 +607,8 @@ function ActQuoteBlock({ row }: { row: CatalogAdminReviewRow }) {
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">
             {tableQuote ? "This band" : "Act quote"}
-            {!sectionProse && row.section_ref ? ` · ${row.section_ref}` : ""}
-            {!sectionProse && row.applies_to ? ` · ${row.applies_to}` : ""}
+            {!sectionProse && row.section_ref ? ` ┬╖ ${row.section_ref}` : ""}
+            {!sectionProse && row.applies_to ? ` ┬╖ ${row.applies_to}` : ""}
           </p>
           <blockquote className="rounded-lg border-l-4 border-primary/30 bg-muted/40 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap">
             {text}
@@ -730,7 +730,7 @@ function ReviewProgressStrip({ relief, rates }: { relief: ReviewCounts; rates: R
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Review progress</CardTitle>
         <CardDescription>
-          {done} of {total} rows decided · {pct}% complete
+          {done} of {total} rows decided ┬╖ {pct}% complete
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -751,19 +751,19 @@ function ReviewProgressStrip({ relief, rates }: { relief: ReviewCounts; rates: R
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <p className="text-xs text-muted-foreground">Reliefs</p>
             <p className="font-medium">
-              {relief.approved} approved · {relief.rejected} rejected · {relief.pending} left
+              {relief.approved} approved ┬╖ {relief.rejected} rejected ┬╖ {relief.pending} left
             </p>
           </div>
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <p className="text-xs text-muted-foreground">Rates</p>
             <p className="font-medium">
-              {rates.approved} approved · {rates.rejected} rejected · {rates.pending} left
+              {rates.approved} approved ┬╖ {rates.rejected} rejected ┬╖ {rates.pending} left
             </p>
           </div>
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             <p className="text-xs text-muted-foreground">Quick guide</p>
             <p className="text-muted-foreground">
-              Reject if wrong. Otherwise use Quick approve — defaults are fine for most demo rows.
+              Reject if wrong. Otherwise use Quick approve ΓÇö defaults are fine for most demo rows.
             </p>
           </div>
         </div>
@@ -776,7 +776,7 @@ function duplicateCopy(
   check?: { outcome?: string | null; corpus_hit?: string | null } | null,
 ): string {
   if (check?.corpus_hit) {
-    return `Similar to ${humanId(check.corpus_hit)} already in catalog — promote preview shows whether caps change.`;
+    return `Similar to ${humanId(check.corpus_hit)} already in catalog ΓÇö promote preview shows whether caps change.`;
   }
   if (!check?.outcome || check.outcome === "clear") {
     return "New draft extract.";
@@ -799,7 +799,7 @@ function previewRowChanged(before: PreviewSelectionRow, after: PreviewSelectionR
 }
 
 function formatPreviewCapValue(value: string | number | null | undefined): string {
-  if (value == null || value === "") return "—";
+  if (value == null || value === "") return "ΓÇö";
   const text = String(value).trim();
   if (/%$/.test(text)) return text;
   const n = Number(text.replace(/,/g, ""));
@@ -854,13 +854,13 @@ function AttributionTrail({
       <summary className="cursor-pointer">Who decided this row</summary>
       <dl className="mt-2 space-y-1">
         <div>
-          <dt className="inline">Year type · </dt>
+          <dt className="inline">Year type ┬╖ </dt>
           <dd className="inline">
             {provision.kind_human ? (
               <>
                 <strong>{kindDecisionLabel(provision.kind_human, provision, { yearCtx })}</strong>
-                {classifiedBy ? ` · ${classifiedBy}` : ""}
-                {provision.kind_set_at ? ` · ${formatWhen(provision.kind_set_at)}` : ""}
+                {classifiedBy ? ` ┬╖ ${classifiedBy}` : ""}
+                {provision.kind_set_at ? ` ┬╖ ${formatWhen(provision.kind_set_at)}` : ""}
               </>
             ) : (
               "Not chosen yet"
@@ -868,14 +868,14 @@ function AttributionTrail({
           </dd>
         </div>
         <div>
-          <dt className="inline">Tax effect · </dt>
+          <dt className="inline">Tax effect ┬╖ </dt>
           <dd className="inline">
             {provision.engine_binding?.kind ? (
               <>
                 <strong>{bindingLabel(provision.engine_binding.kind)}</strong>
-                {boundBy ? ` · ${boundBy}` : ""}
+                {boundBy ? ` ┬╖ ${boundBy}` : ""}
                 {provision.engine_binding_set_at
-                  ? ` · ${formatWhen(provision.engine_binding_set_at)}`
+                  ? ` ┬╖ ${formatWhen(provision.engine_binding_set_at)}`
                   : ""}
               </>
             ) : (
@@ -884,13 +884,13 @@ function AttributionTrail({
           </dd>
         </div>
         <div>
-          <dt className="inline">Approve or reject · </dt>
+          <dt className="inline">Approve or reject ┬╖ </dt>
           <dd className="inline">
             {approvedBy ? (
               <>
                 <strong>{approvedBy}</strong>
                 {provision.provenance?.reviewed_at
-                  ? ` · ${formatWhen(provision.provenance.reviewed_at)}`
+                  ? ` ┬╖ ${formatWhen(provision.provenance.reviewed_at)}`
                   : ""}
               </>
             ) : (
@@ -986,7 +986,7 @@ function BindingPicker({
           if (next) onSet(next);
         }}
       >
-        <option value="">Choose calculator rule…</option>
+        <option value="">Choose calculator ruleΓÇª</option>
         {BINDING_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -1118,7 +1118,7 @@ function QuestionFieldsEditor({
         row.suggested_compare_group_id !== (row.catalog_compare_group_id || "") ? (
           <p className="text-xs text-muted-foreground">
             Extract suggested {row.suggested_compare_group_id}
-            {row.catalog_compare_group_id ? ` → maps to ${row.catalog_compare_group_id}` : ""}.
+            {row.catalog_compare_group_id ? ` ΓåÆ maps to ${row.catalog_compare_group_id}` : ""}.
           </p>
         ) : null}
       </div>
@@ -1149,7 +1149,7 @@ function QuestionFieldsEditor({
       {row.question_fields_set_by ? (
         <p className="text-xs text-muted-foreground">
           Saved by {row.question_fields_set_by}
-          {row.question_fields_set_at ? ` · ${formatWhen(row.question_fields_set_at)}` : ""}
+          {row.question_fields_set_at ? ` ┬╖ ${formatWhen(row.question_fields_set_at)}` : ""}
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">
@@ -1187,7 +1187,7 @@ function ClassificationBlock({ provision }: { provision: CatalogAdminProvision |
             <>
               {" "}
               (the extract suggested {suggested}
-              {ya ? ` for ${ya}` : ""} — that is not selected automatically).
+              {ya ? ` for ${ya}` : ""} ΓÇö that is not selected automatically).
             </>
           ) : null}
         </p>
@@ -1259,7 +1259,7 @@ function ReliefQuickActions({
       {pending ? (
         <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
           <strong>Quick approve</strong> saves{" "}
-          <strong>{kindLabel}</strong> · <strong>{bindingOptionLabel(bindingKind)}</strong> · keeps
+          <strong>{kindLabel}</strong> ┬╖ <strong>{bindingOptionLabel(bindingKind)}</strong> ┬╖ keeps
           the LLM question draft as-is.
         </p>
       ) : null}
@@ -1278,7 +1278,7 @@ function ReliefQuickActions({
       {row.decision_status ? (
         <p className="text-xs text-muted-foreground">
           Status: <strong>{decisionLabel(row.decision_status)}</strong>
-          {row.reviewed_by ? ` · ${row.reviewed_by}` : ""}
+          {row.reviewed_by ? ` ┬╖ ${row.reviewed_by}` : ""}
         </p>
       ) : null}
       {pending ? (
@@ -1374,7 +1374,7 @@ function RateQuickActions({
       {row.decision_status ? (
         <p className="text-xs text-muted-foreground">
           Status: <strong>{decisionLabel(row.decision_status)}</strong>
-          {row.reviewed_by ? ` · ${row.reviewed_by}` : ""}
+          {row.reviewed_by ? ` ┬╖ ${row.reviewed_by}` : ""}
         </p>
       ) : null}
     </div>
@@ -1441,7 +1441,7 @@ function ReliefCard({
                 row.effective_from ? `From ${row.effective_from}` : null,
               ]
                 .filter(Boolean)
-                .join(" · ") || "No section metadata"}
+                .join(" ┬╖ ") || "No section metadata"}
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-1.5">
@@ -1453,7 +1453,7 @@ function ReliefCard({
         <ActQuoteBlock row={row} />
         {row.compare_group_mapped ? (
           <p className="text-xs text-muted-foreground">
-            Updates the existing {group || "catalog"} card — does not add a duplicate relief.
+            Updates the existing {group || "catalog"} card ΓÇö does not add a duplicate relief.
           </p>
         ) : null}
       </div>
@@ -1472,7 +1472,7 @@ function ReliefCard({
 
       {rejected ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
-          Rejected — this relief will not be published. Use <strong>Quick approve</strong> to
+          Rejected ΓÇö this relief will not be published. Use <strong>Quick approve</strong> to
           change your decision.
         </p>
       ) : null}
@@ -1482,10 +1482,10 @@ function ReliefCard({
         <summary className="cursor-pointer">Technical ids</summary>
         <p className="mt-2 font-mono break-all">
           {row.entry_id}
-          {row.catalog_compare_group_id ? ` · ${row.catalog_compare_group_id}` : ""}
+          {row.catalog_compare_group_id ? ` ┬╖ ${row.catalog_compare_group_id}` : ""}
           {row.extract_compare_group_id &&
           row.extract_compare_group_id !== row.catalog_compare_group_id
-            ? ` · extracted as ${row.extract_compare_group_id}`
+            ? ` ┬╖ extracted as ${row.extract_compare_group_id}`
             : ""}
         </p>
       </details>
@@ -1513,7 +1513,7 @@ function RateCard({
   const rejected = row.decision_status === "rejected";
   const band =
     row.lower != null || row.upper != null
-      ? `${row.lower ?? "—"} to ${row.upper ?? "—"}`
+      ? `${row.lower ?? "ΓÇö"} to ${row.upper ?? "ΓÇö"}`
       : null;
   const rate =
     row.rate_percent != null
@@ -1548,7 +1548,7 @@ function RateCard({
                 row.effective_from ? `From ${row.effective_from}` : null,
               ]
                 .filter(Boolean)
-                .join(" · ") || "No band dates on this row."}
+                .join(" ┬╖ ") || "No band dates on this row."}
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-1.5">
@@ -1575,7 +1575,7 @@ function RateCard({
       />
       {rejected ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
-          Rejected — this rate will not be published. Use <strong>Quick approve</strong> to change
+          Rejected ΓÇö this rate will not be published. Use <strong>Quick approve</strong> to change
           your decision.
         </p>
       ) : null}
@@ -1658,7 +1658,7 @@ function PromotePreviewSummary({ preview }: { preview: CatalogAdminPromotePrevie
             {preview.year_files_frozen.length === 1 ? "" : "s"} unchanged
           </summary>
           <p className="mt-2 break-words">
-            {preview.year_files_frozen.map(yearFileLabel).join(" · ")}
+            {preview.year_files_frozen.map(yearFileLabel).join(" ┬╖ ")}
           </p>
         </details>
       ) : null}
@@ -1716,15 +1716,15 @@ function PromoteGroupDiffTable({ group }: { group: CatalogAdminPreviewGroup }) {
                 <td className="py-1.5 pr-3 font-medium">{yearLabel(row.assessment_year)}</td>
                 <td className="py-1.5 pr-3">
                   {isRateRules
-                    ? humanId(row.before.source_doc_id) || "—"
+                    ? humanId(row.before.source_doc_id) || "ΓÇö"
                     : formatPreviewCapValue(row.before.cap_amount)}
                 </td>
                 <td className="py-1.5 pr-3">
                   {isRateRules
-                    ? humanId(row.after.source_doc_id) || "—"
+                    ? humanId(row.after.source_doc_id) || "ΓÇö"
                     : formatPreviewCapValue(row.after.cap_amount)}
                 </td>
-                <td className="py-1.5 pr-3">{humanId(row.after.row_id) || "—"}</td>
+                <td className="py-1.5 pr-3">{humanId(row.after.row_id) || "ΓÇö"}</td>
                 <td className="py-1.5">
                   {row.changed ? (
                     <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-950 dark:bg-amber-900 dark:text-amber-50">
@@ -1760,7 +1760,7 @@ function PromoteIncludedRowsSummary({
       <p className="font-medium">Approved rows in this promote</p>
       {collapsedCount > 0 ? (
         <p className="text-xs text-muted-foreground">
-          {collapsedCount} duplicate schedule row{collapsedCount === 1 ? "" : "s"} hidden — the Act
+          {collapsedCount} duplicate schedule row{collapsedCount === 1 ? "" : "s"} hidden ΓÇö the Act
           extract often repeats the same tax table under more than one schedule (e.g. First and
           Fifth).
         </p>
@@ -1786,7 +1786,7 @@ function PromoteIncludedRowsSummary({
                     <span className="font-medium">{row.display_name || humanId(row.entry_id)}</span>
                     {mergedCount > 1 ? (
                       <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        ×{mergedCount} schedules
+                        ├ù{mergedCount} schedules
                       </span>
                     ) : null}
                     {subLabel ? (
@@ -1837,8 +1837,8 @@ function NewYearPreviewNote({
         <ul className="mt-2 list-disc pl-5">
           {newYearRows.map((row) => (
             <li key={row.entry_id}>
-              {row.display_name || humanId(row.entry_id)} —{" "}
-              {kindDecisionLabel("NEW_YEAR", row.classification, { yearCtx })} · cap{" "}
+              {row.display_name || humanId(row.entry_id)} ΓÇö{" "}
+              {kindDecisionLabel("NEW_YEAR", row.classification, { yearCtx })} ┬╖ cap{" "}
               {formatRowCap(row)}
             </li>
           ))}
@@ -2111,7 +2111,7 @@ export function CatalogAdminReviewPage() {
             : "This Act could not be loaded."}
         </p>
       ) : reviewQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading this Act…</p>
+        <p className="text-sm text-muted-foreground">Loading this ActΓÇª</p>
       ) : data ? (
         <div className="space-y-6">
           <div className="space-y-3">
@@ -2136,8 +2136,8 @@ export function CatalogAdminReviewPage() {
                 <p className="text-sm text-muted-foreground">
                   {reliefCounts.total + rateCounts.total} rows extracted
                   {reliefCounts.pending + rateCounts.pending > 0
-                    ? ` · ${reliefCounts.pending + rateCounts.pending} still need a decision`
-                    : " · all rows decided"}
+                    ? ` ┬╖ ${reliefCounts.pending + rateCounts.pending} still need a decision`
+                    : " ┬╖ all rows decided"}
                 </p>
               </div>
             </div>
@@ -2149,7 +2149,7 @@ export function CatalogAdminReviewPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">About this upload</CardTitle>
               <CardDescription>
-                Extracted {formatWhen(data.proposal.extracted_at) || "date unknown"} ·{" "}
+                Extracted {formatWhen(data.proposal.extracted_at) || "date unknown"} ┬╖{" "}
                 {duplicateCopy(data.proposal.duplicate_check)}
               </CardDescription>
             </CardHeader>
@@ -2162,14 +2162,14 @@ export function CatalogAdminReviewPage() {
               {data.proposal.duplicate_check?.corpus_hit ? (
                 <p className="text-sm text-muted-foreground">
                   Extract ran as a new draft. The live catalog file is unchanged until you
-                  promote — preview below shows if caps already match.
+                  promote ΓÇö preview below shows if caps already match.
                 </p>
               ) : null}
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer font-medium">Technical details</summary>
                 <div className="mt-2 space-y-1 break-all font-mono">
                   <p>source {data.source_doc_id}</p>
-                  <p>text {data.proposal.text_sha256 || "—"}</p>
+                  <p>text {data.proposal.text_sha256 || "ΓÇö"}</p>
                   {data.proposal.tables_sha256 ? (
                     <p>tables {data.proposal.tables_sha256}</p>
                   ) : null}
@@ -2186,7 +2186,7 @@ export function CatalogAdminReviewPage() {
                 <div className="flex items-start gap-3">
                   <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <div>
-                    <p className="font-semibold">When this Act’s rules take effect</p>
+                    <p className="font-semibold">When this ActΓÇÖs rules take effect</p>
                     <p className="text-sm text-muted-foreground">
                       {classification.harvest_record_count ?? 0} commencement date
                       {(classification.harvest_record_count ?? 0) === 1 ? "" : "s"} found
@@ -2200,7 +2200,7 @@ export function CatalogAdminReviewPage() {
               </summary>
               <div className="space-y-3 border-t px-5 py-4 text-sm">
                 <p className="text-muted-foreground">
-                  Commencement dates from the PDF — not taxpayer income dates. They suggest
+                  Commencement dates from the PDF ΓÇö not taxpayer income dates. They suggest
                   update vs new year; you still choose when you accept a row.
                 </p>
                 {(classification.harvest_notes ?? []).length > 0 ? (
@@ -2217,7 +2217,7 @@ export function CatalogAdminReviewPage() {
                   disabled={harvestBusy}
                   onClick={() => void onHarvest()}
                 >
-                  {harvestBusy ? "Re-reading…" : "Re-scan this PDF"}
+                  {harvestBusy ? "Re-readingΓÇª" : "Re-scan this PDF"}
                 </Button>
               </div>
             </details>
@@ -2237,7 +2237,7 @@ export function CatalogAdminReviewPage() {
                   disabled={harvestBusy}
                   onClick={() => void onHarvest()}
                 >
-                  {harvestBusy ? "Reading dates…" : "Find commencement dates"}
+                  {harvestBusy ? "Reading datesΓÇª" : "Find commencement dates"}
                 </Button>
               </CardContent>
             </Card>
@@ -2419,14 +2419,14 @@ export function CatalogAdminReviewPage() {
                   "This Act looks like it starts a new assessment year. Confirm before creating empty year files."}
               </p>
               <p className="text-xs text-muted-foreground">
-                This is separate from choosing “Create a new year” on a relief. It does not add
+                This is separate from choosing ΓÇ£Create a new yearΓÇ¥ on a relief. It does not add
                 the year to the taxpayer interview.
               </p>
               {data.new_year_confirmed ? (
                 <p className="text-sm">
                   Confirmed year {yearLabel(data.proposal.proposed_for_assessment_year)}
                   {data.proposal.proposed_year_set_by
-                    ? ` · ${data.proposal.proposed_year_set_by}`
+                    ? ` ┬╖ ${data.proposal.proposed_year_set_by}`
                     : ""}
                   .
                 </p>
@@ -2449,7 +2449,7 @@ export function CatalogAdminReviewPage() {
                     }
                     onClick={() => void onConfirmNewYear()}
                   >
-                    {confirmBusy ? "Creating files…" : "Confirm new year file"}
+                    {confirmBusy ? "Creating filesΓÇª" : "Confirm new year file"}
                   </Button>
                 </>
               )}
@@ -2467,7 +2467,7 @@ export function CatalogAdminReviewPage() {
               disabled={previewBusy || !data.preview_ready}
               onClick={() => void onPreview()}
             >
-              {previewBusy ? "Building preview…" : "Preview changes"}
+              {previewBusy ? "Building previewΓÇª" : "Preview changes"}
             </Button>
             {!data.preview_ready ? (
               <p className="text-sm text-muted-foreground">{data.promote_blocked_reason}</p>
@@ -2508,7 +2508,7 @@ export function CatalogAdminReviewPage() {
                     <ul className="mt-1 list-disc pl-5">
                       {preview.tax_inert_rows.map((row) => (
                         <li key={row.entry_id}>
-                          {row.display_name || row.entry_id} — {row.note}
+                          {row.display_name || row.entry_id} ΓÇö {row.note}
                         </li>
                       ))}
                     </ul>
@@ -2566,7 +2566,7 @@ export function CatalogAdminReviewPage() {
               disabled={promoteBusy || !canPromote}
               onClick={() => void onPromote()}
             >
-              {promoteBusy ? "Saving…" : "Save updates to existing years"}
+              {promoteBusy ? "SavingΓÇª" : "Save updates to existing years"}
             </Button>
             {data.has_new_year_rows ? (
               <Button
@@ -2574,7 +2574,7 @@ export function CatalogAdminReviewPage() {
                 disabled={promoteBusy || !data.new_year_promote_enabled}
                 onClick={() => void onPromoteNewYear()}
               >
-                {promoteBusy ? "Saving…" : "Save as a new year"}
+                {promoteBusy ? "SavingΓÇª" : "Save as a new year"}
               </Button>
             ) : null}
             {error ? (

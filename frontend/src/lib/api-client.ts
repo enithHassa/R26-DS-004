@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, isAxiosError } from "axios";
+﻿import axios, { type AxiosInstance, isAxiosError } from "axios";
 
 const GATEWAY_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -10,10 +10,10 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
   const msgLower = (error.message ?? "").toLowerCase();
   if (error.code === "ECONNABORTED" || msgLower.includes("timeout")) {
     if (apiPrefix.includes("optimization")) {
-      return "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
+      return "The tax service did not respond in time. ML ranking can take over a minute ΓÇö try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
     }
     if (apiPrefix.includes("adaptive-tax")) {
-      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes — wait and click Open review, or retry.";
+      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes ΓÇö wait and click Open review, or retry.";
     }
     if (apiPrefix.includes("optimization-explainable")) {
       return "Optimization and Explainable did not respond in time. Confirm the service on port 8008 is running.";
@@ -61,20 +61,20 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
       }
     }
     if (status === 404 && apiPrefix.includes("optimization")) {
-      return `${message} — Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`;
+      return `${message} ΓÇö Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`;
     }
     return status ? `${message} (HTTP ${status})` : message;
   }
 
   if (typeof data === "string" && data.length > 0) {
-    const clipped = data.length > 800 ? `${data.slice(0, 800)}…` : data;
+    const clipped = data.length > 800 ? `${data.slice(0, 800)}ΓÇª` : data;
     return status ? `${clipped} (HTTP ${status})` : clipped;
   }
 
   if (data !== undefined && data !== null && typeof data === "object") {
     try {
       const s = JSON.stringify(data);
-      const clipped = s.length > 800 ? `${s.slice(0, 800)}…` : s;
+      const clipped = s.length > 800 ? `${s.slice(0, 800)}ΓÇª` : s;
       return status ? `${clipped} (HTTP ${status})` : clipped;
     } catch {
       /* fall through */

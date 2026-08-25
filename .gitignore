@@ -50,6 +50,8 @@ env/
 ENV/
 .python-version
 
+.matplotlib-cache/
+
 # Python tooling caches
 .mypy_cache/
 .dmypy.json

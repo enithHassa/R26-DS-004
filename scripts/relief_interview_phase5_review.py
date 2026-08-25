@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Relief Interview Phase 5 — human review and promotion.
+﻿#!/usr/bin/env python3
+"""Relief Interview Phase 5 ΓÇö human review and promotion.
 
 Promotes verified Phase 4 staging rows into the live per-year catalogs. The
 reviewer decides *which* rows are trustworthy and *how they line up across
@@ -127,11 +127,11 @@ def row_id_for(row: dict[str, Any], source_doc_id: str, section_key: str) -> str
     """Stable id tied to the verified quote, not to a row's position.
 
     Re-extracting a provision keeps ids for rows whose quote is unchanged and
-    mints new ones where the text changed — so a decision can never silently
+    mints new ones where the text changed ΓÇö so a decision can never silently
     carry over to a different quote.
     """
-    # Sibling rows can legitimately share one quote — a restated relief list
-    # quotes the whole list for each of its items — so the values distinguish them.
+    # Sibling rows can legitimately share one quote ΓÇö a restated relief list
+    # quotes the whole list for each of its items ΓÇö so the values distinguish them.
     values = "~".join(str(row.get(field, "")) for field in VALUE_FIELDS)
     seed = "|".join(
         [
@@ -221,7 +221,7 @@ def display_act_name(row: dict[str, Any]) -> str:
     Asked to name the Act, the model usually answers with the principal
     enactment an amending Act amends, which would make a 2025 amendment look
     like it came from the 2017 Act. The manifest title for the PDF that was
-    actually read is authoritative here — Phase 1 confirmed it against disk —
+    actually read is authoritative here ΓÇö Phase 1 confirmed it against disk ΓÇö
     and the model's own answer is kept in provenance.
     """
     title = str(row.get("act_title", "")).strip()
@@ -405,7 +405,7 @@ def cmd_approve(args: argparse.Namespace) -> int:
             continue
         if not row.get("included"):
             print(
-                f"  ! {row_id}: blocked by the Phase 4 quote gate — cannot approve.\n"
+                f"  ! {row_id}: blocked by the Phase 4 quote gate ΓÇö cannot approve.\n"
                 f"    Re-extract instead:\n"
                 f"      python scripts/relief_interview_phase4_extract.py "
                 f'--only-doc {row["source_doc_id"]} --only-section "{row["section_key"]}" --force',
@@ -500,7 +500,7 @@ def cmd_clear_flag(args: argparse.Namespace) -> int:
         "note": args.note,
     }
     save_ledger(ledger)
-    print(f"  rates/{args.ya}.json spot-check recorded — re-run promote to apply")
+    print(f"  rates/{args.ya}.json spot-check recorded ΓÇö re-run promote to apply")
     return 0
 
 
@@ -549,7 +549,7 @@ def derived_effective_tos(
 ) -> dict[str, date | None]:
     """Rule 1b: close empty effective_to at the next later effective_from in-group.
 
-    Local computation only — never written back to staging or approved catalogs.
+    Local computation only ΓÇö never written back to staging or approved catalogs.
     Only quote-backed ISO effective_from values participate as chain anchors.
     """
     quoted_starts: list[date] = []
