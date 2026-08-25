@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 try:
     from pydantic_settings import NoDecode

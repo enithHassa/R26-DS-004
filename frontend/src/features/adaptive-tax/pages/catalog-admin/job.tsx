@@ -1,4 +1,4 @@
-﻿import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -135,7 +135,7 @@ function ExtractProgress({ active }: { active: boolean }) {
           {active ? (
             <span className="mt-1.5 flex items-center gap-1 text-amber-900 dark:text-amber-100">
               <Loader2 className="size-3 animate-spin" aria-hidden />
-              RunningΓÇª
+              Running…
             </span>
           ) : null}
         </li>
@@ -190,7 +190,7 @@ export function CatalogAdminJobPage() {
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">Extract job</h2>
         <p className="text-sm text-muted-foreground">
-          Live status for one uploaded Act PDF ΓÇö from duplicate check through GPT extract.
+          Live status for one uploaded Act PDF — from duplicate check through GPT extract.
         </p>
       </div>
 
@@ -204,7 +204,7 @@ export function CatalogAdminJobPage() {
         <Card>
           <CardContent className="flex items-center gap-2 p-5 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" aria-hidden />
-            Loading jobΓÇª
+            Loading job…
           </CardContent>
         </Card>
       ) : job ? (
@@ -259,15 +259,15 @@ export function CatalogAdminJobPage() {
                   <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     PDF file
                   </dt>
-                  <dd className="mt-1 break-all">{displayPdfName(job.original_filename) || "ΓÇö"}</dd>
+                  <dd className="mt-1 break-all">{displayPdfName(job.original_filename) || "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Uploaded
                   </dt>
                   <dd className="mt-1">
-                    {formatWhen(job.created_at) || "ΓÇö"}
-                    {job.uploaded_by ? ` ┬╖ ${job.uploaded_by}` : ""}
+                    {formatWhen(job.created_at) || "—"}
+                    {job.uploaded_by ? ` · ${job.uploaded_by}` : ""}
                   </dd>
                 </div>
                 {job.extract_started_at ? (
@@ -277,7 +277,7 @@ export function CatalogAdminJobPage() {
                     </dt>
                     <dd className="mt-1">
                       {formatWhen(job.extract_started_at)}
-                      {job.extract_started_by ? ` ┬╖ ${job.extract_started_by}` : ""}
+                      {job.extract_started_by ? ` · ${job.extract_started_by}` : ""}
                     </dd>
                   </div>
                 ) : null}
@@ -327,7 +327,7 @@ export function CatalogAdminJobPage() {
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Text hash</dt>
-                    <dd className="font-mono break-all">{job.text_sha256 || "ΓÇö"}</dd>
+                    <dd className="font-mono break-all">{job.text_sha256 || "—"}</dd>
                   </div>
                   {job.pdf_sha256 ? (
                     <div>
