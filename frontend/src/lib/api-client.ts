@@ -15,11 +15,30 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
     if (apiPrefix.includes("adaptive-tax")) {
       return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes — wait and click Open review, or retry.";
     }
+    if (apiPrefix.includes("optimization-explainable")) {
+      return "Optimization and Explainable did not respond in time. Confirm the service on port 8008 is running.";
+    }
     return "Request timed out. Check your connection and try again.";
   }
 
   const status = error.response?.status;
   const data = error.response?.data as unknown;
+  const hasFastApiDetail = Boolean(
+    data && typeof data === "object" && data !== null && "detail" in data,
+  );
+  const proxyDown =
+    error.code === "ECONNREFUSED" ||
+    error.code === "ERR_NETWORK" ||
+    msgLower.includes("econnrefused") ||
+    ((status === 500 || status === 502 || status === 503 || status === 504) &&
+      !hasFastApiDetail);
+
+  if (proxyDown && apiPrefix.includes("adaptive-tax")) {
+    return "Cannot reach Adaptive Tax on port 8005. Start that service, then click Continue again. Catalog Admin does not need the API gateway on 8000. After a vite.config.ts change, restart npm run dev.";
+  }
+  if (proxyDown && apiPrefix.includes("optimization-explainable")) {
+    return "Cannot reach Optimization and Explainable on port 8008. Start that service and retry.";
+  }
 
   if (data && typeof data === "object" && "detail" in data) {
     const raw = (data as { detail: unknown }).detail;

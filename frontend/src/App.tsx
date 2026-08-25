@@ -30,5 +30,7 @@ export default function App() {
     { path: "/portal/about-you", element: <AboutYouPage /> },
     { path: "/portal", element: <UserPortalPage /> },
   ];
-  return useRoutes(routes);
+  return useRoutes(routes) ?? (
+    <div className="p-6 text-sm text-muted-foreground">No page matched this URL.</div>
+  );
 }

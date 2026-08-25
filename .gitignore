@@ -226,7 +226,9 @@ Desktop.ini
 # Catalog-admin uploaded PDFs + job JSON (never commit taxpayer/admin uploads)
 models/adaptive-tax/relief-interview/review/catalog-admin-jobs/
 models/adaptive-tax/relief-interview/review/catalog-admin-uploads/
-models/adaptive-tax/relief-interview/harvest/watcher_commencements/
+# Generated OE RAG index (seeded from approved catalogs at startup / POST /index/refresh)
+models/optimization-explainable/rule_docs/*.json
+models/optimization-explainable/rate_docs/*.json
 
 # ---------- Viva / demo recordings (keep path notes in docs only) ----------
 *.mp4

@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
   /** Adaptive Tax service (Component 5). Direct proxy avoids needing the gateway running. */
   const adaptiveTaxUrl =
     env.VITE_DEV_ADAPTIVE_TAX_URL?.trim() || "http://127.0.0.1:8005";
+  /** Optimization and Explainable. Direct proxy avoids needing the gateway running. */
+  const optimizationExplainableUrl =
+    env.VITE_DEV_OPTIMIZATION_EXPLAINABLE_URL?.trim() || "http://127.0.0.1:8008";
   /** Transaction semantic service (Component 1). Rewrites /api/v1 → /v1 on the service. */
   const transactionSemanticUrl =
     env.VITE_DEV_TRANSACTION_SEMANTIC_URL?.trim() || "http://127.0.0.1:8001";
@@ -52,6 +55,20 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api\/v1\/recommendation/, "/api/v1"),
         },
+        // Hit Adaptive Tax directly — Catalog Admin must not depend on the gateway (:8000).
+        "/api/v1/adaptive-tax": {
+          target: adaptiveTaxUrl,
+          changeOrigin: true,
+          timeout: 180_000,
+          proxyTimeout: 180_000,
+          rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
+        },
+        // Longer than /api/v1/optimization so this is not stolen by Component B.
+        "/api/v1/optimization-explainable": {
+          target: optimizationExplainableUrl,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/v1\/optimization-explainable/, "/api/v1"),
+        },
         "/api/v1/optimization": {
           target: optimizationUrl,
           changeOrigin: true,
@@ -59,15 +76,6 @@ export default defineConfig(({ mode }) => {
           timeout: 180_000,
           proxyTimeout: 180_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/optimization/, "/api/v1"),
-        },
-        // Hit Component 5 directly — strips /adaptive-tax so upstream sees /api/v1/health etc.
-        "/api/v1/adaptive-tax": {
-          target: adaptiveTaxUrl,
-          changeOrigin: true,
-          /** GPT-5 extract/approve can take several minutes; keep in sync with axios timeouts. */
-          timeout: 300_000,
-          proxyTimeout: 300_000,
-          rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
         },
         "/api/v1/documents": transactionSemanticProxy,
         "/api/v1/transactions": transactionSemanticProxy,
