@@ -1,4 +1,4 @@
-"""Catalog-admin Step 7b: confirm new year, then Phase 6 cmd_promote."""
+﻿"""Catalog-admin Step 7b: confirm new year, then Phase 6 cmd_promote."""
 
 from __future__ import annotations
 
@@ -38,6 +38,10 @@ def admin_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Te
     monkeypatch.setenv("COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN", TOKEN)
     monkeypatch.setenv("COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR", str(tmp_path))
     get_adaptive_tax_settings.cache_clear()
+    monkeypatch.setattr(
+        "adaptive_tax_app.services.catalog_promote.notify_oe_index_refresh",
+        lambda: {"ok": True, "url": "http://test/api/v1/index/refresh", "mocked": True},
+    )
     app = create_app()
     with TestClient(app) as client:
         yield client

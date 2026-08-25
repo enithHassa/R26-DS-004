@@ -1,7 +1,7 @@
 {
   "spec_version": "1.0.0",
   "phase": "catalog-admin-step2",
-  "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+  "indexed_at": "2026-08-24T19:49:41.306621+00:00",
   "note": "SHA-256 of Phase 4 normalize_for_match(linear stream). Never rewrite corpus_manifest.json.",
   "path_errors": [],
   "documents": [
@@ -12,7 +12,7 @@
       "tables_sha256": "6b3741e2603288ce06947a6e8d19dd5049975fab06c1a348784936610992bfbc",
       "act_no": "24",
       "act_year": "2017",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Act No. 24 of 2017 (English)"
     },
     {
@@ -22,7 +22,7 @@
       "tables_sha256": "9a3e0e277b99566a0f6ae44ec7069fc711948be4668db2dd0dd23bce4a2a0ef7",
       "act_no": "10",
       "act_year": "2021",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 10 of 2021 (English)"
     },
     {
@@ -32,7 +32,7 @@
       "tables_sha256": "313e93d0505efba2747d6d131a861456d9349599f37ca7815bc8071f74008307",
       "act_no": "45",
       "act_year": "2022",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 45 of 2022 (English)"
     },
     {
@@ -42,7 +42,7 @@
       "tables_sha256": "b24a2fbc093fd17e30e575aa80ae5cffd4bfffc8adf61fc7e9591ba644a7213d",
       "act_no": "04",
       "act_year": "2023",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 04 of 2023 (English)"
     },
     {
@@ -52,7 +52,7 @@
       "tables_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "act_no": "14",
       "act_year": "2023",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 14 of 2023 (English)"
     },
     {
@@ -62,7 +62,7 @@
       "tables_sha256": "05ece8c1483a12aafa8a0974064f5cbe4e9a892b46000d3e5543db4196dee855",
       "act_no": "02",
       "act_year": "2025",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 02 of 2025 (English)"
     },
     {
@@ -72,7 +72,7 @@
       "tables_sha256": "4c76c4e502b5100e6c669b3c7de5d07204735e971a302f8141e51120c932260f",
       "act_no": "11",
       "act_year": "2026",
-      "indexed_at": "2026-08-22T11:25:22.968791+00:00",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 11 of 2026 (English)"
     }
   ]

@@ -4,10 +4,10 @@
   "currency": "LKR",
   "needs_manual_verification": true,
   "manual_verification": null,
-  "promoted_at": "2026-08-21T07:11:12.410335+00:00",
-  "promotion_run": "20260821T071112Z",
-  "promotion_source": "phase6_watcher",
-  "watcher_source_doc_id": "ird-amend-watcher-demo-2026",
+  "promoted_at": "2026-08-25T20:55:13.557019+00:00",
+  "promotion_run": "20260825T205513Z",
+  "promotion_source": "catalog_admin_new_year",
+  "watcher_source_doc_id": "ird-amend-2026-99-a14a4e3c-2",
   "carried_forward_from": "2025_26",
   "bands": [
     {
@@ -80,18 +80,6 @@
   "special_formulas": [
     {
       "rule_id": "rule-1",
-      "rule_kind": "rate_rule",
-      "description": "Cost of funds of financial institutions for loans to new businesses by individuals after vocational education deemed incurred in production of income.",
-      "value": "",
-      "effective_from": "2021-04-01",
-      "act_name": "Inland Revenue Amendment Act No. 10 of 2021",
-      "act_name_extracted": "Inland Revenue (Amendment) Act, No. 10 of 2021",
-      "section_ref": "Section 11",
-      "quote": "“(4) For the purpose of this section, cost of funds of the financial institution incurred on the loans provided for new businesses commenced on or after April 1, 2021 by any individual after successful completion of vocational education from any Vocational Education Institution which is standardized under Technical and Vocational Education and Training concept (TVET concept) and regulated by the Tertiary and Vocational Education Commission, shall be deemed to be incurred in the production of income of such financial institution.”.",
-      "source_doc_id": "ird-amend-2021-10"
-    },
-    {
-      "rule_id": "rule-1",
       "rule_kind": "special_formula",
       "description": "Limit on financial costs for companies other than financial institutions",
       "value": "A / B * C",
@@ -100,18 +88,6 @@
       "act_name_extracted": "Inland Revenue (Amendment) Act, No. 10 of 2021",
       "section_ref": "18",
       "quote": "The limit shall be computed according to the following formula: - A -- X C B Where: ‘A’ = financial cost of the year; ‘B’ = value of financial instruments on which the financial cost incurred during the year; and ‘C’= 4 x total of the issued share capital and reserves of the company as at the end of the year.",
-      "source_doc_id": "ird-amend-2021-10"
-    },
-    {
-      "rule_id": "rule-1",
-      "rule_kind": "rate_rule",
-      "description": "Cost of funds of financial institutions for loans to new businesses by individuals after vocational education completion deemed incurred in production of income.",
-      "value": "",
-      "effective_from": "2021-04-01",
-      "act_name": "Inland Revenue Amendment Act No. 10 of 2021",
-      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
-      "section_ref": "Section 11",
-      "quote": "“(4) For the purpose of this section, cost of funds of the financial institution incurred on the loans provided for new businesses commenced on or after April 1, 2021 by any individual after successful completion of vocational education from any Vocational Education Institution which is standardized under Technical and Vocational Education and Training concept (TVET concept) and regulated by the Tertiary and Vocational Education Commission, shall be deemed to be incurred in the production of income of such financial institution.”.",
       "source_doc_id": "ird-amend-2021-10"
     },
     {
@@ -235,6 +211,18 @@
       "source_doc_id": "ird-amend-2023-14"
     },
     {
+      "rule_id": "qualifying_payment_carry_forward",
+      "rule_kind": "rate_rule",
+      "description": "Carry forward of qualifying payments if deduction is not possible due to assessable income not exceeding the qualifying payment amount.",
+      "value": "",
+      "effective_from": "2025-04-01",
+      "act_name": "Inland Revenue Amendment Act No. 11 of 2026",
+      "act_name_extracted": "Inland Revenue Amendment Act No. 11 of 2026",
+      "section_ref": "52",
+      "quote": "“(4) Where the deduction of any qualifying payment referred to in items (i) and (v) of sub-paragraph (b) of paragraph 1 of the Fifth Schedule, in terms of subsection (1) of this section, is not possible, for any year of assessment commencing on or after April 1, 2025, due to the reason that the total assessable income in the relevant year of assessment does not exceed the amount of the qualifying payment which shall be deducted in arriving at the taxable income of an individual or an entity, such amount of the qualifying payment which is not possible to be deducted in the relevant year of assessment shall be carried forward and deducted from the assessable income of the individual or entity of the year of assessment immediately succeeding the relevant year of assessment or from the assessable income of any consecutive year succeeding.”.",
+      "source_doc_id": "ird-amend-2026-11"
+    },
+    {
       "rule_id": "rule_1",
       "rule_kind": "rate_rule",
       "description": "Rate change for item (a) of sub-paragraph (2) of paragraph 1 of the First Schedule",
@@ -244,42 +232,6 @@
       "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
       "section_ref": "First Schedule",
       "quote": "“at the rate of – (i) 10%, prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and (ii) 15%, with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation;”",
-      "source_doc_id": "ird-amend-2026-11"
-    },
-    {
-      "rule_id": "rule_3",
-      "rule_kind": "rate_rule",
-      "description": "Rate change for item (a) of sub-paragraph (2) of paragraph 3 of the First Schedule",
-      "value": "10% prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and 30% with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation",
-      "effective_from": "",
-      "act_name": "Inland Revenue Amendment Act No. 11 of 2026",
-      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
-      "section_ref": "First Schedule",
-      "quote": "“at the rate of – (i) 10%, prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and (ii) 30%, with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation; and”",
-      "source_doc_id": "ird-amend-2026-11"
-    },
-    {
-      "rule_id": "rule_4",
-      "rule_kind": "rate_rule",
-      "description": "Rate change for item (a) of sub-paragraph (2) of paragraph 5 of the First Schedule",
-      "value": "10% prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and 30% with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation",
-      "effective_from": "",
-      "act_name": "Inland Revenue Amendment Act No. 11 of 2026",
-      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
-      "section_ref": "First Schedule",
-      "quote": "“at the rate of – (i) 10%, prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and (ii) 30%, with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation; and”",
-      "source_doc_id": "ird-amend-2026-11"
-    },
-    {
-      "rule_id": "rule_5",
-      "rule_kind": "rate_rule",
-      "description": "Rate change for item (a) of sub-paragraph (2) of paragraph 7 of the First Schedule",
-      "value": "10% prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and 30% with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation",
-      "effective_from": "",
-      "act_name": "Inland Revenue Amendment Act No. 11 of 2026",
-      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
-      "section_ref": "First Schedule",
-      "quote": "“at the rate of – (i) 10%, prior to the date on which the provisions referred to in subsection (2) of section 1 come into operation; and (ii) 30%, with effect from the date on which the provisions referred to in subsection (2) of section 1 come into operation; and”",
       "source_doc_id": "ird-amend-2026-11"
     },
     {
@@ -413,13 +365,26 @@
       "section_ref": "First Schedule",
       "quote": "only the remainder of the individual’s taxable income shall be taxed at the rates referred to in subparagraph (1)",
       "source_doc_id": "ird-ira-2017-base"
+    },
+    {
+      "rule_id": "investment_asset_gain_rate",
+      "rule_kind": "rate_rule",
+      "description": "Where taxable income includes a gain from the realisation of an investment asset, the amount attributable to such gain shall be taxed at the rate specified for that class of income under this Schedule.",
+      "value": "",
+      "effective_from": "2026-04-01",
+      "act_name": "Act No. 99 of 2026",
+      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
+      "section_ref": "First Schedule",
+      "quote": "“(1F) Where taxable income includes a gain from the realisation of an investment asset, the amount attributable\nto such gain shall be taxed at the rate specified for that class of income under this Schedule.”",
+      "source_doc_id": "ird-amend-2026-99-a14a4e3c-2"
     }
   ],
   "provenance": {
     "ladder_source_doc_id": "ird-amend-2025-02",
     "ladder_effective_from": "2025-04-01",
-    "phase6_note": "Bands carried forward from the previous live year; watcher proposal did not replace them unless a future extract adds a complete ladder."
+    "phase6_note": "Bands carried forward from the previous live year; watcher proposal did not replace them unless a future extract adds a complete ladder.",
+    "reviewed_by": "Vidumini Chalanika"
   },
   "notes": "Phase 6 watcher promotion. Rates stay needs_manual_verification until a human spot-check clears the flag. Past year rate files were not rewritten.",
-  "content_sha256": "1beaa608df8bcd91039714c8f40df797656c9389a6fef7f671a74dce2186778c"
+  "content_sha256": "83c5b6f0a9d08e53ebe37314f1f7ed3648e696bd4704623f590c7e6f41942a42"
 }

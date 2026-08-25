@@ -1,4 +1,4 @@
-import { adaptiveTaxApi } from "../../api";
+﻿import { adaptiveTaxApi } from "../../api";
 
 import {
   catalogAdminHeaders,
@@ -44,6 +44,9 @@ export type CatalogAdminJob = {
   extract_started_at?: string;
   extract_finished_at?: string;
   failed_at?: string;
+  act_identity?: CatalogAdminActIdentity | null;
+  uploaded_by?: string | null;
+  extract_started_by?: string | null;
 };
 
 export type DuplicateCheckResponse = {
@@ -227,6 +230,23 @@ export async function deleteCatalogAdminJob(jobId: string): Promise<{ id: string
   return data;
 }
 
+export async function removeCatalogAdminProposal(
+  sourceDocId: string,
+): Promise<{
+  source_doc_id: string;
+  status: string;
+  note?: string;
+}> {
+  const { data } = await adaptiveTaxApi.delete<{
+    source_doc_id: string;
+    status: string;
+    note?: string;
+  }>(`/catalog-admin/proposed/${encodeURIComponent(sourceDocId)}`, {
+    headers: headers(true),
+  });
+  return data;
+}
+
 export type CatalogAdminKind = "UPDATE" | "NEW_YEAR";
 
 export type CatalogAdminProvision = {
@@ -278,8 +298,25 @@ export type CatalogAdminReviewRow = {
     extract_compare_group_id?: string | null;
     catalog_compare_group_id?: string | null;
     compare_group_mapped?: boolean;
-    compare_group_map_reason?: string | null;
+  compare_group_map_reason?: string | null;
+  suggested_compare_group_id?: string | null;
+  question_prompt?: string | null;
+  input_kind?: string | null;
+  help?: string | null;
+  question_fields?: {
+    display_name?: string;
+    question_prompt?: string;
+    input_kind?: string;
+    help?: string;
+    compare_group_id?: string;
+  } | null;
+  question_fields_set_by?: string | null;
+  question_fields_set_at?: string | null;
   quote?: string | null;
+  quote_source?: string | null;
+  band_label?: string | null;
+  applies_to?: string | null;
+  section_act_prose?: string | null;
   quote_ok_full_doc?: boolean;
   pass2_verbatim?: boolean;
   included?: boolean;
@@ -350,6 +387,7 @@ export type CatalogAdminProposalReview = {
     ontology_blocks?: boolean;
   } | null;
   engine_binding_kinds?: CatalogAdminEngineBindingKind[];
+  question_input_kinds?: string[];
   promote_enabled: boolean;
   promote_blocked_reason?: string | null;
   preview_ready?: boolean;
@@ -447,6 +485,25 @@ export async function setCatalogAdminEngineBinding(
   return data;
 }
 
+export async function setCatalogAdminQuestionFields(
+  sourceDocId: string,
+  rowId: string,
+  fields: {
+    display_name: string;
+    question_prompt: string;
+    input_kind: string;
+    help: string;
+    compare_group_id: string;
+  },
+): Promise<CatalogAdminProposalReview> {
+  const { data } = await adaptiveTaxApi.post<CatalogAdminProposalReview>(
+    `/catalog-admin/proposed/${encodeURIComponent(sourceDocId)}/question-fields`,
+    { row_id: rowId, ...fields },
+    { headers: headers(true) },
+  );
+  return data;
+}
+
 export async function approveCatalogAdminRow(
   sourceDocId: string,
   rowId: string,
@@ -507,6 +564,13 @@ export type CatalogAdminPromoteResult = CatalogAdminProposalReview & {
     engine_year_note?: string | null;
     corpus_manifest_updated?: boolean;
     tax_inert_rows?: CatalogAdminTaxInertRow[];
+    index_refresh?: {
+      ok?: boolean;
+      error?: string;
+      url?: string;
+      status_code?: number;
+      body?: { years?: string[] };
+    };
   };
 };
 

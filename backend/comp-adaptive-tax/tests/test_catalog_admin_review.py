@@ -1,4 +1,4 @@
-"""Catalog-admin Step 6: Phase 5 review wrapper, engine_binding, impact preview."""
+﻿"""Catalog-admin Step 6: Phase 5 review wrapper, engine_binding, impact preview."""
 
 from __future__ import annotations
 
@@ -92,6 +92,9 @@ def _fake_proposal(**kwargs: Any) -> dict[str, Any]:
         "included": True,
         "row_kind": "relief",
         "display_name": "Employment income relief",
+        "question_prompt": "Employment income relief is applied automatically against your employment income.",
+        "input_kind": "notice",
+        "help": "This draft help is for the taxpayer card.",
         "compare_group_id": "employment_income_relief",
         "section_ref": "52",
         "effective_from": "2024-04-01",
@@ -156,8 +159,8 @@ def _ready(admin_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> tuple[s
 
 
 def test_tax_effect_copy_unset_none_and_reducing() -> None:
-    assert "cannot be approved" in tax_effect_copy(None)
-    assert "will NOT affect" in tax_effect_copy("none")
+    assert "not chosen" in tax_effect_copy(None)
+    assert "Standard calculator rule" in tax_effect_copy("none")
     text = tax_effect_copy("solar_panel_relief")
     assert "WILL reduce calculated tax" in text
     assert "official calculate()" in text
@@ -222,7 +225,7 @@ def test_approve_writes_ledger_reviewer_only_and_isolates_work_dir(
     assert after["provenance"]["reviewed_by"] == "C. Approver"
     relief = next(r for r in approved.json()["relief_rows"] if r["entry_id"] == included)
     assert relief["decision_status"] == "approved"
-    assert relief["tax_effect"] and "will NOT affect" in relief["tax_effect"]
+    assert relief["tax_effect"] and "Standard calculator rule" in relief["tax_effect"]
 
     paths = catalog_admin_paths()
     ledger = paths.ledger_path
@@ -454,3 +457,49 @@ def test_preview_maps_paragraph_slug_onto_live_personal_relief(
     relief = next(r for r in got.json()["relief_rows"] if r["entry_id"] == included)
     assert relief["catalog_compare_group_id"] == "personal_relief"
     assert relief["extract_compare_group_id"] == "fifth_schedule_paragraph_2_a"
+
+
+def test_extract_drafts_question_fields_on_review(
+    admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _job, sid, included, _excluded = _ready(admin_client, monkeypatch)
+    got = admin_client.get(f"/api/v1/catalog-admin/proposed/{sid}", headers=HEADERS_TOKEN)
+    relief = next(r for r in got.json()["relief_rows"] if r["entry_id"] == included)
+    assert relief["question_prompt"].startswith("Employment income relief")
+    assert relief["input_kind"] == "notice"
+    assert relief["help"]
+    assert relief["suggested_compare_group_id"] == "employment_income_relief"
+    assert relief["cap_amount"] == "700000"
+
+
+def test_auditor_edits_question_fields_cannot_change_cap_or_quote(
+    admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _job, sid, included, _excluded = _ready(admin_client, monkeypatch)
+    saved = admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/question-fields",
+        headers=BINDER,
+        json={
+            "row_id": included,
+            "display_name": "Employment relief (auditor)",
+            "question_prompt": "Do you want employment relief applied?",
+            "input_kind": "boolean",
+            "help": "Auditor-edited help.",
+            "compare_group_id": "employment_income_relief",
+            "cap_amount": "1",
+            "quote": "forged quote",
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    relief = next(r for r in saved.json()["relief_rows"] if r["entry_id"] == included)
+    assert relief["display_name"] == "Employment relief (auditor)"
+    assert relief["question_prompt"] == "Do you want employment relief applied?"
+    assert relief["input_kind"] == "boolean"
+    assert relief["help"] == "Auditor-edited help."
+    assert relief["cap_amount"] == "700000"
+    assert relief["quote"] == "April 1, 2024 quote"
+    provision = saved.json()["proposal"]["classification"]["provisions"][0]
+    assert provision["question_fields"]["display_name"] == "Employment relief (auditor)"
+    assert "cap_amount" not in (provision.get("question_fields") or {})
+    assert provision["row_quote"] == "April 1, 2024 quote"
+

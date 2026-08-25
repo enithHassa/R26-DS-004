@@ -1,4 +1,4 @@
-"""Catalog-admin Step 7a: UPDATE promote writes only changed year files."""
+﻿"""Catalog-admin Step 7a: UPDATE promote writes only changed year files."""
 
 from __future__ import annotations
 
@@ -37,6 +37,10 @@ def admin_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Te
     monkeypatch.setenv("COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN", TOKEN)
     monkeypatch.setenv("COMP_ADAPTIVE_TAX_CATALOG_ADMIN_WORK_DIR", str(tmp_path))
     get_adaptive_tax_settings.cache_clear()
+    monkeypatch.setattr(
+        "adaptive_tax_app.services.catalog_promote.notify_oe_index_refresh",
+        lambda: {"ok": True, "url": "http://test/api/v1/index/refresh", "mocked": True},
+    )
     app = create_app()
     with TestClient(app) as client:
         yield client
@@ -149,6 +153,9 @@ def _fake_proposal(*, cap: str = "800000", kind: str = "employment", **kwargs: A
             "included": True,
             "row_kind": "relief",
             "display_name": "Employment income relief",
+            "question_prompt": "Employment income relief is applied automatically against your employment income.",
+            "input_kind": "notice",
+            "help": "Extract-draft help for employment.",
             "compare_group_id": "employment_income_relief",
             "section_ref": "52",
             "effective_from": "2024-04-01",
@@ -158,6 +165,26 @@ def _fake_proposal(*, cap: str = "800000", kind: str = "employment", **kwargs: A
             "pass2_verbatim": True,
         }
         section = "52"
+    rows = [row]
+    extra_row = None
+    if kwargs.pop("with_unpublished", False) and kind == "employment":
+        extra_row = {
+            "entry_id": f"{sid}:Fifth Schedule:relief:new",
+            "included": True,
+            "row_kind": "relief",
+            "display_name": "Unpublished solar bonus",
+            "question_prompt": "Should this unpublished relief appear?",
+            "input_kind": "yes_no_amount",
+            "help": "Must stay invisible if rejected.",
+            "compare_group_id": "unpublished_solar_bonus",
+            "section_ref": "Fifth Schedule",
+            "effective_from": "2024-04-01",
+            "cap_amount": "250000",
+            "quote": "unpublished bonus quote for reject test",
+            "quote_ok_full_doc": True,
+            "pass2_verbatim": True,
+        }
+        rows.append(extra_row)
     return {
         "spec_version": "1.0.0",
         "phase": 6,
@@ -165,7 +192,7 @@ def _fake_proposal(*, cap: str = "800000", kind: str = "employment", **kwargs: A
         "act_title": kwargs.get("act_title") or "Act",
         "pdf_file_name": Path(kwargs["pdf_path"]).name,
         "extracted_at": "2026-08-22T12:00:00+00:00",
-        "rows": [row],
+        "rows": rows,
         "sections": [
             {
                 "section_key": section,
@@ -174,9 +201,22 @@ def _fake_proposal(*, cap: str = "800000", kind: str = "employment", **kwargs: A
                 "row_count": 1,
                 "included_count": 1,
             }
-        ],
-        "row_count": 1,
-        "included_count": 1,
+        ]
+        + (
+            [
+                {
+                    "section_key": "Fifth Schedule",
+                    "status": "ok",
+                    "rows": [extra_row],
+                    "row_count": 1,
+                    "included_count": 1,
+                }
+            ]
+            if extra_row
+            else []
+        ),
+        "row_count": len(rows),
+        "included_count": len(rows),
     }
 
 
@@ -516,3 +556,149 @@ def test_immutability_failure_rolls_back_writes(
     assert hashlib.sha256((paths.approved_dir / "2024_25.json").read_bytes()).hexdigest() == before
     proposal = json.loads((paths.proposed_dir / f"{sid}.json").read_text(encoding="utf-8"))
     assert proposal.get("promotion_status") in (None, "")
+
+
+def test_promote_refreshes_oe_index_over_http(
+    admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def _spy() -> dict[str, Any]:
+        payload = {"ok": True, "url": "http://127.0.0.1:8008/api/v1/index/refresh"}
+        calls.append(payload)
+        return payload
+
+    monkeypatch.setattr(
+        "adaptive_tax_app.services.catalog_promote.notify_oe_index_refresh", _spy
+    )
+    sid, included = _ready(admin_client, monkeypatch)
+    admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/question-fields",
+        headers=BINDER,
+        json={
+            "row_id": included,
+            "display_name": "Employment relief (accepted)",
+            "question_prompt": "Accepted employment question for the taxpayer.",
+            "input_kind": "notice",
+            "help": "Accepted help.",
+            "compare_group_id": "employment_income_relief",
+        },
+    )
+    preview = _preview(admin_client, sid)
+    promoted = admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/promote",
+        headers=PROMOTER,
+        json={
+            "preview_fingerprint": preview["preview_fingerprint"],
+            "acknowledged_group_ids": preview["needs_gap_ack_group_ids"],
+        },
+    )
+    assert promoted.status_code == 200, promoted.text
+    assert calls, "promote must HTTP-refresh Optimization and Explainable"
+    assert promoted.json()["promotion"]["index_refresh"]["ok"] is True
+    paths = catalog_admin_paths()
+    year = json.loads((paths.approved_dir / "2024_25.json").read_text(encoding="utf-8"))
+    employment = next(
+        e for e in year["entries"] if e["compare_group_id"] == "employment_income_relief"
+    )
+    assert employment["question_prompt"] == "Accepted employment question for the taxpayer."
+    assert employment["help"] == "Accepted help."
+    assert employment["display_name"] == "Employment relief (accepted)"
+    assert employment["cap_amount"] == "800000"
+
+
+def test_rejected_row_never_promoted(
+    admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(catalog_classify, "harvest_act_impl", _empty_harvest)
+    monkeypatch.setattr(
+        catalog_extract,
+        "extract_proposal_impl",
+        lambda **kwargs: _fake_proposal(with_unpublished=True, **kwargs),
+    )
+    pdf = _pdf_bytes("Inland Revenue (Amendment) Act, No. 63 of 2096\nREJECT UNPUBLISHED")
+    uploaded = admin_client.post(
+        "/api/v1/catalog-admin/upload",
+        headers=HEADERS_BOTH,
+        files={"file": ("reject-act.pdf", pdf, "application/pdf")},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    job_id = uploaded.json()["job_id"]
+    sid = uploaded.json()["suggested_source_doc_id"]
+    start = admin_client.post(f"/api/v1/catalog-admin/jobs/{job_id}/extract", headers=HEADERS_BOTH)
+    assert start.status_code == 202
+    join_extract(job_id, timeout=10)
+    _seed_year_catalog()
+    included = f"{sid}:52:relief:0"
+    rejected = f"{sid}:Fifth Schedule:relief:new"
+    for row_id in (included, rejected):
+        classified = admin_client.post(
+            f"/api/v1/catalog-admin/proposed/{sid}/classification",
+            headers=HEADERS_BOTH,
+            json={"row_id": row_id, "kind_human": "UPDATE"},
+        )
+        assert classified.status_code == 200, classified.text
+        bound = admin_client.post(
+            f"/api/v1/catalog-admin/proposed/{sid}/engine-binding",
+            headers=BINDER,
+            json={"row_id": row_id, "kind": "none"},
+        )
+        assert bound.status_code == 200, bound.text
+    approved = admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/rows/{included}/approve",
+        headers=APPROVER,
+    )
+    assert approved.status_code == 200, approved.text
+    refused = admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/rows/{rejected}/reject",
+        headers=APPROVER,
+        json={"reason": "not for the taxpayer"},
+    )
+    assert refused.status_code == 200, refused.text
+    preview = _preview(admin_client, sid)
+    promoted = admin_client.post(
+        f"/api/v1/catalog-admin/proposed/{sid}/promote",
+        headers=PROMOTER,
+        json={
+            "preview_fingerprint": preview["preview_fingerprint"],
+            "acknowledged_group_ids": preview["needs_gap_ack_group_ids"],
+        },
+    )
+    assert promoted.status_code == 200, promoted.text
+    paths = catalog_admin_paths()
+    for path in paths.approved_dir.glob("*.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        groups = {e.get("compare_group_id") for e in payload.get("entries") or []}
+        assert "unpublished_solar_bonus" not in groups
+        prompts = {e.get("question_prompt") for e in payload.get("entries") or []}
+        assert "Should this unpublished relief appear?" not in prompts
+
+
+def test_notify_oe_index_refresh_posts_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    from adaptive_tax_app.services.catalog_promote import notify_oe_index_refresh
+
+    captured: dict[str, str] = {}
+
+    class _FakeClient:
+        def __init__(self, timeout: float | None = None) -> None:
+            self.timeout = timeout
+
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+        def post(self, url: str) -> httpx.Response:
+            captured["url"] = url
+            return httpx.Response(200, json={"status": "ok", "years": ["2025_26"]})
+
+    monkeypatch.setattr(httpx, "Client", _FakeClient)
+    result = notify_oe_index_refresh()
+    assert result["ok"] is True
+    assert captured["url"].endswith("/api/v1/index/refresh")
+    assert "adaptive_tax_app" not in captured["url"]
+
+

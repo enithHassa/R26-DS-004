@@ -18,6 +18,8 @@ This document defines where new work should be added during Phase 1 without brea
 - `backend/comp-tax-optimization/`: component-specific backend code.
 - `backend/comp-personalized-recommendation/`: component-specific backend code.
 - `backend/comp-language-model/`: language-model-specific backend code only.
+- `backend/comp-adaptive-tax/`: Component 5 adaptive tax.
+- `backend/comp-optimization-explainable/`: Optimization and Explainable (additive; port 8008).
 
 ## Model Boundaries
 

@@ -1,4 +1,4 @@
-"""Catalog-admin promote: UPDATE (7a) and NEW YEAR (7b), with Step 8 immutability.
+﻿"""Catalog-admin promote: UPDATE (7a) and NEW YEAR (7b), with Step 8 immutability.
 
 Every year-file write goes through Phase 5 _write_year_file with a matching
 content_sha256. Promotes start and end with Phase 6 snapshot_year_hashes /
@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
@@ -46,6 +47,51 @@ from adaptive_tax_app.services.catalog_review import (
 )
 
 _PROMOTE_LOCK = threading.Lock()
+logger = logging.getLogger(__name__)
+
+
+def notify_oe_index_refresh() -> dict[str, Any]:
+    """HTTP POST the Optimization and Explainable index. Never import adaptive_tax_app there."""
+    import httpx
+
+    from backend.shared.config.settings import settings
+
+    base = (settings.COMP_OPTIMIZATION_EXPLAINABLE_URL or "").rstrip("/")
+    if not base:
+        return {"ok": False, "error": "COMP_OPTIMIZATION_EXPLAINABLE_URL is empty"}
+    url = f"{base}/api/v1/index/refresh"
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url)
+        body: Any
+        try:
+            body = response.json()
+        except ValueError:
+            body = {"text": response.text[:500]}
+        if response.is_success:
+            logger.info(
+                "OE index refresh ok (years=%s)",
+                (body.get("years") if isinstance(body, dict) else None),
+            )
+            return {"ok": True, "url": url, "status_code": response.status_code, "body": body}
+        logger.warning(
+            "OE index refresh HTTP %s from %s: %s",
+            response.status_code,
+            url,
+            body,
+        )
+        return {
+            "ok": False,
+            "url": url,
+            "status_code": response.status_code,
+            "error": str(body),
+        }
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "OE index refresh failed (%s): is Optimization and Explainable running on :8008?",
+            exc,
+        )
+        return {"ok": False, "url": url, "error": str(exc)}
 
 
 def _with_year_dirs(paths: CatalogAdminPaths):
@@ -288,7 +334,7 @@ def _planned_rate_writes(
         }
         payload["content_sha256"] = phase5.canonical_sha256(payload)
         if _band_signature(payload) == _band_signature(existing) and ya not in ENGINE_YAS:
-            # Same slabs — skip unless we still need a source_doc_id swap on engine years
+            # Same slabs ΓÇö skip unless we still need a source_doc_id swap on engine years
             if (existing.get("provenance") or {}).get("ladder_source_doc_id") == ladder[
                 "source_doc_id"
             ]:
@@ -402,6 +448,24 @@ def _seal_existing_year_file(phase5: Any, path: Path) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["content_sha256"] = phase5.canonical_sha256(payload)
     _write_year_file(phase5, path, payload)
+
+
+def _stamp_new_year_promotion_source(
+    phase5: Any,
+    paths: CatalogAdminPaths,
+    *,
+    ya: str,
+    source_doc_id: str,
+) -> None:
+    """Phase 6 cmd_promote stamps phase6_watcher; mark catalog-admin NEW_YEAR for OE indexing."""
+    for directory in (paths.approved_dir, paths.rates_dir):
+        path = directory / f"{ya}.json"
+        if not path.is_file():
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["promotion_source"] = "catalog_admin_new_year"
+        payload["watcher_source_doc_id"] = source_doc_id
+        _write_year_file(phase5, path, payload)
 
 
 def _phase6_snapshot(watcher: Any, _paths: CatalogAdminPaths) -> dict[str, str] | None:
@@ -578,7 +642,7 @@ def _promote_update_locked(
             payload["promotion_source"] = "catalog_admin_update"
             payload["watcher_source_doc_id"] = source_doc_id
             payload["notes"] = (
-                "Catalog-admin UPDATE. select_for_year (Rule 1b → 1 → 2) for touched "
+                "Catalog-admin UPDATE. select_for_year (Rule 1b ΓåÆ 1 ΓåÆ 2) for touched "
                 "compare_groups only. Untouched groups copied; Phase 5 cmd_promote was "
                 "not called. Official calculate() is unchanged."
             )
@@ -693,12 +757,13 @@ def _promote_update_locked(
             "engine_year_note": " ".join(n["message"] for n in engine_notes) or None,
             "corpus_manifest_updated": False,
             "tax_inert_rows": preview.get("tax_inert_rows"),
+            "index_refresh": notify_oe_index_refresh(),
         },
     }
 
 
 NEW_YEAR_CONFIRM_COPY = (
-    "This Act's commencement suggests YA {new_year} — confirm before creating a new year file."
+    "This Act's commencement suggests YA {new_year} ΓÇö confirm before creating a new year file."
 )
 
 
@@ -798,7 +863,7 @@ def confirm_new_year(
 
     proposal = load_proposed(source_doc_id, root)
     if proposal.get("proposed_for_assessment_year") != ya:
-        # cmd_set_year print crashed after a failed save — apply the same fields here.
+        # cmd_set_year print crashed after a failed save ΓÇö apply the same fields here.
         proposal["proposed_for_assessment_year"] = ya
         proposal["proposed_year_set_at"] = now_iso()
         proposal["proposed_year_set_by"] = reviewer
@@ -998,6 +1063,12 @@ def _promote_new_year_locked(
                     + "; ".join(seal_problems)
                 )
             _verify_written_seals(phase5, paths, written)
+            _stamp_new_year_promotion_source(
+                phase5,
+                paths,
+                ya=ya,
+                source_doc_id=source_doc_id,
+            )
 
             proposal["promoted_kind"] = "NEW_YEAR"
             proposal["promoted_year_files"] = written
@@ -1035,5 +1106,6 @@ def _promote_new_year_locked(
             "written": written,
             "assessment_year": ya,
             "corpus_manifest_updated": False,
+            "index_refresh": notify_oe_index_refresh(),
         },
     }

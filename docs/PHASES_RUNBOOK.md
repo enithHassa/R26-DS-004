@@ -147,6 +147,112 @@ $env:COMP_ADAPTIVE_TAX_EXTRACTION_MODE = "fixture"
 
 Run this suite **separately** (never mix with other `app` packages in one pytest command).
 
+## Optimization and Explainable — Phase 1 registration
+
+Sibling of Adaptive Tax. Year-aware RAG reliefs, calculate, and explain land in later phases. Port **8008**.
+
+### Start Optimization and Explainable (:8008)
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn opt_explain_app.main:app `
+  --app-dir backend/comp-optimization-explainable --reload --host 127.0.0.1 --port 8008
+```
+
+Also start frontend (`npm run dev` in `frontend/`) for the sidebar. Vite proxies `/api/v1/optimization-explainable` to `:8008`.
+
+### Smoke
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8008/health
+Invoke-RestMethod http://127.0.0.1:8008/years
+Invoke-RestMethod http://127.0.0.1:8008/reliefs/2025_26
+Invoke-RestMethod -Method Post http://127.0.0.1:8008/index/refresh
+```
+
+Checkpoint: YA 2025/26 personal relief cap `1800000` and `source_doc_id` `ird-amend-2025-02`; YA 2018/19 personal relief cap `500000`. Synthetic watcher year `2026_27` is not indexed.
+
+### Phase 3 — Income + Reliefs UI
+
+Taxpayer picks a year from `GET /years`, enters income, then steps through `GET /reliefs/{ya}`. Cards are generic (`input_kind` / `question_prompt`); changing year loads a different catalog with no frontend relief list.
+
+UI:
+
+- Years: [http://127.0.0.1:5173/optimization-explainable](http://127.0.0.1:5173/optimization-explainable)
+- Acts: [http://127.0.0.1:5173/optimization-explainable/acts](http://127.0.0.1:5173/optimization-explainable/acts)
+- Income: [http://127.0.0.1:5173/optimization-explainable/income](http://127.0.0.1:5173/optimization-explainable/income)
+- Reliefs: [http://127.0.0.1:5173/optimization-explainable/reliefs](http://127.0.0.1:5173/optimization-explainable/reliefs)
+- Home: [http://127.0.0.1:5173/optimization-explainable/home](http://127.0.0.1:5173/optimization-explainable/home)
+
+Sidebar **Load new act** opens existing Catalog Admin at `/adaptive-tax/catalog-admin`.
+
+Checkpoint: change year in the header → different reliefs and caps (e.g. personal 500k in 2018/19 vs 1.8M in 2025/26).
+
+### Phase 4 — Calculate from RAG rules
+
+`POST /calculate` with year, income heads, claims, optional `exclude_source_doc_id`. Binders: `auto_cap`, `min(claim, cap)`, `percent_of_base`, `notice`. Slabs come from `rate_docs/{ya}.json`.
+
+UI Result: [http://127.0.0.1:5173/optimization-explainable/result](http://127.0.0.1:5173/optimization-explainable/result)
+
+Checkpoint: YA 2025/26 with typical income (employment 1.8M + interest 2.0M) applies personal relief **1,800,000** (Act 02 of 2025) and First Schedule 6%/18%/… bands — not 1.2M and not the 2018 4% table.
+
+### Phase 5 — Remove one act (no PDF delete)
+
+`GET /acts/{ya}` lists `source_doc_id`, title, and relief count for that year. Toggle **Remove this act’s rules** on [http://127.0.0.1:5173/optimization-explainable/acts](http://127.0.0.1:5173/optimization-explainable/acts). `GET /reliefs/{ya}?exclude_source_doc_id=` and `POST /calculate` use the same filter. Missing `compare_group_id` rows fall back to the latest earlier year (same idea as Adaptive Tax `select_for_year`). Rate bands fall back the same way if the excluded act owned this year’s First Schedule.
+
+Demo (YA 2025/26):
+
+1. Act 02 of 2025 on → personal **1.8M**, tax uses 1.8M.
+2. Exclude `ird-amend-2025-02` → prior personal cap **1.2M** (`ird-amend-2022-45`); tax recalculates.
+3. Re-enable → 1.8M returns.
+
+PDFs and index files are not deleted.
+
+### Phase 6 — Live LLM explanation after tax
+
+`POST /explain` recalculates with the same body as `POST /calculate` (including `exclude_source_doc_id`), then calls **OpenAI `gpt-4o-mini`** with the calc trace and RAG quotes. The prompt forbids new numbers. Missing quotes → `insufficient_evidence` (no LLM call). Engine `tax_payable` / caps on the Result page stay the source of truth; the narrative is support only.
+
+Requires `OPENAI_API_KEY` in the repo-root `.env`. Model: `COMP_OPTIMIZATION_EXPLAINABLE_OPENAI_EXPLAIN_MODEL` (default `gpt-4o-mini`).
+
+Checkpoint: YA 2025/26 explanation cites Fifth Schedule / Act 02 of 2025. Changing a number in the prose cannot change the tiles, because those still come from `POST /calculate`.
+
+### Phase 7 — New act + auditor-approved questions
+
+Catalog Admin extract (`gpt-4o`) drafts `display_name`, `question_prompt`, `input_kind`, `help`, and suggested `compare_group_id`. The auditor edits/accepts those on `/adaptive-tax/catalog-admin/review/:sourceDocId`. Caps and Act quotes stay verbatim (the question-fields POST ignores them).
+
+Rejected rows are never written to `approved/`, so they never index, never show on taxpayer Reliefs, and never change tax.
+
+After a successful promote, Adaptive Tax **HTTP POSTs** `http://127.0.0.1:8008/api/v1/index/refresh` (no Python import of `adaptive_tax_app` into Optimization and Explainable). If `:8008` is down, promote still succeeds; refresh later with:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8008/api/v1/index/refresh
+```
+
+Checkpoint: promote an accepted row → new question and cap appear on `/optimization-explainable/reliefs` and `POST /calculate`. Reject a row → it stays invisible.
+
+### Phase 8 — Compare + regression locks
+
+Cross-year relief caps from the RAG index (not hardcoded group filters). New acts promoted through Catalog Admin appear after `POST /index/refresh`.
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8008/api/v1/compare
+Invoke-RestMethod "http://127.0.0.1:8008/api/v1/compare?compare_group_id=personal_relief"
+Invoke-RestMethod "http://127.0.0.1:8008/api/v1/compare?compare_group_id=personal_relief&exclude_source_doc_id=ird-amend-2025-02"
+```
+
+UI Compare: [http://127.0.0.1:5173/optimization-explainable/compare](http://127.0.0.1:5173/optimization-explainable/compare)
+
+Checkpoint: personal relief shows **500k → … → 1.8M** across indexed years. Act exclusion on the Acts step applies to compare too (fallback to prior-year cap).
+
+Regression locks in `tests/test_compare.py`: year filter; exclude-act fallback; calculate uses RAG slabs; unpublished questions hidden; explain cannot change engine amounts.
+
+### Tests
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable/tests -q --tb=short
+```
+
 ### Phase 2 — Knowledge stores (Neo4j Desktop + embedded Chroma)
 
 **Default (demo / this laptop):** Neo4j Desktop + embedded Chroma on disk. Docker is optional for teammates whose WSL2/virt works.
