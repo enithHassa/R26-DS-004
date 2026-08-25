@@ -6,6 +6,7 @@ independent: a later action must not overwrite an earlier trail.
 
 from __future__ import annotations
 
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,9 @@ ENGINE_BINDING_KINDS = frozenset(
 
 EMPTY_PROVENANCE = {"reviewed_by": None, "reviewed_at": None}
 
+QUESTION_INPUT_KINDS = frozenset({"notice", "yes_no_amount", "amount", "boolean"})
+_COMPARE_GROUP_RE = re.compile(r"^[a-z][a-z0-9_]{1,80}$")
+
 
 def normalize_act_identity(raw: Any) -> dict[str, str] | None:
     if not isinstance(raw, dict) or not raw:
@@ -57,6 +61,9 @@ def ensure_provision_attribution(provision: dict[str, Any]) -> dict[str, Any]:
     provision.setdefault("engine_binding_set_by", None)
     provision.setdefault("engine_binding_set_at", None)
     provision.setdefault("compare_group_human", None)
+    provision.setdefault("question_fields", None)
+    provision.setdefault("question_fields_set_by", None)
+    provision.setdefault("question_fields_set_at", None)
     provenance = provision.get("provenance")
     if not isinstance(provenance, dict):
         provision["provenance"] = dict(EMPTY_PROVENANCE)
@@ -111,6 +118,14 @@ def copy_human_attribution(prior: dict[str, Any], provision: dict[str, Any]) -> 
         provision["engine_binding"] = prior.get("engine_binding")
         provision["engine_binding_set_by"] = prior.get("engine_binding_set_by")
         provision["engine_binding_set_at"] = prior.get("engine_binding_set_at")
+    if prior.get("question_fields_set_by"):
+        provision["question_fields"] = prior.get("question_fields")
+        provision["question_fields_set_by"] = prior.get("question_fields_set_by")
+        provision["question_fields_set_at"] = prior.get("question_fields_set_at")
+        if isinstance(prior.get("question_fields"), dict):
+            group = str(prior["question_fields"].get("compare_group_id") or "").strip()
+            if group:
+                provision["compare_group_human"] = group
     old_prov = prior.get("provenance") or {}
     if isinstance(old_prov, dict) and old_prov.get("reviewed_by"):
         provision["provenance"] = {
@@ -157,6 +172,47 @@ def set_engine_binding(
     provision["engine_binding"] = binding
     provision["engine_binding_set_by"] = reviewer
     provision["engine_binding_set_at"] = now_iso()
+    return provision
+
+
+def set_question_fields(
+    provision: dict[str, Any],
+    *,
+    display_name: str,
+    question_prompt: str,
+    input_kind: str,
+    help_text: str,
+    compare_group_id: str,
+    reviewer: str,
+) -> dict[str, Any]:
+    """Auditor-edited taxpayer UX. Never writes cap_amount or quote."""
+    name = (display_name or "").strip()
+    prompt = (question_prompt or "").strip()
+    kind = (input_kind or "").strip()
+    group = (compare_group_id or "").strip()
+    help_value = (help_text or "").strip()
+    if not name:
+        raise CatalogDuplicateError("display_name is required.")
+    if not prompt:
+        raise CatalogDuplicateError("question_prompt is required.")
+    if kind not in QUESTION_INPUT_KINDS:
+        raise CatalogDuplicateError(
+            "input_kind must be one of: " + ", ".join(sorted(QUESTION_INPUT_KINDS))
+        )
+    if not group or _COMPARE_GROUP_RE.match(group) is None:
+        raise CatalogDuplicateError(
+            "compare_group_id must be snake_case (e.g. personal_relief)."
+        )
+    provision["question_fields"] = {
+        "display_name": name,
+        "question_prompt": prompt,
+        "input_kind": kind,
+        "help": help_value,
+        "compare_group_id": group,
+    }
+    provision["question_fields_set_by"] = reviewer
+    provision["question_fields_set_at"] = now_iso()
+    provision["compare_group_human"] = group
     return provision
 
 

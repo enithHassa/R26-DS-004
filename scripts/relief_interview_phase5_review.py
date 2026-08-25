@@ -674,6 +674,7 @@ def build_approved_entry(row: dict[str, Any], commencements: dict[str, str]) -> 
         "question_prompt": decided.get("question_prompt") or row.get("question_prompt", ""),
         "sort_order": int(decided.get("sort_order", 100)),
         "input_kind": decided.get("input_kind") or row.get("input_kind", "notice"),
+        "help": decided.get("help") or row.get("help") or "",
         "auto_applied": bool(decided.get("auto_applied", row.get("auto_applied", False))),
         # Values below are copied from staging; the CLI cannot set them.
         "cap_amount": row.get("cap_amount") or None,

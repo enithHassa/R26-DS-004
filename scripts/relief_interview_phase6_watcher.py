@@ -444,6 +444,7 @@ def extract_proposal(
                 "section_key": section_key,
                 "status": "ok",
                 "focus_chars": len(focus_text),
+                "focus_prose": extract.extract_section_prose(focus_text),
                 "row_count": len(rows),
                 "included_count": len(kept),
                 "pass1_tokens": meta,

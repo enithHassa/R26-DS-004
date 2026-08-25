@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
@@ -46,6 +47,51 @@ from adaptive_tax_app.services.catalog_review import (
 )
 
 _PROMOTE_LOCK = threading.Lock()
+logger = logging.getLogger(__name__)
+
+
+def notify_oe_index_refresh() -> dict[str, Any]:
+    """HTTP POST the Optimization and Explainable index. Never import adaptive_tax_app there."""
+    import httpx
+
+    from backend.shared.config.settings import settings
+
+    base = (settings.COMP_OPTIMIZATION_EXPLAINABLE_URL or "").rstrip("/")
+    if not base:
+        return {"ok": False, "error": "COMP_OPTIMIZATION_EXPLAINABLE_URL is empty"}
+    url = f"{base}/api/v1/index/refresh"
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url)
+        body: Any
+        try:
+            body = response.json()
+        except ValueError:
+            body = {"text": response.text[:500]}
+        if response.is_success:
+            logger.info(
+                "OE index refresh ok (years=%s)",
+                (body.get("years") if isinstance(body, dict) else None),
+            )
+            return {"ok": True, "url": url, "status_code": response.status_code, "body": body}
+        logger.warning(
+            "OE index refresh HTTP %s from %s: %s",
+            response.status_code,
+            url,
+            body,
+        )
+        return {
+            "ok": False,
+            "url": url,
+            "status_code": response.status_code,
+            "error": str(body),
+        }
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "OE index refresh failed (%s): is Optimization and Explainable running on :8008?",
+            exc,
+        )
+        return {"ok": False, "url": url, "error": str(exc)}
 
 
 def _with_year_dirs(paths: CatalogAdminPaths):
@@ -404,6 +450,24 @@ def _seal_existing_year_file(phase5: Any, path: Path) -> None:
     _write_year_file(phase5, path, payload)
 
 
+def _stamp_new_year_promotion_source(
+    phase5: Any,
+    paths: CatalogAdminPaths,
+    *,
+    ya: str,
+    source_doc_id: str,
+) -> None:
+    """Phase 6 cmd_promote stamps phase6_watcher; mark catalog-admin NEW_YEAR for OE indexing."""
+    for directory in (paths.approved_dir, paths.rates_dir):
+        path = directory / f"{ya}.json"
+        if not path.is_file():
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["promotion_source"] = "catalog_admin_new_year"
+        payload["watcher_source_doc_id"] = source_doc_id
+        _write_year_file(phase5, path, payload)
+
+
 def _phase6_snapshot(watcher: Any, _paths: CatalogAdminPaths) -> dict[str, str] | None:
     """Call Phase 6 snapshot_year_hashes. None means pre-existing seal drift."""
     real = getattr(watcher, "_catalog_admin_real_snapshot", None)
@@ -693,6 +757,7 @@ def _promote_update_locked(
             "engine_year_note": " ".join(n["message"] for n in engine_notes) or None,
             "corpus_manifest_updated": False,
             "tax_inert_rows": preview.get("tax_inert_rows"),
+            "index_refresh": notify_oe_index_refresh(),
         },
     }
 
@@ -998,6 +1063,12 @@ def _promote_new_year_locked(
                     + "; ".join(seal_problems)
                 )
             _verify_written_seals(phase5, paths, written)
+            _stamp_new_year_promotion_source(
+                phase5,
+                paths,
+                ya=ya,
+                source_doc_id=source_doc_id,
+            )
 
             proposal["promoted_kind"] = "NEW_YEAR"
             proposal["promoted_year_files"] = written
@@ -1035,5 +1106,6 @@ def _promote_new_year_locked(
             "written": written,
             "assessment_year": ya,
             "corpus_manifest_updated": False,
+            "index_refresh": notify_oe_index_refresh(),
         },
     }

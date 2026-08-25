@@ -110,6 +110,7 @@ class ReliefRow(BaseModel):
     display_name: str
     question_prompt: str
     input_kind: Literal["notice", "yes_no_amount", "amount", "boolean"]
+    help: str
     auto_applied: bool
     cap_amount: str
     unit: Literal["lkr", "percent", "text"]
@@ -228,6 +229,17 @@ Scope — this matters as much as the quotes:
   clause number (e.g. "Section 2(1)(a)" of the amending Act is wrong).
 - `display_name` must describe what the provision actually governs. Do not call
   something a relief unless the text grants a relief.
+
+Taxpayer-facing drafts (an auditor will edit these before they appear):
+- `display_name`: short card title.
+- `question_prompt`: the question shown to the taxpayer.
+- `input_kind`: notice (auto-applied, no claim), yes_no_amount, amount, or boolean.
+- `help`: one short sentence of help under the question. Use "" if nothing useful.
+- `compare_group_id`: snake_case group key. Reuse an existing group name when this
+  is the same relief at a new date or amount; otherwise invent a stable id from
+  the provision (e.g. personal_relief, employment_income_relief).
+- Never put a rupee amount, percent, rate band, or Act quote into display_name,
+  question_prompt, or help. Caps belong in `cap_amount`. Quotes belong in `quote`.
 
 Other hard rules:
 - `act_name` must be the Act title as printed in the window
@@ -551,6 +563,48 @@ def build_focus_window(act: ActText, section_key: str, *, is_base_act: bool) -> 
             "Each line is one table row; cells are separated by ' | '.\n\n" + rendered
         )
     return focused
+
+
+def extract_section_prose(focus_text: str, *, max_chars: int = 3500) -> str:
+    """Act prose for schedule rate rows — intro plus inline table text from the PDF."""
+    if not focus_text or not str(focus_text).strip():
+        return ""
+    prose = str(focus_text).split("### Tables on these pages")[0]
+    prose = prose.replace("\n\n[...]\n\n", "\n\n…\n\n").strip()
+    if not prose:
+        return ""
+
+    lower = prose.lower()
+    start = 0
+    for anchor in (
+        "first schedule",
+        "fifth schedule",
+        "tax rates for",
+        "taxable income of a resident",
+        "taxable income of a",
+    ):
+        idx = lower.find(anchor)
+        if idx >= 0:
+            start = idx if "schedule" in anchor else max(0, idx - 160)
+            break
+
+    chunk = prose[start:].strip()
+    end = len(chunk)
+    for stop in (
+        "\nSECOND SCHEDULE",
+        "\nTHIRD SCHEDULE",
+        "\nFOURTH SCHEDULE",
+        "\n2. Tax rates for",
+        "\n2. Tax rates on",
+        "\n\n…\n\n",
+    ):
+        idx = chunk.find(stop)
+        if idx > 400:
+            end = min(end, idx)
+    chunk = chunk[:end].strip()
+    if len(chunk) > max_chars:
+        chunk = chunk[:max_chars].rsplit("\n", 1)[0] + "…"
+    return chunk.strip()
 
 
 # --------------------------------------------------------------------------

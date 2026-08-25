@@ -270,3 +270,50 @@ def test_delete_failed_job_removes_pdf_not_manifest(
     assert not pdf_path.is_file()
     missing = admin_client.get(f"/api/v1/catalog-admin/jobs/{job_id}", headers=HEADERS_TOKEN)
     assert missing.status_code == 404
+
+
+def test_remove_proposal_drops_queue_entry(
+    admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(catalog_extract, "extract_proposal_impl", _fake_proposal)
+    uploaded = _upload_clear(admin_client)
+    job_id = uploaded["job_id"]
+    sid = uploaded["suggested_source_doc_id"]
+    admin_client.post(f"/api/v1/catalog-admin/jobs/{job_id}/extract", headers=HEADERS_BOTH)
+    join_extract(job_id, timeout=10)
+    paths = catalog_admin_paths()
+    assert (paths.proposed_dir / f"{sid}.json").is_file()
+
+    removed = admin_client.delete(
+        f"/api/v1/catalog-admin/proposed/{sid}",
+        headers=HEADERS_BOTH,
+    )
+    assert removed.status_code == 200, removed.text
+    body = removed.json()
+    assert body["status"] == "removed"
+    assert body["source_doc_id"] == sid
+    assert not (paths.proposed_dir / f"{sid}.json").is_file()
+    assert list(paths.extracted_dir.glob(f"{sid}__*.json")) == []
+    assert admin_client.get(f"/api/v1/catalog-admin/jobs/{job_id}", headers=HEADERS_TOKEN).status_code == 404
+    queue = admin_client.get("/api/v1/catalog-admin/queue", headers=HEADERS_TOKEN)
+    pending = {row["source_doc_id"] for row in queue.json()["proposals"]}
+    assert sid not in pending
+
+
+def test_pass1_relief_row_drafts_taxpayer_question_fields() -> None:
+    from adaptive_tax_app.services.catalog_duplicate import p4
+
+    schema = p4().ReliefRow.model_json_schema()
+    required = set(schema.get("required") or [])
+    for field in (
+        "display_name",
+        "question_prompt",
+        "input_kind",
+        "help",
+        "compare_group_id",
+        "cap_amount",
+        "quote",
+    ):
+        assert field in schema["properties"]
+        assert field in required
+

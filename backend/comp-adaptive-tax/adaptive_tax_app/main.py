@@ -38,6 +38,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         cfg.COMP_ADAPTIVE_TAX_EXTRACTION_MODE,
         bool(cfg.OPENAI_API_KEY and cfg.OPENAI_API_KEY.strip()),
     )
+    from adaptive_tax_app.services.catalog_extract import resume_interrupted_extracts
+
+    resumed = resume_interrupted_extracts()
+    if resumed:
+        logger.info("Resumed {} interrupted catalog-admin extract job(s)", len(resumed))
     yield
     logger.info("Adaptive Tax component shutting down")
 

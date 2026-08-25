@@ -12,6 +12,7 @@ from adaptive_tax_app.services.catalog_admin_store import (
     CatalogAdminPaths,
     catalog_admin_paths,
     job_path,
+    list_jobs,
     load_job,
     now_iso,
     save_job,
@@ -47,6 +48,26 @@ def _pdf_path(job: dict[str, Any]) -> Path:
     return path
 
 
+def _proposed_paths_for_sid(source_doc_id: str, paths: CatalogAdminPaths) -> list[Path]:
+    sid = (source_doc_id or "").strip()
+    if not sid or not paths.proposed_dir.is_dir():
+        return []
+    found: list[Path] = []
+    exact = paths.proposed_dir / f"{sid}.json"
+    if exact.is_file():
+        found.append(exact)
+    for path in sorted(paths.proposed_dir.glob("*.json")):
+        if path in found:
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if str(data.get("source_doc_id") or "") == sid:
+            found.append(path)
+    return found
+
+
 def cleanup_extract_artifacts(source_doc_id: str, paths: CatalogAdminPaths) -> None:
     """Retry must not leave half-written extracted/ or proposed/ files."""
     sid = (source_doc_id or "").strip()
@@ -55,8 +76,8 @@ def cleanup_extract_artifacts(source_doc_id: str, paths: CatalogAdminPaths) -> N
     if paths.extracted_dir.is_dir():
         for leftover in paths.extracted_dir.glob(f"{sid}__*.json"):
             leftover.unlink(missing_ok=True)
-    proposed = paths.proposed_dir / f"{sid}.json"
-    proposed.unlink(missing_ok=True)
+    for proposed in _proposed_paths_for_sid(sid, paths):
+        proposed.unlink(missing_ok=True)
 
 
 def _write_extracted_sections(
@@ -86,6 +107,7 @@ def _write_extracted_sections(
             "pdf_file_name": pdf_name,
             "section_key": key,
             "focus_chars": section.get("focus_chars"),
+            "focus_prose": section.get("focus_prose"),
             "extracted_at": proposal.get("extracted_at"),
             "row_count": section.get("row_count", len(rows)),
             "included_count": section.get("included_count", 0),
@@ -181,6 +203,25 @@ def _spawn(job_id: str) -> None:
     thread.start()
 
 
+def resume_interrupted_extracts(paths: CatalogAdminPaths | None = None) -> list[str]:
+    """Re-spawn extract threads lost to uvicorn reload or process restart."""
+    root = paths or catalog_admin_paths()
+    resumed: list[str] = []
+    for job in list_jobs(root):
+        if str(job.get("status") or "") != "extracting":
+            continue
+        job_id = str(job.get("id") or "")
+        if not job_id:
+            continue
+        thread = _THREADS.get(job_id)
+        if thread is not None and thread.is_alive():
+            continue
+        logger.info("Resuming interrupted catalog-admin extract for job %s", job_id)
+        _spawn(job_id)
+        resumed.append(job_id)
+    return resumed
+
+
 def join_extract(job_id: str, timeout: float = 30.0) -> None:
     thread = _THREADS.get(job_id)
     if thread is not None:
@@ -258,4 +299,92 @@ def delete_job(
         "status": "deleted",
         "deleted_by": reviewer,
         "deleted_at": now_iso(),
+    }
+
+
+def _purge_ledger_decisions(source_doc_id: str, paths: CatalogAdminPaths) -> int:
+    ledger_path = paths.ledger_path
+    if not ledger_path.is_file():
+        return 0
+    data = json.loads(ledger_path.read_text(encoding="utf-8"))
+    decisions = data.get("decisions") or {}
+    removed_keys = [
+        key
+        for key, value in decisions.items()
+        if str(value.get("source_doc_id") or "") == source_doc_id
+    ]
+    for key in removed_keys:
+        del decisions[key]
+    for block in data.get("superseded_decisions") or []:
+        block_decisions = block.get("decisions") or {}
+        for key in list(block_decisions.keys()):
+            if str(block_decisions[key].get("source_doc_id") or "") == source_doc_id:
+                del block_decisions[key]
+    ledger_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return len(removed_keys)
+
+
+def remove_proposal(
+    source_doc_id: str,
+    *,
+    reviewer: str,
+    paths: CatalogAdminPaths | None = None,
+) -> dict[str, Any]:
+    """Drop a finished extract from the review queue (staging only; never approved/ or rates/)."""
+    root = paths or catalog_admin_paths()
+    sid = (source_doc_id or "").strip()
+    if not sid:
+        raise CatalogDuplicateError("source_doc_id is required.")
+
+    proposed_paths = _proposed_paths_for_sid(sid, root)
+    extracted_paths = (
+        list(root.extracted_dir.glob(f"{sid}__*.json")) if root.extracted_dir.is_dir() else []
+    )
+    sidecar_paths = (
+        list(root.harvest_sidecar_dir.glob(f"{sid}*.json"))
+        if root.harvest_sidecar_dir.is_dir()
+        else []
+    )
+    matching_jobs = [job for job in list_jobs(root) if str(job.get("source_doc_id") or "") == sid]
+
+    if not proposed_paths and not extracted_paths and not matching_jobs:
+        raise CatalogDuplicateError(f"No queue entry found for {sid}.")
+
+    for job in matching_jobs:
+        if str(job.get("status") or "") == "extracting":
+            raise CatalogDuplicateError("Cannot remove while extract is still running.")
+
+    removed_jobs: list[str] = []
+    for job in matching_jobs:
+        job_id = str(job.get("id") or "")
+        if not job_id:
+            continue
+        storage = job.get("storage_path")
+        if storage:
+            Path(storage).unlink(missing_ok=True)
+        job_path(job_id, root).unlink(missing_ok=True)
+        removed_jobs.append(job_id)
+
+    for path in proposed_paths:
+        path.unlink(missing_ok=True)
+    for path in extracted_paths:
+        path.unlink(missing_ok=True)
+    for path in sidecar_paths:
+        path.unlink(missing_ok=True)
+
+    removed_decisions = _purge_ledger_decisions(sid, root)
+
+    return {
+        "source_doc_id": sid,
+        "status": "removed",
+        "removed_by": reviewer,
+        "removed_at": now_iso(),
+        "removed_proposed": [p.name for p in proposed_paths],
+        "removed_extracted": [p.name for p in extracted_paths],
+        "removed_jobs": removed_jobs,
+        "removed_decisions": removed_decisions,
+        "note": "approved/ and rates/ are unchanged. Re-upload to extract again.",
     }

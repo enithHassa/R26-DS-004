@@ -19,6 +19,7 @@ import { CatalogAdminQueuePage } from "./pages/catalog-admin/queue";
 import { CatalogAdminReviewPage } from "./pages/catalog-admin/review";
 import { CatalogAdminUploadPage } from "./pages/catalog-admin/upload";
 import { AdaptiveTaxCalculatorPage } from "./pages/calculator";
+import { RagTaxCalculatorPage } from "./pages/rag-tax-calculator";
 import { AdaptiveTaxCoveragePage } from "./pages/coverage";
 import { AdaptiveTaxHomePage } from "./pages/home";
 import { AdaptiveTaxReportPage } from "./pages/report";
@@ -41,6 +42,7 @@ const adaptiveTax: FeatureModule = {
         { index: true, element: <Navigate to="home" replace /> },
         { path: "home", element: <AdaptiveTaxHomePage /> },
         { path: "calculator", element: <AdaptiveTaxCalculatorPage /> },
+        { path: "rag-calculator", element: <RagTaxCalculatorPage /> },
         {
           path: "relief-interview",
           element: <ReliefInterviewLayout />,
@@ -78,6 +80,7 @@ const adaptiveTax: FeatureModule = {
   nav: [
     { to: "/adaptive-tax/home", label: "Home", icon: LayoutDashboard },
     { to: "/adaptive-tax/calculator", label: "Calculator", icon: Calculator },
+    { to: "/adaptive-tax/rag-calculator", label: "RAG Calculator", icon: Calculator },
     {
       to: "/adaptive-tax/relief-interview",
       label: "Relief Interview",

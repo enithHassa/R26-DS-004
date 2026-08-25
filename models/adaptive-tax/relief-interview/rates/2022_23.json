@@ -4,8 +4,8 @@
   "currency": "LKR",
   "needs_manual_verification": true,
   "manual_verification": null,
-  "promoted_at": "2026-08-22T18:38:23.510418+00:00",
-  "promotion_run": "20260822T183823Z",
+  "promoted_at": "2026-08-24T21:01:16.011093+00:00",
+  "promotion_run": "20260824T210115Z",
   "bands": [
     {
       "band_index": 1,
@@ -266,25 +266,25 @@
       "source_doc_id": "ird-ira-2017-base"
     },
     {
-      "rule_id": "rule_1",
+      "rule_id": "first_schedule_dividends",
       "rule_kind": "rate_rule",
       "description": "Tax rate for dividends where a person's taxable income includes gains and profits from dividends for the second six months of the year of assessment commencing on April 1, 2022.",
       "value": "15",
       "effective_from": "2022-10-01",
       "act_name": "Act No. 04 of 2023",
-      "act_name_extracted": "Inland Revenue Act, No. 24 of 2017",
+      "act_name_extracted": "Inland Revenue (Amendment) Act, No. 4 of 2023",
       "section_ref": "First Schedule",
       "quote": "“13. Tax rate for dividends Notwithstanding the provisions in other paragraphs of this Schedule, where a person’s taxable income includes gains and profits from dividends for the second six months of the year of assessment commencing on April 1, 2022, such gains and profits shall be taxed at the rate of 15%.”.",
-      "source_doc_id": "ird-amend-2023-04-490cedb9"
+      "source_doc_id": "ird-amend-2023-04-490cedb9-2"
     }
   ],
   "provenance": {
     "ladder_source_doc_id": "ird-amend-2022-45",
     "ladder_effective_from": "2022-04-01",
-    "reviewed_by": "Vidumini"
+    "reviewed_by": "Vidumini Chalanika"
   },
   "notes": "Phase 5 promotion. Rates stay needs_manual_verification until a human spot-check is recorded via `clear-flag`.",
-  "content_sha256": "f8c6e738768a881398f0f7100266c9d57a0b87219351add7dcaa47ae4bbf0f03",
+  "content_sha256": "5ccebc2ed66c3b38192763fb16fb42a94223ec52d8b85de18bfd5887adb30f44",
   "promotion_source": "catalog_admin_update",
-  "watcher_source_doc_id": "ird-amend-2023-04-490cedb9"
+  "watcher_source_doc_id": "ird-amend-2023-04-490cedb9-2"
 }
