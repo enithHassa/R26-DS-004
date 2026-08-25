@@ -114,8 +114,17 @@ def _run_paths(
 
 
 def _percentile(rows: list[list[float]], q: float) -> list[float]:
+    """Percentile across *paths* for each year.
+
+    ``rows`` is shaped ``(horizon_years, n_paths)``. Axis 1 is the path axis;
+    axis 0 would percentile across years and then the yearly chart would plot
+    the first ``horizon_years`` path-level values instead of a real fan chart.
+    """
     arr = np.asarray(rows, dtype=np.float64)
-    return [float(x) for x in np.percentile(arr, q, axis=0)]
+    if arr.size == 0:
+        return []
+    axis = 1 if arr.ndim == 2 else 0
+    return [float(x) for x in np.percentile(arr, q, axis=axis)]
 
 
 def _summary_from_paths(

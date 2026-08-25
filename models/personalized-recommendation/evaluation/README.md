@@ -34,15 +34,3 @@ Use `--no-ablation` to evaluate frozen artifacts only (faster).
 `POST /api/v1/recommendations/explain` — SHAP explanation for `{ profile_id, strategy_code }`.
 
 Requires Phase 4 artifacts and `shap` installed in the service environment.
-
-## ICAC paper figures
-
-```bash
-MPLCONFIGDIR=/tmp/matplotlib \
-  .venv-ml/bin/python models/personalized-recommendation/evaluation/generate_paper_figures.py
-```
-
-Writes one-column PNGs/PDFs under `figures/` (fusion weights + hybrid ablation schematic).  
-Optional metric bars: pass `--metrics-json reports/phase6_eval.json` after Phase 6.
-
-Draft Results text: `ICAC_RESULTS_DRAFT.md`.

@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.models.profile import FinancialProfile as FinancialProfileORM
 from app.models.profile_history import ProfileHistorySnapshot as HistoryORM
 
-DEFAULT_MONTHS = 24
+DEFAULT_MONTHS = 36
 
 
 def _shift_month(d: date, months_back: int) -> date:

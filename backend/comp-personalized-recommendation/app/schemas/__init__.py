@@ -6,7 +6,7 @@ primitives (``RiskTolerance``, ``Currency``, ``PaginatedResponse``,
 ``backend.shared.schemas``.
 """
 
-from app.schemas.auth import LoginRequest, LoginResponse
+from app.schemas.auth import LoginRequest, LoginResponse, SignupRequest, SignupResponse
 from app.schemas.behavioural_answer import (
     BehaviouralAnswer,
     BehaviouralAnswerBatchCreate,
@@ -86,6 +86,8 @@ __all__ = [
     "RecommendationResponse",
     "Scenario",
     "ScoreBreakdown",
+    "SignupRequest",
+    "SignupResponse",
     "Strategy",
     "StrategyBase",
     "StrategyCandidate",

@@ -16,8 +16,11 @@ export interface ListProfilesParams {
 
 export async function createProfile(
   payload: FinancialProfileCreate,
+  userId?: string,
 ): Promise<FinancialProfile> {
-  const { data } = await recommendationApi.post<FinancialProfile>("/profiles", payload);
+  const { data } = await recommendationApi.post<FinancialProfile>("/profiles", payload, {
+    params: userId ? { user_id: userId } : undefined,
+  });
   return data;
 }
 
@@ -40,7 +43,7 @@ export async function getProfileFeatures(profileId: string): Promise<DerivedFeat
 
 export async function getProfileHistory(
   profileId: string,
-  months = 24,
+  months = 36,
 ): Promise<ProfileHistorySnapshot[]> {
   const { data } = await recommendationApi.get<ProfileHistorySnapshot[]>(
     `/profiles/${profileId}/history`,
