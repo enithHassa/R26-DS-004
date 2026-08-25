@@ -107,6 +107,19 @@ def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
             raise ProfileNotFoundError(f"User {user_id} does not exist")
         return user
 
+    # Reuse an existing row with this display name so creating another
+    # profile for the same Taxpayer_NNNNN does not leave duplicate logins
+    # (which used to 500 ``scalar_one_or_none`` on User View sign-in).
+    existing = db.execute(
+        select(UserORM)
+        .where(UserORM.full_name == full_name)
+        .order_by(UserORM.created_at.desc())
+    ).scalars().first()
+    if existing is not None:
+        if not existing.password:
+            existing.password = _derive_login_password(full_name)
+        return existing
+
     placeholder_email = f"profile-{uuid4().hex[:12]}@synthetic.local"
     user = UserORM(
         email=placeholder_email,
@@ -305,6 +318,15 @@ def create_account(
     return user
 
 
+def _latest_profile_for_user(db: Session, user_id: UUID) -> FinancialProfileORM | None:
+    return db.execute(
+        select(FinancialProfileORM)
+        .where(FinancialProfileORM.user_id == user_id)
+        .order_by(FinancialProfileORM.created_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
 def authenticate_user(
     db: Session, username: str, password: str
 ) -> tuple[UserORM, FinancialProfileORM | None]:
@@ -315,23 +337,29 @@ def authenticate_user(
     see ``migrations/versions/0004_add_user_password.py``). A ``None``
     profile means the account exists but hasn't completed the financial
     intake yet — the caller should route to that flow instead of the portal.
+
+    Duplicate ``users`` rows with the same ``full_name`` can exist after
+    re-seeding or creating extra profiles; pick a password match (preferring
+    one that already has a financial profile) instead of raising
+    ``MultipleResultsFound``.
     """
-    user = db.execute(
-        select(UserORM).where(
-            (UserORM.email == username) | (UserORM.full_name == username)
-        )
-    ).scalar_one_or_none()
-    if user is None or user.password != password:
+    candidates = list(
+        db.execute(
+            select(UserORM)
+            .where((UserORM.email == username) | (UserORM.full_name == username))
+            .order_by(UserORM.created_at.desc())
+        ).scalars().all()
+    )
+    matching = [user for user in candidates if user.password == password]
+    if not matching:
         raise InvalidCredentialsError("Invalid username or password")
 
-    profile = db.execute(
-        select(FinancialProfileORM)
-        .where(FinancialProfileORM.user_id == user.id)
-        .order_by(FinancialProfileORM.created_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
+    for user in matching:
+        profile = _latest_profile_for_user(db, user.id)
+        if profile is not None:
+            return user, profile
 
-    return user, profile
+    return matching[0], None
 
 
 # ---------------------------------------------------------------------------
@@ -345,14 +373,26 @@ def _age_years(dob: date, snapshot: date | None = None) -> int:
 
 
 def _annual_taxable_income(profile: FinancialProfileORM) -> Decimal:
+    """Annual taxable income used by the ranker and the impact engine.
+
+    Seeded/synthetic profiles decompose ``gross_monthly_income`` into
+    ``income_sources`` (the two totals match). User-intake profiles often list
+    extra sources (rent, interest) *on top of* salary without repeating it —
+    using only those extras undercounted income and projected a LKR 0 tax bill.
+    """
+    bonus = profile.annual_bonus_lkr or Decimal("0")
+    gross_annual = profile.gross_monthly_income * Decimal("12")
     sources = profile.income_sources or []
-    if sources:
-        annual = sum(
-            Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)
-        ) * Decimal("12")
-    else:
-        annual = profile.gross_monthly_income * Decimal("12")
-    return annual + profile.annual_bonus_lkr
+    sources_annual = sum(
+        (Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)),
+        start=Decimal("0"),
+    ) * Decimal("12")
+    if not sources:
+        return gross_annual + bonus
+    # Sources already explain primary income (breakdown, or a fuller listing).
+    if sources_annual >= gross_annual * Decimal("0.90"):
+        return sources_annual + bonus
+    return gross_annual + sources_annual + bonus
 
 
 def _eligibility_flags(

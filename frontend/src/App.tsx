@@ -3,7 +3,6 @@ import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 import { AppShell } from "@/components/layout/app-shell";
 import { features } from "@/features";
 import { AboutYouPage } from "@/features/personalized-recommendation/pages/about-you";
-import { CreateAccountPage } from "@/features/personalized-recommendation/pages/create-account";
 import { FinancialIntakePage } from "@/features/personalized-recommendation/pages/financial-intake";
 import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
 import { UserPortalPage } from "@/features/personalized-recommendation/pages/user-portal";
@@ -29,7 +28,6 @@ export default function App() {
     { path: "/tax-optimization/explorer", element: <Navigate to="/tax/explorer" replace /> },
     { path: "/tax-optimization/filing", element: <Navigate to="/tax/filing" replace /> },
     { path: "/login", element: <UserLoginPage /> },
-    { path: "/signup", element: <CreateAccountPage /> },
     { path: "/portal/financial-intake", element: <FinancialIntakePage /> },
     { path: "/portal/about-you", element: <AboutYouPage /> },
     { path: "/portal", element: <UserPortalPage /> },

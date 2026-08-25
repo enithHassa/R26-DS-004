@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import {
   Coins,
@@ -157,13 +157,6 @@ export function UserLoginPage() {
                 </>
               )}
             </Button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              New here?{" "}
-              <Link to="/signup" className="font-medium text-primary underline-offset-2 hover:underline">
-                Create an account
-              </Link>
-            </p>
           </form>
         </CardContent>
         </Card>
