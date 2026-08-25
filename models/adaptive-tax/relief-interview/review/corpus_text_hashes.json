@@ -64,16 +64,6 @@
       "act_year": "2025",
       "indexed_at": "2026-08-24T19:49:41.306621+00:00",
       "act_title": "Inland Revenue Amendment Act No. 02 of 2025 (English)"
-    },
-    {
-      "source_doc_id": "ird-amend-2026-11",
-      "file_name": "IR_Act_No_11-2026_E.pdf",
-      "text_sha256": "a8e3787fb005f482b64cb239a3f0cae615a5f705ed0b85653fbae3846a04e360",
-      "tables_sha256": "4c76c4e502b5100e6c669b3c7de5d07204735e971a302f8141e51120c932260f",
-      "act_no": "11",
-      "act_year": "2026",
-      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
-      "act_title": "Inland Revenue Amendment Act No. 11 of 2026 (English)"
     }
   ]
 }
