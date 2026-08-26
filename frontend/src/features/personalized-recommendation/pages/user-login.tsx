@@ -1,29 +1,13 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import {
-  Coins,
-  Landmark,
-  Loader2,
-  LogIn,
-  Percent,
-  PiggyBank,
-  Receipt,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Loader2, LogIn, Zap } from "lucide-react";
 
 import { login } from "../api/auth";
 import { useUserSessionStore } from "../store/user-session-store";
 
-const DOT_GRID_BG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='white' fill-opacity='0.14'/%3E%3C/svg%3E";
+import "@/pages/demo/demo-theme.css";
 
 export function UserLoginPage() {
   const navigate = useNavigate();
@@ -39,10 +23,8 @@ export function UserLoginPage() {
     mutationFn: () => login({ username, password }),
     onSuccess: (result) => {
       setSession(result.role, result.user_id, result.profile_id, result.full_name);
-      // First login (no financial profile yet) goes through the intake
-      // questions; returning users land straight on their recommendations.
       navigate(
-        result.role === "auditor" ? "/" : result.profile_id ? "/portal" : "/portal/financial-intake",
+        result.role === "auditor" ? "/" : result.profile_id ? "/taxwise" : "/portal/financial-intake",
         { replace: true },
       );
     },
@@ -51,7 +33,7 @@ export function UserLoginPage() {
   if (isAuthenticated) {
     return (
       <Navigate
-        to={role === "auditor" ? "/" : profileId ? "/portal" : "/portal/financial-intake"}
+        to={role === "auditor" ? "/" : profileId ? "/taxwise" : "/portal/financial-intake"}
         replace
       />
     );
@@ -63,87 +45,80 @@ export function UserLoginPage() {
   };
 
   return (
-    <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10"
-      style={{
-        background:
-          "radial-gradient(1200px circle at 15% 20%, color-mix(in srgb, var(--tax-accent) 55%, transparent) 0%, transparent 42%)," +
-          "radial-gradient(1000px circle at 85% 75%, color-mix(in srgb, var(--primary) 65%, transparent) 0%, transparent 50%)," +
-          "radial-gradient(800px circle at 50% 100%, color-mix(in srgb, var(--tax-accent) 30%, transparent) 0%, transparent 55%)," +
-          "linear-gradient(160deg, #241419 0%, #150d10 55%, #1b1013 100%)",
-      }}
-    >
-      {/* subtle dot-grid texture for depth */}
+    <div className="demo-landing relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{ backgroundImage: `url("${DOT_GRID_BG}")`, backgroundSize: "40px 40px" }}
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(900px circle at 20% 15%, rgba(45, 212, 191, 0.12) 0%, transparent 50%)," +
+            "radial-gradient(700px circle at 85% 80%, rgba(45, 212, 191, 0.08) 0%, transparent 45%)",
+        }}
         aria-hidden
       />
 
-      {/* soft glow ring behind the card */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
-        style={{ background: "color-mix(in srgb, var(--tax-accent) 35%, transparent)" }}
-        aria-hidden
-      />
-
-      {/* scattered tax-themed watermark icons */}
-      <Landmark className="pointer-events-none absolute -left-8 -top-8 h-56 w-56 text-white/[0.06]" strokeWidth={0.75} />
-      <TrendingUp className="pointer-events-none absolute left-12 bottom-24 h-24 w-24 text-white/10" strokeWidth={1} />
-      <Percent
-        className="pointer-events-none absolute right-14 top-20 h-28 w-28 rotate-12 text-[var(--tax-accent)]/25 drop-shadow-[0_0_18px_var(--tax-accent)]"
-        strokeWidth={1}
-      />
-      <Receipt className="pointer-events-none absolute bottom-16 left-20 h-36 w-36 -rotate-6 text-white/[0.08]" strokeWidth={0.75} />
-      <PiggyBank className="pointer-events-none absolute right-24 bottom-10 h-20 w-20 rotate-6 text-white/10" strokeWidth={1} />
-      <Coins className="pointer-events-none absolute -bottom-10 -right-10 h-52 w-52 text-white/[0.06]" strokeWidth={0.75} />
-
-      <div className="relative z-10 flex w-full max-w-sm flex-col items-center">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 shadow-lg ring-1 ring-white/20 backdrop-blur-sm">
-            <Wallet className="h-7 w-7 text-white" />
-          </div>
-          <div className="text-lg font-semibold tracking-tight text-white">AI Tax Advisory</div>
-          <div className="text-xs text-white/60">Decision Support</div>
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <Link to="/demo" className="mb-4 flex items-center gap-2.5">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--demo-accent)]">
+              <Zap className="h-5 w-5 text-[var(--demo-accent-foreground)]" />
+            </span>
+            <span className="text-xl font-bold tracking-tight text-[var(--demo-text)]">
+              TaxWise AI
+            </span>
+          </Link>
+          <p className="text-sm text-[var(--demo-text-muted)]">
+            Sign in to your tax advisory account
+          </p>
         </div>
 
-        <Card className="w-full border-white/10 bg-white/95 shadow-2xl backdrop-blur-md">
-          <CardHeader>
-            <CardTitle>Sign in</CardTitle>
-          </CardHeader>
-          <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
+        <div className="rounded-xl border border-[var(--demo-border)] bg-[var(--demo-bg-card)] p-6 shadow-xl sm:p-8">
+          <h1 className="mb-6 text-lg font-semibold text-[var(--demo-text)]">Sign in</h1>
+
+          <form className="space-y-5" onSubmit={onSubmit}>
             <div className="space-y-1.5">
-              <Label htmlFor="username">Username</Label>
-              <Input
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-[var(--demo-text-muted)]"
+              >
+                Username
+              </label>
+              <input
                 id="username"
                 autoComplete="username"
-                placeholder="Taxpayer_25265"
+                placeholder="Taxpayer_00001"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-lg border border-[var(--demo-border)] bg-[var(--demo-bg)] px-3.5 py-2.5 text-sm text-[var(--demo-text)] outline-none placeholder:text-[var(--demo-text-muted)]/60 focus:border-[var(--demo-accent)]/50 focus:ring-1 focus:ring-[var(--demo-accent)]/40"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-[var(--demo-text-muted)]"
+              >
+                Password
+              </label>
+              <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-[var(--demo-border)] bg-[var(--demo-bg)] px-3.5 py-2.5 text-sm text-[var(--demo-text)] outline-none placeholder:text-[var(--demo-text-muted)]/60 focus:border-[var(--demo-accent)]/50 focus:ring-1 focus:ring-[var(--demo-accent)]/40"
               />
             </div>
 
             {loginMutation.isError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
                 {(loginMutation.error as Error).message}
               </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              className="w-full"
               disabled={!username || !password || loginMutation.isPending}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--demo-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--demo-accent-foreground)] transition-colors hover:bg-[var(--demo-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loginMutation.isPending ? (
                 <>
@@ -156,10 +131,23 @@ export function UserLoginPage() {
                   Sign in
                 </>
               )}
-            </Button>
+            </button>
           </form>
-        </CardContent>
-        </Card>
+        </div>
+
+        <p className="mt-6 text-center text-xs text-[var(--demo-text-muted)]">
+          No account yet?{" "}
+          <Link
+            to="/signup"
+            className="text-[var(--demo-accent)] hover:text-[var(--demo-accent-hover)]"
+          >
+            Create one
+          </Link>
+          {" · "}
+          <Link to="/demo" className="text-[var(--demo-accent)] hover:text-[var(--demo-accent-hover)]">
+            ← Back to TaxWise AI
+          </Link>
+        </p>
       </div>
     </div>
   );

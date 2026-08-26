@@ -1,21 +1,24 @@
-"""Auth routes for Comp 3 — shared service, local DB dependency.
-
-Identity logic lives in ``backend.shared.auth``. The same routes are also
-mounted on the API gateway at ``/api/v1/auth``. Comp 3 keeps these paths so
-direct :8003 calls and existing tests continue to work. Financial profile
-listing and recommendations stay in Comp 3 routers.
-"""
+"""Shared auth HTTP routes — mounted on the gateway and re-used by Comp 3."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from collections.abc import Generator
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.deps import DBSession
 from backend.shared.auth import service as auth_service
 from backend.shared.auth.schemas import LoginRequest, LoginResponse, SignupRequest, SignupResponse
+from backend.shared.config.database import get_db as _get_db
 
 router = APIRouter()
+
+
+def get_db() -> Generator[Session, None, None]:
+    yield from _get_db()
+
+
+DBSession = Depends(get_db)
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -40,6 +43,7 @@ def login(payload: LoginRequest, db: Session = DBSession) -> LoginResponse:
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, db: Session = DBSession) -> SignupResponse:
+    """Create a new taxpayer account (personal/contact details only)."""
     try:
         user = auth_service.create_account(
             db,

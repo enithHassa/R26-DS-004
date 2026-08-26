@@ -220,7 +220,7 @@ export function UserPortalPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <Link
-                  to="/portal"
+                  to="/taxwise"
                   className="mb-2 inline-block text-sm text-muted-foreground hover:text-foreground"
                 >
                   ← Back to dashboard

@@ -32,6 +32,12 @@ from app.schemas.profile import (
     FinancialProfileCreate,
     FinancialProfileUpdate,
 )
+from backend.shared.auth.service import (
+    EmailTakenError,
+    InvalidCredentialsError,
+    authenticate_user,
+    create_account,
+)
 
 
 class ProfileNotFoundError(LookupError):
@@ -257,109 +263,10 @@ def list_profiles(
 
 
 # ---------------------------------------------------------------------------
-# User View login (customer-facing dashboard)
+# Account auth — owned by backend.shared.auth (gateway + Comp 3 re-export)
 # ---------------------------------------------------------------------------
-
-
-class InvalidCredentialsError(LookupError):
-    """Raised when a username/password pair doesn't match a user record."""
-
-
-class EmailTakenError(ValueError):
-    """Raised at signup when the email is already registered to another user."""
-
-
-def create_account(
-    db: Session,
-    *,
-    first_name: str,
-    last_name: str,
-    email: str,
-    password: str,
-    mobile_number: str,
-    country: str,
-    date_of_birth: date,
-    gender: str,
-    address: str,
-    city: str,
-    postal_code: str,
-    profile_picture: str | None = None,
-) -> UserORM:
-    """Create a taxpayer account (personal/contact details only).
-
-    No financial profile is created here — that (plus the behavioural
-    questions) happens on first login, see ``routers.profiles`` and
-    ``app.routers.auth``. Login afterwards uses ``email`` as the username.
-    """
-    existing_email = db.execute(
-        select(UserORM).where(UserORM.email == email)
-    ).scalar_one_or_none()
-    if existing_email is not None:
-        raise EmailTakenError(f"'{email}' is already registered")
-
-    user = UserORM(
-        email=email,
-        full_name=f"{first_name} {last_name}".strip(),
-        first_name=first_name,
-        last_name=last_name,
-        password=password,
-        mobile_number=mobile_number,
-        country=country,
-        date_of_birth=date_of_birth,
-        gender=gender,
-        address=address,
-        city=city,
-        postal_code=postal_code,
-        profile_picture=profile_picture,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-
-def _latest_profile_for_user(db: Session, user_id: UUID) -> FinancialProfileORM | None:
-    return db.execute(
-        select(FinancialProfileORM)
-        .where(FinancialProfileORM.user_id == user_id)
-        .order_by(FinancialProfileORM.created_at.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-
-
-def authenticate_user(
-    db: Session, username: str, password: str
-) -> tuple[UserORM, FinancialProfileORM | None]:
-    """Verify credentials and return the user's most recent profile, if any.
-
-    ``username`` matches either the account email (new sign-ups) or the
-    legacy profile ``full_name`` (pre-seeded demo data, e.g. Taxpayer_25265;
-    see ``migrations/versions/0004_add_user_password.py``). A ``None``
-    profile means the account exists but hasn't completed the financial
-    intake yet — the caller should route to that flow instead of the portal.
-
-    Duplicate ``users`` rows with the same ``full_name`` can exist after
-    re-seeding or creating extra profiles; pick a password match (preferring
-    one that already has a financial profile) instead of raising
-    ``MultipleResultsFound``.
-    """
-    candidates = list(
-        db.execute(
-            select(UserORM)
-            .where((UserORM.email == username) | (UserORM.full_name == username))
-            .order_by(UserORM.created_at.desc())
-        ).scalars().all()
-    )
-    matching = [user for user in candidates if user.password == password]
-    if not matching:
-        raise InvalidCredentialsError("Invalid username or password")
-
-    for user in matching:
-        profile = _latest_profile_for_user(db, user.id)
-        if profile is not None:
-            return user, profile
-
-    return matching[0], None
+# create_account / authenticate_user / EmailTakenError / InvalidCredentialsError
+# are imported from backend.shared.auth.service at module top.
 
 
 # ---------------------------------------------------------------------------
