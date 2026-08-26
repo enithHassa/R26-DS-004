@@ -1,11 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { getCatalogAdminQueue, type CatalogAdminQueueResponse } from "./api";
+import {
+  deleteCatalogAdminJob,
+  getCatalogAdminQueue,
+  removeCatalogAdminProposal,
+  type CatalogAdminQueueResponse,
+} from "./api";
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -37,6 +43,9 @@ function jobStatusLabel(status: string): string {
 }
 
 export function CatalogAdminQueuePage() {
+  const queryClient = useQueryClient();
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const queueQuery = useQuery({
     queryKey: ["catalog-admin", "queue"],
     queryFn: getCatalogAdminQueue,
@@ -46,6 +55,42 @@ export function CatalogAdminQueuePage() {
   const pending = data?.proposals ?? [];
   const processing = data?.in_flight_jobs ?? [];
   const failed = data?.failed_jobs ?? [];
+
+  async function refreshQueue(): Promise<void> {
+    await queryClient.invalidateQueries({ queryKey: ["catalog-admin", "queue"] });
+  }
+
+  async function onRemoveProposal(sourceDocId: string, title: string): Promise<void> {
+    const ok = window.confirm(
+      `Remove "${title}" from the review queue?\n\nThis deletes the staged extract and review decisions. Live approved/ and rates/ files are not changed.`,
+    );
+    if (!ok) return;
+    setRemoveError(null);
+    setRemovingId(sourceDocId);
+    try {
+      await removeCatalogAdminProposal(sourceDocId);
+      await refreshQueue();
+    } catch (error) {
+      setRemoveError(error instanceof Error ? error.message : "Could not remove this Act.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  async function onRemoveJob(jobId: string, title: string): Promise<void> {
+    const ok = window.confirm(`Remove "${title}"?\n\nThis deletes the upload and job record.`);
+    if (!ok) return;
+    setRemoveError(null);
+    setRemovingId(jobId);
+    try {
+      await deleteCatalogAdminJob(jobId);
+      await refreshQueue();
+    } catch (error) {
+      setRemoveError(error instanceof Error ? error.message : "Could not remove this job.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -62,6 +107,12 @@ export function CatalogAdminQueuePage() {
           <Link to="/adaptive-tax/catalog-admin/upload">Add New Act</Link>
         </Button>
       </div>
+
+      {removeError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {removeError}
+        </p>
+      ) : null}
 
       {queueQuery.isError ? (
         <p className="text-sm text-destructive" role="alert">
@@ -80,7 +131,17 @@ export function CatalogAdminQueuePage() {
             empty="Nothing waiting for review."
           >
             {pending.map((row) => (
-              <ProposalCard key={row.source_doc_id} row={row} />
+              <ProposalCard
+                key={row.source_doc_id}
+                row={row}
+                removing={removingId === row.source_doc_id}
+                onRemove={() =>
+                  void onRemoveProposal(
+                    row.source_doc_id,
+                    row.act_title?.trim() || titleFromSourceId(row.source_doc_id),
+                  )
+                }
+              />
             ))}
           </QueueSection>
 
@@ -119,6 +180,13 @@ export function CatalogAdminQueuePage() {
                 href={row.job_path || `/adaptive-tax/catalog-admin/jobs/${row.id}`}
                 action="Retry job"
                 destructive
+                removing={removingId === row.id}
+                onRemove={() =>
+                  void onRemoveJob(
+                    row.id,
+                    row.act_label || displayPdfName(row.original_filename) || "Act PDF",
+                  )
+                }
               />
             ))}
           </QueueSection>
@@ -165,8 +233,12 @@ function QueueSection({
 
 function ProposalCard({
   row,
+  removing,
+  onRemove,
 }: {
   row: CatalogAdminQueueResponse["proposals"][number];
+  removing: boolean;
+  onRemove: () => void;
 }) {
   const title = row.act_title?.trim() || titleFromSourceId(row.source_doc_id);
   const file = displayPdfName(row.pdf_file_name);
@@ -188,9 +260,20 @@ function ProposalCard({
             <p className="text-xs text-muted-foreground">{file}</p>
           ) : null}
         </div>
-        <Button type="button" size="sm" asChild>
-          <Link to={href}>Review</Link>
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" size="sm" asChild>
+            <Link to={href}>Review</Link>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={removing}
+            onClick={onRemove}
+          >
+            {removing ? "Removing…" : "Remove"}
+          </Button>
+        </div>
       </CardHeader>
     </Card>
   );
@@ -204,6 +287,8 @@ function JobCard({
   href,
   action,
   destructive,
+  removing,
+  onRemove,
 }: {
   title: string;
   filename?: string;
@@ -212,6 +297,8 @@ function JobCard({
   href: string;
   action: string;
   destructive?: boolean;
+  removing?: boolean;
+  onRemove?: () => void;
 }) {
   return (
     <Card>
@@ -226,9 +313,22 @@ function JobCard({
             <p className="text-xs text-muted-foreground">{displayPdfName(filename)}</p>
           ) : null}
         </div>
-        <Button type="button" size="sm" variant="outline" asChild>
-          <Link to={href}>{action}</Link>
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" asChild>
+            <Link to={href}>{action}</Link>
+          </Button>
+          {onRemove ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={removing}
+              onClick={onRemove}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
     </Card>
   );

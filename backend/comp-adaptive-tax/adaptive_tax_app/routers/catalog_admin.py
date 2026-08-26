@@ -1,4 +1,4 @@
-"""Catalog-admin gate, duplicate check, extract, and per-row classification."""
+﻿"""Catalog-admin gate, duplicate check, extract, and per-row classification."""
 # WatchFiles reload so COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN is picked up.
 
 from __future__ import annotations
@@ -24,13 +24,14 @@ from adaptive_tax_app.services.catalog_duplicate import (
     set_source_doc_id,
     treat_as_new_source,
 )
-from adaptive_tax_app.services.catalog_extract import delete_job, start_extract
+from adaptive_tax_app.services.catalog_extract import delete_job, remove_proposal, start_extract
 from adaptive_tax_app.services.catalog_promote import confirm_new_year, promote_new_year, promote_update
 from adaptive_tax_app.services.catalog_review import (
     decide_row,
     promote_preview,
     review_payload,
     set_row_engine_binding,
+    set_row_question_fields,
 )
 
 router = APIRouter(prefix="/catalog-admin", tags=["catalog-admin"])
@@ -48,7 +49,7 @@ def require_catalog_admin_token(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "Catalog admin is not configured — set COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN "
+                "Catalog admin is not configured ΓÇö set COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN "
                 "in .env and restart Adaptive Tax."
             ),
         )
@@ -64,7 +65,7 @@ def require_catalog_admin_token(
 def require_catalog_admin_reviewer(
     x_catalog_admin_reviewer: Annotated[str | None, Header()] = None,
 ) -> str:
-    """Attribution only — not a second password. Required on mutating routes."""
+    """Attribution only ΓÇö not a second password. Required on mutating routes."""
     name = (x_catalog_admin_reviewer or "").strip()
     if not name:
         raise HTTPException(
@@ -261,6 +262,22 @@ def catalog_admin_delete_job(
         raise  # pragma: no cover
 
 
+@router.delete(
+    "/proposed/{source_doc_id}",
+    summary="Remove a finished extract from the review queue (staging only)",
+)
+def catalog_admin_remove_proposal(
+    _token: CatalogAdminToken,
+    reviewer: CatalogAdminReviewer,
+    source_doc_id: str,
+) -> dict[str, Any]:
+    try:
+        return remove_proposal(source_doc_id, reviewer=reviewer)
+    except CatalogDuplicateError as exc:
+        _raise_duplicate(exc)
+        raise  # pragma: no cover
+
+
 @router.get("/proposed/{source_doc_id}", summary="Proposal + Phase 5 review rows (wrapper, not a second ledger)")
 def catalog_admin_get_proposed(_token: CatalogAdminToken, source_doc_id: str) -> dict[str, Any]:
     try:
@@ -327,6 +344,32 @@ def catalog_admin_set_engine_binding(
             kind=str(body.get("kind") or ""),
             reviewer=reviewer,
             component_id=(str(body["component_id"]) if body.get("component_id") else None),
+        )
+    except CatalogDuplicateError as exc:
+        _raise_duplicate(exc)
+        raise  # pragma: no cover
+
+
+@router.post(
+    "/proposed/{source_doc_id}/question-fields",
+    summary="Auditor-edit taxpayer question fields (caps and quotes stay verbatim)",
+)
+def catalog_admin_set_question_fields(
+    _token: CatalogAdminToken,
+    reviewer: CatalogAdminReviewer,
+    source_doc_id: str,
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        return set_row_question_fields(
+            source_doc_id,
+            row_id=str(body.get("row_id") or ""),
+            display_name=str(body.get("display_name") or ""),
+            question_prompt=str(body.get("question_prompt") or ""),
+            input_kind=str(body.get("input_kind") or ""),
+            help_text=str(body.get("help") or ""),
+            compare_group_id=str(body.get("compare_group_id") or ""),
+            reviewer=reviewer,
         )
     except CatalogDuplicateError as exc:
         _raise_duplicate(exc)

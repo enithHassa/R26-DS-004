@@ -5,12 +5,24 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from adaptive_tax_app.config import get_adaptive_tax_settings
 from adaptive_tax_app.main import create_app
 from adaptive_tax_app.services.param_store import clear_param_store_cache
+
+# Starlette 1.0 TestClient still passes app= to httpx.Client; httpx 0.28 dropped it.
+_orig_httpx_client_init = httpx.Client.__init__
+
+
+def _httpx_client_init_compat(self: httpx.Client, *args: object, **kwargs: object) -> None:
+    kwargs.pop("app", None)
+    _orig_httpx_client_init(self, *args, **kwargs)
+
+
+httpx.Client.__init__ = _httpx_client_init_compat  # type: ignore[method-assign]
 
 
 @pytest.fixture(autouse=True)

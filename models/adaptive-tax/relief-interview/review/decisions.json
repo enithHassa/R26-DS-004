@@ -107,17 +107,6 @@
       "decided_at": "2026-08-21T06:26:36.661461+00:00",
       "reason": "Restates the pre-2020 personal relief baseline already carried by the base Act row at the same value; keeping both puts two rows on the same effective date"
     },
-    "a6bd7dc207e6": {
-      "row_id": "a6bd7dc207e6",
-      "status": "approved",
-      "entry_id": "ird-amend-2026-11:First Schedule:rule:4",
-      "source_doc_id": "ird-amend-2026-11",
-      "section_key": "First Schedule",
-      "row_kind": "rule",
-      "quote_fingerprint": "5260f693133f4e7ab3f290b23d7aaeb10bef0f4d",
-      "reviewer": "H P",
-      "decided_at": "2026-08-21T06:26:37.357668+00:00"
-    },
     "d2db29edf77b": {
       "row_id": "d2db29edf77b",
       "status": "approved",
@@ -966,18 +955,6 @@
       "decided_at": "2026-08-21T06:26:37.356635+00:00",
       "note": " [row_id migrated after effective_to VALUE_FIELDS]"
     },
-    "eb90a799be8e": {
-      "row_id": "eb90a799be8e",
-      "status": "approved",
-      "entry_id": "ird-amend-2026-11:First Schedule:rule:0",
-      "source_doc_id": "ird-amend-2026-11",
-      "section_key": "First Schedule",
-      "row_kind": "rule",
-      "quote_fingerprint": "d1333156efac0a7db9ec63099129aa319d637f9c",
-      "reviewer": "H P",
-      "decided_at": "2026-08-21T06:26:37.356635+00:00",
-      "note": " [row_id migrated after effective_to VALUE_FIELDS]"
-    },
     "2a6e95250a2f": {
       "row_id": "2a6e95250a2f",
       "status": "approved",
@@ -1380,17 +1357,6 @@
       "reviewer": "H P",
       "decided_at": "2026-08-21T11:26:48.701757+00:00",
       "reason": "Empty-cap bank merger restatement without quote-backed monetary ceiling"
-    },
-    "9a5214457d48": {
-      "row_id": "9a5214457d48",
-      "status": "approved",
-      "entry_id": "ird-amend-2026-11:52:rule:0",
-      "source_doc_id": "ird-amend-2026-11",
-      "section_key": "52",
-      "row_kind": "rule",
-      "quote_fingerprint": "67983b3477c7c763dd3837f894794e622bb08aae",
-      "reviewer": "gap-closure",
-      "decided_at": "2026-08-21T11:28:31.311262+00:00"
     },
     "82e94a434f2f": {
       "row_id": "82e94a434f2f",
@@ -1898,30 +1864,6 @@
       "decided_at": "2026-08-21T17:32:30.894758+00:00",
       "reason": "gate-blocked cinema construction quote; cannot approve"
     },
-    "55f3c932b985": {
-      "row_id": "55f3c932b985",
-      "status": "rejected",
-      "entry_id": "ird-amend-2026-11:Fifth Schedule:relief:0",
-      "source_doc_id": "ird-amend-2026-11",
-      "section_key": "Fifth Schedule",
-      "row_kind": "relief",
-      "quote_fingerprint": "932b789d55134be2595654215abee29fe25290ce",
-      "reviewer": "orphan-regression-fix",
-      "decided_at": "2026-08-21T17:32:31.130583+00:00",
-      "reason": "gate-failed Act 11 charity paraphrase fragments; no contiguous ceiling quote; live base charity rows already approved"
-    },
-    "66a023213967": {
-      "row_id": "66a023213967",
-      "status": "rejected",
-      "entry_id": "ird-amend-2026-11:Fifth Schedule:relief:1",
-      "source_doc_id": "ird-amend-2026-11",
-      "section_key": "Fifth Schedule",
-      "row_kind": "relief",
-      "quote_fingerprint": "a957a38e8cf5ea77bc77af7d7c1017ebf18b78e1",
-      "reviewer": "orphan-regression-fix",
-      "decided_at": "2026-08-21T17:32:31.130583+00:00",
-      "reason": "gate-failed Act 11 charity paraphrase fragments; no contiguous ceiling quote; live base charity rows already approved"
-    },
     "c132678804ba": {
       "row_id": "c132678804ba",
       "status": "rejected",
@@ -1969,14 +1911,14 @@
     },
     "e779feed4567": {
       "row_id": "e779feed4567",
-      "status": "rejected",
+      "status": "approved",
       "entry_id": "ird-amend-2023-04-490cedb9-2:First Schedule:rule:0",
       "source_doc_id": "ird-amend-2023-04-490cedb9-2",
       "section_key": "First Schedule",
       "row_kind": "rule",
       "quote_fingerprint": "e168fa700c2bc231663e2c9f76e0761e08bae11c",
-      "reviewer": "Vidumini",
-      "decided_at": "2026-08-22T17:23:14.624817+00:00"
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T21:00:56.120236+00:00"
     },
     "39fda94cd413": {
       "row_id": "39fda94cd413",
@@ -1989,17 +1931,251 @@
       "reviewer": "Vidumini",
       "decided_at": "2026-08-22T17:26:27.679110+00:00"
     },
-    "1436c8ad1eb5": {
-      "row_id": "1436c8ad1eb5",
-      "status": "approved",
-      "entry_id": "ird-amend-2026-11-a8e3787f:Fifth Schedule:relief:0",
-      "source_doc_id": "ird-amend-2026-11-a8e3787f",
+    "c3deda0aced7": {
+      "row_id": "c3deda0aced7",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:11",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "22250d075fed9fbac9e0f1385c93c52b501f7c23",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:08:43.824601+00:00"
+    },
+    "e402de8faab4": {
+      "row_id": "e402de8faab4",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:10",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "efe900a7edab41cb5f24eb32bcb8758963f00362",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:16.080766+00:00"
+    },
+    "ce758f44a2b3": {
+      "row_id": "ce758f44a2b3",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:9",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "0e383fbebf1c837343b5a2348961ad9828ce778b",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:17.835829+00:00"
+    },
+    "1a7bb899da97": {
+      "row_id": "1a7bb899da97",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:8",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "74385f50884c1a59963fea9af4ab10e21caf459d",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:20.517361+00:00"
+    },
+    "2a0ea4504696": {
+      "row_id": "2a0ea4504696",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:7",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "3f054224a433613c5e5c991da891685f3ad038a3",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:22.386144+00:00"
+    },
+    "544acb1d2cff": {
+      "row_id": "544acb1d2cff",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:6",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "42ddcf357697ea1fe84261fa8c606d5b33dcbfe7",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:24.294401+00:00"
+    },
+    "fad85dc0b9be": {
+      "row_id": "fad85dc0b9be",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:5",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "157159ba78f2811f814f97d0d35bd224c97986f4",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:25.801373+00:00"
+    },
+    "265dd22c1d0d": {
+      "row_id": "265dd22c1d0d",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:4",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "df96cdb8604269134bdb678b9d2e302804914191",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:27.217605+00:00"
+    },
+    "ba4d8b0e6080": {
+      "row_id": "ba4d8b0e6080",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:3",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "d927eb8f9f40eafbec65f861b438c07d5ff9114f",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:28.871215+00:00"
+    },
+    "8597a55ee417": {
+      "row_id": "8597a55ee417",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:2",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "09e6d59448a82240abec36a011968d2c75e90901",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:31.280795+00:00"
+    },
+    "f3449d69c85c": {
+      "row_id": "f3449d69c85c",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:1",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "3ab4d8b451d9794c4d16e1aba4409cd680423ccd",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:33.628205+00:00"
+    },
+    "17735d38390d": {
+      "row_id": "17735d38390d",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:First Schedule:band:0",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "First Schedule",
+      "row_kind": "rate_band",
+      "quote_fingerprint": "fd1b6503b7b3432858f4306a5d6136303da443ef",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:35.502259+00:00"
+    },
+    "8920ad430d88": {
+      "row_id": "8920ad430d88",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:8",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
       "section_key": "Fifth Schedule",
       "row_kind": "relief",
-      "quote_fingerprint": "957d53a2ed1d6fc8cdd1091981d46df1a2ad33b5",
-      "reviewer": "Vidumini",
-      "decided_at": "2026-08-22T21:34:23.251144+00:00",
-      "compare_group_id": "fifth_schedule_1_a_i"
+      "quote_fingerprint": "b44e8f160a1abcc47adaca96e31303c8b23aadeb",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:39.990571+00:00"
+    },
+    "5d05aa9087d5": {
+      "row_id": "5d05aa9087d5",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:7",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "3d5528583b3f628b2979c03ae0b4fd7b84a37286",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T17:15:43.719152+00:00"
+    },
+    "65bca8df8580": {
+      "row_id": "65bca8df8580",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:6",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "64ac2556f0842b3593b21b8892b56379b2d09289",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:55:37.241072+00:00"
+    },
+    "3d8638fd4992": {
+      "row_id": "3d8638fd4992",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:5",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "b7596616ff734934e0e1d2763b7d179455489ad9",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:55:33.727616+00:00"
+    },
+    "e7e1947bc932": {
+      "row_id": "e7e1947bc932",
+      "status": "rejected",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:4",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "e7fcbbb819967d4654e62880700b2a815a95a1b3",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:56:26.698988+00:00"
+    },
+    "7faf042aacce": {
+      "row_id": "7faf042aacce",
+      "status": "approved",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:3",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "827fbb35f41d41ea63de9af85744940d2d2db57d",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:59:31.645560+00:00",
+      "compare_group_id": "presidents_fund_qualifying_payment"
+    },
+    "17b3b1beedff": {
+      "row_id": "17b3b1beedff",
+      "status": "approved",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:2",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "ff25a6a3d6e60fd554e989513616c16e418d398c",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:59:11.375539+00:00",
+      "compare_group_id": "government_donation_qualifying_payment"
+    },
+    "1bc634cacc5b": {
+      "row_id": "1bc634cacc5b",
+      "status": "approved",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:1",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "d52237fbd694fa558511a346e4132f687fed42d7",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:58:55.457735+00:00",
+      "compare_group_id": "charitable_donation_qualifying_payment"
+    },
+    "73cbfec90fb8": {
+      "row_id": "73cbfec90fb8",
+      "status": "approved",
+      "entry_id": "ird-amend-2017-24-ecdb9ce4-2:Fifth Schedule:relief:0",
+      "source_doc_id": "ird-amend-2017-24-ecdb9ce4-2",
+      "section_key": "Fifth Schedule",
+      "row_kind": "relief",
+      "quote_fingerprint": "92ca77074baa85a3388b16bd4f28cf11561264b6",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T20:58:51.043395+00:00",
+      "compare_group_id": "charitable_donation_qualifying_payment"
+    },
+    "70c615344e76": {
+      "row_id": "70c615344e76",
+      "status": "approved",
+      "entry_id": "ird-amend-2023-04-490cedb9-3:First Schedule:rule:0",
+      "source_doc_id": "ird-amend-2023-04-490cedb9-3",
+      "section_key": "First Schedule",
+      "row_kind": "rule",
+      "quote_fingerprint": "e168fa700c2bc231663e2c9f76e0761e08bae11c",
+      "reviewer": "Vidumini Chalanika",
+      "decided_at": "2026-08-24T18:11:05.997279+00:00"
     }
   },
   "rate_verifications": {},
@@ -2566,6 +2742,16 @@
       "written": [
         "rates/2022_23.json"
       ]
+    },
+    {
+      "run_id": "20260824T210115Z",
+      "at": "2026-08-24T21:01:16.837176+00:00",
+      "by": "Vidumini Chalanika",
+      "kind": "UPDATE",
+      "source_doc_id": "ird-amend-2023-04-490cedb9-2",
+      "written": [
+        "rates/2022_23.json"
+      ]
     }
   ],
   "superseded_decisions": [
@@ -2687,18 +2873,6 @@
           "reviewer": "H P",
           "decided_at": "2026-08-21T06:09:45.103124+00:00",
           "reason": "Entity donation cap; the relief interview covers individuals"
-        },
-        "27eed0540bb4": {
-          "row_id": "27eed0540bb4",
-          "status": "rejected",
-          "entry_id": "ird-amend-2026-11:8:rule:0",
-          "source_doc_id": "ird-amend-2026-11",
-          "section_key": "8",
-          "row_kind": "rule",
-          "quote_fingerprint": "3e377f5c41991c447a10cab489d9015a19832923",
-          "reviewer": "H P",
-          "decided_at": "2026-08-21T06:11:00.536819+00:00",
-          "reason": "Drafting change to section 68(3) wording; carries no rate or relief value"
         },
         "0ee249994890": {
           "row_id": "0ee249994890",
@@ -3118,39 +3292,6 @@
           "reviewer": "H P",
           "decided_at": "2026-08-21T06:11:01.307588+00:00"
         },
-        "3fe5f2e014d1": {
-          "row_id": "3fe5f2e014d1",
-          "status": "approved",
-          "entry_id": "ird-amend-2026-11:First Schedule:rule:0",
-          "source_doc_id": "ird-amend-2026-11",
-          "section_key": "First Schedule",
-          "row_kind": "rule",
-          "quote_fingerprint": "8dc999fb105ca822f36dd8afc70961d0b8d79d47",
-          "reviewer": "H P",
-          "decided_at": "2026-08-21T06:11:01.307588+00:00"
-        },
-        "95fb34b60e87": {
-          "row_id": "95fb34b60e87",
-          "status": "approved",
-          "entry_id": "ird-amend-2026-11:First Schedule:rule:2",
-          "source_doc_id": "ird-amend-2026-11",
-          "section_key": "First Schedule",
-          "row_kind": "rule",
-          "quote_fingerprint": "e354742ed7c75b02920bb637c61dee528bd50cff",
-          "reviewer": "H P",
-          "decided_at": "2026-08-21T06:11:01.307588+00:00"
-        },
-        "c69aec74ea39": {
-          "row_id": "c69aec74ea39",
-          "status": "approved",
-          "entry_id": "ird-amend-2026-11:First Schedule:rule:4",
-          "source_doc_id": "ird-amend-2026-11",
-          "section_key": "First Schedule",
-          "row_kind": "rule",
-          "quote_fingerprint": "df1a705ca378ae9288139e50221c23e4d3b1d1c5",
-          "reviewer": "H P",
-          "decided_at": "2026-08-21T06:11:01.307588+00:00"
-        },
         "35983f58397d": {
           "row_id": "35983f58397d",
           "status": "approved",
@@ -3230,5 +3371,6 @@
         }
       }
     }
-  ]
+  ],
+  "row_decisions": {}
 }

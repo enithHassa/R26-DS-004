@@ -1,4 +1,4 @@
-"""Catalog-admin Step 6: Phase 5 review wrapper (not a second ledger)."""
+﻿"""Catalog-admin Step 6: Phase 5 review wrapper (not a second ledger)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from adaptive_tax_app.services.catalog_admin_store import (
     APPROVED_DIR,
     CatalogAdminPaths,
     catalog_admin_paths,
+    load_job,
     now_iso,
 )
 from adaptive_tax_app.services.catalog_classify import (
@@ -22,12 +23,15 @@ from adaptive_tax_app.services.catalog_classify import (
     save_proposed,
     unset_row_ids,
 )
-from adaptive_tax_app.services.catalog_duplicate import CatalogDuplicateError, p4_accuracy, p5
+from adaptive_tax_app.services.catalog_duplicate import CatalogDuplicateError, p4, p4_accuracy, p5
 from adaptive_tax_app.services.catalog_stage import (
     ENGINE_BINDING_KINDS,
+    QUESTION_INPUT_KINDS,
     ensure_provision_attribution,
     set_engine_binding as stage_set_engine_binding,
+    set_question_fields as stage_set_question_fields,
 )
+from backend.shared.config.settings import PROJECT_ROOT
 
 _LEDGER_LOCK = threading.Lock()
 
@@ -51,10 +55,10 @@ SOLE_CHECK_LABEL = (
     "I have read the Act text and accept this rate without an independent check"
 )
 SOLE_CHECK_BANNER = (
-    "No independent verification source exists for this year — approval relies "
+    "No independent verification source exists for this year ΓÇö approval relies "
     "entirely on manual reading of the Act text."
 )
-# Phase 7 viva series — the only known-table that can block promote this pass.
+# Phase 7 viva series ΓÇö the only known-table that can block promote this pass.
 PERSONAL_RELIEF_KNOWN_CAPS: dict[str, int] = {
     "2018_19": 500_000,
     "2019_20": 500_000,
@@ -79,15 +83,15 @@ EXTRACT_PERSONAL_RELIEF_ALIASES = frozenset(
 
 def tax_effect_copy(kind: str | None, *, component_id: str | None = None) -> str:
     if not kind:
-        return "Tax effect not chosen — this row cannot be approved until you pick a binding."
+        return "Calculator rule not chosen ΓÇö pick Step 1 before you can approve this row."
     if kind == "none":
         return (
-            "This relief will be visible to the taxpayer but will NOT affect "
-            "their tax figure (kind: none)."
+            "Standard calculator rule saved. Tax uses the cap and the taxpayer's "
+            "answers from Step 2 (personal relief, claim amounts, auto-applied caps)."
         )
     engines: list[str] = []
     if kind in TAX_REDUCING_KINDS:
-        engines.append("official calculate() on 2024/25–2025/26")
+        engines.append("official calculate() on 2024/25ΓÇô2025/26")
         engines.append("catalog estimate")
     extra = ""
     if kind == "filing_line":
@@ -231,7 +235,7 @@ def _cap_int(value: Any) -> int | None:
 
 
 def live_catalog_groups() -> tuple[set[str], dict[str, str]]:
-    """Live approved compare_group_id set and display_name → group."""
+    """Live approved compare_group_id set and display_name ΓåÆ group."""
     ids: set[str] = set()
     by_name: dict[str, str] = {}
     if not APPROVED_DIR.is_dir():
@@ -284,12 +288,125 @@ def resolve_catalog_compare_group(
     }
 
 
+def _section_extract_path(source_doc_id: str, section_key: str, root: CatalogAdminPaths) -> Path:
+    safe_key = section_key.replace(" ", "_").lower()
+    return root.extracted_dir / f"{source_doc_id}__{safe_key}.json"
+
+
+def _resolve_proposal_pdf(proposal: dict[str, Any], root: CatalogAdminPaths) -> Path | None:
+    job_id = str(proposal.get("job_id") or "")
+    if job_id:
+        try:
+            job = load_job(job_id, root)
+            storage = job.get("storage_path")
+            if storage:
+                path = Path(str(storage))
+                if path.is_file():
+                    return path
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            pass
+    raw = proposal.get("pdf_path")
+    if raw:
+        path = Path(str(raw))
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+        if path.is_file():
+            return path
+    return None
+
+
+def _cache_section_prose(path: Path, focus_prose: str) -> None:
+    if not focus_prose or not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        prior = str(data.get("focus_prose") or "")
+        if prior and len(prior) >= len(focus_prose):
+            return
+        data["focus_prose"] = focus_prose
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except (OSError, json.JSONDecodeError, TypeError):
+        return
+
+
+def _section_act_prose(
+    proposal: dict[str, Any],
+    section_key: str,
+    root: CatalogAdminPaths,
+) -> str:
+    sid = str(proposal.get("source_doc_id") or "")
+    if not sid or not section_key:
+        return ""
+
+    for section in proposal.get("sections") or []:
+        if str(section.get("section_key") or "") != section_key:
+            continue
+        prose = str(section.get("focus_prose") or "").strip()
+        if prose:
+            return prose
+
+    path = _section_extract_path(sid, section_key, root)
+    if path.is_file():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            prose = str(data.get("focus_prose") or "").strip()
+            if prose and len(prose) >= 500:
+                return prose
+            focus_text = str(data.get("focus_text") or "")
+            if focus_text:
+                prose = p4().extract_section_prose(focus_text)
+                if prose:
+                    return prose
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    pdf_path = _resolve_proposal_pdf(proposal, root)
+    if pdf_path is None:
+        return ""
+    try:
+        extract = p4()
+        act = extract.read_act_text(pdf_path)
+        is_base = "amend" not in sid.lower()
+        focus = extract.build_focus_window(act, section_key, is_base_act=is_base)
+        if not focus:
+            alt = section_key.replace(" ", "_").lower()
+            focus = extract.build_focus_window(act, alt, is_base_act=is_base)
+        prose = extract.extract_section_prose(focus)
+        if prose:
+            _cache_section_prose(path, prose)
+        return prose
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+def _section_act_prose_cache(
+    proposal: dict[str, Any],
+    root: CatalogAdminPaths,
+) -> dict[str, str]:
+    keys: set[str] = set()
+    for row in proposal_rows(proposal):
+        if _is_rate(row):
+            sk = str(row.get("section_key") or "")
+            if sk:
+                keys.add(sk)
+    return {sk: _section_act_prose(proposal, sk, root) for sk in sorted(keys)}
+
+
+def _is_table_quote_row(row: dict[str, Any]) -> bool:
+    quote = str(row.get("quote") or "")
+    return str(row.get("quote_source") or "") == "table_render" or "|" in quote
+
+
 def build_review_row(
     row: dict[str, Any],
     *,
     proposal: dict[str, Any],
     provision: dict[str, Any] | None,
     decision: dict[str, Any] | None,
+    section_prose_cache: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     binding = (provision or {}).get("engine_binding") if provision else None
     kind = _binding_kind(provision)
@@ -308,19 +425,36 @@ def build_review_row(
         can_approve = False
     if row.get("included") and not (provision or {}).get("kind_human"):
         can_approve = False
+    qf = (provision or {}).get("question_fields")
     display = (
-        row.get("display_name")
+        (qf.get("display_name") if isinstance(qf, dict) else None)
+        or row.get("display_name")
         or row.get("band_label")
         or row.get("description")
         or row.get("rule_id")
         or (provision.get("display_name") if provision else None)
     )
     group = resolve_catalog_compare_group(row, provision)
+    section_key = str(row.get("section_key") or "")
+    section_act_prose = ""
+    if str(row.get("row_kind") or "") == "rate_band":
+        section_act_prose = (section_prose_cache or {}).get(section_key, "")
     return {
         "entry_id": _entry_id(row),
         "ledger_row_id": hashed,
         "row_kind": row.get("row_kind"),
         "display_name": display,
+        "question_prompt": (qf.get("question_prompt") if isinstance(qf, dict) else None)
+        or row.get("question_prompt")
+        or "",
+        "input_kind": (qf.get("input_kind") if isinstance(qf, dict) else None)
+        or row.get("input_kind")
+        or "notice",
+        "help": (qf.get("help") if isinstance(qf, dict) else None) or row.get("help") or "",
+        "question_fields": qf if isinstance(qf, dict) else None,
+        "question_fields_set_by": (provision or {}).get("question_fields_set_by"),
+        "question_fields_set_at": (provision or {}).get("question_fields_set_at"),
+        "suggested_compare_group_id": group["extract_compare_group_id"],
         "description": row.get("description"),
         "value": row.get("value"),
         "cap_amount": row.get("cap_amount"),
@@ -335,6 +469,10 @@ def build_review_row(
         "compare_group_mapped": group["compare_group_mapped"],
         "compare_group_map_reason": group["compare_group_map_reason"],
         "quote": row.get("quote"),
+        "quote_source": row.get("quote_source"),
+        "band_label": row.get("band_label"),
+        "applies_to": row.get("applies_to"),
+        "section_act_prose": section_act_prose or None,
         "quote_ok_full_doc": bool(row.get("quote_ok_full_doc")),
         "pass2_verbatim": bool(row.get("pass2_verbatim")),
         "included": bool(row.get("included")),
@@ -355,7 +493,7 @@ def build_review_row(
             None
             if can_approve
             else (
-                "Gate-fail rows cannot be approved — request re-extract."
+                "Gate-fail rows cannot be approved ΓÇö request re-extract."
                 if not _gate_ok(row)
                 else "Set human classification first."
                 if not (provision or {}).get("kind_human")
@@ -436,6 +574,7 @@ def _rate_ontology(proposal: dict[str, Any], rate_rows: list[dict[str, Any]]) ->
 def enrich_review(proposal: dict[str, Any], paths: CatalogAdminPaths) -> dict[str, Any]:
     sid = str(proposal.get("source_doc_id") or "")
     by_id = _provisions_by_id(proposal)
+    section_prose_cache = _section_act_prose_cache(proposal, paths)
     with _with_ledger(paths) as mod:
         relief: list[dict[str, Any]] = []
         rates: list[dict[str, Any]] = []
@@ -447,6 +586,7 @@ def enrich_review(proposal: dict[str, Any], paths: CatalogAdminPaths) -> dict[st
                 proposal=proposal,
                 provision=by_id.get(_entry_id(row)),
                 decision=_decision_for(mod, hashed),
+                section_prose_cache=section_prose_cache,
             )
             if built["panel"] == "rate":
                 rates.append(built)
@@ -534,7 +674,7 @@ def enrich_review(proposal: dict[str, Any], paths: CatalogAdminPaths) -> dict[st
             reasons.append(
                 "Already promoted."
                 if status == "promoted"
-                else "UPDATE already promoted — remaining NEW_YEAR rows wait for Step 7b."
+                else "UPDATE already promoted ΓÇö remaining NEW_YEAR rows wait for Step 7b."
             )
         elif not has_update:
             reasons.append(
@@ -558,6 +698,7 @@ def enrich_review(proposal: dict[str, Any], paths: CatalogAdminPaths) -> dict[st
         "other_rows": other,
         "rate_panel": rate_panel,
         "engine_binding_kinds": sorted(ENGINE_BINDING_KINDS),
+        "question_input_kinds": sorted(QUESTION_INPUT_KINDS),
         "promote_enabled": promote_enabled,
         "promote_blocked_reason": " ".join(reasons),
         "preview_ready": class_ok and bind_ok,
@@ -677,6 +818,38 @@ def set_row_engine_binding(
     return enrich_review(proposal, root)
 
 
+def set_row_question_fields(
+    source_doc_id: str,
+    *,
+    row_id: str,
+    display_name: str,
+    question_prompt: str,
+    input_kind: str,
+    help_text: str,
+    compare_group_id: str,
+    reviewer: str,
+    paths: CatalogAdminPaths | None = None,
+) -> dict[str, Any]:
+    """Auditor-edited taxpayer question. Caps and quotes stay on the extract row."""
+    root = paths or catalog_admin_paths()
+    proposal = load_proposed(source_doc_id, root)
+    by_id = _provisions_by_id(proposal)
+    provision = by_id.get((row_id or "").strip())
+    if provision is None:
+        raise CatalogDuplicateError(f"Row {row_id} is not an included classified provision.")
+    stage_set_question_fields(
+        provision,
+        display_name=display_name,
+        question_prompt=question_prompt,
+        input_kind=input_kind,
+        help_text=help_text,
+        compare_group_id=compare_group_id,
+        reviewer=reviewer,
+    )
+    save_proposed(proposal, root)
+    return enrich_review(proposal, root)
+
+
 def _commencements(paths: CatalogAdminPaths, source_doc_id: str) -> dict[str, str]:
     out = dict(p5().load_act_commencements())
     sidecar = paths.harvest_sidecar_dir / f"{source_doc_id}.json"
@@ -727,6 +900,7 @@ def _candidate_from_catalog_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "question_prompt": entry.get("question_prompt"),
         "sort_order": entry.get("sort_order", 100),
         "input_kind": entry.get("input_kind"),
+        "help": entry.get("help") or "",
         "auto_applied": entry.get("auto_applied", False),
         "unit": entry.get("unit") or "lkr",
         "quote": entry.get("quote"),
@@ -746,6 +920,7 @@ def _candidate_from_catalog_entry(entry: dict[str, Any]) -> dict[str, Any]:
             "question_prompt": entry.get("question_prompt"),
             "sort_order": entry.get("sort_order", 100),
             "input_kind": entry.get("input_kind"),
+            "help": entry.get("help") or "",
             "auto_applied": entry.get("auto_applied", False),
             "engine_binding": entry.get("engine_binding") or {"kind": "none"},
             "reviewer": prov.get("reviewed_by") or "",
@@ -795,10 +970,23 @@ def _candidate_from_proposal_row(
     binding = (provision or {}).get("engine_binding") if provision else None
     decided = dict(decision or {})
     decided["compare_group_id"] = group
-    decided["display_name"] = prior.get("display_name") or row.get("display_name") or ""
-    decided["question_prompt"] = prior.get("question_prompt") or row.get("question_prompt") or ""
+    qf = (provision or {}).get("question_fields") if provision else None
+    if not isinstance(qf, dict):
+        qf = {}
+    decided["display_name"] = (
+        qf.get("display_name") or row.get("display_name") or prior.get("display_name") or ""
+    )
+    decided["question_prompt"] = (
+        qf.get("question_prompt")
+        or row.get("question_prompt")
+        or prior.get("question_prompt")
+        or ""
+    )
     decided["sort_order"] = int(prior.get("sort_order", 100))
-    decided["input_kind"] = prior.get("input_kind") or row.get("input_kind") or "notice"
+    decided["input_kind"] = (
+        qf.get("input_kind") or row.get("input_kind") or prior.get("input_kind") or "notice"
+    )
+    decided["help"] = qf.get("help") or row.get("help") or prior.get("help") or ""
     decided["auto_applied"] = bool(prior.get("auto_applied", row.get("auto_applied", False)))
     decided["engine_binding"] = binding or {"kind": "none"}
     return {
@@ -814,6 +1002,7 @@ def _candidate_from_proposal_row(
         "question_prompt": decided["question_prompt"],
         "sort_order": decided["sort_order"],
         "input_kind": decided["input_kind"],
+        "help": decided["help"],
         "auto_applied": decided["auto_applied"],
         "unit": row.get("unit") or "lkr",
         "quote": row.get("quote"),
@@ -903,7 +1092,7 @@ def touched_update_groups(
     paths: CatalogAdminPaths,
     mod: Any,
 ) -> dict[str, set[str]]:
-    """catalog compare_group_id → extractor ids, for approved UPDATE reliefs only."""
+    """catalog compare_group_id ΓåÆ extractor ids, for approved UPDATE reliefs only."""
     by_id = _provisions_by_id(proposal)
     sid = str(proposal.get("source_doc_id") or "")
     extract_for_group: dict[str, set[str]] = {}
@@ -1044,9 +1233,9 @@ def promote_preview(
                 if drift:
                     known_ok = False
                     known_note = (
-                        "personal_relief known-table drift — "
+                        "personal_relief known-table drift ΓÇö "
                         + "; ".join(drift)
-                        + " — promote is blocked."
+                        + " ΓÇö promote is blocked."
                     )
             else:
                 known_note = "No known-table verification exists for this group."

@@ -1,13 +1,51 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Wallet } from "lucide-react";
 
 import { features } from "@/features";
 import { cn } from "@/lib/utils";
 
+class RouteErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("Route render failed", error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div className="space-y-2" role="alert">
+          <p className="font-medium">This page failed to render.</p>
+          <p className="text-sm text-muted-foreground">{this.state.error.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/** Reset the boundary when the URL changes so a prior route error does not stick. */
+function RouteErrorOutlet() {
+  const location = useLocation();
+  return (
+    <RouteErrorBoundary key={location.pathname}>
+      <Outlet />
+    </RouteErrorBoundary>
+  );
+}
+
 export function AppShell() {
   return (
-    <div className="flex h-full">
-      <aside className="hidden w-64 flex-col border-r bg-card/50 p-4 md:flex">
+    <div className="flex min-h-screen">
+      <aside className="hidden w-64 shrink-0 flex-col border-r bg-card/50 p-4 md:flex">
         <div className="mb-8 flex items-center gap-2 px-2">
           <Wallet className="h-6 w-6" />
           <div>
@@ -48,7 +86,7 @@ export function AppShell() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6 md:p-10">
-          <Outlet />
+          <RouteErrorOutlet />
         </div>
       </main>
     </div>

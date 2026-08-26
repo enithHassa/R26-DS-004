@@ -72,4 +72,34 @@ export const BEHAVIOURAL_QUESTIONS: BehaviouralQuestion[] = [
     affectsRecommendations: false,
     multiSelect: true,
   },
+  {
+    key: "tax_filing_history",
+    prompt: "Over the past few years, how consistently have you filed your taxes on time?",
+    options: [
+      { value: "always_on_time", label: "Always on time" },
+      { value: "sometimes_late", label: "Sometimes late" },
+      { value: "often_late_or_missed", label: "Often late, or missed a filing" },
+    ],
+    affectsRecommendations: false,
+  },
+  {
+    key: "past_relief_claims",
+    prompt: "Have you claimed tax reliefs or deductions (e.g. insurance, donations, loan interest) in previous years?",
+    options: [
+      { value: "regularly", label: "Yes, regularly" },
+      { value: "occasionally", label: "Occasionally" },
+      { value: "never", label: "No, never" },
+    ],
+    affectsRecommendations: false,
+  },
+  {
+    key: "past_saving_consistency",
+    prompt: "Looking back over the past few years, how would you describe your saving habit?",
+    options: [
+      { value: "consistent", label: "I saved something most months" },
+      { value: "occasional", label: "I saved now and then" },
+      { value: "rarely", label: "I rarely managed to save" },
+    ],
+    affectsRecommendations: false,
+  },
 ];

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import {
   Trash2,
   RefreshCw,
   X,
+  Plus,
   UserRound,
   Briefcase,
   Wallet,
@@ -51,32 +52,65 @@ const decimalString = z
   .min(1, "Required")
   .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, "Must be ≥ 0");
 
-const integerString = (max: number) =>
+const integerString = (max: number, min = 0) =>
   z
     .string()
     .min(1, "Required")
     .regex(/^\d+$/, "Must be a whole number")
     .transform((v) => Number(v))
-    .refine((n) => n <= max, `Must be ≤ ${max}`);
+    .refine((n) => n <= max && n >= min, `Must be between ${min} and ${max}`);
+
+const incomeSourceSchema = z.object({
+  kind: z.enum(
+    ["employment", "business", "rental", "interest", "dividend", "capital_gain", "other"],
+    { errorMap: () => ({ message: "Required" }) },
+  ),
+  monthly_amount: decimalString,
+  is_taxable: z.boolean(),
+});
 
 const profileSchema = z.object({
   full_name: z.string().min(1, "Required").max(200),
   age_band: z.enum(["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-70", "70+"], {
     errorMap: () => ({ message: "Required" }),
   }),
-  gender: z.enum(["male", "female"], { errorMap: () => ({ message: "Required" }) }),
-  province: z.enum(["Western", "Central", "Southern", "North Western"], {
+  gender: z.enum(["male", "female", "other"], { errorMap: () => ({ message: "Required" }) }),
+  province: z.enum(
+    [
+      "Western",
+      "Central",
+      "Southern",
+      "Northern",
+      "Eastern",
+      "North Western",
+      "North Central",
+      "Uva",
+      "Sabaragamuwa",
+    ],
+    { errorMap: () => ({ message: "Required" }) },
+  ),
+  marital_status: z.enum(["single", "married", "divorced", "widowed"], {
     errorMap: () => ({ message: "Required" }),
   }),
-  marital_status: z.enum(["single", "married", "divorced"], {
+  residency_status: z.enum(["resident", "non_resident", "dual"], {
     errorMap: () => ({ message: "Required" }),
   }),
-  occupation: z.enum(["employee", "business_owner", "professional"], {
+  nationality: z.string().max(64).optional().or(z.literal("")),
+  occupation: z.enum(
+    ["employee", "self_employed", "business_owner", "investor", "professional", "other"],
+    { errorMap: () => ({ message: "Required" }) },
+  ),
+  employment_type: z.enum(
+    ["permanent", "contract", "part_time", "freelance", "unemployed"],
+    { errorMap: () => ({ message: "Required" }) },
+  ),
+  employer_sector: z.enum(["private", "public", "ngo", "self_employed"], {
     errorMap: () => ({ message: "Required" }),
   }),
   dependents: integerString(20),
   years_employed: integerString(60),
   gross_monthly_income: decimalString,
+  annual_bonus_lkr: decimalString,
   monthly_expenses: decimalString,
   monthly_debt_service: decimalString,
   liquid_savings: decimalString,
@@ -84,13 +118,17 @@ const profileSchema = z.object({
   total_debt: decimalString,
   epf_balance: decimalString,
   etf_balance: decimalString,
+  vehicle_value: decimalString,
+  property_value: decimalString,
   health_insurance: z.boolean(),
   life_insurance_premium_annual: decimalString,
   home_loan_interest_annual: decimalString,
   donations_annual: decimalString,
   risk_tolerance: z.enum(["low", "medium", "high"], { errorMap: () => ({ message: "Required" }) }),
   investment_horizon_years: integerString(50),
+  retirement_age_target: integerString(75, 40),
   tax_year: z.string().regex(/^\d{4}_\d{2}$/, "Format YYYY_YY"),
+  income_sources: z.array(incomeSourceSchema).min(1, "Add at least one income source"),
 });
 
 type ProfileForm = z.input<typeof profileSchema>;
@@ -113,7 +151,7 @@ function sanitizeTaxYearString(raw: string): string {
   return raw.replace(/[^\d_]/g, "").slice(0, 7);
 }
 
-function withIntegerSanitize<T extends keyof ProfileForm>(
+function withIntegerSanitize<T extends string>(
   reg: UseFormRegisterReturn<T>,
 ): UseFormRegisterReturn<T> {
   return {
@@ -126,7 +164,7 @@ function withIntegerSanitize<T extends keyof ProfileForm>(
   };
 }
 
-function withDecimalSanitize<T extends keyof ProfileForm>(
+function withDecimalSanitize<T extends string>(
   reg: UseFormRegisterReturn<T>,
 ): UseFormRegisterReturn<T> {
   return {
@@ -161,14 +199,43 @@ const WIZARD_STEPS = [
   "Employment",
   "Income",
   "Assets",
+  "Income sources",
   "Insurance & horizon",
 ] as const;
 
+const INCOME_SOURCE_KIND_LABEL: Record<string, string> = {
+  employment: "Employment / salary",
+  business: "Business",
+  rental: "Rental",
+  interest: "Interest",
+  dividend: "Dividend",
+  capital_gain: "Capital gain",
+  other: "Other",
+};
+
 const STEP_FIELDS: (keyof ProfileForm)[][] = [
-  ["full_name", "age_band", "gender", "marital_status", "province", "dependents"],
-  ["occupation", "years_employed"],
-  ["gross_monthly_income", "monthly_expenses", "monthly_debt_service"],
-  ["liquid_savings", "existing_investments", "total_debt", "epf_balance", "etf_balance"],
+  [
+    "full_name",
+    "age_band",
+    "gender",
+    "marital_status",
+    "residency_status",
+    "nationality",
+    "province",
+    "dependents",
+  ],
+  ["occupation", "employment_type", "employer_sector", "years_employed"],
+  ["gross_monthly_income", "annual_bonus_lkr", "monthly_expenses", "monthly_debt_service"],
+  [
+    "liquid_savings",
+    "existing_investments",
+    "total_debt",
+    "epf_balance",
+    "etf_balance",
+    "vehicle_value",
+    "property_value",
+  ],
+  ["income_sources"],
   [
     "life_insurance_premium_annual",
     "home_loan_interest_annual",
@@ -176,6 +243,7 @@ const STEP_FIELDS: (keyof ProfileForm)[][] = [
     "health_insurance",
     "risk_tolerance",
     "investment_horizon_years",
+    "retirement_age_target",
     "tax_year",
   ],
 ];
@@ -186,10 +254,15 @@ const defaultValues: ProfileForm = {
   gender: "" as ProfileForm["gender"],
   province: "" as ProfileForm["province"],
   marital_status: "" as ProfileForm["marital_status"],
+  residency_status: "resident",
+  nationality: "",
   occupation: "" as ProfileForm["occupation"],
+  employment_type: "" as ProfileForm["employment_type"],
+  employer_sector: "" as ProfileForm["employer_sector"],
   dependents: "",
   years_employed: "",
   gross_monthly_income: "",
+  annual_bonus_lkr: "0",
   monthly_expenses: "",
   monthly_debt_service: "",
   liquid_savings: "",
@@ -197,13 +270,17 @@ const defaultValues: ProfileForm = {
   total_debt: "",
   epf_balance: "",
   etf_balance: "",
+  vehicle_value: "0",
+  property_value: "0",
   health_insurance: false,
   life_insurance_premium_annual: "",
   home_loan_interest_annual: "",
   donations_annual: "",
   risk_tolerance: "" as ProfileForm["risk_tolerance"],
   investment_horizon_years: "",
+  retirement_age_target: "60",
   tax_year: "",
+  income_sources: [{ kind: "employment", monthly_amount: "", is_taxable: true }],
 };
 
 function formatLkr(value: string | number): string {
@@ -249,10 +326,13 @@ export function ProfilePage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting, dirtyFields },
     reset,
     setValue,
   } = form;
+
+  const incomeSources = useFieldArray({ control, name: "income_sources" });
 
   const profilesQuery = useQuery({
     queryKey: ["profiles", page],
@@ -312,23 +392,15 @@ export function ProfilePage() {
     },
   });
 
-  const occupationIncomeKind: Record<string, string> = {
-    employee: "employment",
-    business_owner: "business",
-    professional: "business",
-  };
-
   const onSubmit = (values: ProfileFormOutput) => {
     const payload: FinancialProfileCreate = {
       ...values,
-      income_sources: [
-        {
-          kind: occupationIncomeKind[values.occupation] ?? "employment",
-          monthly_amount: values.gross_monthly_income,
-          currency: "LKR",
-          is_taxable: true,
-        },
-      ],
+      income_sources: values.income_sources.map((s) => ({
+        kind: s.kind,
+        monthly_amount: s.monthly_amount,
+        currency: "LKR",
+        is_taxable: s.is_taxable,
+      })),
     };
     createMutation.mutate(payload);
   };
@@ -372,6 +444,7 @@ export function ProfilePage() {
                     <option value="" disabled>Select gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
+                    <option value="other">Other</option>
                   </Select>
                 </Field>
                 <Field label="Marital status" error={errors.marital_status?.message}>
@@ -380,6 +453,7 @@ export function ProfilePage() {
                     <option value="single">Single</option>
                     <option value="married">Married</option>
                     <option value="divorced">Divorced</option>
+                    <option value="widowed">Widowed</option>
                   </Select>
                 </Field>
                 <Field label="Province" error={errors.province?.message}>
@@ -398,6 +472,23 @@ export function ProfilePage() {
                     {...withIntegerSanitize(register("dependents"))}
                   />
                 </Field>
+                <Field
+                  label="Residency status"
+                  error={errors.residency_status?.message}
+                >
+                  <Select {...register("residency_status")} defaultValue="resident">
+                    <option value="resident">Resident</option>
+                    <option value="non_resident">Non-resident</option>
+                    <option value="dual">Dual resident</option>
+                  </Select>
+                </Field>
+                <Field label="Nationality (optional)" error={errors.nationality?.message}>
+                  <Input
+                    {...register("nationality")}
+                    placeholder="e.g. Sri Lankan"
+                    autoComplete="off"
+                  />
+                </Field>
               </Section>
               )}
 
@@ -407,8 +498,11 @@ export function ProfilePage() {
                   <Select {...register("occupation")} defaultValue="">
                     <option value="" disabled>Select occupation</option>
                     <option value="employee">Employee</option>
+                    <option value="self_employed">Self-employed</option>
                     <option value="business_owner">Business owner</option>
+                    <option value="investor">Investor</option>
                     <option value="professional">Professional</option>
+                    <option value="other">Other</option>
                   </Select>
                 </Field>
                 <Field label="Years employed" error={errors.years_employed?.message}>
@@ -418,6 +512,25 @@ export function ProfilePage() {
                     autoComplete="off"
                     {...withIntegerSanitize(register("years_employed"))}
                   />
+                </Field>
+                <Field label="Employment type" error={errors.employment_type?.message}>
+                  <Select {...register("employment_type")} defaultValue="">
+                    <option value="" disabled>Select employment type</option>
+                    <option value="permanent">Permanent</option>
+                    <option value="contract">Contract</option>
+                    <option value="part_time">Part-time</option>
+                    <option value="freelance">Freelance</option>
+                    <option value="unemployed">Unemployed</option>
+                  </Select>
+                </Field>
+                <Field label="Employer sector" error={errors.employer_sector?.message}>
+                  <Select {...register("employer_sector")} defaultValue="">
+                    <option value="" disabled>Select employer sector</option>
+                    <option value="private">Private</option>
+                    <option value="public">Public / government</option>
+                    <option value="ngo">NGO</option>
+                    <option value="self_employed">Self-employed</option>
+                  </Select>
                 </Field>
               </Section>
               )}
@@ -430,6 +543,17 @@ export function ProfilePage() {
                     inputMode="decimal"
                     autoComplete="off"
                     {...withDecimalSanitize(register("gross_monthly_income"))}
+                  />
+                </Field>
+                <Field
+                  label="Annual bonus (LKR)"
+                  error={errors.annual_bonus_lkr?.message}
+                >
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    {...withDecimalSanitize(register("annual_bonus_lkr"))}
                   />
                 </Field>
                 <Field label="Monthly expenses" error={errors.monthly_expenses?.message}>
@@ -493,10 +617,101 @@ export function ProfilePage() {
                     {...withDecimalSanitize(register("etf_balance"))}
                   />
                 </Field>
+                <Field label="Vehicle value" error={errors.vehicle_value?.message}>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    {...withDecimalSanitize(register("vehicle_value"))}
+                  />
+                </Field>
+                <Field label="Property value" error={errors.property_value?.message}>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    {...withDecimalSanitize(register("property_value"))}
+                  />
+                </Field>
               </Section>
               )}
 
               {step === 4 && (
+              <Section title="Income sources">
+                <div className="col-span-full space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    List every income source for this taxpayer (salary, rental, dividends,
+                    interest, etc.) so mixed income can be represented accurately.
+                  </p>
+                  {errors.income_sources?.root?.message && (
+                    <div className="text-xs text-destructive">
+                      {errors.income_sources.root.message}
+                    </div>
+                  )}
+                  {incomeSources.fields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1.2fr_1fr_auto_auto]"
+                    >
+                      <Field
+                        label="Kind"
+                        error={errors.income_sources?.[index]?.kind?.message}
+                      >
+                        <Select
+                          {...register(`income_sources.${index}.kind`)}
+                          defaultValue={field.kind}
+                        >
+                          {Object.entries(INCOME_SOURCE_KIND_LABEL).map(([k, label]) => (
+                            <option key={k} value={k}>{label}</option>
+                          ))}
+                        </Select>
+                      </Field>
+                      <Field
+                        label="Monthly amount (LKR)"
+                        error={errors.income_sources?.[index]?.monthly_amount?.message}
+                      >
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          {...withDecimalSanitize(register(`income_sources.${index}.monthly_amount`))}
+                        />
+                      </Field>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Checkbox
+                          id={`income_sources.${index}.is_taxable`}
+                          {...register(`income_sources.${index}.is_taxable`)}
+                        />
+                        <Label htmlFor={`income_sources.${index}.is_taxable`}>Taxable</Label>
+                      </div>
+                      <div className="flex items-end justify-end pb-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          disabled={incomeSources.fields.length <= 1}
+                          onClick={() => incomeSources.remove(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      incomeSources.append({ kind: "other", monthly_amount: "", is_taxable: true })
+                    }
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add income source
+                  </Button>
+                </div>
+              </Section>
+              )}
+
+              {step === 5 && (
               <>
               <Section title="Insurance & reliefs (annual LKR)">
                 <Field label="Life insurance premium" error={errors.life_insurance_premium_annual?.message}>
@@ -544,6 +759,17 @@ export function ProfilePage() {
                     inputMode="numeric"
                     autoComplete="off"
                     {...withIntegerSanitize(register("investment_horizon_years"))}
+                  />
+                </Field>
+                <Field
+                  label="Retirement age target"
+                  error={errors.retirement_age_target?.message}
+                >
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    {...withIntegerSanitize(register("retirement_age_target"))}
                   />
                 </Field>
                 <Field label="Tax year" error={errors.tax_year?.message}>
@@ -826,6 +1052,16 @@ const FLAG_META: Record<string, FlagMeta> = {
     label: "Makes donations",
     description: "Claims annual charitable donations.",
     group: "Giving",
+  },
+  has_vehicle: {
+    label: "Owns a vehicle",
+    description: "Holds a non-zero vehicle value.",
+    group: "Savings & investments",
+  },
+  has_property: {
+    label: "Owns property",
+    description: "Holds a non-zero property value.",
+    group: "Savings & investments",
   },
 };
 
@@ -1119,15 +1355,20 @@ function ProfilePreviewModal({
                 <Stat label="Marital status" value={titleCase(profile.marital_status)} />
                 <Stat label="District" value={profile.district} />
                 <Stat label="Dependents" value={`${profile.dependents}`} />
+                <Stat label="Residency status" value={titleCase(profile.residency_status)} />
+                <Stat label="Nationality" value={profile.nationality || "—"} />
               </PreviewSection>
 
               <PreviewSection title="Employment" icon={Briefcase}>
                 <Stat label="Occupation" value={titleCase(profile.occupation)} />
                 <Stat label="Years employed" value={`${profile.years_employed}`} />
+                <Stat label="Employment type" value={titleCase(profile.employment_type)} />
+                <Stat label="Employer sector" value={titleCase(profile.employer_sector)} />
               </PreviewSection>
 
               <PreviewSection title="Income & expenses (monthly)" icon={Wallet}>
                 <Stat label="Gross monthly income" value={formatLkr(profile.gross_monthly_income)} />
+                <Stat label="Annual bonus" value={formatLkr(profile.annual_bonus_lkr)} />
                 <Stat label="Monthly expenses" value={formatLkr(profile.monthly_expenses)} />
                 <Stat label="Monthly debt service" value={formatLkr(profile.monthly_debt_service)} />
               </PreviewSection>
@@ -1138,6 +1379,8 @@ function ProfilePreviewModal({
                 <Stat label="Total debt" value={formatLkr(profile.total_debt)} />
                 <Stat label="EPF balance" value={formatLkr(profile.epf_balance)} />
                 <Stat label="ETF balance" value={formatLkr(profile.etf_balance)} />
+                <Stat label="Vehicle value" value={formatLkr(profile.vehicle_value)} />
+                <Stat label="Property value" value={formatLkr(profile.property_value)} />
               </PreviewSection>
 
               <PreviewSection title="Insurance & reliefs (annual)" icon={ShieldCheck}>
@@ -1170,6 +1413,10 @@ function ProfilePreviewModal({
                 <Stat
                   label="Investment horizon"
                   value={`${profile.investment_horizon_years} yrs`}
+                />
+                <Stat
+                  label="Retirement age target"
+                  value={`${profile.retirement_age_target}`}
                 />
                 <Stat label="Tax year" value={profile.tax_year.replace("_", "/")} />
               </PreviewSection>

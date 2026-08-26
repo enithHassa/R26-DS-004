@@ -6,35 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import {
-  discardCatalogAdminJob,
   refreshCatalogAdminHashes,
-  setCatalogAdminSourceDocId,
   startCatalogAdminExtract,
   treatCatalogAdminAsNewSource,
   uploadCatalogAdminPdf,
   type DuplicateCheckResponse,
 } from "./api";
 
-function Fingerprints({ result }: { result: DuplicateCheckResponse }) {
+function actLabel(result: DuplicateCheckResponse): string {
   return (
-    <dl className="grid gap-1 text-xs text-muted-foreground">
-      <div>
-        <dt className="inline font-medium text-foreground">Text hash </dt>
-        <dd className="inline break-all font-mono">{result.text_sha256 || "—"}</dd>
-      </div>
-      <div>
-        <dt className="inline font-medium text-foreground">PDF bytes </dt>
-        <dd className="inline break-all font-mono">{result.pdf_sha256 || "—"}</dd>
-      </div>
-      {result.act_identity?.label ? (
-        <div>
-          <dt className="inline font-medium text-foreground">Identity </dt>
-          <dd className="inline">
-            {result.act_identity.label} ({result.act_identity.source})
-          </dd>
-        </div>
-      ) : null}
-    </dl>
+    result.act_identity?.label ||
+    (result.act_identity?.act_no
+      ? `Act No. ${result.act_identity.act_no} of ${result.act_identity.act_year}`
+      : result.filename || "this PDF")
   );
 }
 
@@ -44,38 +28,19 @@ export function CatalogAdminUploadPage() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<DuplicateCheckResponse | null>(null);
-  const [sourceDocId, setSourceDocId] = useState("");
-
-  async function onCheck(event: FormEvent): Promise<void> {
-    event.preventDefault();
-    if (!file) {
-      setError("Choose a PDF first.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await uploadCatalogAdminPdf(file);
-      setResult(next);
-      setSourceDocId(next.suggested_source_doc_id || "");
-    } catch (err) {
-      setResult(null);
-      setError(err instanceof Error ? err.message : "Duplicate check failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const [info, setInfo] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<DuplicateCheckResponse | null>(null);
 
   async function onRefreshIndex(): Promise<void> {
     setRefreshing(true);
     setError(null);
+    setInfo(null);
     try {
       const body = await refreshCatalogAdminHashes();
-      setError(
+      setInfo(
         body.path_errors && body.path_errors.length > 0
-          ? `Index rebuilt (${body.document_count ?? 0} docs). Path warnings: ${body.path_errors.join("; ")}`
-          : `Index rebuilt (${body.document_count ?? 0} docs).`,
+          ? `Hash index rebuilt (${body.document_count ?? 0} docs). Warnings: ${body.path_errors.join("; ")}`
+          : `Hash index rebuilt (${body.document_count ?? 0} docs).`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Index refresh failed.");
@@ -84,69 +49,56 @@ export function CatalogAdminUploadPage() {
     }
   }
 
-  async function onTreatAsNew(): Promise<void> {
-    if (!result?.job_id) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await treatCatalogAdminAsNewSource(result.job_id);
-      setResult(next);
-      setSourceDocId(next.suggested_source_doc_id || "");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not treat as a new source.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onCancel(): Promise<void> {
-    if (!result?.job_id) {
-      setResult(null);
+  async function onUploadAndExtract(event: FormEvent): Promise<void> {
+    event.preventDefault();
+    if (!file) {
+      setError("Choose a PDF first.");
       return;
     }
     setBusy(true);
     setError(null);
+    setInfo(null);
+    setBlocked(null);
     try {
-      await discardCatalogAdminJob(result.job_id);
-      setResult(null);
-      setSourceDocId("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not cancel.");
-    } finally {
-      setBusy(false);
-    }
-  }
+      let upload = await uploadCatalogAdminPdf(file);
 
-  async function onSaveSourceId(): Promise<void> {
-    if (!result?.job_id) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const job = await setCatalogAdminSourceDocId(result.job_id, sourceDocId.trim());
-      setResult({
-        ...result,
-        suggested_source_doc_id: job.source_doc_id,
-        job,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save source_doc_id.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onExtract(): Promise<void> {
-    if (!result?.job_id) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (sourceDocId.trim() && sourceDocId.trim() !== result.suggested_source_doc_id) {
-        await setCatalogAdminSourceDocId(result.job_id, sourceDocId.trim());
+      if (upload.case === "b" && upload.review_path) {
+        setBlocked(upload);
+        setInfo(
+          `${actLabel(upload)} is already waiting in review. Open that queue item instead of extracting again.`,
+        );
+        return;
       }
-      await startCatalogAdminExtract(result.job_id);
-      void navigate(`/adaptive-tax/catalog-admin/jobs/${result.job_id}`);
+      if (upload.case === "b2" && upload.job_id) {
+        setBlocked(upload);
+        setInfo("Extraction is already running for this PDF.");
+        return;
+      }
+      if (upload.case === "prior_failed" && upload.job_id) {
+        setBlocked(upload);
+        setInfo("A previous extract failed for this PDF — retry that job.");
+        return;
+      }
+
+      if ((upload.case === "a" || upload.case === "d") && upload.job_id) {
+        setInfo(
+          upload.case === "a"
+            ? `${actLabel(upload)} looks like an Act already in the catalog (${upload.matched_source_doc_id}). Starting a new draft extract for review — promote will show if caps already match live data.`
+            : `Possible re-scan of ${upload.matched_source_doc_id}. Extracting as a new draft for review.`,
+        );
+        upload = await treatCatalogAdminAsNewSource(upload.job_id);
+      }
+
+      const jobId = upload.job_id;
+      if (!jobId) {
+        setError(upload.message || "Upload did not create an extract job.");
+        return;
+      }
+
+      await startCatalogAdminExtract(jobId);
+      void navigate(`/adaptive-tax/catalog-admin/jobs/${jobId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start extract.");
+      setError(err instanceof Error ? err.message : "Upload or extract failed.");
     } finally {
       setBusy(false);
     }
@@ -157,36 +109,36 @@ export function CatalogAdminUploadPage() {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Add New Act</h2>
         <p className="text-sm text-muted-foreground">
-          Cheap PDF text read and hash-first duplicate check — before any LLM
-          extract. Filename is a fallback only. This does not write{" "}
-          <code className="text-xs">corpus_manifest.json</code>.
+          Upload an Inland Revenue Act PDF and run LLM extract. You review reliefs and
+          rates on the next screen; promote shows whether caps already match what is live.
         </p>
       </div>
 
-      <form className="space-y-4" onSubmit={(e) => void onCheck(e)}>
+      <form className="space-y-4 rounded-xl border bg-card p-5 shadow-sm" onSubmit={(e) => void onUploadAndExtract(e)}>
         <div className="space-y-2">
           <Label htmlFor="catalog-admin-pdf">Inland Revenue Act PDF</Label>
           <Input
             id="catalog-admin-pdf"
             type="file"
             accept="application/pdf,.pdf"
+            disabled={busy}
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={busy}>
-            {busy ? "Checking…" : "Check for duplicates"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={refreshing}
-            onClick={() => void onRefreshIndex()}
-          >
-            {refreshing ? "Refreshing index…" : "Refresh corpus hash index"}
-          </Button>
-        </div>
+        <Button type="submit" disabled={busy || !file}>
+          {busy ? "Uploading and starting extract…" : "Upload and extract"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Extract runs in the background (GPT). Poll the job page, then open review when
+          finished. Same PDF twice is OK for a demo — duplicate overlap is checked at promote.
+        </p>
       </form>
+
+      {info ? (
+        <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100" role="status">
+          {info}
+        </p>
+      ) : null}
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -194,84 +146,42 @@ export function CatalogAdminUploadPage() {
         </p>
       ) : null}
 
-      {result ? (
-        <div className="space-y-4 rounded-md border p-4">
-          {result.index_stale || (result.warnings && result.warnings.length > 0) ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-              <p className="font-medium">Index warning — duplicate check still ran.</p>
-              <ul className="mt-1 list-disc space-y-1 pl-5">
-                {(result.warnings ?? []).map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <p className="text-sm">{result.message}</p>
-          <Fingerprints result={result} />
-
-          {result.case === "b" && result.review_path ? (
-            <Button type="button" asChild>
-              <Link to={result.review_path}>Open review queue item</Link>
-            </Button>
-          ) : null}
-
-          {(result.case === "b2" || result.case === "prior_failed") &&
-          result.job_id ? (
-            <Button type="button" asChild>
-              <Link to={`/adaptive-tax/catalog-admin/jobs/${result.job_id}`}>
-                Open existing job
-              </Link>
-            </Button>
-          ) : null}
-
-          {(result.case === "d" || result.case === "a") && result.job_id ? (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => void onCancel()}>
-                Cancel
+      {blocked ? (
+        <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+          <p className="text-sm">{blocked.message}</p>
+          <div className="flex flex-wrap gap-2">
+            {blocked.review_path ? (
+              <Button type="button" asChild>
+                <Link to={blocked.review_path}>Open review</Link>
               </Button>
-              <Button type="button" disabled={busy} onClick={() => void onTreatAsNew()}>
-                Treat as a new source (do not replace {result.matched_source_doc_id})
+            ) : null}
+            {blocked.job_id ? (
+              <Button type="button" asChild variant="secondary">
+                <Link to={`/adaptive-tax/catalog-admin/jobs/${blocked.job_id}`}>Open job</Link>
               </Button>
-            </div>
-          ) : null}
-
-          {result.case === "a" && !result.job_id ? (
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              This duplicate result has no job yet. Click <strong>Check for duplicates</strong> again
-              so Cancel / Treat as a new source can appear.
-            </p>
-          ) : null}
-
-          {result.case === "none" && result.job_id ? (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="catalog-admin-source-id">source_doc_id (editable before extract)</Label>
-                <Input
-                  id="catalog-admin-source-id"
-                  value={sourceDocId}
-                  onChange={(e) => setSourceDocId(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" disabled={busy} onClick={() => void onSaveSourceId()}>
-                  Save id
-                </Button>
-                <Button type="button" disabled={busy} onClick={() => void onExtract()}>
-                  {busy ? "Starting…" : "Start extract"}
-                </Button>
-                <Button type="button" asChild variant="secondary">
-                  <Link to={`/adaptive-tax/catalog-admin/jobs/${result.job_id}`}>Open job</Link>
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Starts Phase 6 extract_proposal in the background (full quote gate,
-                every section). Poll the job page — this button does not wait on OpenAI.
-              </p>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       ) : null}
+
+      <details className="rounded-md border px-4 py-3 text-sm text-muted-foreground">
+        <summary className="cursor-pointer font-medium text-foreground">Advanced (optional)</summary>
+        <div className="mt-3 space-y-2">
+          <p>
+            Rebuild the hash index used behind the scenes for duplicate detection. Only
+            needed if uploads behave oddly after manual file changes on disk.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => void onRefreshIndex()}
+          >
+            {refreshing ? "Refreshing…" : "Refresh corpus hash index"}
+          </Button>
+        </div>
+      </details>
     </div>
   );
 }

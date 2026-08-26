@@ -198,8 +198,8 @@
         "row_quote": "“13. Tax rate for dividends Notwithstanding the provisions in other paragraphs of this Schedule, where a person’s taxable income includes gains and profits from dividends for the second six months of the year of assessment commencing on April 1, 2022, such gains and profits shall be taxed at the rate of 15%.”.",
         "kind_suggested": "UPDATE",
         "kind_human": "UPDATE",
-        "kind_set_by": "Vidumini",
-        "kind_set_at": "2026-08-22T17:23:18.246965+00:00",
+        "kind_set_by": "Vidumini Chalanika",
+        "kind_set_at": "2026-08-24T21:00:52.426056+00:00",
         "derived_assessment_year": "2022_23",
         "effective_from": "2022-10-01",
         "operation_date": "2022-10-01",
@@ -212,12 +212,24 @@
         "engine_binding_set_at": null,
         "compare_group_human": null,
         "provenance": {
-          "reviewed_by": "Vidumini",
-          "reviewed_at": "2026-08-22T17:23:14.632693+00:00"
-        }
+          "reviewed_by": "Vidumini Chalanika",
+          "reviewed_at": "2026-08-24T21:00:56.126235+00:00"
+        },
+        "question_fields": null,
+        "question_fields_set_by": null,
+        "question_fields_set_at": null
       }
     ],
     "harvest_run_by": "Vidumini",
     "harvest_run_at": "2026-08-22T21:31:53.329473+00:00"
-  }
+  },
+  "promotion_status": "promoted",
+  "promoted_at": "2026-08-24T21:01:16.835074+00:00",
+  "promoted_by": "Vidumini Chalanika",
+  "promotion_run": "20260824T210115Z",
+  "promoted_kind": "UPDATE",
+  "promoted_year_files": [
+    "rates/2022_23.json"
+  ],
+  "corpus_manifest_updated": false
 }
