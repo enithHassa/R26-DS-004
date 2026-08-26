@@ -11,10 +11,15 @@ created by an auditor. Separate from:
 | Path | Page |
 | ---- | ---- |
 | `/portal` | Dashboard (landing after login) |
+| `/portal/financial-intake` | First-time financial profile questions |
 | `/portal/about-you` | Optional behavioural questions onboarding |
-| `/portal/summary` | Legacy summary view (recommendations / impact / profile tabs) |
+| `/portal/summary` | Comp 3 taxpayer page (recommendations, impact, **My Profile**) |
+| `/portal/profile` | Redirects to `/portal/summary?tab=profile` |
 
-Sidebar nav items on the dashboard are **placeholders** until user-view
+Sidebar Profile and the dashboard “Your profile” card go to the existing
+Comp 3 user page (`/portal/summary?tab=profile`) — not a duplicate.
+
+Other sidebar nav items on the dashboard are **placeholders** until user-view
 sub-pages are built — they are not wired to auditor routes like `/profile`
 or `/hybrid`.
 

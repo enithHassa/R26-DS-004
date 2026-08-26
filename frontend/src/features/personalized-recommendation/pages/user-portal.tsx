@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Briefcase,
@@ -70,12 +70,23 @@ function ProfileTile({ label, value, accent }: { label: string; value: string; a
   );
 }
 
+function tabFromSearch(value: string | null): PortalTab {
+  if (value === "profile" || value === "impact" || value === "recommendations") return value;
+  return "recommendations";
+}
+
 export function UserPortalPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAuthenticated = useUserSessionStore((s) => s.isAuthenticated);
   const profileId = useUserSessionStore((s) => s.profileId);
   const fullName = useUserSessionStore((s) => s.fullName);
   const logout = useUserSessionStore((s) => s.logout);
-  const [activeTab, setActiveTab] = useState<PortalTab>("recommendations");
+  const [activeTab, setActiveTab] = useState<PortalTab>(() => tabFromSearch(searchParams.get("tab")));
+
+  const selectTab = (key: PortalTab) => {
+    setActiveTab(key);
+    setSearchParams(key === "recommendations" ? {} : { tab: key }, { replace: true });
+  };
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "accepted" | "dismissed">>({});
 
   const profileQuery = useQuery({
@@ -179,7 +190,7 @@ export function UserPortalPage() {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => selectTab(tab.key)}
                   className={cn(
                     "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     active
@@ -208,6 +219,12 @@ export function UserPortalPage() {
           <div className="mx-auto max-w-4xl space-y-6 rounded-2xl border border-border/60 bg-background p-4 shadow-xl md:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
+                <Link
+                  to="/portal"
+                  className="mb-2 inline-block text-sm text-muted-foreground hover:text-foreground"
+                >
+                  ← Back to dashboard
+                </Link>
                 <h1 className="text-2xl font-semibold tracking-tight">
                   {fullName ? `Hi, ${fullName.split(" ")[0]}` : "Your Tax Advisory Summary"}
                 </h1>

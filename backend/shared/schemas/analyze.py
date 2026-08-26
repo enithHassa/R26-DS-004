@@ -26,6 +26,14 @@ class ClassificationFacts(BaseModel):
         description="e.g. relative, employer, unknown",
     )
     has_supporting_receipt: bool | None = None
+    taxpayer_id: str | None = Field(
+        default=None,
+        description="Linked-account profile id, e.g. taxpayer_00001.",
+    )
+    auditor_evidence: str | None = Field(
+        default=None,
+        description="invoice, loan, gift, shared_expense, or own_transfer",
+    )
 
 
 class AnalyzeTransactionRequest(BaseModel):
@@ -63,7 +71,15 @@ class AnalyzeTransactionResponse(BaseModel):
     )
     class_source: str = Field(
         default="model",
-        description="model, narrative, or manual.",
+        description="model, narrative, deterministic, or manual.",
     )
     narrative_interpretation: str | None = None
     narrative_hits: list[NarrativeContextHit] = Field(default_factory=list)
+    certainty_tier: str | None = Field(
+        default=None,
+        description="guaranteed_taxable, guaranteed_non_taxable, or indeterminate.",
+    )
+    intent_tag: str | None = None
+    channel: str | None = None
+    evidence_needed: str | None = None
+    layer1_note: str | None = None

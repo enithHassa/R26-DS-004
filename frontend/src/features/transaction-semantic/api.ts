@@ -296,6 +296,8 @@ export async function previewFilteredDocuments(
 export interface ClassificationFacts {
   counterparty_type?: string | null;
   has_supporting_receipt?: boolean | null;
+  taxpayer_id?: string | null;
+  auditor_evidence?: string | null;
 }
 
 export interface AnalyzeTransactionRequest {
@@ -346,9 +348,14 @@ export interface AnalyzeTransactionResponse {
   review_reason: string | null;
   condition_id_matched: string | null;
   model_semantic_category: string | null;
-  class_source: "model" | "narrative" | "manual" | string;
+  class_source: "model" | "narrative" | "manual" | "deterministic" | string;
   narrative_interpretation: string | null;
   narrative_hits: NarrativeContextHit[];
+  certainty_tier?: "guaranteed_taxable" | "guaranteed_non_taxable" | "indeterminate" | string | null;
+  intent_tag?: string | null;
+  channel?: string | null;
+  evidence_needed?: string | null;
+  layer1_note?: string | null;
 }
 
 export interface IncomeTypeCatalogItem {
@@ -412,6 +419,7 @@ export interface AnalyzeBatchRequest {
   document_type?: string | null;
   document_id?: string | null;
   persist?: boolean;
+  taxpayer_id?: string | null;
   items: AnalyzeBatchItemRequest[];
 }
 
@@ -420,9 +428,74 @@ export interface AnalyzeBatchItemResponse {
   result: AnalyzeTransactionResponse;
 }
 
+export interface InflowSummary {
+  guaranteed_taxable_inflows_lkr: string;
+  guaranteed_non_taxable_inflows_lkr: string;
+  indeterminate_inflows_lkr: string;
+  outflow_lkr: string;
+  credit_count: number;
+  debit_count: number;
+  indeterminate_credit_count: number;
+  potential_assessable_if_indet_is_income_lkr: string;
+  exceeds_annual_personal_relief_if_indet_is_income: boolean;
+  exceeds_monthly_relief_equivalent_if_indet_is_income: boolean;
+  personal_relief_annual_lkr: string;
+  personal_relief_monthly_equivalent_lkr: string;
+  relief_hint: string;
+}
+
 export interface AnalyzeBatchResponse {
   results: AnalyzeBatchItemResponse[];
   processed_count: number;
+  inflow_summary?: InflowSummary | null;
+}
+
+export interface ActivitySummaryItemRequest {
+  row_id?: string | null;
+  raw_desc: string;
+  amount_lkr: string;
+  tx_date?: string | null;
+  direction: "CR" | "DR";
+}
+
+export interface ActivitySummaryRequest {
+  items: ActivitySummaryItemRequest[];
+}
+
+export interface ActivitySummaryMember {
+  row_id: string | null;
+  tx_date: string | null;
+  description: string;
+  direction: "CR" | "DR";
+  amount_lkr: string;
+}
+
+export interface ActivitySummaryGroup {
+  group_key: string;
+  label: string;
+  hint: string;
+  direction: "CR" | "DR";
+  intent_tag: string;
+  merchant_family: string | null;
+  count: number;
+  total_lkr: string;
+  members: ActivitySummaryMember[];
+}
+
+export interface ActivitySummaryResponse {
+  group_count: number;
+  transaction_count: number;
+  groups: ActivitySummaryGroup[];
+}
+
+export async function summarizeActivity(
+  body: ActivitySummaryRequest,
+): Promise<ActivitySummaryResponse> {
+  const { data } = await transactionSemanticApi.post<ActivitySummaryResponse>(
+    "/transactions/activity-summary",
+    body,
+  );
+  return data;
 }
 
 export async function analyzeTransaction(
