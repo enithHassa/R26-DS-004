@@ -1,0 +1,46 @@
+{
+  "source_doc_id": "oee-fixture-guide",
+  "extraction_run_id": "fixture-guide",
+  "review_status": "accepted",
+  "entities": [
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-fixture-guide:solar",
+      "source_doc_id": "oee-fixture-guide",
+      "compare_group_id": "solar_panel_relief",
+      "display_name": "Solar panel relief — how to claim",
+      "help": "Keep the supplier invoice and a photo of the panels at the residence. The Guide does not set the rupee cap.",
+      "eligibility": {
+        "text": "Expenditure on solar panels installed at the individual's residence.",
+        "review_status": "pending",
+        "quote": "expenditure incurred on solar panels"
+      },
+      "required_evidence": [
+        "invoice for solar panels",
+        "photo of installation"
+      ],
+      "section_ref": "Guide",
+      "quote": "expenditure incurred on solar panels",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-fixture-guide:personal",
+      "source_doc_id": "oee-fixture-guide",
+      "compare_group_id": "personal_relief",
+      "display_name": "Personal relief — Guide note",
+      "help": "Personal relief is statutory. The Guide explains who is a resident individual; it does not change the Act cap.",
+      "eligibility": {
+        "text": "Resident individual personal relief.",
+        "review_status": "pending",
+        "quote": "resident individual"
+      },
+      "required_evidence": [],
+      "section_ref": "Guide",
+      "quote": "resident individual",
+      "included": true
+    }
+  ],
+  "previous_extraction_run_id": "fixture-guide",
+  "reextract_diff": []
+}

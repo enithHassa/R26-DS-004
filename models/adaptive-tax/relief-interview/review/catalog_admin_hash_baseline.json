@@ -1,8 +1,8 @@
 {
   "spec_version": "1.0.0",
   "phase": 6,
-  "captured_at": "2026-08-25T22:30:00+00:00",
-  "note": "Pre-demo reset: 2026_27 and Act 99 catalog-admin data removed.",
+  "captured_at": "2026-08-25T23:06:07.516275+00:00",
+  "note": "Updated after promoting 2026_27 from ird-amend-2026-99-a14a4e3c-2",
   "files": {
     "approved/2018_19.json": "9284637178ff765d8650b53a1d9efd17d6712d9eb8751c4609286721c1f35ec1",
     "approved/2019_20.json": "995c44670fbd43e86967dfc277d1206f3e02fa294b3c1a37939f2ea1a1836b8b",
@@ -12,6 +12,7 @@
     "approved/2023_24.json": "487bd069c95acf6b053bbba6f7769c08f50db3cfa77a8b6296bff98aca11de54",
     "approved/2024_25.json": "db0dea696faa6aa8ac5e848cda3f03f85ae15d99aa1d5d1b4914b61bc180876e",
     "approved/2025_26.json": "308dbb5b7597807150e52b978eb58c495062021cf010a8d8b39731bbc65c2dd1",
+    "approved/2026_27.json": "f88806a1491d836e9e1a1254b13a6a60d5044090ed05aedb35829b7bfa357275",
     "rates/2018_19.json": "c556cc4af8581c3a992f69f134dbe248817efaf204644cec79a9f343899befa8",
     "rates/2019_20.json": "d6fd498431d4f7162ab46d17012febff385df56ef876240492584df0df9997dc",
     "rates/2020_21.json": "bd1159d3e6965c612a4422f3bc113f150f9d9f66c32e21c28ffd42269b263685",
@@ -19,6 +20,7 @@
     "rates/2022_23.json": "ed79bf437b7477bf64943a7452af0bc61434d9a9080b7e6d498619e3939408c3",
     "rates/2023_24.json": "40fef7c2011be1ea7aa7d71feb7723a638fe83d58c36d761c02655b8d348ff46",
     "rates/2024_25.json": "ba90f9beed0e942107f18f0c29fe0209a5a94653150c68e08db9f63fb0c635c7",
-    "rates/2025_26.json": "9f4442d7e4700e67deee64d4e526e9dc9897b50c4e928551d6d678095ccea62a"
+    "rates/2025_26.json": "9f4442d7e4700e67deee64d4e526e9dc9897b50c4e928551d6d678095ccea62a",
+    "rates/2026_27.json": "dc81184fc8da0771dba68ff408d83e365312a536a1510e7cfaa0e5700c3e8486"
   }
 }

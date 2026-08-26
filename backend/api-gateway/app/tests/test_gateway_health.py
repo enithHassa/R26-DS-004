@@ -20,6 +20,9 @@ def test_gateway_ready_includes_upstream_checks(client: TestClient) -> None:
     assert "language_model" in data["checks"]
     assert "adaptive_tax" in data["checks"]
     assert "optimization_explainable" in data["checks"]
+    assert "optimization_explainable_engine" in data["checks"]
+    assert data["checks"]["optimization_explainable"] in (True, False)
+    assert data["checks"]["optimization_explainable_engine"] in (True, False)
     assert data["checks"]["recommendation"] in (True, False)
     assert data["checks"]["optimization"] in (True, False)
     assert data["checks"]["transaction"] in (True, False)
