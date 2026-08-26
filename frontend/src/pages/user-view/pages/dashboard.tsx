@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, MessageSquare, Send, Star } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, MessageSquare, Send, Star, UserRound } from "lucide-react";
 
 import { getProfile, getProfileFeatures } from "@/features/personalized-recommendation/api/profiles";
 import { formatLkr } from "@/features/personalized-recommendation/utils/format-lkr";
@@ -86,6 +87,27 @@ export function UserDashboardPage() {
   return (
     <UserViewShell subtitle={`${taxYearLabel} · Last updated just now`}>
       <div className="mx-auto max-w-6xl space-y-8">
+        <Link
+          to="/portal/summary?tab=profile"
+          className="flex items-center justify-between rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-5 py-4 transition-colors hover:border-[var(--uv-accent)]/40"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--uv-accent)]/15 text-[var(--uv-accent)]">
+              <UserRound className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold">Your profile</p>
+              <p className="text-xs text-[var(--uv-text-muted)]">
+                Income, assets, insurance, and tax position from your auditor
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sm text-[var(--uv-accent)]">
+            View details
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Estimated Tax Liability"

@@ -1,0 +1,82 @@
+# Activity rollup for auditor document view (not tax classification).
+# Match merchant narrations to families; Layer-1 bank codes take priority.
+
+version: "v1"
+
+families:
+  groceries:
+    label: Groceries & supermarket
+    hint: Keells, Cargills, Food City, and similar retail food spend
+    patterns:
+      - keells
+      - cargills
+      - foodcity
+      - food city
+      - arpico
+      - laugfs
+      - softlogic glomark
+      - glomark
+      - spar
+      - wine shop
+      - wineshop
+      - liquor
+
+  food_delivery:
+    label: Food delivery & rides
+    hint: Uber, PickMe, and similar delivery/ride apps
+    patterns:
+      - uber eats
+      - uber
+      - pickme
+      - pick me
+
+  dining:
+    label: Dining & cafes
+    hint: Restaurants, cafes, and leisure food spend
+    patterns:
+      - cafe
+      - restaurant
+      - pizzeria
+      - bakery
+      - kfc
+      - mcdonald
+      - pizza hut
+      - burger
+      - netflix
+
+  utilities_telecom:
+    label: Utilities & telecom
+    hint: Electricity, Dialog/DF bills, and similar utilities
+    patterns:
+      - dfbill
+      - ceb
+      - leco
+      - water board
+      - dialog
+      - mobitel
+      - airtel
+      - gsm
+
+  medical:
+    label: Medical & pharmacy
+    hint: Hospitals, pharmacies, clinics
+    patterns:
+      - pharmacy
+      - hospital
+      - clinic
+      - asiri
+      - nawaloka
+      - rosewood
+      - dharani
+
+  retail_other:
+    label: Retail & shopping
+    hint: Clothing, appliances, and general retail
+    patterns:
+      - thilakawardhana
+      - singer
+      - softlogic
+      - odel
+      - fashion bug
+      - shoe
+      - kandy

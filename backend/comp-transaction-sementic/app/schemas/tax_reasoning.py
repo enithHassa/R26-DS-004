@@ -76,6 +76,7 @@ class AnalyzeBatchRequest(BaseModel):
     document_type: str | None = Field(default=None, max_length=64)
     document_id: UUID | None = None
     persist: bool = False
+    taxpayer_id: str | None = Field(default="taxpayer_00001", max_length=64)
     items: list[AnalyzeBatchItemRequest] = Field(..., min_length=1, max_length=500)
 
 
@@ -84,9 +85,26 @@ class AnalyzeBatchItemResponse(BaseModel):
     result: AnalyzeTransactionResponse
 
 
+class InflowSummaryResponse(BaseModel):
+    guaranteed_taxable_inflows_lkr: Decimal
+    guaranteed_non_taxable_inflows_lkr: Decimal
+    indeterminate_inflows_lkr: Decimal
+    outflow_lkr: Decimal
+    credit_count: int
+    debit_count: int
+    indeterminate_credit_count: int
+    potential_assessable_if_indet_is_income_lkr: Decimal
+    exceeds_annual_personal_relief_if_indet_is_income: bool
+    exceeds_monthly_relief_equivalent_if_indet_is_income: bool
+    personal_relief_annual_lkr: Decimal
+    personal_relief_monthly_equivalent_lkr: Decimal
+    relief_hint: str
+
+
 class AnalyzeBatchResponse(BaseModel):
     results: list[AnalyzeBatchItemResponse]
     processed_count: int
+    inflow_summary: InflowSummaryResponse | None = None
 
 
 class ApplyClassBatchItemRequest(BaseModel):
@@ -109,3 +127,41 @@ class ApplyClassBatchRequest(BaseModel):
 class ApplyClassBatchResponse(BaseModel):
     results: list[AnalyzeBatchItemResponse]
     processed_count: int
+
+
+class ActivitySummaryItemRequest(BaseModel):
+    row_id: str | None = Field(default=None, max_length=128)
+    raw_desc: str = Field(..., min_length=1)
+    amount_lkr: Decimal = Field(..., decimal_places=2)
+    tx_date: date | None = None
+    direction: TxnDirection
+
+
+class ActivitySummaryRequest(BaseModel):
+    items: list[ActivitySummaryItemRequest] = Field(..., min_length=1, max_length=1000)
+
+
+class ActivitySummaryMember(BaseModel):
+    row_id: str | None = None
+    tx_date: date | None = None
+    description: str
+    direction: TxnDirection
+    amount_lkr: Decimal
+
+
+class ActivitySummaryGroup(BaseModel):
+    group_key: str
+    label: str
+    hint: str
+    direction: TxnDirection
+    intent_tag: str
+    merchant_family: str | None = None
+    count: int
+    total_lkr: Decimal
+    members: list[ActivitySummaryMember]
+
+
+class ActivitySummaryResponse(BaseModel):
+    group_count: int
+    transaction_count: int
+    groups: list[ActivitySummaryGroup]

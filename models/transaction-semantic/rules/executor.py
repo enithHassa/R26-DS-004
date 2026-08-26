@@ -237,8 +237,12 @@ class TaxRuleExecutor:
         base = _rule_branch_fields(rule)
         fraction = _coerce_decimal(base["taxable_fraction"])
         status = str(base["taxability_status"])
-        decision_mode = "human_required" if status == "unknown" else "auto"
-        review_reason = "review_required" if status == "unknown" else None
+        if resolved_class == "unknown":
+            decision_mode = "human_required"
+            review_reason = "presumptive_taxable_pending_evidence"
+        else:
+            decision_mode = "human_required" if status == "unknown" else "auto"
+            review_reason = "review_required" if status == "unknown" else None
         return TaxRuleDecision(
             class_key=resolved_class,
             tax_rule_code=code,
