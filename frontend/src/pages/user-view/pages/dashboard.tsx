@@ -88,7 +88,7 @@ export function UserDashboardPage() {
     <UserViewShell subtitle={`${taxYearLabel} · Last updated just now`}>
       <div className="mx-auto max-w-6xl space-y-8">
         <Link
-          to="/portal/summary?tab=profile"
+          to="/taxwise/profile"
           className="flex items-center justify-between rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-5 py-4 transition-colors hover:border-[var(--uv-accent)]/40"
         >
           <div className="flex items-center gap-3">

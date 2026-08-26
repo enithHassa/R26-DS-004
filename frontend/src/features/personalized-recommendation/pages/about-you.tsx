@@ -20,7 +20,7 @@ export function AboutYouPage() {
     return <Navigate to="/login" replace />;
   }
   if (!profileId) {
-    return <Navigate to="/portal" replace />;
+    return <Navigate to="/taxwise" replace />;
   }
 
   return (
@@ -61,7 +61,7 @@ export function AboutYouPage() {
             <BehaviouralQuestionsPanel
               profileId={profileId}
               finishLabel="Submit Answer"
-              onFinish={() => navigate("/portal", { replace: true })}
+              onFinish={() => navigate("/taxwise", { replace: true })}
             />
           </CardContent>
         </Card>

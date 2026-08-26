@@ -295,7 +295,7 @@ export function FinancialIntakePage() {
     return <Navigate to="/login" replace />;
   }
   if (profileId) {
-    return <Navigate to="/portal" replace />;
+    return <Navigate to="/taxwise" replace />;
   }
 
   const isLastStep = step === WIZARD_STEPS.length - 1;

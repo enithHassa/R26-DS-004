@@ -14,16 +14,47 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
+import { TAXWISE_BASE } from "@/pages/user-view/paths";
 
 import "@/pages/user-view/user-view-theme.css";
 
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, to: "/portal", enabled: true },
-  { key: "transactions", label: "Transactions", icon: Receipt, to: "#", enabled: false },
-  { key: "tax-strategy", label: "Tax Strategy", icon: TrendingUp, to: "#", enabled: false },
-  { key: "ai-advisor", label: "AI Advisor", icon: MessageSquare, to: "#", enabled: false },
-  { key: "recommendations", label: "Recommendations", icon: Sparkles, to: "#", enabled: false },
-  { key: "profile", label: "Profile", icon: UserRound, to: "/portal/summary?tab=profile", enabled: true },
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, to: TAXWISE_BASE, enabled: true },
+  {
+    key: "transactions",
+    label: "Transactions",
+    icon: Receipt,
+    to: `${TAXWISE_BASE}/transactions`,
+    enabled: false,
+  },
+  {
+    key: "tax-strategy",
+    label: "Tax Strategy",
+    icon: TrendingUp,
+    to: `${TAXWISE_BASE}/tax-strategy`,
+    enabled: false,
+  },
+  {
+    key: "ai-advisor",
+    label: "AI Advisor",
+    icon: MessageSquare,
+    to: `${TAXWISE_BASE}/ai-advisor`,
+    enabled: false,
+  },
+  {
+    key: "recommendations",
+    label: "Recommendations",
+    icon: Sparkles,
+    to: `${TAXWISE_BASE}/recommendations`,
+    enabled: false,
+  },
+  {
+    key: "profile",
+    label: "Profile",
+    icon: UserRound,
+    to: `${TAXWISE_BASE}/profile`,
+    enabled: true,
+  },
 ] as const;
 
 function initials(name: string): string {
@@ -88,7 +119,7 @@ export function UserViewShell({ children, title, subtitle }: UserViewShellProps)
               <NavLink
                 key={item.key}
                 to={item.to}
-                end={item.to === "/portal"}
+                end={item.to === TAXWISE_BASE}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -106,7 +137,7 @@ export function UserViewShell({ children, title, subtitle }: UserViewShellProps)
         </nav>
 
         <div className="mt-auto rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-3">
-          <NavLink to="/portal/summary?tab=profile" className="flex items-center gap-3 rounded-lg hover:bg-white/5">
+          <NavLink to={`${TAXWISE_BASE}/profile`} className="flex items-center gap-3 rounded-lg hover:bg-white/5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--uv-accent)]/20 text-xs font-semibold text-[var(--uv-accent)]">
               {initials(name)}
             </span>
@@ -144,7 +175,7 @@ export function UserViewShell({ children, title, subtitle }: UserViewShellProps)
               <Bell className="h-5 w-5" />
             </button>
             <NavLink
-              to="/portal/summary?tab=profile"
+              to={`${TAXWISE_BASE}/profile`}
               title="Open profile"
               className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--uv-accent)]/20 text-sm font-semibold text-[var(--uv-accent)] hover:bg-[var(--uv-accent)]/30"
             >

@@ -55,6 +55,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api\/v1\/recommendation/, "/api/v1"),
         },
+        // Account auth on the gateway (shared users table) — do not route via Comp 3.
+        "/api/v1/auth": {
+          target: gatewayUrl,
+          changeOrigin: true,
+        },
         // Hit Adaptive Tax directly — Catalog Admin must not depend on the gateway (:8000).
         "/api/v1/adaptive-tax": {
           target: adaptiveTaxUrl,
