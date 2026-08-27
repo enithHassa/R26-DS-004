@@ -73,15 +73,16 @@ export default defineConfig(({ mode }) => {
           proxyTimeout: 300_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
         },
-        // Longer prefix first so it is not stolen by Optimization and Explainable.
-        "/api/v1/optimization-explainable-engine": {
+        // Regex: Vite first-match uses startsWith, so "/optimization-explainable"
+        // would steal "/optimization-explainable-engine" and send Engine UI to :8008.
+        "^/api/v1/optimization-explainable-engine": {
           target: optimizationExplainableEngineUrl,
           changeOrigin: true,
           rewrite: (p) =>
             p.replace(/^\/api\/v1\/optimization-explainable-engine/, "/api/v1"),
         },
-        // Longer than /api/v1/optimization so this is not stolen by Component B.
-        "/api/v1/optimization-explainable": {
+        // Negative lookahead so this never matches Engine routes.
+        "^/api/v1/optimization-explainable(?!-engine)": {
           target: optimizationExplainableUrl,
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api\/v1\/optimization-explainable/, "/api/v1"),
