@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, LogOut } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,6 +15,7 @@ export function AboutYouPage() {
   const role = useUserSessionStore((s) => s.role);
   const profileId = useUserSessionStore((s) => s.profileId);
   const fullName = useUserSessionStore((s) => s.fullName);
+  const logout = useUserSessionStore((s) => s.logout);
 
   if (!isAuthenticated || role !== "taxpayer") {
     return <Navigate to="/login" replace />;
@@ -48,6 +49,17 @@ export function AboutYouPage() {
           <div className="text-lg font-semibold tracking-tight text-white">
             {fullName ? `Welcome, ${fullName.split(" ")[0]}` : "Before we begin"}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              navigate("/login", { replace: true });
+            }}
+            className="mt-1 inline-flex items-center gap-1.5 text-sm text-white/70 transition-colors hover:text-white"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out and switch account
+          </button>
         </div>
 
         <Card className="w-full border-white/10 bg-white/95 shadow-2xl backdrop-blur-md">

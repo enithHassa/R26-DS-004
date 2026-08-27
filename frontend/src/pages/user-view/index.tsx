@@ -2,9 +2,18 @@ import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 
 import { UserDashboardPage } from "@/pages/user-view/pages/dashboard";
-import { TAXWISE_BASE } from "@/pages/user-view/paths";
+import { UserFinancialImpactPage } from "@/pages/user-view/pages/financial-impact";
+import { UserProfilePage } from "@/pages/user-view/pages/profile";
+import { UserRecommendationsPage } from "@/pages/user-view/pages/recommendations";
+import { PortalSummaryRedirect } from "@/pages/user-view/portal-summary-redirect";
+import {
+  TAXWISE_BASE,
+  TAXWISE_FINANCIAL_IMPACT,
+  TAXWISE_PROFILE,
+  TAXWISE_RECOMMENDATIONS,
+} from "@/pages/user-view/paths";
 
-export { TAXWISE_BASE } from "@/pages/user-view/paths";
+export { TAXWISE_BASE, TAXWISE_FINANCIAL_IMPACT, TAXWISE_PROFILE, TAXWISE_RECOMMENDATIONS } from "@/pages/user-view/paths";
 
 /**
  * TaxWise — taxpayer User View (code name for the new dark portal shell).
@@ -16,12 +25,14 @@ export { TAXWISE_BASE } from "@/pages/user-view/paths";
 /** Taxpayer User View routes — outside AppShell and auditor feature modules. */
 export const userViewRoutes: RouteObject[] = [
   { path: TAXWISE_BASE, element: <UserDashboardPage /> },
+  { path: TAXWISE_PROFILE, element: <UserProfilePage /> },
+  { path: TAXWISE_RECOMMENDATIONS, element: <UserRecommendationsPage /> },
+  { path: TAXWISE_FINANCIAL_IMPACT, element: <UserFinancialImpactPage /> },
+  // Legacy Comp 3 summary tabs → TaxWise pages
   {
-    path: `${TAXWISE_BASE}/profile`,
-    // Temporary bridge: Comp 3 “My Profile” tab until a TaxWise profile page exists.
-    element: <Navigate to="/portal/summary?tab=profile" replace />,
+    path: "/portal/summary",
+    element: <PortalSummaryRedirect />,
   },
-  // Legacy /portal landing used before the TaxWise rename.
   { path: "/portal", element: <Navigate to={TAXWISE_BASE} replace /> },
-  { path: "/portal/profile", element: <Navigate to={`${TAXWISE_BASE}/profile`} replace /> },
+  { path: "/portal/profile", element: <Navigate to={TAXWISE_PROFILE} replace /> },
 ];

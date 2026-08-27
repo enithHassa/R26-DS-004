@@ -16,10 +16,12 @@ Separate from:
 | Audience | Path | What it is |
 | -------- | ---- | ---------- |
 | TaxWise (new) | `/taxwise` | Dashboard home |
-| TaxWise (new) | `/taxwise/profile` | Bridge → Comp 3 My Profile (until TaxWise profile page exists) |
+| TaxWise (new) | `/taxwise/profile` | 8-section tax return profile wizard (save/update to DB) |
+| TaxWise (new) | `/taxwise/recommendations` | Personalized recommendations |
+| TaxWise (new) | `/taxwise/financial-impact` | Long-term financial impact |
 | Comp 3 taxpayer | `/portal/financial-intake` | First-time financial questions |
 | Comp 3 taxpayer | `/portal/about-you` | Optional behavioural questions |
-| Comp 3 taxpayer | `/portal/summary` | Recommendations / impact / **My Profile** tabs |
+| Comp 3 taxpayer | `/portal/summary` | Legacy redirect → TaxWise recommendations pages |
 | Auditor Comp 3 | `/profile` | Auditor profile wizard (create/manage profiles) |
 | Shared | `/login` | Same login; role picks TaxWise vs AppShell |
 

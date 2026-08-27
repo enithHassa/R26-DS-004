@@ -150,6 +150,15 @@ class FinancialProfileBase(BaseModel):
 
     tax_year: str = Field(default="2026_27", pattern=r"^\d{4}_\d{2}$")
 
+    tax_return_detail: dict | None = Field(
+        default=None,
+        description="Full TaxWise 8-section wizard payload (JSON blob).",
+    )
+    section_completion: list[int] | None = Field(
+        default=None,
+        description="Completed section numbers (1–7) for the tax return wizard.",
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _normalize_input(cls, data: object) -> object:
@@ -199,6 +208,8 @@ class FinancialProfileUpdate(BaseModel):
     retirement_age_target: int | None = Field(default=None, ge=40, le=75)
     income_sources: list[IncomeSource] | None = None
     tax_year: str | None = Field(default=None, pattern=r"^\d{4}_\d{2}$")
+    tax_return_detail: dict | None = None
+    section_completion: list[int] | None = None
 
     @model_validator(mode="before")
     @classmethod

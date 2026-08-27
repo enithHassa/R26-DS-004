@@ -91,3 +91,7 @@ class FinancialProfile(TimestampMixin, Base):
     eligibility_overrides: Mapped[dict[str, bool]] = mapped_column(
         JSON, default=dict, nullable=False
     )
+
+    # Multi-section TaxWise tax return wizard (sections 1–8).
+    tax_return_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    section_completion: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)

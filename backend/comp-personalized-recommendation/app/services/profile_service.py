@@ -32,6 +32,7 @@ from app.schemas.profile import (
     FinancialProfileCreate,
     FinancialProfileUpdate,
 )
+from app.services.tax_return_sync import sync_scalars_from_tax_return
 from backend.shared.auth.service import (
     EmailTakenError,
     InvalidCredentialsError,
@@ -148,6 +149,7 @@ def _payload_to_columns(payload: FinancialProfileBase | FinancialProfileUpdate) 
     raw = payload.model_dump(exclude_unset=True, mode="json")
     decimal_fields = {
         "gross_monthly_income",
+        "annual_bonus_lkr",
         "monthly_expenses",
         "monthly_debt_service",
         "liquid_savings",
@@ -155,6 +157,8 @@ def _payload_to_columns(payload: FinancialProfileBase | FinancialProfileUpdate) 
         "total_debt",
         "epf_balance",
         "etf_balance",
+        "vehicle_value",
+        "property_value",
         "life_insurance_premium_annual",
         "home_loan_interest_annual",
         "donations_annual",
@@ -204,6 +208,35 @@ def update_profile(
 ) -> FinancialProfileORM:
     profile = get_profile(db, profile_id)
     columns = _payload_to_columns(payload)
+
+    detail = columns.get("tax_return_detail")
+    if isinstance(detail, dict):
+        synced = sync_scalars_from_tax_return(detail)
+        for key, value in synced.items():
+            if key not in columns or columns[key] is None:
+                columns[key] = value
+
+    for key, value in list(columns.items()):
+        if key == "date_of_birth" and isinstance(value, str):
+            columns[key] = date.fromisoformat(value)
+        elif key in {
+            "gross_monthly_income",
+            "annual_bonus_lkr",
+            "monthly_expenses",
+            "monthly_debt_service",
+            "liquid_savings",
+            "existing_investments",
+            "total_debt",
+            "epf_balance",
+            "etf_balance",
+            "vehicle_value",
+            "property_value",
+            "life_insurance_premium_annual",
+            "home_loan_interest_annual",
+            "donations_annual",
+        } and value is not None and not isinstance(value, Decimal):
+            columns[key] = Decimal(str(value))
+
     for key, value in columns.items():
         setattr(profile, key, value)
     db.commit()

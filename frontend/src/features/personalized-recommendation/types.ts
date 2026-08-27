@@ -74,6 +74,8 @@ export interface FinancialProfileBase {
   retirement_age_target: number;
   income_sources: IncomeSource[];
   tax_year: string;
+  tax_return_detail?: Record<string, unknown> | null;
+  section_completion?: number[] | null;
 }
 
 export interface FinancialProfileCreate {
@@ -109,6 +111,8 @@ export interface FinancialProfileCreate {
   retirement_age_target: number;
   income_sources: IncomeSource[];
   tax_year: string;
+  tax_return_detail?: Record<string, unknown> | null;
+  section_completion?: number[] | null;
 }
 
 export interface FinancialProfile extends FinancialProfileBase {
