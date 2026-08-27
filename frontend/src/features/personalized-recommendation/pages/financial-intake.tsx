@@ -6,7 +6,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Trash2, Plus, ClipboardList } from "lucide-react";
+import { Loader2, Trash2, Plus, ClipboardList, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -256,6 +256,7 @@ export function FinancialIntakePage() {
   const profileId = useUserSessionStore((s) => s.profileId);
   const fullName = useUserSessionStore((s) => s.fullName);
   const setProfileId = useUserSessionStore((s) => s.setProfileId);
+  const logout = useUserSessionStore((s) => s.logout);
   const [step, setStep] = useState(0);
 
   const form = useForm<IntakeForm, unknown, IntakeFormOutput>({
@@ -327,6 +328,17 @@ export function FinancialIntakePage() {
           <div className="text-lg font-semibold tracking-tight text-white">
             {fullName ? `Welcome, ${fullName.split(" ")[0]}` : "Before we begin"}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              navigate("/login", { replace: true });
+            }}
+            className="mt-1 inline-flex items-center gap-1.5 text-sm text-white/70 transition-colors hover:text-white"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out and switch account
+          </button>
         </div>
 
         <Card className="w-full border-white/10 bg-white/95 shadow-2xl backdrop-blur-md">
