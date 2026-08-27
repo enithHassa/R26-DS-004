@@ -8,6 +8,7 @@ Routing map (representative):
     /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
     /api/v1/llm/**             ->  COMP_LLM_URL (Component 4; strips ``llm`` segment)
     /api/v1/adaptive-tax/**    ->  COMP_ADAPTIVE_TAX_URL (Component 5)
+    /api/v1/optimization-explainable-engine/** ->  COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL
     /api/v1/optimization-explainable/** ->  COMP_OPTIMIZATION_EXPLAINABLE_URL
 """
 
@@ -77,6 +78,11 @@ def create_app() -> FastAPI:
     _register_proxy(app, prefix="/api/v1/adaptive-tax", upstream=settings.COMP_ADAPTIVE_TAX_URL)
     _register_proxy(
         app,
+        prefix="/api/v1/optimization-explainable-engine",
+        upstream=settings.COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL,
+    )
+    _register_proxy(
+        app,
         prefix="/api/v1/optimization-explainable",
         upstream=settings.COMP_OPTIMIZATION_EXPLAINABLE_URL,
     )
@@ -132,6 +138,13 @@ def _system_router() -> APIRouter:
             checks["optimization_explainable"] = r.status_code == 200
         except Exception:
             checks["optimization_explainable"] = False
+        try:
+            r = await client.get(
+                f"{settings.COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL}/health", timeout=5.0
+            )
+            checks["optimization_explainable_engine"] = r.status_code == 200
+        except Exception:
+            checks["optimization_explainable_engine"] = False
         return {"status": "ok" if all(checks.values()) else "degraded", "checks": checks}
 
     return router

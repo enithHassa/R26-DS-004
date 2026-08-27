@@ -91,6 +91,13 @@ $env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
 $env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
 .\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable/tests -q --tb=short
 
+# Optimization and Explainable Engine
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+
+# Optimization and Explainable Engine ingest (Phase 2)
+# .\.venv-backend\Scripts\python.exe -m oe_engine_app.cli ingest
+
 # API gateway
 $env:PYTHONPATH = "backend/api-gateway;$PWD"
 .\.venv-backend\Scripts\python.exe -m pytest backend/api-gateway/app/tests -q --tb=short
@@ -201,6 +208,14 @@ $env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
 ```
 UI: http://127.0.0.1:5173/optimization-explainable (year) · `/acts` · `/income` · `/reliefs` · `/result`
 
+**Optimization and Explainable Engine (`:8009`):**
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn oe_engine_app.main:app `
+  --app-dir backend/comp-optimization-explainable-engine --reload --host 127.0.0.1 --port 8009
+```
+UI: http://127.0.0.1:5173/optimization-explainable-engine (year) · `/home`
+
 **Port allocation notes:**
 - Components 2 and 5 both default to `:8002`, so they cannot run simultaneously on the same machine.
 - If running both, start one on `:8002` and the other on `:8005` (or another free port).
@@ -243,6 +258,7 @@ docker compose -f docker/docker-compose.yml up -d postgres
 | `backend/comp-personalized-recommendation/app/main.py` | Component 3 recommendations |
 | `backend/comp-adaptive-tax/adaptive_tax_app/main.py` | Component 5 adaptive tax configuration |
 | `backend/comp-optimization-explainable/opt_explain_app/main.py` | Optimization and Explainable (RAG reliefs; port 8008) |
+| `backend/comp-optimization-explainable-engine/oe_engine_app/main.py` | Optimization and Explainable Engine (independent RAG; port 8009) |
 | `backend/comp-transaction-semantic/` | Component 1 transaction parsing |
 | `backend/migrations/` | Alembic schema migrations (PostgreSQL) |
 | `frontend/src/` | React app; `features/language-model/` for Component 4 UI |
@@ -286,6 +302,7 @@ Multiple packages named `app` live under `backend/`, and some components use cus
 - Component 4 (Language Model): `app.main:app`
 - Component 5 (Adaptive Tax): `adaptive_tax_app.main:app`
 - Optimization and Explainable: `opt_explain_app.main:app`
+- Optimization and Explainable Engine: `oe_engine_app.main:app`
 - API Gateway: `app.main:app`
 
 Examples:
@@ -304,6 +321,10 @@ $env:PYTHONPATH = "backend/comp-adaptive-tax;$PWD"
 # Optimization and Explainable (uses opt_explain_app/main.py)
 $env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
 .\.venv-backend\Scripts\python.exe -m uvicorn opt_explain_app.main:app --app-dir backend/comp-optimization-explainable
+
+# Optimization and Explainable Engine (uses oe_engine_app/main.py)
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn oe_engine_app.main:app --app-dir backend/comp-optimization-explainable-engine
 
 # Scripts and general backend code
 $env:PYTHONPATH = "$PWD"
@@ -328,6 +349,7 @@ Key vars in `.env` (copy from `.env.example` and fill in):
 | `COMP_LLM_RETRIEVAL_BACKEND` | `tfidf` | Retrieval mode: `tfidf` \| `dense` |
 | `COMP_ADAPTIVE_TAX_URL` | `http://localhost:8005` | Component 5 discovery (for gateway, if running on `:8005`) |
 | `COMP_OPTIMIZATION_EXPLAINABLE_URL` | `http://localhost:8008` | Optimization and Explainable discovery (for gateway) |
+| `COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL` | `http://localhost:8009` | Optimization and Explainable Engine discovery (for gateway) |
 
 ---
 
@@ -390,6 +412,7 @@ Frontend dev server proxies:
 - `/api/v1/optimization` → Component 2 directly (default `http://127.0.0.1:8002`, configurable via `VITE_DEV_OPTIMIZATION_URL`)
 - `/api/v1/adaptive-tax` → Component 5 directly (default `http://127.0.0.1:8002`, configurable via `VITE_DEV_ADAPTIVE_TAX_URL`)
 - `/api/v1/optimization-explainable` → Optimization and Explainable directly (default `http://127.0.0.1:8008`, configurable via `VITE_DEV_OPTIMIZATION_EXPLAINABLE_URL`)
+- `/api/v1/optimization-explainable-engine` → Optimization and Explainable Engine directly (default `http://127.0.0.1:8009`, configurable via `VITE_DEV_OPTIMIZATION_EXPLAINABLE_ENGINE_URL`)
 - `/api/v1/recommendation` → Component 3 directly (default `http://127.0.0.1:8003`, configurable via `VITE_DEV_RECOMMENDATION_URL`)
 - `/api/v1/transactions`, `/api/v1/documents`, etc. → Component 1 directly (default `http://127.0.0.1:8001`, configurable via `VITE_DEV_TRANSACTION_SEMANTIC_URL`)
 

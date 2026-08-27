@@ -22,6 +22,10 @@ export default defineConfig(({ mode }) => {
   /** Optimization and Explainable. Direct proxy avoids needing the gateway running. */
   const optimizationExplainableUrl =
     env.VITE_DEV_OPTIMIZATION_EXPLAINABLE_URL?.trim() || "http://127.0.0.1:8008";
+  /** Optimization and Explainable Engine (Phase 1+). Longer prefix than OE. */
+  const optimizationExplainableEngineUrl =
+    env.VITE_DEV_OPTIMIZATION_EXPLAINABLE_ENGINE_URL?.trim() ||
+    "http://127.0.0.1:8009";
   /** Transaction semantic service (Component 1). Rewrites /api/v1 → /v1 on the service. */
   const transactionSemanticUrl =
     env.VITE_DEV_TRANSACTION_SEMANTIC_URL?.trim() || "http://127.0.0.1:8001";
@@ -68,6 +72,13 @@ export default defineConfig(({ mode }) => {
           timeout: 300_000,
           proxyTimeout: 300_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
+        },
+        // Longer prefix first so it is not stolen by Optimization and Explainable.
+        "/api/v1/optimization-explainable-engine": {
+          target: optimizationExplainableEngineUrl,
+          changeOrigin: true,
+          rewrite: (p) =>
+            p.replace(/^\/api\/v1\/optimization-explainable-engine/, "/api/v1"),
         },
         // Longer than /api/v1/optimization so this is not stolen by Component B.
         "/api/v1/optimization-explainable": {

@@ -1,0 +1,3 @@
+# Phase 2 extras for Optimization and Explainable Engine (install on top of backend/requirements.txt).
+#   pip install -r backend/comp-optimization-explainable-engine/requirements-engine.txt
+openai>=1.40.0

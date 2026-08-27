@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "extraction_run_id": "fixture-2022-act",
+  "source_doc_id": "oee-fixture-act-2022",
+  "tier": "act",
+  "terminus": "review_then_promote",
+  "model": "fixture",
+  "dry_run": false,
+  "usd_this_run": 0.0,
+  "usd_running_total": 0.0,
+  "windows": [],
+  "entities": [
+    {
+      "entity_kind": "relief",
+      "entry_id": "oee-fixture-act-2022:fifth:personal",
+      "source_doc_id": "oee-fixture-act-2022",
+      "compare_group_id": "personal_relief",
+      "display_name": "Personal relief",
+      "paragraph_ref": "2(a)",
+      "section_ref": "Fifth Schedule",
+      "act_name": "Inland Revenue Amendment Act, No. 45 of 2022",
+      "cap_amount": "1200000",
+      "unit": "lkr",
+      "quote": "Rs. 1,200,000 for each year of assessment commencing on or after April 1, 2022",
+      "eligibility": {
+        "text": "Resident individual personal relief",
+        "review_status": "pending",
+        "quote": "Rs. 1,200,000 for each year of assessment commencing on or after April 1, 2022"
+      },
+      "required_evidence": [],
+      "filing_line": "",
+      "stacking": "",
+      "effective_from": "2022-04-01",
+      "effective_to": "",
+      "input_kind": "notice",
+      "included": true,
+      "engine_scope": "individual"
+    }
+  ],
+  "notes": []
+}

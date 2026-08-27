@@ -253,6 +253,163 @@ $env:PYTHONPATH = "backend/comp-optimization-explainable;$PWD"
 .\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable/tests -q --tb=short
 ```
 
+## Optimization and Explainable Engine — Phase 1 scaffold
+
+Independent of Adaptive Tax catalogs. Port **8009**. Original Optimization and Explainable on **8008** is unchanged.
+
+### Start Optimization and Explainable Engine (:8009)
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn oe_engine_app.main:app `
+  --app-dir backend/comp-optimization-explainable-engine --reload --host 127.0.0.1 --port 8009
+```
+
+Vite proxies `/api/v1/optimization-explainable-engine` to `:8009` (registered before `/api/v1/optimization-explainable`).
+
+### Smoke
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8009/health
+Invoke-RestMethod http://127.0.0.1:8009/years
+```
+
+UI: [http://127.0.0.1:5173/optimization-explainable-engine/home](http://127.0.0.1:5173/optimization-explainable-engine/home) · [Years](http://127.0.0.1:5173/optimization-explainable-engine)
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+```
+
+`POST /calculate` and `POST /explain` return **404** until an Act is promoted into year views (Phase 4).
+
+## Optimization and Explainable Engine — Phase 2 corpus ingest
+
+Embeddings only (`text-embedding-3-small`). No GPT extract. PDFs live in `data/raw/opt-explain-engine/` (gitignored). Manifest: `models/opt-explain-engine/corpus_manifest.json`.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m pip install -r backend/comp-optimization-explainable-engine/requirements-engine.txt
+.\.venv-backend\Scripts\python.exe -m alembic upgrade head
+
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli ingest
+# prove skip:
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli ingest
+
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli retrieve `
+  --query "solar panels" --source-doc-id oee-act-10-2021
+```
+
+Or via the API (service on `:8009`):
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8009/retrieve?q=solar%20panels&source_doc_id=oee-act-10-2021"
+Invoke-RestMethod http://127.0.0.1:8009/documents
+```
+
+Checkpoint: 9 rows in `oe_engine_documents` with `sha256` + tier `act` / `guide` / `consolidated`. Second ingest prints `skipped_sha256`. Retrieve hits 2021 Act text for “solar panels”.
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+```
+
+## Optimization and Explainable Engine — Phase 3 extract pipeline
+
+GPT-4o two-pass + quote substring gate. Windows 6k–11k chars. **Do not** full-document live extract (that is Phase 6). Soft **$15** / hard **$40** caps apply to Phase 6 seed only; Phase 3 schema-validation spend is a separate few dollars.
+
+Tier terminus (code; UI later):
+
+- **Act:** extract → review → promote (Phase 4 year compiler writes `oe_engine_year_*`)
+- **Guide:** extract → display + `review_status`; Update display after re-extract diff; **no promote**
+- **Consolidated:** extract → `oe_engine_consolidated_facts` → `oe_engine_mismatch_flags`; **no promote**
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m alembic upgrade head
+
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+
+# Dry-run (windows listed, $0). Check Act 14/2023 (smallest):
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli extract `
+  --source-doc-id oee-act-14-2023 --dry-run
+
+# Schema-validation windows only (live GPT-4o, not full 24/2017):
+# Fifth Schedule relief shape + First Schedule rate-band shape.
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli extract `
+  --source-doc-id oee-act-24-2017 --schema-validate
+
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+```
+
+Planned fixture contract: `models/opt-explain-engine/fixtures/extract_schema_relief.json` and `extract_schema_rate_band.json`. Live output: `models/opt-explain-engine/extracted/`. `POST /promote` is 400 for Guide/Consolidated and 409 if the Act has no chunks.
+
+## Optimization and Explainable Engine — Phase 4 compiler / calculate / promote
+
+Year compiler (`effective_from`, later amendment wins) writes `oe_engine_year_reliefs` / `oe_engine_year_rates`. Calculate copies the OE slab engine plus WHT credit → `balance_payable`. Explain is calc trace + retrieve (no GPT). Tests and `promote-fixture` use hand-built JSON, not live extract.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m alembic upgrade head
+
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli promote-fixture
+
+Invoke-RestMethod http://127.0.0.1:8009/years
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8009/calculate -ContentType "application/json" -Body '{"assessment_year":"2025_26","income":{"employment":1800000,"business":0,"investment":2000000,"other":0,"interest":2000000,"rents":0},"claims":[]}'
+
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+```
+
+`POST /promote` is Act-only (400 for Guide/Consolidated). Promote without chunks is **409**. Consolidated extract still never writes year tables.
+
+## Optimization and Explainable Engine — Phase 5 frontend
+
+Interview at [http://127.0.0.1:5173/optimization-explainable-engine](http://127.0.0.1:5173/optimization-explainable-engine): Years → Acts → Income → Reliefs → Result. Compare and Load new act are separate pages. Old `/optimization-explainable` is unchanged.
+
+```powershell
+# Engine + Vite (from repo root / frontend)
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m uvicorn oe_engine_app.main:app `
+  --app-dir backend/comp-optimization-explainable-engine --reload --host 127.0.0.1 --port 8009
+
+cd frontend
+npm run dev
+```
+
+- Income: name, TIN, totals, interest schedule (WHT credit on Result)
+- Reliefs: stepper, Yes/No/amount, provenance, eligibility honesty, documents checklist, Guide labelled as Guide
+- Result: assessable, WHT, payable/refund, slabs, explain = calc trace + retrieve
+- Load new act: [http://127.0.0.1:5173/optimization-explainable-engine/load-act](http://127.0.0.1:5173/optimization-explainable-engine/load-act) — Act Promote only; Guide Update display; Consolidated mismatches. **Do not click live extract** (seed is CLI `--seed` only).
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+.\.venv-backend\Scripts\python.exe -m pytest backend/comp-optimization-explainable-engine/tests -q --tb=short
+cd frontend
+npm run typecheck
+```
+
+## Optimization and Explainable Engine — Phase 6 live seed
+
+One PDF at a time. Soft **$15** / hard **$40**. HTTP `POST /extract` with `dry_run: false` stays **400** — seed via CLI only. Do not retry-loop on `insufficient_quota` or 401.
+
+**Order:** 14/2023 → 04/2023 → 10/2021 → 45/2022 → 02/2025 → 11/2026 → 24/2017 → Consolidated → Guide last.
+
+```powershell
+$env:PYTHONPATH = "backend/comp-optimization-explainable-engine;$PWD"
+
+# Ingest if needed (skip by sha256), then full-doc extract:
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli ingest --source-doc-id oee-act-14-2023
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli extract --source-doc-id oee-act-14-2023 --seed
+
+# After quote-gate sample looks right (Act only):
+.\.venv-backend\Scripts\python.exe -m oe_engine_app.cli promote --source-doc-id oee-act-14-2023
+```
+
+Stop and check Reliefs/Result (or review UI) before the next file. Acts-only is a valid stop if $15 is the goal. Guide is optional extra.
+
+`engine_scope` is `individual` or `other` (fund / company / institution). Promote keeps only `individual`; `other` stays in the extract JSON for review. Extract every genuine individual-scope rate (including a non-slab dividend rate); `engine_scope` is what keeps fund/entity rates out of year tables. An empty window extract is valid — never fabricate a row to avoid emptiness.
+
+Spot checks later: 10/2021 solar 600,000; 02/2025 personal 1,800,000; a First Schedule ladder from 45/2022 or 02/2025.
+
 ### Phase 2 — Knowledge stores (Neo4j Desktop + embedded Chroma)
 
 **Default (demo / this laptop):** Neo4j Desktop + embedded Chroma on disk. Docker is optional for teammates whose WSL2/virt works.

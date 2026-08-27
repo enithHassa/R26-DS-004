@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     COMP_LLM_URL: str = "http://localhost:8004"
     COMP_ADAPTIVE_TAX_URL: str = "http://localhost:8005"
     COMP_OPTIMIZATION_EXPLAINABLE_URL: str = "http://localhost:8008"
+    COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL: str = "http://localhost:8009"
     COMP_RAG_RELIEF_URL: str = "http://localhost:8007"
 
     # ---------- CORS (comma-separated list in env) ----------
