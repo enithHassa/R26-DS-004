@@ -10,6 +10,7 @@ from datetime import date
 import csv
 import io
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, UploadFile
@@ -35,11 +36,16 @@ from backend.shared.schemas import (
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
 from .schemas import DocumentExtractResponse
 from .schemas.tax_reasoning import (
+    ActivitySummaryGroup,
+    ActivitySummaryMember,
+    ActivitySummaryRequest,
+    ActivitySummaryResponse,
     AnalyzeBatchItemResponse,
     AnalyzeBatchRequest,
     AnalyzeBatchResponse,
     ApplyClassBatchRequest,
     ApplyClassBatchResponse,
+    InflowSummaryResponse,
     IncomeTypeCatalogItem,
     IncomeTypeCatalogResponse,
     TaxableIncomeLineItem,
@@ -83,6 +89,12 @@ from .services import (
 from .services.analysis_persistence import persist_transaction_analysis
 from .services.rule_engine_service import get_rule_executor
 from .services.taxable_income_summary import build_taxable_income_summary
+from .services.inflow_summary import (
+    PERSONAL_RELIEF_ANNUAL_LKR,
+    PERSONAL_RELIEF_MONTHLY_EQUIVALENT_LKR,
+    summarize_inflows,
+)
+from .services.activity_summary import build_activity_summary
 from .services.taxonomy_catalog_service import get_income_type_catalog
 from .services.narrative_context import get_narrative_context_index
 from .services.semantic_classifier import preload_semantic_classifier
@@ -119,6 +131,18 @@ def warm_semantic_classifier() -> None:
         logger.info("semantic_classifier_preloaded")
     except FileNotFoundError as exc:
         logger.warning("semantic_classifier_not_preloaded: {}", exc)
+
+
+def _with_taxpayer_id(
+    facts: dict[str, Any] | None,
+    taxpayer_id: str | None,
+) -> dict[str, Any]:
+    merged = dict(facts or {})
+    if taxpayer_id and "taxpayer_id" not in merged:
+        merged["taxpayer_id"] = taxpayer_id
+    if "taxpayer_id" not in merged:
+        merged["taxpayer_id"] = "taxpayer_00001"
+    return merged
 
 
 def _to_analyze_response(analysis: TransactionAnalysisResult) -> AnalyzeTransactionResponse:
@@ -158,6 +182,11 @@ def _to_analyze_response(analysis: TransactionAnalysisResult) -> AnalyzeTransact
             )
             for hit in analysis.narrative_hits
         ],
+        certainty_tier=analysis.certainty_tier,
+        intent_tag=analysis.intent_tag,
+        channel=analysis.channel,
+        evidence_needed=analysis.evidence_needed,
+        layer1_note=analysis.layer1_note,
     )
 
 
@@ -173,7 +202,10 @@ def analyze_transaction(
     db: Session = Depends(get_db),
 ) -> AnalyzeTransactionResponse:
     """Normalize, classify, and apply deterministic IRA tax rules."""
-    facts = payload.facts.model_dump(exclude_none=True) if payload.facts else None
+    facts = _with_taxpayer_id(
+        payload.facts.model_dump(exclude_none=True) if payload.facts else None,
+        payload.facts.taxpayer_id if payload.facts else None,
+    )
     analysis = analyze_transaction_fields(
         raw_desc=payload.raw_desc,
         amount_lkr=payload.amount_lkr,
@@ -217,7 +249,10 @@ def analyze_transactions_batch_endpoint(
             amount_lkr=item.amount_lkr,
             tx_date=item.tx_date,
             direction=item.direction,
-            facts=item.facts.model_dump(exclude_none=True) if item.facts else None,
+            facts=_with_taxpayer_id(
+                item.facts.model_dump(exclude_none=True) if item.facts else None,
+                payload.taxpayer_id,
+            ),
             row_id=item.row_id,
         )
         for item in payload.items
@@ -266,7 +301,30 @@ def analyze_transactions_batch_endpoint(
         )
 
     logger.bind(processed_count=len(results)).info("analyze_transactions_batch_completed")
-    return AnalyzeBatchResponse(results=results, processed_count=len(results))
+    rollup = summarize_inflows(inputs, analyses)
+    return AnalyzeBatchResponse(
+        results=results,
+        processed_count=len(results),
+        inflow_summary=InflowSummaryResponse(
+            guaranteed_taxable_inflows_lkr=rollup.guaranteed_taxable_inflows_lkr,
+            guaranteed_non_taxable_inflows_lkr=rollup.guaranteed_non_taxable_inflows_lkr,
+            indeterminate_inflows_lkr=rollup.indeterminate_inflows_lkr,
+            outflow_lkr=rollup.outflow_lkr,
+            credit_count=rollup.credit_count,
+            debit_count=rollup.debit_count,
+            indeterminate_credit_count=rollup.indeterminate_credit_count,
+            potential_assessable_if_indet_is_income_lkr=rollup.potential_assessable_if_indet_is_income_lkr,
+            exceeds_annual_personal_relief_if_indet_is_income=(
+                rollup.exceeds_annual_personal_relief_if_indet_is_income
+            ),
+            exceeds_monthly_relief_equivalent_if_indet_is_income=(
+                rollup.exceeds_monthly_relief_equivalent_if_indet_is_income
+            ),
+            personal_relief_annual_lkr=PERSONAL_RELIEF_ANNUAL_LKR,
+            personal_relief_monthly_equivalent_lkr=PERSONAL_RELIEF_MONTHLY_EQUIVALENT_LKR,
+            relief_hint=rollup.relief_hint,
+        ),
+    )
 
 
 @app.post("/v1/transactions/apply-class-batch", response_model=ApplyClassBatchResponse)
@@ -720,6 +778,50 @@ def _build_export_csv_response(
         iter([buff.getvalue().encode("utf-8")]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/v1/transactions/activity-summary", response_model=ActivitySummaryResponse)
+def activity_summary_for_rows(payload: ActivitySummaryRequest) -> ActivitySummaryResponse:
+    """Group extracted (or preview) rows by bank intent + merchant family for auditors."""
+    groups = build_activity_summary(
+        [
+            {
+                "row_id": item.row_id,
+                "raw_desc": item.raw_desc,
+                "amount_lkr": item.amount_lkr,
+                "tx_date": item.tx_date.isoformat() if item.tx_date else None,
+                "direction": item.direction.value,
+            }
+            for item in payload.items
+        ],
+    )
+    return ActivitySummaryResponse(
+        group_count=len(groups),
+        transaction_count=sum(g.count for g in groups),
+        groups=[
+            ActivitySummaryGroup(
+                group_key=g.group_key,
+                label=g.label,
+                hint=g.hint,
+                direction=SchemaTxnDirection(g.direction),
+                intent_tag=g.intent_tag,
+                merchant_family=g.merchant_family,
+                count=g.count,
+                total_lkr=g.total_lkr,
+                members=[
+                    ActivitySummaryMember(
+                        row_id=m.row_id,
+                        tx_date=date.fromisoformat(m.tx_date) if m.tx_date else None,
+                        description=m.description,
+                        direction=SchemaTxnDirection(m.direction),
+                        amount_lkr=m.amount_lkr,
+                    )
+                    for m in g.members
+                ],
+            )
+            for g in groups
+        ],
     )
 
 

@@ -36,6 +36,15 @@ def test_internal_transfer_is_exempt() -> None:
     assert decision.taxable_amount_lkr == Decimal("0.00")
 
 
+def test_unknown_credit_is_presumptively_taxable() -> None:
+    mod = _load_executor_module()
+    executor = mod.TaxRuleExecutor()
+    decision = executor.evaluate(class_key="unknown", amount_lkr=Decimal("18000.00"))
+    assert decision.taxability_status == "taxable"
+    assert decision.taxable_amount_lkr == Decimal("18000.00")
+    assert decision.decision_mode == "human_required"
+
+
 def test_gift_requires_facts_for_branch() -> None:
     mod = _load_executor_module()
     executor = mod.TaxRuleExecutor()

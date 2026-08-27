@@ -2,6 +2,7 @@
 
 Routing map (representative):
 
+    /api/v1/auth/**            ->  shared auth (login / signup; local to gateway)
     /api/v1/recommendation/**  ->  COMP_RECOMMENDATION_URL
     /api/v1/optimization/**    ->  COMP_OPTIMIZATION_URL
     /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
@@ -21,6 +22,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from backend.shared.auth.router import router as auth_router
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
 
@@ -67,6 +69,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(_system_router())
+    # Account login / signup — no Comp 3 required for create + sign-in.
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
     _register_proxy(app, prefix="/api/v1/recommendation", upstream=settings.COMP_RECOMMENDATION_URL)
     _register_proxy(app, prefix="/api/v1/optimization", upstream=settings.COMP_OPTIMIZATION_URL)
     _register_proxy(app, prefix="/api/v1/transaction", upstream=settings.COMP_TRANSACTION_URL)

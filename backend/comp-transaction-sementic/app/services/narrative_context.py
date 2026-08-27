@@ -41,7 +41,14 @@ _CLASS_PHRASE_SEEDS: dict[str, tuple[str, ...]] = {
     "bonus_performance": ("bonus", "performance incentive", "incentive payment"),
     "freelance_service": ("freelance", "consulting fee", "service payment", "invoice payment"),
     "business_profit": ("business receipt", "sales proceeds", "customer payment"),
-    "interest_income": ("fd interest", "interest credit", "savings interest", "fixed deposit"),
+    "interest_income": (
+        "fd interest",
+        "interest credit",
+        "savings interest",
+        "fixed deposit",
+        "int.pd",
+        "int pd",
+    ),
     "dividend_income": ("dividend", "share dividend"),
     "rental_income": ("rent received", "rental income", "lease payment"),
     "inter_account_transfer": (
@@ -64,6 +71,9 @@ _CLASS_PHRASE_SEEDS: dict[str, tuple[str, ...]] = {
     "reimbursement": ("reimbursement", "expense refund", "travel claim"),
     "capital_gain": ("capital gain", "share sale proceeds"),
     "insurance_payout": ("insurance claim", "insurance payout"),
+    "bank_charge": ("cefts charges", "bank charges", "service fee", "sms charges"),
+    "personal_spend": ("pos transaction", "cargills", "foodcity", "atm withdrawal"),
+    "withholding_tax": ("wtax.pd", "wht", "ait", "withholding tax"),
     "unknown": ("miscellaneous credit", "unclear payment", "unidentified transfer"),
 }
 
@@ -95,6 +105,9 @@ _DEBIT_OUTFLOW_CLASSES = frozenset(
         "qualifying_payment",
         "loan_repayment",
         "epf_etf_contribution",
+        "personal_spend",
+        "bank_charge",
+        "withholding_tax",
     },
 )
 

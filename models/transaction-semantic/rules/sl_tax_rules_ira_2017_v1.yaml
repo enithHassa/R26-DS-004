@@ -199,13 +199,37 @@ rules:
     taxability_status: "exempt"
     taxable_fraction: 0.0
     treatment: "exclude_from_assessable_income"
-    rule_reference: "Not income (own-funds movement)"
-    explanation: "Inter-account transfers are neutral fund movement."
+    rule_reference: "IRA 2017 s.3–4 (no accession to wealth); capital movement"
+    explanation: "Moving post-tax funds between own accounts is not income."
+
+  PERSONAL_OUTFLOW_NON_INCOME:
+    class_key: "personal_spend"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 s.3–4 (not a receipt of income)"
+    explanation: "Outbound personal payments and merchant spend are not assessable income of this taxpayer."
+
+  BANK_FEE_NON_INCOME:
+    class_key: "bank_charge"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "exclude_from_assessable_income"
+    rule_reference: "IRA 2017 s.3–4 (not income)"
+    explanation: "Bank and CEFTS charges are not income."
+
+  WHT_NON_INCOME:
+    class_key: "withholding_tax"
+    taxability_status: "exempt"
+    taxable_fraction: 0.0
+    treatment: "withholding_signal_only"
+    rule_reference: "IRA 2017 s.84–88 (withholding / AIT)"
+    explanation: "Withholding deducted at source is a tax credit/final-tax signal, not a new income receipt."
 
   REVIEW_REQUIRED:
     class_key: "unknown"
-    taxability_status: "unknown"
-    taxable_fraction: 0.0
-    treatment: "route_to_review_queue"
-    rule_reference: "Operational control"
-    explanation: "Unknown class requires human review before tax decision."
+    taxability_status: "taxable"
+    taxable_fraction: 1.0
+    treatment: "presumptive_assessable_pending_evidence"
+    rule_reference: "IRA 2017 s.3–4; s.120 / s.141 (burden of proof to exclude)"
+    explanation: "A credit that cannot be proven as non-income is included in assessable income until the taxpayer overrides with evidence (invoice, loan, gift, shared expense, or own transfer)."

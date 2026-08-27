@@ -15,7 +15,7 @@ function initials(name: string): string {
  *
  * These are the auditor-facing admin pages (profile management, ranking,
  * impact, compare) — gated behind the auditor account from the common
- * login page. Taxpayer logins land on the separate read-only /portal view.
+ * login page. Taxpayer logins land on TaxWise (`/taxwise`), not AppShell.
  */
 export function FinancialModuleLayout() {
   const navigate = useNavigate();
