@@ -32,6 +32,8 @@ ASSESSMENT_YEARS: tuple[str, ...] = (
     "2025_26",
 )
 
+BASE_ASSESSMENT_YEARS: tuple[str, ...] = ASSESSMENT_YEARS
+
 _EPOCH = date(2018, 4, 1)
 _DOC_YEAR_RE = re.compile(r"(\d{4})$")
 
@@ -46,6 +48,48 @@ RELIEF_SUNSET_YA_START: dict[str, date] = {
 def year_start(assessment_year: str) -> date:
     year = int(assessment_year.split("_")[0])
     return date(year, 4, 1)
+
+
+def assessment_year_label(ya_start: date) -> str:
+    return f"{ya_start.year}_{str(ya_start.year + 1)[-2:]}"
+
+
+def extra_new_years(rows: list[OeEnginePromotedEntity]) -> set[str]:
+    """YA labels a reviewer opted in with year_kind=NEW_YEAR (may be beyond 2025/26)."""
+    extra: set[str] = set()
+    for row in rows:
+        payload = row.payload_json or {}
+        if str(payload.get("year_kind") or "").strip().upper() != "NEW_YEAR":
+            continue
+        if row.entity_kind not in {"relief", "rate_band"}:
+            continue
+        extra.add(assessment_year_label(_ya_start_containing(resolved_effective_from(payload))))
+    return extra
+
+
+def derive_assessment_years(rows: list[OeEnginePromotedEntity]) -> tuple[str, ...]:
+    """Base catalog is 2018/19–2025/26. NEW_YEAR rows may add a later YA (e.g. 2026/27)."""
+    years = set(BASE_ASSESSMENT_YEARS) | extra_new_years(rows)
+    base_min = BASE_ASSESSMENT_YEARS[0]
+    base_max = BASE_ASSESSMENT_YEARS[-1]
+
+    def _add_from_date(value: date) -> None:
+        label = assessment_year_label(_ya_start_containing(value))
+        if base_min <= label <= base_max:
+            years.add(label)
+
+    for row in rows:
+        payload = row.payload_json or {}
+        if row.entity_kind not in {"relief", "rate_band"}:
+            continue
+        if str(payload.get("change_action") or "") == "repeal":
+            _add_from_date(resolved_effective_from(payload))
+            continue
+        _add_from_date(resolved_effective_from(payload))
+        effective_to = _parse_iso(str(payload.get("effective_to") or ""))
+        if effective_to is not None:
+            _add_from_date(effective_to)
+    return tuple(sorted(years))
 
 
 def _parse_iso(raw: str | None) -> date | None:
@@ -110,12 +154,22 @@ def resolved_effective_from(payload: dict[str, Any]) -> date:
 
 
 def payload_for_apply(row: OeEnginePromotedEntity) -> dict[str, Any]:
-    """Year-window check needs group/source even when JSON omitted them."""
+    """Year-window check needs group/source even when JSON omitted them.
+
+    UPDATE rows whose Act date falls after the base catalog are clipped into the
+    latest base year (2025/26), matching Catalog Admin “update existing year”.
+    NEW_YEAR keeps the stated date so compile can create that later YA.
+    """
     payload = dict(row.payload_json or {})
     if not str(payload.get("compare_group_id") or "").strip():
         payload["compare_group_id"] = row.compare_group_id
     if not str(payload.get("source_doc_id") or "").strip():
         payload["source_doc_id"] = row.source_doc_id
+    kind = str(payload.get("year_kind") or "").strip().upper()
+    if kind == "UPDATE":
+        derived = assessment_year_label(_ya_start_containing(resolved_effective_from(payload)))
+        if derived > BASE_ASSESSMENT_YEARS[-1]:
+            payload["effective_from"] = year_start(BASE_ASSESSMENT_YEARS[-1]).isoformat()
     return payload
 
 
@@ -214,6 +268,19 @@ def infer_engine_binding(payload: dict[str, Any]) -> dict[str, str]:
     return {"kind": mapping.get(group, "none")}
 
 
+def default_question_prompt(payload: dict[str, Any]) -> str:
+    """Taxpayer question used when extract / prior catalog did not supply one."""
+    name = str(payload.get("display_name") or payload.get("compare_group_id") or "Relief")
+    kind = str(payload.get("input_kind") or "notice")
+    if kind == "notice":
+        return f"{name} applies automatically for this year of assessment."
+    if payload.get("sub_items"):
+        return f"{name}: enter an amount for each recipient you gave to this year."
+    if kind in {"boolean", "yes_no_amount"}:
+        return f"Does {name} apply to you this year?"
+    return f"Did you incur {name} this year?"
+
+
 def load_promoted_entities(
     session: Session,
     *,
@@ -233,6 +300,78 @@ def rate_winner_key(payload: dict[str, Any]) -> str:
     if text.endswith("individuals"):
         text = text[: -len("s")]
     return text
+
+
+def _decimal(value: object) -> float | None:
+    text = str(value or "").replace(",", "").strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def validate_rate_band_set(entities: list[dict[str, Any]]) -> list[str]:
+    """Validate ordering, overlaps, gaps, and duplicate indices per taxpayer class."""
+    errors: list[str] = []
+    by_class: dict[str, list[dict[str, Any]]] = {}
+    for entity in entities:
+        if entity.get("entity_kind") != "rate_band":
+            continue
+        key = rate_winner_key(entity)
+        by_class.setdefault(key, []).append(entity)
+    for applies_to, bands in sorted(by_class.items()):
+        ordered = sorted(bands, key=lambda row: int(row.get("band_index") or 0))
+        indices = [int(row.get("band_index") or 0) for row in ordered]
+        if len(indices) != len(set(indices)):
+            errors.append(f"Duplicate band_index for {applies_to or 'taxpayer class'}.")
+        prev_upper: float | None = None
+        for index, row in enumerate(ordered):
+            lower = _decimal(row.get("lower"))
+            upper = _decimal(row.get("upper"))
+            if lower is None:
+                errors.append(f"Band {indices[index]} for {applies_to} missing lower bound.")
+                continue
+            if index == 0 and lower != 0:
+                errors.append(f"First band for {applies_to} must start at 0.")
+            if prev_upper is not None and lower not in (prev_upper, prev_upper + 1):
+                errors.append(
+                    f"Gap or overlap between bands for {applies_to}: "
+                    f"expected lower {prev_upper}, got {lower}."
+                )
+            if upper is not None and upper <= lower:
+                errors.append(f"Band {indices[index]} for {applies_to} has upper <= lower.")
+            prev_upper = upper
+        if ordered and _decimal(ordered[-1].get("upper")) is not None:
+            errors.append(f"Top band for {applies_to} should have blank upper bound.")
+    return errors
+
+
+def _repeal_dates(rows: list[OeEnginePromotedEntity]) -> dict[str, date]:
+    out: dict[str, date] = {}
+    for row in rows:
+        if row.entity_kind != "relief":
+            continue
+        payload = row.payload_json or {}
+        if str(payload.get("change_action") or "") != "repeal":
+            continue
+        group = str(payload.get("compare_group_id") or row.compare_group_id or "")
+        if not group:
+            continue
+        repeal_from = resolved_effective_from(payload)
+        current = out.get(group)
+        if current is None or repeal_from < current:
+            out[group] = repeal_from
+    return out
+
+
+def _repealed_for_year(group: str, ya: str, repeal_map: dict[str, date], winner_from: date) -> bool:
+    repeal_from = repeal_map.get(group)
+    if repeal_from is None:
+        return False
+    ya_start = year_start(ya)
+    return ya_start >= repeal_from and winner_from < repeal_from
 
 
 def _sub_item_resolver(
@@ -277,15 +416,19 @@ def compile_maps(
     rows: list[OeEnginePromotedEntity],
     document_text: Callable[[str], str] | None = None,
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]]:
-    reliefs_by_year: dict[str, list[dict[str, Any]]] = {ya: [] for ya in ASSESSMENT_YEARS}
-    rates_by_year: dict[str, list[dict[str, Any]]] = {ya: [] for ya in ASSESSMENT_YEARS}
+    assessment_years = derive_assessment_years(rows)
+    reliefs_by_year: dict[str, list[dict[str, Any]]] = {ya: [] for ya in assessment_years}
+    rates_by_year: dict[str, list[dict[str, Any]]] = {ya: [] for ya in assessment_years}
     resolve_sub_items = _sub_item_resolver(document_text)
     resolve_definitions = _definition_resolver(document_text)
+    repeal_map = _repeal_dates(rows)
 
     relief_rows = [
         r
         for r in rows
-        if r.entity_kind == "relief" and is_promotable_scope(r.payload_json or {})
+        if r.entity_kind == "relief"
+        and is_promotable_scope(r.payload_json or {})
+        and str((r.payload_json or {}).get("change_action") or "") != "repeal"
     ]
     rate_rows = [
         r
@@ -293,12 +436,16 @@ def compile_maps(
         if r.entity_kind == "rate_band" and is_promotable_scope(r.payload_json or {})
     ]
 
-    for ya in ASSESSMENT_YEARS:
+    for ya in assessment_years:
         winners: dict[str, OeEnginePromotedEntity] = {}
         for row in relief_rows:
             if not entity_applies(payload_for_apply(row), ya):
                 continue
             group = row.compare_group_id
+            payload = payload_for_apply(row)
+            winner_from = resolved_effective_from(payload)
+            if _repealed_for_year(group, ya, repeal_map, winner_from):
+                continue
             current = winners.get(group)
             if current is None or _sort_key(row) >= _sort_key(current):
                 winners[group] = row
@@ -312,6 +459,9 @@ def compile_maps(
                 payload["definitions"] = terms
             payload["input_kind"] = infer_input_kind(payload)
             payload["engine_binding"] = infer_engine_binding(payload)
+            if not str(payload.get("question_prompt") or "").strip():
+                payload["question_prompt"] = default_question_prompt(payload)
+            payload["help"] = str(payload.get("help") or "")
             payload["assessment_year"] = ya
             reliefs_by_year[ya].append(payload)
         attach_covered_items(reliefs_by_year[ya])
@@ -393,15 +543,22 @@ def persist_year_views(
                 )
             )
     session.flush()
-    _drop_years_outside_catalog(session)
+    allowed = set(reliefs_by_year) | set(rates_by_year) | set(BASE_ASSESSMENT_YEARS)
+    _drop_years_outside_catalog(session, allowed_years=allowed)
 
 
-def _drop_years_outside_catalog(session: Session) -> None:
-    """YA 2026/27 was a forward-fill, not an Act year. Do not keep leftover rows."""
+def _drop_years_outside_catalog(session: Session, allowed_years: set[str] | None = None) -> None:
+    """Drop year-view rows outside the compiled catalog (base years plus any NEW_YEAR YA)."""
     from db.mismatch import OeEngineMismatchFlag
     from db.models import OeEngineConsolidatedFact
 
-    allowed = set(ASSESSMENT_YEARS)
+    allowed = set(BASE_ASSESSMENT_YEARS) if allowed_years is None else set(allowed_years)
+    session.query(OeEngineYearRelief).filter(
+        ~OeEngineYearRelief.assessment_year.in_(allowed)
+    ).delete(synchronize_session=False)
+    session.query(OeEngineYearRate).filter(
+        ~OeEngineYearRate.assessment_year.in_(allowed)
+    ).delete(synchronize_session=False)
     session.query(OeEngineConsolidatedFact).filter(
         ~OeEngineConsolidatedFact.year.in_(allowed)
     ).delete(synchronize_session=False)

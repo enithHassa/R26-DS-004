@@ -85,6 +85,9 @@ def test_mocked_window_extract_matches_relief_schema() -> None:
                 stacking="",
                 effective_from="",
                 effective_to="",
+                question_prompt="Did personal relief apply to you this year?",
+                help="This relief is applied automatically.",
+                input_kind="notice",
             )
         ],
         rate_bands=[],
@@ -103,6 +106,9 @@ def test_mocked_window_extract_matches_relief_schema() -> None:
     assert parsed.required_evidence == []
     assert parsed.filing_line == ""
     assert parsed.stacking == ""
+    assert parsed.question_prompt == "Did personal relief apply to you this year?"
+    assert parsed.help == "This relief is applied automatically."
+    assert parsed.input_kind == "notice"
 
 
 def test_mocked_rate_band_shape() -> None:
@@ -356,3 +362,142 @@ def test_normalize_unit_maps_currency_to_lkr() -> None:
     assert _normalize_unit("currency") == "lkr"
     assert _normalize_unit("%") == "percent"
     assert _normalize_unit("text") == "text"
+
+
+def test_act_admin_focus_stops_at_named_schedules() -> None:
+    from oe_engine_app.services.windows import extract_focus_windows
+
+    stream = (
+        "x" * 25_000
+        + "\nFIRST SCHEDULE (Section 2)\n TAX RATES\n"
+        + "Taxable income of a resident individual.\n"
+        + "y" * 8_000
+        + "\nFIFTH SCHEDULE\nQUALIFYING PAYMENTS AND RELIEFS\n"
+        + "Personal relief of rupees five hundred thousand.\n"
+        + "z" * 8_000
+        + "\nLater reprint of personal relief Rs. 2,000,000.\n"
+        + "n" * 40_000
+    )
+    doc = DocText(
+        source_doc_id="oee-act-99-2026",
+        title="Amendment",
+        tier="act",
+        stream=stream,
+        tables_blob="",
+        page_spans=[(1, 0, len(stream))],
+    )
+    full = extract_focus_windows(doc)
+    admin = extract_focus_windows(doc, act_admin=True)
+    assert "first_schedule" in {w.window_id for w in admin}
+    assert "fifth_schedule" in {w.window_id for w in admin}
+    assert all(not w.window_id.startswith("w") for w in admin)
+    assert any(w.window_id.startswith("w") for w in full)
+
+
+def test_collapse_reprint_reliefs_keeps_dated_variants() -> None:
+    from oe_engine_app.services.extract_dedupe import (
+        collapse_duplicate_extract_entities,
+        scrub_interview_fields,
+    )
+
+    rows = [
+        {
+            "entity_kind": "relief",
+            "entry_id": "doc:fifth_schedule:relief:0",
+            "compare_group_id": "personal_relief",
+            "cap_amount": "2000000",
+            "effective_from": "2026-04-01",
+            "quote": "Rs. 2,000,000, for the year of assessment commencing on April 1, 2026.",
+            "included": True,
+            "review_status": "pending",
+            "question_prompt": (
+                "What is your personal relief amount for the year of assessment "
+                "commencing on April 1, 2026?"
+            ),
+            "help": "Enter the personal relief amount for the specified year.",
+        },
+        {
+            "entity_kind": "relief",
+            "entry_id": "doc:w006:relief:0",
+            "compare_group_id": "personal_relief",
+            "cap_amount": "2000000",
+            "effective_from": "",
+            "quote": "The synthetic amendment changes the personal relief to Rs. 2,000,000.",
+            "included": True,
+            "review_status": "pending",
+            "question_prompt": "What is your personal relief for the assessment year 2026/27?",
+            "help": "Enter the amount of personal relief applicable for the year 2026/27.",
+        },
+        {
+            "entity_kind": "relief",
+            "entry_id": "doc:fifth_schedule:relief:1",
+            "compare_group_id": "personal_relief",
+            "cap_amount": "1800000",
+            "effective_from": "2025-04-01",
+            "quote": "Rs. 1,800,000, for each year of assessment commencing on or after April 1, 2025.",
+            "included": True,
+            "review_status": "pending",
+        },
+        {
+            "entity_kind": "relief",
+            "entry_id": "doc:w009:relief:0",
+            "compare_group_id": "qualifying_computer_equipment",
+            "cap_amount": "",
+            "effective_from": "",
+            "quote": "A computer or laptop purchased and used primarily by an individual.",
+            "included": True,
+            "review_status": "pending",
+        },
+        {
+            "entity_kind": "relief",
+            "entry_id": "doc:fifth_schedule:relief:2",
+            "compare_group_id": "digital_productivity_equipment_relief",
+            "cap_amount": "300000",
+            "effective_from": "2026-04-01",
+            "quote": "Digital Productivity Equipment Relief shall not exceed Rs. 300,000.",
+            "included": True,
+            "review_status": "pending",
+        },
+        {
+            "entity_kind": "rate_band",
+            "entry_id": "doc:first_schedule:band:0",
+            "compare_group_id": "individual_tax_rates",
+            "lower": "0",
+            "upper": "1200000",
+            "rate_percent": "5",
+            "applies_to": "resident or non-resident individual",
+            "effective_from": "2026-04-01",
+            "quote": "Not exceeding Rs. 1,200,000 | 5%",
+            "included": True,
+            "review_status": "pending",
+        },
+        {
+            "entity_kind": "rate_band",
+            "entry_id": "doc:w006:band:0",
+            "compare_group_id": "individual_rate_bands",
+            "lower": "",
+            "upper": "1200000",
+            "rate_percent": "5",
+            "applies_to": "individual",
+            "effective_from": "2026-04-01",
+            "quote": "5%",
+            "included": True,
+            "review_status": "pending",
+        },
+    ]
+    collapsed = collapse_duplicate_extract_entities(rows)
+    groups = [str(r.get("compare_group_id")) for r in collapsed]
+    assert groups.count("personal_relief") == 2
+    assert "qualifying_computer_equipment" not in groups
+    assert "digital_productivity_equipment_relief" in groups
+    assert groups.count("first_schedule_rates") == 1
+    survivor = next(
+        row
+        for row in collapsed
+        if row["compare_group_id"] == "personal_relief" and row["cap_amount"] == "2000000"
+    )
+    assert "fifth_schedule" in survivor["entry_id"]
+    scrub_interview_fields(survivor)
+    assert survivor["question_prompt"] == "What is your personal relief amount?"
+    assert "April" not in survivor["question_prompt"]
+

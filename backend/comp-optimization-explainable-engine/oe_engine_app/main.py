@@ -11,7 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
 from oe_engine_app import __version__
-from oe_engine_app.routers import calculate, catalog, documents, explain, health, load_act, promote, retrieve
+from oe_engine_app.routers import (
+    act_admin,
+    calculate,
+    catalog,
+    documents,
+    explain,
+    health,
+    load_act,
+    promote,
+    retrieve,
+)
 
 
 @asynccontextmanager
@@ -61,6 +71,8 @@ def create_app() -> FastAPI:
     app.include_router(promote.router, prefix="/api/v1")
     app.include_router(load_act.router)
     app.include_router(load_act.router, prefix="/api/v1")
+    app.include_router(act_admin.router)
+    app.include_router(act_admin.router, prefix="/api/v1")
     return app
 
 

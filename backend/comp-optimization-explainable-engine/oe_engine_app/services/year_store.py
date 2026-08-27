@@ -8,14 +8,18 @@ from sqlalchemy.orm import Session
 
 from db.models import OeEngineDocument
 from db.year_views import OeEngineYearRate, OeEngineYearRelief
-from oe_engine_app.services.compiler import recompile_year_views
+from oe_engine_app.services.compiler import (
+    BASE_ASSESSMENT_YEARS,
+    default_question_prompt,
+    derive_assessment_years,
+    load_promoted_entities,
+    recompile_year_views,
+)
 
 
 def present_relief(payload: dict[str, Any]) -> dict[str, Any]:
     """Fill interview fields the stepper expects (prompt, eligibility, evidence)."""
     out = dict(payload)
-    name = str(out.get("display_name") or out.get("compare_group_id") or "Relief")
-    kind = str(out.get("input_kind") or "notice")
     sub_items = out.get("sub_items")
     out["sub_items"] = sub_items if isinstance(sub_items, list) else []
     covers = out.get("covers")
@@ -23,25 +27,10 @@ def present_relief(payload: dict[str, Any]) -> dict[str, Any]:
     terms = out.get("definitions")
     out["definitions"] = terms if isinstance(terms, list) else []
     if not str(out.get("question_prompt") or "").strip():
-        if kind == "notice":
-            out["question_prompt"] = (
-                f"{name} applies automatically for this year of assessment."
-            )
-        elif out["sub_items"]:
-            out["question_prompt"] = (
-                f"{name}: enter an amount for each recipient you gave to this year."
-            )
-        elif kind in {"boolean", "yes_no_amount"}:
-            # Not "did you incur X" — a filer incurs the expenditure, not the relief,
-            # and several of these turn on a personal status rather than a payment.
-            out["question_prompt"] = f"Does {name} apply to you this year?"
-        else:
-            out["question_prompt"] = f"Did you incur {name} this year?"
+        out["question_prompt"] = default_question_prompt(out)
     eligibility = out.get("eligibility")
     if isinstance(eligibility, dict):
         text = str(eligibility.get("text") or "").strip()
-        if text and not str(out.get("help") or "").strip():
-            out["help"] = text
         out["eligibility_text"] = text
         out["eligibility_status"] = str(eligibility.get("review_status") or "pending")
         out["eligibility_quote"] = str(eligibility.get("quote") or "")
@@ -65,7 +54,10 @@ def list_years(session: Session) -> list[dict[str, Any]]:
     rate_years = {
         row[0] for row in session.query(OeEngineYearRate.assessment_year).distinct().all()
     }
-    years = sorted(relief_years | rate_years)
+    allowed = set(derive_assessment_years(load_promoted_entities(session))) or set(
+        BASE_ASSESSMENT_YEARS
+    )
+    years = sorted(ya for ya in (relief_years | rate_years) if ya in allowed)
     return [{"assessment_year": ya} for ya in years]
 
 

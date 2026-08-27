@@ -17,6 +17,8 @@ class OpenAIEmbedder:
     def __init__(self, api_key: str, model: str, batch_size: int = 64) -> None:
         from openai import OpenAI
 
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise TypeError("OpenAIEmbedder expects an API key string, not a client object")
         self._client = OpenAI(api_key=api_key)
         self.model = model
         self.batch_size = batch_size

@@ -355,6 +355,25 @@ def cmd_promote_fixture() -> int:
     return 0
 
 
+def cmd_unpromote(source_doc_id: str, *, reset_act_admin: bool) -> int:
+    from oe_engine_app.services.act_admin_review import reset_activation
+    from oe_engine_app.services.terminus import unpromote_source_doc
+    from oe_engine_app.services.year_store import list_years
+
+    session = SessionLocal()
+    try:
+        result = unpromote_source_doc(session, source_doc_id)
+        session.commit()
+        years = [row["assessment_year"] for row in list_years(session)]
+    finally:
+        session.close()
+    if reset_act_admin:
+        result["act_admin"] = reset_activation(source_doc_id, reviewer="cli-unpromote")
+    result["years"] = years
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="oe_engine_app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -415,6 +434,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Promote hand-built Act fixtures into year views ($0, no GPT)",
     )
 
+    unpromote_p = sub.add_parser(
+        "unpromote",
+        help="Remove one Act from year views and drop YA 2026/27 if it was only NEW_YEAR",
+    )
+    unpromote_p.add_argument("--source-doc-id", required=True)
+    unpromote_p.add_argument(
+        "--reset-act-admin",
+        action="store_true",
+        help="Put the act-admin draft back to extracted so Activate can be demoed again",
+    )
+
     args = parser.parse_args(argv)
     if args.cmd == "ingest":
         return cmd_ingest(args.source_doc_id)
@@ -451,6 +481,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_promote(args.source_doc_id, args.extraction_run_id)
     if args.cmd == "promote-fixture":
         return cmd_promote_fixture()
+    if args.cmd == "unpromote":
+        return cmd_unpromote(args.source_doc_id, reset_act_admin=bool(args.reset_act_admin))
     return 1
 
 

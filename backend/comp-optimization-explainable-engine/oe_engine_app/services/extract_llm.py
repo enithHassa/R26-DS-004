@@ -83,6 +83,21 @@ Relief fields:
   ceiling: leave cap_amount "" and state the threshold in eligibility.text.
 - `unit`: exactly `lkr`, `percent`, or `text` (never "currency").
 - `compare_group_id`: snake_case stable id (e.g. personal_relief).
+- Taxpayer-facing drafts (an auditor will edit these before they appear):
+  `question_prompt` is a short question. Do not restate `display_name`. Do
+  not copy year of assessment, commencement dates, rupee caps, or eligibility
+  from the quote into the question. Dates go in `effective_from`. Caps go in
+  `cap_amount`. Good: "What is your personal relief amount?" Bad: "What is
+  your personal relief amount for the year of assessment commencing on April
+  1, 2026?". Good: "Did you incur qualifying expenditure for digital
+  productivity equipment?". `input_kind` is notice (auto-applied, no claim),
+  yes_no_amount, amount, or boolean. `help` is one extra hint, or "". It must
+  not repeat the question. Never put a rupee amount, percent, rate band, or
+  Act quote into display_name, question_prompt, or help.
+  Do not emit a second relief for a definition, qualifying-asset example, or
+  restated cap of a relief already named in this window. One row per
+  compare_group_id per dated amount. Reuse personal_relief /
+  digital_productivity_equipment_relief when the same relief is reprinted.
 - Numbers: digits only ("1200000", "6").
 - `effective_from` / `effective_to`: YYYY-MM-DD when the quote states dates.
   "prior to 1 January 2020" → `effective_to` = 2019-12-31 (open start).
@@ -269,6 +284,9 @@ class Pass1Relief(BaseModel):
     stacking: str
     effective_from: str
     effective_to: str
+    question_prompt: str = ""
+    help: str = ""
+    input_kind: str = "notice"
 
 
 class Pass1RateBand(BaseModel):

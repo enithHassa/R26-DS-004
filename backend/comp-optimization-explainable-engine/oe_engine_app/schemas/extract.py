@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 ReviewStatus = Literal["pending", "accepted", "rejected", "needs_update"]
+ChangeAction = Literal["add", "amend", "repeal"]
 EngineScope = Literal["individual", "other"]
 EntityKind = Literal["relief", "rate_band", "guide_help", "consolidated_fact"]
 Tier = Literal["act", "guide", "consolidated"]
@@ -41,11 +42,15 @@ class ReliefEntity(BaseModel):
     stacking: str = ""
     effective_from: str = ""
     effective_to: str = ""
+    question_prompt: str = ""
+    help: str = ""
     input_kind: str = "notice"
     auto_applied: bool = False
     engine_binding: dict[str, str] = Field(default_factory=lambda: {"kind": "none"})
     sort_order: int = 0
+    change_action: ChangeAction = "add"
     review_status: ReviewStatus = "pending"
+    year_kind: str = ""
     quote_ok_window: bool = False
     quote_ok_full_doc: bool = False
     quote_source: str = "none"
@@ -78,7 +83,9 @@ class RateBandEntity(BaseModel):
     effective_from: str = ""
     effective_to: str = ""
     quote: str
+    change_action: ChangeAction = "add"
     review_status: ReviewStatus = "pending"
+    year_kind: str = ""
     quote_ok_window: bool = False
     quote_ok_full_doc: bool = False
     quote_source: str = "none"

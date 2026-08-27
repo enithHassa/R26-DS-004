@@ -30,11 +30,14 @@ export function LoadNewActPage() {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Load new act</h2>
         <p className="text-sm text-muted-foreground">
-          Owned by this engine — not Catalog Admin. Upload/ingest uses Phase 2
-          chunks. Live GPT extract is Phase 6 (do not click). Fixtures are $0.
+          Protected admin upload runs quote-gated LLM extract, human review, impact
+          preview, and activation. Fixture tools below remain $0 for development.
         </p>
       </div>
-      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Load new act">
+      <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Load new act">
+        <Button type="button" size="sm" asChild>
+          <Link to="/optimization-explainable-engine/act-admin">Open Act admin</Link>
+        </Button>
         {(
           [
             ["documents", "Documents"],

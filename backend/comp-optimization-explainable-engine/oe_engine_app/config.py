@@ -33,6 +33,8 @@ class OeEngineSettings(BaseSettings):
     OE_ENGINE_EXTRACT_OUT: Path = Field(
         default_factory=lambda: PROJECT_ROOT / "models" / "opt-explain-engine" / "extracted"
     )
+    OE_ENGINE_ACT_ADMIN_TOKEN: str | None = None
+    OE_ENGINE_ACT_ADMIN_WORK_DIR: Path | None = None
 
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),

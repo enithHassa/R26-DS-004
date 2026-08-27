@@ -1,4 +1,4 @@
-﻿import axios, { type AxiosInstance, isAxiosError } from "axios";
+import axios, { type AxiosInstance, isAxiosError } from "axios";
 
 const GATEWAY_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -66,8 +66,18 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
         message = String(raw);
       }
     }
-    if (status === 404 && apiPrefix.includes("optimization")) {
-      return `${message} ΓÇö Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`;
+    if (
+      status === 404 &&
+      apiPrefix.includes("optimization-explainable-engine")
+    ) {
+      return `${message} — Act admin route missing on port 8009. Restart the Optimization and Explainable Engine with the latest code and set OE_ENGINE_ACT_ADMIN_TOKEN in .env.`;
+    }
+    if (
+      status === 404 &&
+      apiPrefix.includes("optimization") &&
+      !apiPrefix.includes("optimization-explainable")
+    ) {
+      return `${message} — Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`;
     }
     return status ? `${message} (HTTP ${status})` : message;
   }

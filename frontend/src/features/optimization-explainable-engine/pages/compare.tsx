@@ -87,11 +87,25 @@ export function InterviewComparePage() {
 
   const series = compareQuery.data?.series ?? [];
   const groupOptions = compareQuery.data?.groups ?? [];
+  const indexedYears = compareQuery.data?.assessment_years ?? series.map((row) => row.assessment_year);
 
   const selectedLabel = useMemo(
     () => groupOptions.find((g) => g.compare_group_id === groupId)?.display_name ?? groupId,
     [groupOptions, groupId],
   );
+
+  const yearRangeLabel = useMemo(() => {
+    if (!indexedYears.length) return "every indexed assessment year";
+    const first = yaDisplay(indexedYears[0] ?? "");
+    const last = yaDisplay(indexedYears[indexedYears.length - 1] ?? "");
+    if (!first || first === last) return `YA ${first || last}`;
+    return `YA ${first}–${last}`;
+  }, [indexedYears]);
+
+  const selectedQuestion = useMemo(() => {
+    const prompt = series.find((row) => row.entry?.question_prompt)?.entry?.question_prompt;
+    return String(prompt ?? "").trim();
+  }, [series]);
 
   if (compareQuery.isLoading) {
     return (
@@ -106,10 +120,13 @@ export function InterviewComparePage() {
     <div className="space-y-4">
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">
-          Pick one relief group and see its catalog value for every supported assessment year
-          (YA 2018/19–2025/26). Interview as-of and compare years are highlighted when an
+          Pick one relief group and see its catalog value for every indexed assessment year
+          ({yearRangeLabel}). Interview as-of and compare years are highlighted when an
           interview session exists.
         </p>
+        {selectedQuestion ? (
+          <p className="text-sm">{selectedQuestion}</p>
+        ) : null}
         {session.excludeSourceDocId ? (
           <p className="text-xs text-amber-800 dark:text-amber-200">
             Act exclusion from the Acts step is applied:{" "}

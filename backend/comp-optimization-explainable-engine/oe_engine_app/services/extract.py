@@ -30,6 +30,10 @@ from oe_engine_app.services.spend import (
     PHASE6_SOFT_CAP_USD,
     SpendLedger,
 )
+from oe_engine_app.services.extract_dedupe import (
+    collapse_duplicate_extract_entities,
+    scrub_interview_fields,
+)
 from oe_engine_app.services.windows import (
     DocText,
     FocusWindow,
@@ -146,6 +150,9 @@ def _relief_entity(
         stacking=row.stacking,
         effective_from=row.effective_from,
         effective_to=row.effective_to,
+        question_prompt=str(getattr(row, "question_prompt", "") or ""),
+        help=str(getattr(row, "help", "") or ""),
+        input_kind=str(getattr(row, "input_kind", "") or "notice"),
         engine_scope=infer_engine_scope(
             applies_to="",
             display_name=row.display_name,
@@ -362,23 +369,33 @@ def run_extract(
     dry_run: bool,
     schema_validate: bool,
     seed: bool = False,
+    act_admin: bool = False,
     apply_terminus: bool = True,
 ) -> ExtractRun:
-    if not dry_run and not schema_validate and not seed:
+    if not dry_run and not schema_validate and not seed and not act_admin:
         raise RuntimeError(
             "Full-document live extract is Phase 6. Use --dry-run, --schema-validate, or --seed."
         )
-    if seed:
+    if seed or act_admin:
         ledger.assert_phase6_caps()
-        notes_seed = (
-            f"Phase 6 seed. Soft ${PHASE6_SOFT_CAP_USD:.0f} / "
-            f"hard ${PHASE6_HARD_STOP_USD:.0f}. "
-            f"Prior spend ${ledger.prior_usd:.4f}."
-        )
+        if act_admin and not seed:
+            notes_seed = (
+                f"Act-admin live extract. Soft ${PHASE6_SOFT_CAP_USD:.0f} / "
+                f"hard ${PHASE6_HARD_STOP_USD:.0f}. "
+                f"Prior spend ${ledger.prior_usd:.4f}."
+            )
+        else:
+            notes_seed = (
+                f"Phase 6 seed. Soft ${PHASE6_SOFT_CAP_USD:.0f} / "
+                f"hard ${PHASE6_HARD_STOP_USD:.0f}. "
+                f"Prior spend ${ledger.prior_usd:.4f}."
+            )
     else:
         notes_seed = ""
     doc = load_doc_text(session, source_doc_id)
-    windows = extract_focus_windows(doc, schema_validate=schema_validate)
+    windows = extract_focus_windows(
+        doc, schema_validate=schema_validate, act_admin=act_admin
+    )
     entities: list[dict[str, Any]] = []
     notes: list[str] = []
     if notes_seed:
@@ -395,6 +412,17 @@ def run_extract(
         entities.extend(
             extract_window(doc=doc, window=window, llm=None if dry_run else llm, dry_run=dry_run)
         )
+    if not dry_run:
+        before = len(entities)
+        entities = collapse_duplicate_extract_entities(entities)
+        for entity in entities:
+            scrub_interview_fields(entity)
+        dropped = before - len(entities)
+        if dropped > 0:
+            notes.append(
+                f"Collapsed {dropped} reprint row(s) from overlapping windows "
+                "(one row per dated relief or rate slab)."
+            )
     run = ExtractRun(
         extraction_run_id=_now_run_id(),
         source_doc_id=source_doc_id,

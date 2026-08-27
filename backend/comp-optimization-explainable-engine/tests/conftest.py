@@ -24,25 +24,51 @@ class _SyncASGIClient:
     def __init__(self, app: Any) -> None:
         self._app = app
 
-    def get(self, url: str, params: dict[str, str] | None = None) -> httpx.Response:
+    def get(
+        self,
+        url: str,
+        params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         async def _go() -> httpx.Response:
             transport = ASGITransport(app=self._app)
             async with httpx.AsyncClient(
                 transport=transport,
                 base_url="http://testserver",
             ) as client:
-                return await client.get(url, params=params)
+                return await client.get(url, params=params, headers=headers)
 
         return asyncio.run(_go())
 
-    def post(self, url: str, json: dict[str, Any] | None = None) -> httpx.Response:
+    def post(
+        self,
+        url: str,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         async def _go() -> httpx.Response:
             transport = ASGITransport(app=self._app)
             async with httpx.AsyncClient(
                 transport=transport,
                 base_url="http://testserver",
             ) as client:
-                return await client.post(url, json=json)
+                return await client.post(url, json=json, headers=headers)
+
+        return asyncio.run(_go())
+
+    def patch(
+        self,
+        url: str,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        async def _go() -> httpx.Response:
+            transport = ASGITransport(app=self._app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+            ) as client:
+                return await client.patch(url, json=json, headers=headers)
 
         return asyncio.run(_go())
 

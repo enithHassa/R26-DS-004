@@ -384,7 +384,12 @@ def _is_guide_skip_window(window: FocusWindow) -> bool:
     return False
 
 
-def extract_focus_windows(doc: DocText, *, schema_validate: bool = False) -> list[FocusWindow]:
+def extract_focus_windows(
+    doc: DocText,
+    *,
+    schema_validate: bool = False,
+    act_admin: bool = False,
+) -> list[FocusWindow]:
     """Sliding windows, plus dedicated First/Fifth Schedule windows on long Acts.
 
     Short amendment PDFs stay as one sliding pass. The base Act is long enough
@@ -392,6 +397,8 @@ def extract_focus_windows(doc: DocText, *, schema_validate: bool = False) -> lis
     and drop the overlapping slices so slabs are not extracted twice.
     Guide PDFs keep individual-relief / qualifying-payment chapters only — not the
     reprinted First/Fifth rate tables, which are often stale vs the Act year views.
+    Act-admin extracts stop at the named schedules (Catalog Admin style) so later
+    reprint chapters do not emit the same relief again.
     """
     if schema_validate:
         return schema_validate_windows(doc)
@@ -412,6 +419,8 @@ def extract_focus_windows(doc: DocText, *, schema_validate: bool = False) -> lis
     if doc.tier == "consolidated":
         extras = [window for window in kept if _CONS_EXTRA_RE.search(window.stream_slice)]
         return named + extras
+    if act_admin:
+        return named
     return named + kept
 
 

@@ -12,7 +12,10 @@ from oe_engine_app.services.compiler import (
     ASSESSMENT_YEARS,
     act_implicit_from,
     compile_maps,
+    default_question_prompt,
+    derive_assessment_years,
     entity_applies,
+    payload_for_apply,
 )
 from oe_engine_app.services.fixtures import load_extract_fixture, seed_act_document
 from oe_engine_app.services.hash_match import classify_act_hash
@@ -256,3 +259,80 @@ def test_later_individual_ladder_replaces_base_act_and_or_wording() -> None:
     assert [b["rate_percent"] for b in rates["2023_24"]] == ["6"]
     assert rates["2023_24"][0]["source_doc_id"] == "oee-act-45-2022"
     assert [b["rate_percent"] for b in rates["2025_26"]] == ["6"]
+
+
+def test_compile_maps_preserves_stored_question_prompt() -> None:
+    payload = _solar_blank_payload()
+    payload["question_prompt"] = "Did you install solar panels this year?"
+    payload["help"] = "Keep the supplier invoice."
+    payload["input_kind"] = "yes_no_amount"
+    fallback = default_question_prompt({**payload, "question_prompt": ""})
+    assert fallback != payload["question_prompt"]
+    row = OeEnginePromotedEntity(
+        id=11,
+        source_doc_id="oee-act-10-2021",
+        extraction_run_id="test",
+        entity_kind="relief",
+        compare_group_id="solar_panel_expenditure",
+        entry_id=payload["entry_id"],
+        payload_json=payload,
+        payload_hash="q" * 64,
+        promoted_at=datetime(2026, 8, 26),
+    )
+    reliefs, _rates = compile_maps([row])
+    compiled = next(
+        item
+        for item in reliefs["2021_22"]
+        if item.get("compare_group_id") == "solar_panel_expenditure"
+    )
+    assert compiled["question_prompt"] == "Did you install solar panels this year?"
+    assert compiled["help"] == "Keep the supplier invoice."
+    assert compiled["input_kind"] == "yes_no_amount"
+
+
+def _future_promoted(*, year_kind: str = "") -> OeEnginePromotedEntity:
+    payload = {
+        "entity_kind": "relief",
+        "compare_group_id": "solar_panel_relief",
+        "display_name": "Solar panel relief",
+        "effective_from": "2026-04-01",
+        "engine_scope": "individual",
+        "cap_amount": "600000",
+        "question_prompt": "Did you install solar panels this year?",
+    }
+    if year_kind:
+        payload["year_kind"] = year_kind
+    return OeEnginePromotedEntity(
+        source_doc_id="oee-act-99-2026",
+        extraction_run_id="x",
+        entity_kind="relief",
+        compare_group_id="solar_panel_relief",
+        entry_id="future",
+        payload_json=payload,
+        payload_hash="h",
+        promoted_at=datetime(2026, 8, 26),
+    )
+
+
+def test_new_year_kind_adds_2026_27_to_compiled_catalog() -> None:
+    row = _future_promoted(year_kind="NEW_YEAR")
+    years = derive_assessment_years([row])
+    assert "2026_27" in years
+    reliefs, _rates = compile_maps([row])
+    assert "2026_27" in reliefs
+    groups = {item.get("compare_group_id") for item in reliefs["2026_27"]}
+    assert "solar_panel_relief" in groups
+
+
+def test_update_kind_clips_2026_into_2025_26() -> None:
+    row = _future_promoted(year_kind="UPDATE")
+    clipped = payload_for_apply(row)
+    assert clipped["effective_from"] == "2025-04-01"
+    years = derive_assessment_years([row])
+    assert "2026_27" not in years
+    reliefs, _rates = compile_maps([row])
+    assert "2026_27" not in reliefs
+    groups = {item.get("compare_group_id") for item in reliefs["2025_26"]}
+    assert "solar_panel_relief" in groups
+    groups_2024 = {item.get("compare_group_id") for item in reliefs["2024_25"]}
+    assert "solar_panel_relief" not in groups_2024

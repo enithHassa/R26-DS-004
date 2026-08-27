@@ -20,6 +20,11 @@ import { InterviewReliefsPage } from "./pages/reliefs";
 import { InterviewResultPage } from "./pages/result";
 import { InterviewComparePage } from "./pages/compare";
 import { LoadNewActPage } from "./pages/load-act";
+import { ActAdminJobPage } from "./act-admin/job";
+import { ActAdminLayout } from "./act-admin/layout";
+import { ActAdminQueuePage } from "./act-admin/queue";
+import { ActAdminReviewPage } from "./act-admin/review";
+import { ActAdminUploadPage } from "./act-admin/upload";
 
 const optimizationExplainableEngine: FeatureModule = {
   id: "optimization-explainable-engine",
@@ -38,6 +43,16 @@ const optimizationExplainableEngine: FeatureModule = {
       path: "optimization-explainable-engine/load-act",
       element: <LoadActLayout />,
       children: [{ index: true, element: <LoadNewActPage /> }],
+    },
+    {
+      path: "optimization-explainable-engine/act-admin",
+      element: <ActAdminLayout />,
+      children: [
+        { index: true, element: <ActAdminQueuePage /> },
+        { path: "upload", element: <ActAdminUploadPage /> },
+        { path: "jobs/:jobId", element: <ActAdminJobPage /> },
+        { path: "review/:sourceDocId", element: <ActAdminReviewPage /> },
+      ],
     },
     {
       path: "optimization-explainable-engine",

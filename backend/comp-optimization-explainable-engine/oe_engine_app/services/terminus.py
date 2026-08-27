@@ -38,12 +38,23 @@ def assert_promote_allowed(tier: str) -> None:
         )
 
 
-def _included_entities(run: ExtractRun) -> list[dict[str, Any]]:
+def _included_entities(
+    run: ExtractRun,
+    *,
+    require_review_accepted: bool = False,
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for entity in run.entities:
         if entity.get("entity_kind") not in {"relief", "rate_band"}:
             continue
         if entity.get("included") is False:
+            continue
+        if require_review_accepted and str(entity.get("review_status") or "pending") != "accepted":
+            continue
+        if entity.get("change_action") == "repeal":
+            payload = dict(entity)
+            payload["engine_scope"] = resolve_engine_scope(entity)
+            out.append(payload)
             continue
         if not is_promotable_scope(entity):
             continue
@@ -53,7 +64,12 @@ def _included_entities(run: ExtractRun) -> list[dict[str, Any]]:
     return out
 
 
-def promote_act_run(session: Session, run: ExtractRun) -> dict[str, Any]:
+def promote_act_run(
+    session: Session,
+    run: ExtractRun,
+    *,
+    require_review_accepted: bool = False,
+) -> dict[str, Any]:
     assert_promote_allowed(run.tier)
     chunk_count = (
         session.query(OeEngineChunk)
@@ -64,7 +80,11 @@ def promote_act_run(session: Session, run: ExtractRun) -> dict[str, Any]:
         raise ChunkCoverageError(
             f"promote rejected: no chunks for {run.source_doc_id} (ingest first)"
         )
-    entities = _included_entities(run)
+    entities = _included_entities(run, require_review_accepted=require_review_accepted)
+    if require_review_accepted and not entities:
+        raise PromoteForbidden(
+            "activation requires at least one accepted relief or rate band row"
+        )
     excluded_other = sum(
         1
         for entity in run.entities
@@ -148,6 +168,31 @@ def promote_act_run(session: Session, run: ExtractRun) -> dict[str, Any]:
         "mismatch_flags_touched": flags,
         "reextract_diff": diff,
         "skipped": False,
+    }
+
+
+def unpromote_source_doc(session: Session, source_doc_id: str) -> dict[str, Any]:
+    """Drop one Act's promoted rows and recompile. Ingest, extract, and drafts stay."""
+    sid = (source_doc_id or "").strip()
+    if not sid:
+        raise ValueError("source_doc_id is required")
+    removed_entities = (
+        session.query(OeEnginePromotedEntity)
+        .filter(OeEnginePromotedEntity.source_doc_id == sid)
+        .delete(synchronize_session=False)
+    )
+    run = session.get(OeEnginePromotedRun, sid)
+    had_run = run is not None
+    if run is not None:
+        session.delete(run)
+    session.flush()
+    recompile_year_views(session, persist=True)
+    flags = recompare_all_facts(session)
+    return {
+        "source_doc_id": sid,
+        "removed_entities": int(removed_entities or 0),
+        "removed_run": had_run,
+        "mismatch_flags_touched": flags,
     }
 
 

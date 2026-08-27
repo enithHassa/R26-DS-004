@@ -55,6 +55,13 @@ function SignInForm({ onSignedIn }: { onSignedIn: (session: CatalogAdminSession)
           the door; your name is recorded on every later approve / reject /
           promote (not a second password).
         </p>
+        <p className="text-xs text-muted-foreground">
+          Local dev: use the value of{" "}
+          <code className="rounded bg-muted px-1">COMP_ADAPTIVE_TAX_CATALOG_ADMIN_TOKEN</code>{" "}
+          from <code className="rounded bg-muted px-1">.env</code> (default{" "}
+          <code className="rounded bg-muted px-1">local-catalog-admin</code>). This is not the OE
+          Engine act-admin token.
+        </p>
       </div>
       <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
         <div className="space-y-2">
