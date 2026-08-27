@@ -136,14 +136,6 @@ export function UserLoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-[var(--demo-text-muted)]">
-          No account yet?{" "}
-          <Link
-            to="/signup"
-            className="text-[var(--demo-accent)] hover:text-[var(--demo-accent-hover)]"
-          >
-            Create one
-          </Link>
-          {" · "}
           <Link to="/demo" className="text-[var(--demo-accent)] hover:text-[var(--demo-accent-hover)]">
             ← Back to TaxWise AI
           </Link>
