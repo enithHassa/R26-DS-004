@@ -14,6 +14,8 @@ export interface HybridResultItem {
   category: string;
   description: string;
   hybrid_score: number;
+  retrieval_hybrid_score: number;
+  fusion_score: number;
   lambdamart_score: number;
   rag_similarity_score: number;
   adoption_probability: number;

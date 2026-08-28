@@ -26,6 +26,8 @@ class HybridResultItem(BaseModel):
     category: str
     description: str
     hybrid_score: float
+    retrieval_hybrid_score: float
+    fusion_score: float
     lambdamart_score: float
     rag_similarity_score: float
     adoption_probability: float
@@ -78,6 +80,8 @@ def hybrid_recommend(
                 category=r.category,
                 description=r.description,
                 hybrid_score=r.hybrid_score,
+                retrieval_hybrid_score=r.retrieval_hybrid_score,
+                fusion_score=r.fusion_score,
                 lambdamart_score=r.lambdamart_score,
                 rag_similarity_score=r.rag_similarity_score,
                 adoption_probability=r.adoption_probability,
