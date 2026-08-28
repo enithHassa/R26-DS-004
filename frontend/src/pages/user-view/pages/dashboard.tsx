@@ -1,12 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { ArrowRight, MessageSquare, Send, Star, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, ClipboardList, MessageSquare, Send, Star } from "lucide-react";
 
+import { getBehaviouralAnswers } from "@/features/personalized-recommendation/api/behavioural-answers";
 import { getProfile, getProfileFeatures } from "@/features/personalized-recommendation/api/profiles";
 import { formatLkr } from "@/features/personalized-recommendation/utils/format-lkr";
+import {
+  behaviouralCompletionProgress,
+  isBehaviouralQuestionnaireComplete,
+} from "@/features/personalized-recommendation/utils/behavioural-completion";
 import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
+import { BehaviouralQuestionsModal } from "@/pages/user-view/components/behavioural-questions-modal";
 import { UserViewShell } from "@/pages/user-view/components/user-view-shell";
-import { TAXWISE_PROFILE, TAXWISE_RECOMMENDATIONS } from "@/pages/user-view/paths";
+import { TAXWISE_BASE, TAXWISE_RECOMMENDATIONS } from "@/pages/user-view/paths";
 
 /** Placeholder data — wired to real APIs later. */
 const PLACEHOLDER_TRANSACTIONS = [
@@ -59,23 +66,59 @@ function MetricCard({
 }
 
 export function UserDashboardPage() {
-  const profileId = useUserSessionStore((s) => s.profileId);
+  const profileId = useUserSessionStore((s) => s.profileId)!;
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [habitsModalOpen, setHabitsModalOpen] = useState(false);
+  const autoOpenedRef = useRef(false);
 
   const profileQuery = useQuery({
     queryKey: ["user-dashboard-profile", profileId],
-    queryFn: () => getProfile(profileId!),
+    queryFn: () => getProfile(profileId),
     enabled: !!profileId,
   });
 
   const featuresQuery = useQuery({
     queryKey: ["user-dashboard-features", profileId],
-    queryFn: () => getProfileFeatures(profileId!),
+    queryFn: () => getProfileFeatures(profileId),
+    enabled: !!profileId,
+  });
+
+  const behaviouralQuery = useQuery({
+    queryKey: ["portal-behavioural-answers", profileId],
+    queryFn: () => getBehaviouralAnswers(profileId),
     enabled: !!profileId,
   });
 
   const profile = profileQuery.data;
   const features = featuresQuery.data;
   const taxYearLabel = formatTaxYear(profile?.tax_year);
+  const behaviouralComplete = isBehaviouralQuestionnaireComplete(behaviouralQuery.data);
+  const behaviouralProgress = behaviouralCompletionProgress(behaviouralQuery.data);
+
+  const openHabitsModal = () => setHabitsModalOpen(true);
+  const closeHabitsModal = () => {
+    setHabitsModalOpen(false);
+    if (searchParams.has("habits")) {
+      searchParams.delete("habits");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
+
+  const handleHabitsComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ["portal-behavioural-answers", profileId] });
+    closeHabitsModal();
+  };
+
+  useEffect(() => {
+    if (behaviouralQuery.isLoading || behaviouralComplete) return;
+
+    const wantsOpen = searchParams.get("habits") === "open";
+    if (wantsOpen || !autoOpenedRef.current) {
+      setHabitsModalOpen(true);
+      autoOpenedRef.current = true;
+    }
+  }, [behaviouralQuery.isLoading, behaviouralComplete, searchParams]);
 
   const taxLiability = features
     ? formatLkr(features.baseline_tax_liability_annual)
@@ -87,27 +130,41 @@ export function UserDashboardPage() {
 
   return (
     <UserViewShell subtitle={`${taxYearLabel} · Last updated just now`}>
+      <BehaviouralQuestionsModal
+        open={habitsModalOpen && !behaviouralComplete}
+        profileId={profileId}
+        answers={behaviouralQuery.data}
+        onClose={closeHabitsModal}
+        onComplete={handleHabitsComplete}
+      />
+
       <div className="mx-auto max-w-6xl space-y-8">
-        <Link
-          to={TAXWISE_PROFILE}
-          className="flex items-center justify-between rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-5 py-4 transition-colors hover:border-[var(--uv-accent)]/40"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--uv-accent)]/15 text-[var(--uv-accent)]">
-              <UserRound className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold">Your profile</p>
-              <p className="text-xs text-[var(--uv-text-muted)]">
-                Income, assets, insurance, and tax position from your auditor
-              </p>
+        {!behaviouralComplete && (
+          <button
+            type="button"
+            onClick={openHabitsModal}
+            className="group flex w-full items-center justify-between rounded-xl border border-[var(--uv-accent)]/35 bg-gradient-to-r from-[var(--uv-accent)]/15 to-transparent px-5 py-4 text-left transition-colors hover:border-[var(--uv-accent)]/55"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--uv-accent)]/20 text-[var(--uv-accent)]">
+                <ClipboardList className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--uv-text)]">
+                  Tell us about your financial habits
+                </p>
+                <p className="text-xs text-[var(--uv-text-muted)]">
+                  {behaviouralProgress.answered} of {behaviouralProgress.total} answered — powers your
+                  personalized recommendations
+                </p>
+              </div>
             </div>
-          </div>
-          <span className="inline-flex items-center gap-1 text-sm text-[var(--uv-accent)]">
-            View details
-            <ArrowRight className="h-3.5 w-3.5" />
-          </span>
-        </Link>
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-[var(--uv-accent)]">
+              {behaviouralProgress.answered === 0 ? "Get started" : "Continue"}
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </button>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard

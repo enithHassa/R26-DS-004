@@ -31,6 +31,8 @@ def login(payload: LoginRequest, db: Session = DBSession) -> LoginResponse:
 
     try:
         user, profile_id = auth_service.authenticate_user(db, payload.username, payload.password)
+    except auth_service.AmbiguousLoginError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except auth_service.InvalidCredentialsError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return LoginResponse(

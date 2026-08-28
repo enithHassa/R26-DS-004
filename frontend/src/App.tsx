@@ -2,7 +2,6 @@ import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { features } from "@/features";
-import { AboutYouPage } from "@/features/personalized-recommendation/pages/about-you";
 import { FinancialIntakePage } from "@/features/personalized-recommendation/pages/financial-intake";
 import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
 import { demoRoutes } from "@/pages/demo";
@@ -31,7 +30,7 @@ export default function App() {
     { path: "/login", element: <UserLoginPage /> },
     // Comp 3 taxpayer onboarding / hub (not TaxWise shell)
     { path: "/portal/financial-intake", element: <FinancialIntakePage /> },
-    { path: "/portal/about-you", element: <AboutYouPage /> },
+    { path: "/portal/about-you", element: <Navigate to="/taxwise?habits=open" replace /> },
     // TaxWise user-view (`/taxwise/*`) + legacy `/portal` redirects
     ...userViewRoutes,
     ...demoRoutes,
