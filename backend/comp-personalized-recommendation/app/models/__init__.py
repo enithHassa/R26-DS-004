@@ -15,6 +15,7 @@ from app.models.profile_history import ProfileHistorySnapshot
 from app.models.recommendation import Recommendation, RecommendationItem
 from app.models.recommendation_feedback import RecommendationFeedback
 from app.models.strategy import TaxStrategy
+from app.models.tax_computation_snapshot import TaxComputationSnapshot
 from app.models.user import User
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "Recommendation",
     "RecommendationFeedback",
     "RecommendationItem",
+    "TaxComputationSnapshot",
     "TaxStrategy",
     "User",
 ]

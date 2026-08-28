@@ -76,6 +76,8 @@ class AnalyzeBatchRequest(BaseModel):
     document_type: str | None = Field(default=None, max_length=64)
     document_id: UUID | None = None
     persist: bool = False
+    persist_classifications: bool = False
+    financial_profile_id: UUID | None = None
     taxpayer_id: str | None = Field(default="taxpayer_00001", max_length=64)
     items: list[AnalyzeBatchItemRequest] = Field(..., min_length=1, max_length=500)
 
@@ -121,7 +123,22 @@ class ApplyClassBatchItemRequest(BaseModel):
 class ApplyClassBatchRequest(BaseModel):
     bank_code: str | None = Field(default=None, max_length=16)
     document_type: str | None = Field(default=None, max_length=64)
+    document_id: UUID | None = None
+    financial_profile_id: UUID | None = None
+    persist_classifications: bool = False
     items: list[ApplyClassBatchItemRequest] = Field(..., min_length=1, max_length=500)
+
+
+class DocumentClassificationItem(BaseModel):
+    extracted_transaction_id: UUID
+    result: AnalyzeTransactionResponse
+
+
+class DocumentClassificationsResponse(BaseModel):
+    document_id: UUID
+    financial_profile_id: UUID | None = None
+    items: list[DocumentClassificationItem] = Field(default_factory=list)
+    total: int = 0
 
 
 class ApplyClassBatchResponse(BaseModel):

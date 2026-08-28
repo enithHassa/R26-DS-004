@@ -95,3 +95,6 @@ class FinancialProfile(TimestampMixin, Base):
     # Multi-section TaxWise tax return wizard (sections 1–8).
     tax_return_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     section_completion: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+
+    # Transaction semantic rule-engine alias (e.g. taxpayer_00001 YAML profile).
+    transaction_taxpayer_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

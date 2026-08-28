@@ -6,6 +6,7 @@ import type {
   PaginatedProfiles,
   ProfileHistorySnapshot,
 } from "../types";
+import type { TaxReturnProfileUpdatePayload } from "@/features/tax-return-profile/mappers";
 
 export interface ListProfilesParams {
   page?: number;
@@ -54,7 +55,7 @@ export async function getProfileHistory(
 
 export async function updateProfile(
   profileId: string,
-  payload: Partial<FinancialProfileCreate>,
+  payload: Partial<FinancialProfileCreate> | TaxReturnProfileUpdatePayload,
 ): Promise<FinancialProfile> {
   const { data } = await recommendationApi.patch<FinancialProfile>(
     `/profiles/${profileId}`,
@@ -75,6 +76,138 @@ export async function setEligibilityOverride(
   const { data } = await recommendationApi.patch<DerivedFeatures>(
     `/profiles/${profileId}/eligibility-overrides`,
     { flag, value },
+  );
+  return data;
+}
+
+export interface ProfileTaxableIncomeMonthlyLine {
+  tax_year: string | null;
+  calendar_month: string;
+  class_key: string;
+  taxable_amount_lkr: string;
+  transaction_count: number;
+  source_document_ids: string[];
+  computed_at: string;
+}
+
+export interface ProfileTaxableIncomeMonthlyResponse {
+  financial_profile_id: string;
+  tax_year: string | null;
+  total_taxable_lkr: string;
+  lines: ProfileTaxableIncomeMonthlyLine[];
+}
+
+export interface ProfileTaxableIncomeMonthDetailLine {
+  extracted_transaction_id: string;
+  document_id: string;
+  tx_date: string;
+  description: string;
+  gross_amount_lkr: string;
+  taxable_amount_lkr: string;
+  class_key: string;
+  taxability_status: string;
+}
+
+export interface ProfileTaxableIncomeMonthDetailResponse {
+  financial_profile_id: string;
+  calendar_month: string;
+  tax_year: string | null;
+  total_taxable_lkr: string;
+  lines: ProfileTaxableIncomeMonthDetailLine[];
+}
+
+export async function getProfileMonthlyTaxableIncome(
+  profileId: string,
+  taxYear?: string,
+): Promise<ProfileTaxableIncomeMonthlyResponse> {
+  const { data } = await recommendationApi.get<ProfileTaxableIncomeMonthlyResponse>(
+    `/profiles/${profileId}/taxable-income/monthly`,
+    { params: taxYear ? { tax_year: taxYear } : undefined },
+  );
+  return data;
+}
+
+export async function getProfileMonthlyTaxableIncomeDetail(
+  profileId: string,
+  calendarMonth: string,
+  taxYear?: string,
+): Promise<ProfileTaxableIncomeMonthDetailResponse> {
+  const { data } = await recommendationApi.get<ProfileTaxableIncomeMonthDetailResponse>(
+    `/profiles/${profileId}/taxable-income/monthly/${calendarMonth}`,
+    { params: taxYear ? { tax_year: taxYear } : undefined },
+  );
+  return data;
+}
+
+export type TaxComputationSnapshotStatus = "draft" | "calculated" | "finalized";
+
+export interface TaxComputationSnapshotSummary {
+  id: string;
+  financial_profile_id: string;
+  assessment_year: string;
+  status: TaxComputationSnapshotStatus;
+  taxpayer_name: string | null;
+  tin: string | null;
+  source: "auditor_manual" | "profile_load" | "transaction_merge";
+  created_at: string;
+  updated_at: string | null;
+  has_calculate_result: boolean;
+}
+
+export interface TaxComputationSnapshotDetail extends TaxComputationSnapshotSummary {
+  income_state: Record<string, unknown>;
+  relief_answers: Record<string, unknown>[];
+  evidence_checks: Record<string, unknown>;
+  session_meta: Record<string, unknown> | null;
+  calculate_result: Record<string, unknown> | null;
+  explain_narrative: string | null;
+  created_by: string | null;
+}
+
+export type TaxComputationSnapshotUpsert = {
+  assessment_year: string;
+  status: TaxComputationSnapshotStatus;
+  taxpayer_name?: string | null;
+  tin?: string | null;
+  income_state: Record<string, unknown>;
+  relief_answers?: Record<string, unknown>[];
+  evidence_checks?: Record<string, unknown>;
+  session_meta?: Record<string, unknown> | null;
+  calculate_result?: Record<string, unknown> | null;
+  explain_narrative?: string | null;
+  source?: "auditor_manual" | "profile_load" | "transaction_merge";
+  created_by?: string | null;
+};
+
+export async function saveTaxComputationSnapshot(
+  profileId: string,
+  payload: TaxComputationSnapshotUpsert,
+): Promise<TaxComputationSnapshotDetail> {
+  const { data } = await recommendationApi.post<TaxComputationSnapshotDetail>(
+    `/profiles/${profileId}/tax-computations`,
+    payload,
+  );
+  return data;
+}
+
+export async function listTaxComputationSnapshots(
+  profileId: string,
+  assessmentYear?: string,
+): Promise<TaxComputationSnapshotSummary[]> {
+  const { data } = await recommendationApi.get<TaxComputationSnapshotSummary[]>(
+    `/profiles/${profileId}/tax-computations`,
+    { params: assessmentYear ? { assessment_year: assessmentYear } : undefined },
+  );
+  return data;
+}
+
+export async function getLatestTaxComputationSnapshot(
+  profileId: string,
+  assessmentYear?: string,
+): Promise<TaxComputationSnapshotDetail> {
+  const { data } = await recommendationApi.get<TaxComputationSnapshotDetail>(
+    `/profiles/${profileId}/tax-computations/latest`,
+    { params: assessmentYear ? { assessment_year: assessmentYear } : undefined },
   );
   return data;
 }

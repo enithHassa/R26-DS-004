@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import { listProfiles } from "../api/profiles";
-import { useDashboardStore } from "../store/dashboard-store";
+import { setActiveProfileId, useActiveProfileId } from "../store/dashboard-store";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 
 type Props = {
   value: string;
@@ -15,8 +16,9 @@ type Props = {
 };
 
 export function ProfilePicker({ value, onChange, label = "Profile", syncStore = true }: Props) {
-  const setActiveProfileId = useDashboardStore((s) => s.setActiveProfileId);
-  const activeProfileId = useDashboardStore((s) => s.activeProfileId);
+  const activeProfileId = useActiveProfileId();
+  const isLocked = useAuditorWorkspaceStore((s) => s.isLocked);
+  const setActiveProfile = useAuditorWorkspaceStore((s) => s.setActiveProfile);
 
   useEffect(() => {
     if (!value && activeProfileId) {
@@ -39,9 +41,27 @@ export function ProfilePicker({ value, onChange, label = "Profile", syncStore = 
         onChange={(e) => {
           const id = e.target.value;
           onChange(id);
-          if (syncStore) setActiveProfileId(id || null);
+          if (syncStore && !isLocked) {
+            if (id) {
+              const match = profiles.find((p) => p.id === id);
+              setActiveProfile(
+                id,
+                match
+                  ? {
+                      id: match.id,
+                      fullName: match.full_name,
+                      occupation: match.occupation,
+                      taxYear: match.tax_year,
+                      tin: "",
+                    }
+                  : null,
+              );
+            } else {
+              setActiveProfileId(null);
+            }
+          }
         }}
-        disabled={profilesQuery.isLoading}
+        disabled={profilesQuery.isLoading || (syncStore && isLocked)}
       >
         <option value="">
           {profilesQuery.isLoading ? "Loading profiles…" : "Select a profile"}

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useActiveProfileId } from "@/features/personalized-recommendation/store/dashboard-store";
 import { DocumentListPanel } from "@/features/transaction-semantic/components/document-list-panel";
+import { MonthlyTaxableIncomePanel } from "@/features/transaction-semantic/components/monthly-taxable-income-panel";
 import { TransactionTaxClassificationPanel } from "@/features/transaction-semantic/components/transaction-tax-classification-panel";
 import {
   getDocumentStatus,
@@ -12,6 +15,7 @@ import {
 } from "@/features/transaction-semantic/api";
 
 export function TransactionTaxClassificationPage() {
+  const activeProfileId = useActiveProfileId();
   const [searchParams, setSearchParams] = useSearchParams();
   const [documentId, setDocumentId] = useState(searchParams.get("document") ?? "");
   const [status, setStatus] = useState<DocumentStatusResponse | null>(null);
@@ -68,6 +72,8 @@ export function TransactionTaxClassificationPage() {
         </p>
       </div>
 
+      <ActiveProfileBanner moduleLabel="Tax classification" />
+
       <DocumentListPanel
         selectedDocumentId={documentId || null}
         onSelect={handleSelectDocument}
@@ -76,7 +82,10 @@ export function TransactionTaxClassificationPage() {
             void loadDocument(id);
           }
         }}
+        financialProfileId={activeProfileId}
       />
+
+      <MonthlyTaxableIncomePanel profileId={activeProfileId} />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

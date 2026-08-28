@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle, BookOpen, ChevronDown, ChevronUp,
@@ -18,6 +18,8 @@ import type { RagDetailedExplanation } from "../api/rag";
 import type { ProfileHistorySnapshot } from "../types";
 import { AdoptionEvidenceModal } from "../components/adoption-evidence-panel";
 import { PageHeader } from "../components/page-header";
+import { ProfilePicker } from "../components/profile-picker";
+import { useActiveProfileId } from "../store/dashboard-store";
 import { computeAdoptionEvidence } from "../utils/adoption-evidence";
 
 function formatLkr(value: number): string {
@@ -213,9 +215,14 @@ function ResultCard({ item, history }: { item: HybridResultItem; history: Profil
 }
 
 export function HybridRecommendationsPage() {
-  const [profileId, setProfileId] = useState<string>("");
+  const activeProfileId = useActiveProfileId();
+  const [profileId, setProfileId] = useState<string>(activeProfileId ?? "");
   const [topK, setTopK] = useState<number>(5);
   const [lambdaWeight, setLambdaWeight] = useState<number>(0.7);
+
+  useEffect(() => {
+    if (activeProfileId && !profileId) setProfileId(activeProfileId);
+  }, [activeProfileId, profileId]);
 
   const profilesQuery = useQuery({
     queryKey: ["profiles", "hybrid-picker"],
@@ -248,23 +255,7 @@ export function HybridRecommendationsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Profile</Label>
-              <Select
-                value={profileId}
-                onChange={(e) => setProfileId(e.target.value)}
-                disabled={profilesQuery.isLoading}
-              >
-                <option value="">
-                  {profilesQuery.isLoading ? "Loading…" : "Select a profile"}
-                </option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name} · {p.occupation}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <ProfilePicker value={profileId} onChange={setProfileId} />
             <div className="space-y-1.5">
               <Label>Top K</Label>
               <Select value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>

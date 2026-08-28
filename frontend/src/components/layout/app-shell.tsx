@@ -2,6 +2,8 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Wallet } from "lucide-react";
 
+import { AuditorWorkspacePanel } from "@/components/auditor/auditor-workspace-panel";
+import { AuditorWorkspaceMobileBar } from "@/components/auditor/auditor-workspace-mobile-bar";
 import { features } from "@/features";
 import { cn } from "@/lib/utils";
 
@@ -86,9 +88,12 @@ export function AppShell() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6 md:p-10">
+          <AuditorWorkspaceMobileBar />
           <RouteErrorOutlet />
         </div>
       </main>
+
+      <AuditorWorkspacePanel />
     </div>
   );
 }

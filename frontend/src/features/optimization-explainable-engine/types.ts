@@ -205,6 +205,13 @@ export type InterviewSession = {
 
 export const SESSION_STORAGE_KEY = "optimization-explainable-engine.interview.v2";
 
+export function sessionStorageKey(profileId: string | null | undefined): string {
+  if (profileId) {
+    return `${SESSION_STORAGE_KEY}.${profileId}`;
+  }
+  return SESSION_STORAGE_KEY;
+}
+
 function seedEmploymentAmounts(): Record<string, string> {
   const amounts = emptyAmountsForCard(incomeCatalogCard("employment"));
   amounts.emp_salary = "1600000";

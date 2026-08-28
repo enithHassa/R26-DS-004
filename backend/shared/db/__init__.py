@@ -8,10 +8,12 @@ are loaded separately by ``backend/migrations/env.py``.
 
 from backend.shared.db.enums import TxnDirection, txn_direction_enum
 from backend.shared.db.model_run import ModelRun
+from backend.shared.db.profile_taxable_income_monthly import ProfileTaxableIncomeMonthly
 from backend.shared.db.transaction import Transaction
 
 __all__ = [
     "ModelRun",
+    "ProfileTaxableIncomeMonthly",
     "Transaction",
     "TxnDirection",
     "txn_direction_enum",

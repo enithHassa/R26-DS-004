@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { getYears } from "../api";
 import { yaDisplay } from "../format-lkr";
 import { InterviewProvider, useInterview } from "../session";
+import { useActiveProfileId } from "@/features/personalized-recommendation/store/dashboard-store";
 
 const STEPS = [
   { to: "/optimization-explainable-engine", end: true, label: "Years" },
@@ -108,8 +109,9 @@ function InterviewShell() {
 }
 
 export function InterviewLayout() {
+  const activeProfileId = useActiveProfileId();
   return (
-    <InterviewProvider>
+    <InterviewProvider profileId={activeProfileId}>
       <InterviewShell />
     </InterviewProvider>
   );
@@ -117,8 +119,9 @@ export function InterviewLayout() {
 
 /** Standalone compare page — outside the interview step flow. */
 export function CompareLayout() {
+  const activeProfileId = useActiveProfileId();
   return (
-    <InterviewProvider>
+    <InterviewProvider profileId={activeProfileId}>
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="space-y-1 border-b border-border pb-4">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">

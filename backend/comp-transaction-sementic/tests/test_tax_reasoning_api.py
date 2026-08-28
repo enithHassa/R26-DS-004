@@ -16,6 +16,28 @@ def test_list_documents_returns_paginated_payload(client) -> None:
     assert isinstance(body["total"], int)
 
 
+def test_list_documents_accepts_financial_profile_id_filter(client) -> None:
+    response = client.get(
+        "/v1/documents",
+        params={
+            "limit": 10,
+            "offset": 0,
+            "financial_profile_id": "00000000-0000-0000-0000-000000000099",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
+def test_get_document_classifications_missing_document(client) -> None:
+    response = client.get(
+        "/v1/documents/00000000-0000-0000-0000-000000000099/classifications",
+    )
+    assert response.status_code == 404
+
+
 def test_rename_document_missing_returns_404(client) -> None:
     response = client.patch(
         "/v1/documents/00000000-0000-0000-0000-000000000099",

@@ -28,6 +28,10 @@ export interface UploadedDocumentSummary {
   bank_detected: string | null;
   selected_parser: string | null;
   extracted_row_count: number;
+  financial_profile_id?: string | null;
+  tax_year?: string | null;
+  statement_period_from?: string | null;
+  statement_period_to?: string | null;
 }
 
 export interface DocumentUploadResponse {
@@ -184,9 +188,14 @@ export interface DocumentRenameResponse {
 export async function listDocuments(
   limit = 50,
   offset = 0,
+  financialProfileId?: string | null,
 ): Promise<DocumentListResponse> {
   const { data } = await transactionSemanticApi.get<DocumentListResponse>("/documents", {
-    params: { limit, offset },
+    params: {
+      limit,
+      offset,
+      ...(financialProfileId ? { financial_profile_id: financialProfileId } : {}),
+    },
   });
   return data;
 }
@@ -202,13 +211,24 @@ export async function renameDocument(
   return data;
 }
 
-export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
+export async function uploadDocument(
+  file: File,
+  options?: { financialProfileId?: string | null; taxYear?: string | null },
+): Promise<DocumentUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await transactionSemanticApi.post<DocumentUploadResponse>(
     "/documents/upload",
     formData,
-    { headers: { "Content-Type": "multipart/form-data" } },
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      params: {
+        ...(options?.financialProfileId
+          ? { financial_profile_id: options.financialProfileId }
+          : {}),
+        ...(options?.taxYear ? { tax_year: options.taxYear } : {}),
+      },
+    },
   );
   return data;
 }
@@ -419,6 +439,8 @@ export interface AnalyzeBatchRequest {
   document_type?: string | null;
   document_id?: string | null;
   persist?: boolean;
+  persist_classifications?: boolean;
+  financial_profile_id?: string | null;
   taxpayer_id?: string | null;
   items: AnalyzeBatchItemRequest[];
 }
@@ -498,6 +520,31 @@ export async function summarizeActivity(
   return data;
 }
 
+export async function getDocumentClassifications(
+  documentId: string,
+  financialProfileId?: string | null,
+): Promise<DocumentClassificationsResponse> {
+  const { data } = await transactionSemanticApi.get<DocumentClassificationsResponse>(
+    `/documents/${documentId}/classifications`,
+    {
+      params: financialProfileId ? { financial_profile_id: financialProfileId } : undefined,
+    },
+  );
+  return data;
+}
+
+export interface DocumentClassificationItem {
+  extracted_transaction_id: string;
+  result: AnalyzeTransactionResponse;
+}
+
+export interface DocumentClassificationsResponse {
+  document_id: string;
+  financial_profile_id: string | null;
+  items: DocumentClassificationItem[];
+  total: number;
+}
+
 export async function analyzeTransaction(
   body: AnalyzeTransactionRequest,
 ): Promise<AnalyzeTransactionResponse> {
@@ -533,6 +580,9 @@ export interface ApplyClassBatchItemRequest {
 export interface ApplyClassBatchRequest {
   bank_code?: string | null;
   document_type?: string | null;
+  document_id?: string | null;
+  financial_profile_id?: string | null;
+  persist_classifications?: boolean;
   items: ApplyClassBatchItemRequest[];
 }
 

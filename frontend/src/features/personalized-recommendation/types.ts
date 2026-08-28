@@ -76,6 +76,7 @@ export interface FinancialProfileBase {
   tax_year: string;
   tax_return_detail?: Record<string, unknown> | null;
   section_completion?: number[] | null;
+  transaction_taxpayer_id?: string | null;
 }
 
 export interface FinancialProfileCreate {

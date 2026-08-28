@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, Info, Scale, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ActivitySummaryPanel } from "@/features/transaction-semantic/components/activity-summary-panel";
 import {
   analyzeTransactionsBatch,
   applyTransactionClassBatch,
+  getDocumentClassifications,
   getIncomeTypeCatalog,
   summarizeActivity,
-  summarizeTaxableIncome,
   type ActivitySummaryGroup,
   type AnalyzeTransactionResponse,
   type ClassificationFacts,
@@ -20,6 +20,9 @@ import {
   type IncomeTypeCatalogResponse,
 } from "@/features/transaction-semantic/api";
 import { formatLkr } from "@/features/transaction-semantic/format-lkr";
+import { useAuditorTaxpayerId } from "@/hooks/use-auditor-taxpayer-id";
+import { useActiveProfileId } from "@/features/personalized-recommendation/store/dashboard-store";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 
 type FilterKey = "all" | "taxable" | "exempt" | "review";
 type ListViewKey = "all" | "summarised";
@@ -58,17 +61,25 @@ function isReviewRow(row: ClassifiedRow): boolean {
   );
 }
 
-function auditorFacts(evidence: string): { classKey: string; facts: ClassificationFacts } {
+function auditorFacts(
+  evidence: string,
+  taxpayerId: string | null,
+): { classKey: string; facts: ClassificationFacts } {
+  const taxpayerFact = taxpayerId ? { taxpayer_id: taxpayerId } : {};
   switch (evidence) {
     case "invoice":
       return {
         classKey: "freelance_service",
-        facts: { auditor_evidence: "invoice", has_supporting_receipt: true, taxpayer_id: "taxpayer_00001" },
+        facts: {
+          auditor_evidence: "invoice",
+          has_supporting_receipt: true,
+          ...taxpayerFact,
+        },
       };
     case "loan":
       return {
         classKey: "loan_received",
-        facts: { auditor_evidence: "loan", taxpayer_id: "taxpayer_00001" },
+        facts: { auditor_evidence: "loan", ...taxpayerFact },
       };
     case "gift":
       return {
@@ -76,7 +87,7 @@ function auditorFacts(evidence: string): { classKey: string; facts: Classificati
         facts: {
           auditor_evidence: "gift",
           counterparty_type: "relative",
-          taxpayer_id: "taxpayer_00001",
+          ...taxpayerFact,
         },
       };
     case "shared_expense":
@@ -85,16 +96,16 @@ function auditorFacts(evidence: string): { classKey: string; facts: Classificati
         facts: {
           auditor_evidence: "shared_expense",
           has_supporting_receipt: true,
-          taxpayer_id: "taxpayer_00001",
+          ...taxpayerFact,
         },
       };
     case "own_transfer":
       return {
         classKey: "inter_account_transfer",
-        facts: { auditor_evidence: "own_transfer", taxpayer_id: "taxpayer_00001" },
+        facts: { auditor_evidence: "own_transfer", ...taxpayerFact },
       };
     default:
-      return { classKey: "unknown", facts: { taxpayer_id: "taxpayer_00001" } };
+      return { classKey: "unknown", facts: taxpayerFact };
   }
 }
 
@@ -123,11 +134,18 @@ export function TransactionTaxClassificationPanel({
   documentId,
   documentLabel,
 }: TransactionTaxClassificationPanelProps) {
+  const taxpayerId = useAuditorTaxpayerId();
+  const activeProfileId = useActiveProfileId();
+  const isLocked = useAuditorWorkspaceStore((s) => s.isLocked);
+  const navigate = useNavigate();
+  const persistClassifications = Boolean(activeProfileId && taxpayerId);
+  const setPendingTransactionBreakdown = useAuditorWorkspaceStore(
+    (s) => s.setPendingTransactionBreakdown,
+  );
   const [classifiedRows, setClassifiedRows] = useState<ClassifiedRow[]>([]);
   const [catalog, setCatalog] = useState<IncomeTypeCatalogResponse | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [listView, setListView] = useState<ListViewKey>("all");
-  const [persist, setPersist] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +284,45 @@ export function TransactionTaxClassificationPanel({
       .catch(() => setCatalog(null));
   }, []);
 
+  useEffect(() => {
+    setClassifiedRows([]);
+    setSuccess(null);
+    setError(null);
+  }, [documentId]);
+
+  useEffect(() => {
+    if (!documentId || !activeProfileId || transactions.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    void getDocumentClassifications(documentId, activeProfileId)
+      .then((response) => {
+        if (cancelled || response.items.length === 0) {
+          return;
+        }
+        const byExtractedId = new Map(
+          response.items.map((item) => [item.extracted_transaction_id, item.result]),
+        );
+        const restored: ClassifiedRow[] = [];
+        for (const tx of transactions) {
+          const analysis = byExtractedId.get(tx.id);
+          if (analysis) {
+            restored.push({ source: tx, analysis });
+          }
+        }
+        if (restored.length > 0) {
+          setClassifiedRows(restored);
+          setSuccess(`Loaded ${restored.length} saved classification(s) for this document.`);
+        }
+      })
+      .catch(() => {
+        // No saved classifications yet — normal on first visit.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId, activeProfileId, transactions]);
+
   async function handleClassChange(
     row: ClassifiedRow,
     classKey: string,
@@ -292,6 +349,9 @@ export function TransactionTaxClassificationPanel({
       const response = await applyTransactionClassBatch({
         bank_code: bankCode ?? undefined,
         document_type: "bank_statement",
+        document_id: documentId ?? undefined,
+        financial_profile_id: activeProfileId ?? undefined,
+        persist_classifications: persistClassifications,
         items: targets.map((row) => ({
           row_id: row.source.id,
           raw_desc: row.source.description,
@@ -299,7 +359,7 @@ export function TransactionTaxClassificationPanel({
           tx_date: row.source.tx_date,
           direction: row.source.direction,
           class_key: classKey,
-          facts: facts ?? { taxpayer_id: "taxpayer_00001" },
+          facts: facts ?? (taxpayerId ? { taxpayer_id: taxpayerId } : undefined),
           model_semantic_category:
             row.analysis.model_semantic_category ?? row.analysis.semantic_category,
         })),
@@ -331,6 +391,10 @@ export function TransactionTaxClassificationPanel({
   }
 
   async function handleClassify(): Promise<void> {
+    if (!taxpayerId) {
+      setError("Select and lock a taxpayer profile before classifying.");
+      return;
+    }
     if (transactions.length === 0) {
       setError("Extract transactions first, then run tax classification.");
       return;
@@ -348,15 +412,16 @@ export function TransactionTaxClassificationPanel({
           bank_code: bankCode ?? undefined,
           document_type: "bank_statement",
           document_id: documentId ?? undefined,
-          persist,
-          taxpayer_id: "taxpayer_00001",
+          financial_profile_id: activeProfileId ?? undefined,
+          persist_classifications: persistClassifications,
+          taxpayer_id: taxpayerId,
           items: chunk.map((tx) => ({
             row_id: tx.id,
             raw_desc: tx.description,
             amount_lkr: tx.amount_lkr,
             tx_date: tx.tx_date,
             direction: tx.direction,
-            facts: { taxpayer_id: "taxpayer_00001" },
+            facts: { taxpayer_id: taxpayerId },
           })),
         });
         for (let index = 0; index < chunk.length; index += 1) {
@@ -371,20 +436,10 @@ export function TransactionTaxClassificationPanel({
       setListView("all");
       setFilter("all");
       setSuccess(
-        `Classified ${analyzed.length} row(s)${documentLabel ? ` from ${documentLabel}` : ""}. Showing all rows — switch to Summarised for grouped review.`,
+        `Classified ${analyzed.length} row(s)${documentLabel ? ` from ${documentLabel}` : ""}${
+          persistClassifications ? " — saved to profile." : "."
+        } Showing all rows — switch to Summarised for grouped review.`,
       );
-
-      if (persist) {
-        const dates = transactions.map((tx) => tx.tx_date).sort();
-        const summary = await summarizeTaxableIncome({
-          date_from: dates[0],
-          date_to: dates[dates.length - 1],
-          bank_code: bankCode ?? undefined,
-        });
-        setServerSummary(
-          `Persisted summary: taxable ${formatLkr(summary.total_taxable_lkr)}, excluded ${formatLkr(summary.total_excluded_lkr)}, review ${summary.review_count}.`,
-        );
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tax classification failed.");
     } finally {
@@ -412,8 +467,8 @@ export function TransactionTaxClassificationPanel({
             modelVersion={modelVersion}
           />
           <ActionRow
-            persist={persist}
-            setPersist={setPersist}
+            persistClassifications={persistClassifications}
+            isLocked={isLocked}
             isClassifying={isClassifying}
             progress={progress}
             onClassify={() => void handleClassify()}
@@ -442,6 +497,30 @@ export function TransactionTaxClassificationPanel({
           guaranteedNonTaxableRows={bucketRows.guaranteedNonTaxable}
           indeterminateRows={bucketRows.indeterminate}
         />
+      ) : null}
+
+      {incomeBreakdown.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+          <p className="flex-1 text-sm text-muted-foreground">
+            Send classified taxable inflow buckets to Optimization Engine income (additive merge).
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setPendingTransactionBreakdown(
+                incomeBreakdown.map((line) => ({
+                  classKey: line.classKey,
+                  amount: line.amount,
+                })),
+              );
+              navigate("/optimization-explainable-engine/income");
+            }}
+          >
+            Send totals to Optimization
+          </Button>
+        </div>
       ) : null}
 
       {activityTransactions.length > 0 ? (
@@ -512,7 +591,7 @@ export function TransactionTaxClassificationPanel({
                     catalog={catalog}
                     onClassChange={(classKey) => void handleClassChange(row, classKey)}
                     onAuditorEvidence={(evidence) => {
-                      const mapped = auditorFacts(evidence);
+                      const mapped = auditorFacts(evidence, taxpayerId);
                       void handleClassChange(row, mapped.classKey, mapped.facts);
                     }}
                   />
@@ -529,12 +608,12 @@ export function TransactionTaxClassificationPanel({
                   catalog={catalog}
                   onClassChange={(row, classKey) => void handleClassChange(row, classKey)}
                   onAuditorEvidence={(row, evidence) => {
-                    const mapped = auditorFacts(evidence);
+                    const mapped = auditorFacts(evidence, taxpayerId);
                     void handleClassChange(row, mapped.classKey, mapped.facts);
                   }}
                   onBulkClassChange={(rows, classKey) => void handleBulkClassChange(rows, classKey)}
                   onBulkAuditorEvidence={(rows, evidence) => {
-                    const mapped = auditorFacts(evidence);
+                    const mapped = auditorFacts(evidence, taxpayerId);
                     void handleBulkClassChange(rows, mapped.classKey, mapped.facts);
                   }}
                 />
@@ -1357,34 +1436,35 @@ function StatusRow({
 }
 
 function ActionRow({
-  persist,
-  setPersist,
+  persistClassifications,
+  isLocked,
   isClassifying,
   progress,
   onClassify,
 }: {
-  persist: boolean;
-  setPersist: (value: boolean) => void;
+  persistClassifications: boolean;
+  isLocked: boolean;
   isClassifying: boolean;
   progress: { done: number; total: number };
   onClassify: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <Button onClick={onClassify} disabled={isClassifying}>
+      <Button onClick={onClassify} disabled={isClassifying || !persistClassifications}>
         <Sparkles className="mr-2 h-4 w-4" />
         {isClassifying
           ? `Classifying ${progress.done}/${progress.total}...`
           : "Classify extracted rows"}
       </Button>
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="persist-tax-analysis"
-          checked={persist}
-          onChange={(event) => setPersist(event.target.checked)}
-        />
-        <Label htmlFor="persist-tax-analysis">Persist each row to the database</Label>
-      </div>
+      {persistClassifications ? (
+        <p className="text-sm text-muted-foreground">
+          Results auto-save to the active taxpayer{isLocked ? " (locked)" : ""}.
+        </p>
+      ) : (
+        <p className="text-sm text-amber-800">
+          Select a taxpayer in the right panel before classifying.
+        </p>
+      )}
     </div>
   );
 }

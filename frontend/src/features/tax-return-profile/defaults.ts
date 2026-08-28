@@ -6,6 +6,14 @@ import type {
   EmployerRow,
   FdRow,
   PropRow,
+  Section1Detail,
+  Section2Detail,
+  Section3Detail,
+  Section4Detail,
+  Section5Detail,
+  Section6Detail,
+  Section7Detail,
+  Section8Detail,
   TaxReturnDetail,
 } from "./types";
 
@@ -109,249 +117,316 @@ function provinceFromDistrict(district?: string): string {
   return map[district ?? ""] ?? "western";
 }
 
-export function createDefaultTaxReturnDetail(profile?: FinancialProfile): TaxReturnDetail {
-  const fullName = profile?.full_name ?? "Kasun Perera";
-  const preferredName = fullName.split(/\s+/)[0] ?? "Kasun";
-  const taxYear = profile?.tax_year?.includes("-")
-    ? profile.tax_year
-    : profile?.tax_year
-      ? `${profile.tax_year}-${Number(profile.tax_year) + 1}`
-      : "2024-2025";
-  const district = profile?.district ?? "Colombo";
-  const grossAnnual = profile?.gross_monthly_income
-    ? String(Number(profile.gross_monthly_income) * 12)
-    : "1800000";
-  const epfAnnual = profile?.epf_balance
-    ? String(Math.min(Number(profile.epf_balance), Number(grossAnnual) * 0.08))
-    : "162000";
-  const lifePremium = profile?.life_insurance_premium_annual ?? "72000";
-  const homeLoanInterest = profile?.home_loan_interest_annual ?? "";
-  const donations = profile?.donations_annual ?? "";
+function nationalityToCode(nationality?: string | null): string {
+  if (!nationality) return "lk";
+  const lower = nationality.toLowerCase();
+  if (lower.includes("dual")) return "dual";
+  if (lower.includes("foreign")) return "foreign";
+  return "lk";
+}
 
+function taxYearForUi(taxYear?: string): string {
+  if (!taxYear) return "";
+  if (taxYear.includes("-")) return taxYear;
+  const match = /^(\d{4})_(\d{2})$/.exec(taxYear);
+  if (match) {
+    const endYear = `${match[1].slice(0, 2)}${match[2]}`;
+    return `${match[1]}-${endYear}`;
+  }
+  if (/^\d{4}$/.test(taxYear)) {
+    const start = Number(taxYear);
+    return `${start}-${start + 1}`;
+  }
+  return taxYear;
+}
+
+function hasPositiveAmount(value?: string | null): boolean {
+  return value != null && value !== "" && Number(value) > 0;
+}
+
+function blankSection1(): Section1Detail {
   return {
-    section1: {
-      fullName,
-      preferredName,
-      nic: "922345678V",
-      tin: "134567890",
-      dob: profile?.date_of_birth ?? "1992-08-14",
-      gender: profile?.gender ?? "male",
-      nationality: "lk",
-      residency: profile?.residency_status === "non_resident" ? "non-resident" : "resident",
-      filingBasis: "individual",
-      marital: profile?.marital_status ?? "single",
-      dependants: profile?.dependents != null ? String(profile.dependents) : "0",
-      taxYear,
-      email: "kasun@example.lk",
-      phone: "+94 77 123 4567",
-      altPhone: "",
-      addr1: "42A, Flower Road",
-      addr2: "",
-      city: "Colombo 03",
-      district,
-      province: provinceFromDistrict(district),
-      postal: "00300",
-      spouseName: "",
-      spouseNic: "",
-      spouseTin: "",
-      spouseEmployer: "",
-      agentName: "",
-      agentTin: "",
-      agentFirm: "",
-      agentPhone: "",
-      agentEmail: "",
-      passport: "",
-      hasSpouse: profile?.marital_status === "married",
-      hasAgent: false,
-    },
-    section2: {
+    fullName: "",
+    preferredName: "",
+    nic: "",
+    tin: "",
+    dob: "",
+    gender: "",
+    nationality: "lk",
+    residency: "resident",
+    filingBasis: "individual",
+    marital: "single",
+    dependants: "0",
+    taxYear: "",
+    email: "",
+    phone: "",
+    altPhone: "",
+    addr1: "",
+    addr2: "",
+    city: "",
+    district: "",
+    province: "western",
+    postal: "",
+    spouseName: "",
+    spouseNic: "",
+    spouseTin: "",
+    spouseEmployer: "",
+    agentName: "",
+    agentTin: "",
+    agentFirm: "",
+    agentPhone: "",
+    agentEmail: "",
+    passport: "",
+    hasSpouse: false,
+    hasAgent: false,
+  };
+}
+
+function blankSection2(): Section2Detail {
+  return {
+    employers: [blankEmployer()],
+    hasDirector: false,
+    directorFees: "",
+    companyName: "",
+    directorTin: "",
+    hasGratuity: false,
+    gratuityAmount: "",
+    gratuityYears: "",
+    gratuityType: "",
+    hasSeverance: false,
+    severanceAmount: "",
+    severanceReason: "",
+    hasCommission: false,
+    commissionAmount: "",
+    commissionPayer: "",
+    hasPension: false,
+    pensionAmount: "",
+    pensionPayer: "",
+    pensionType: "",
+    hasGifts: false,
+    giftAmount: "",
+    giftDescription: "",
+  };
+}
+
+function blankSection3(): Section3Detail {
+  return {
+    fds: [],
+    divs: [],
+    hasSavings: false,
+    savingsInterest: "",
+    savingsWht: "",
+    hasGovSec: false,
+    govTbill: "",
+    govTbond: "",
+    govInterest: "",
+    govWht: "",
+    hasUnitTrust: false,
+    unitTrustFund: "",
+    unitTrustDistribution: "",
+    unitTrustWht: "",
+    hasCSE: false,
+    cseProceeds: "",
+    cseCost: "",
+    cseGain: "",
+    hasREIT: false,
+    reitFund: "",
+    reitIncome: "",
+  };
+}
+
+function blankSection4(): Section4Detail {
+  return {
+    businesses: [blankBiz()],
+    hasFreelance: false,
+    freelancePlatform: "",
+    freelanceCurrency: "usd",
+    freelanceRevenue: "",
+    freelanceRate: "",
+    freelanceLkr: "",
+    freelanceExpenses: "",
+    freelanceCommissions: "",
+    hasAgri: false,
+    agriCrop: "",
+    agriRevenue: "",
+    agriExpenses: "",
+    hasProfessional: false,
+    professionalPractice: "",
+    professionalRevenue: "",
+    professionalExpenses: "",
+  };
+}
+
+function blankSection5(): Section5Detail {
+  return {
+    properties: [],
+    hasDisposal: false,
+    disposalAddr: "",
+    disposalAcquired: "",
+    disposalDisposed: "",
+    disposalCost: "",
+    disposalProceeds: "",
+    disposalExpenses: "",
+    hasLand: false,
+    landAddr: "",
+    landType: "",
+    landRevenue: "",
+  };
+}
+
+function blankSection6(): Section6Detail {
+  return {
+    hasLife: false,
+    lifePremium: "",
+    lifeInsurer: "",
+    lifePolicy: "",
+    hasMedical: false,
+    medicalPremium: "",
+    medicalInsurer: "",
+    hasCharitable: false,
+    charitablePresident: "",
+    charitableApproved: "",
+    charitableReligious: "",
+    charitableOther: "",
+    hasEducation: false,
+    educationSchool: "",
+    educationFees: "",
+    educationChildren: "",
+    hasPension: false,
+    pensionFund: "",
+    pensionType: "",
+    pensionAmount: "",
+    hasMortgage: false,
+    mortgageBank: "",
+    mortgageAccount: "",
+    mortgageInterest: "",
+    hasRD: false,
+    rdAmount: "",
+    rdDescription: "",
+    hasDisability: false,
+    disabilityCategory: "",
+    disabilityAmount: "",
+  };
+}
+
+function blankSection7(): Section7Detail {
+  return {
+    hasForEmp: false,
+    forEmpEmployer: "",
+    forEmpCountry: "",
+    forEmpCurrency: "usd",
+    forEmpFgross: "",
+    forEmpRate: "",
+    forEmpLkr: "",
+    forEmpFtax: "",
+    forEmpDta: "unsure",
+    hasForBiz: false,
+    forBizDescription: "",
+    forBizCountry: "",
+    forBizRevenue: "",
+    forBizFtax: "",
+    hasForDiv: false,
+    forDivCompany: "",
+    forDivCountry: "",
+    forDivTotal: "",
+    forDivFtax: "",
+    hasForProp: false,
+    forPropCountry: "",
+    forPropAddr: "",
+    forPropType: "",
+    forPropRental: "",
+    forPropFtax: "",
+    hasDTA: false,
+    dtaCountry: "",
+    dtaFtaxPaid: "",
+    dtaCreditClaimed: "",
+  };
+}
+
+function blankSection8(): Section8Detail {
+  return { agreed: false };
+}
+
+/** Empty 8-section shell — no demo placeholders. */
+export function emptyTaxReturnDetail(): TaxReturnDetail {
+  return {
+    section1: blankSection1(),
+    section2: blankSection2(),
+    section3: blankSection3(),
+    section4: blankSection4(),
+    section5: blankSection5(),
+    section6: blankSection6(),
+    section7: blankSection7(),
+    section8: blankSection8(),
+  };
+}
+
+/**
+ * Pre-fill Tax Return Profile from auditor-created ORM scalars (Bucket A only).
+ * Recommendation-only scalars (expenses, debt, risk, income_sources, etc.) are
+ * intentionally omitted — they stay on the profile for the ranker.
+ */
+export function createDefaultTaxReturnDetail(profile?: FinancialProfile): TaxReturnDetail {
+  const detail = emptyTaxReturnDetail();
+  if (!profile) {
+    return detail;
+  }
+
+  const fullName = profile.full_name ?? "";
+  const district = profile.district ?? "";
+  const lifePremium = profile.life_insurance_premium_annual ?? "";
+  const homeLoanInterest = profile.home_loan_interest_annual ?? "";
+  const donations = profile.donations_annual ?? "";
+  const grossAnnual = profile.gross_monthly_income
+    ? String(Math.round(Number(profile.gross_monthly_income) * 12))
+    : "";
+
+  detail.section1 = {
+    ...detail.section1,
+    fullName,
+    preferredName: fullName.split(/\s+/)[0] ?? "",
+    dob: profile.date_of_birth ?? "",
+    gender: profile.gender ?? "",
+    nationality: nationalityToCode(profile.nationality),
+    residency:
+      profile.residency_status === "non_resident"
+        ? "non-resident"
+        : profile.residency_status === "dual"
+          ? "dual"
+          : "resident",
+    marital: profile.marital_status ?? "single",
+    dependants: profile.dependents != null ? String(profile.dependents) : "0",
+    taxYear: taxYearForUi(profile.tax_year),
+    district,
+    province: provinceFromDistrict(district),
+    hasSpouse: profile.marital_status === "married",
+  };
+
+  if (grossAnnual || profile.annual_bonus_lkr || profile.epf_balance || profile.etf_balance) {
+    detail.section2 = {
+      ...detail.section2,
       employers: [
         {
-          name: "ABC Pvt Ltd",
-          tin: "123456789",
-          role: "Software Engineer",
-          from: "2021-01-01",
-          to: "",
-          current: "yes",
+          ...blankEmployer(),
           gross: grossAnnual,
-          apit: "108000",
-          epf: epfAnnual,
-          etf: "54000",
-          bonus: profile?.annual_bonus_lkr ?? "150000",
-          allowances: "60000",
-          noncash: "0",
-          overtime: "0",
+          bonus: profile.annual_bonus_lkr ?? "",
+          epf: profile.epf_balance ?? "",
+          etf: profile.etf_balance ?? "",
         },
       ],
-      hasDirector: false,
-      directorFees: "",
-      companyName: "",
-      directorTin: "",
-      hasGratuity: false,
-      gratuityAmount: "",
-      gratuityYears: "",
-      gratuityType: "",
-      hasSeverance: false,
-      severanceAmount: "",
-      severanceReason: "",
-      hasCommission: false,
-      commissionAmount: "",
-      commissionPayer: "",
-      hasPension: false,
-      pensionAmount: "",
-      pensionPayer: "",
-      pensionType: "",
-      hasGifts: false,
-      giftAmount: "",
-      giftDescription: "",
-    },
-    section3: {
-      fds: [
-        {
-          bank: "Bank of Ceylon",
-          accNo: "BOC-FD-001234",
-          maturity: "2025-06-30",
-          principal: "500000",
-          interest: "87500",
-          wht: "4375",
-          type: "fd",
-        },
-      ],
-      divs: [blankDiv()],
-      hasSavings: true,
-      savingsInterest: "8750",
-      savingsWht: "437",
-      hasGovSec: false,
-      govTbill: "",
-      govTbond: "",
-      govInterest: "",
-      govWht: "",
-      hasUnitTrust: false,
-      unitTrustFund: "",
-      unitTrustDistribution: "",
-      unitTrustWht: "",
-      hasCSE: false,
-      cseProceeds: "",
-      cseCost: "",
-      cseGain: "",
-      hasREIT: false,
-      reitFund: "",
-      reitIncome: "",
-    },
-    section4: {
-      businesses: [blankBiz()],
-      hasFreelance: true,
-      freelancePlatform: "upwork",
-      freelanceCurrency: "usd",
-      freelanceRevenue: "62500",
-      freelanceRate: "320",
-      freelanceLkr: "20000000",
-      freelanceExpenses: "5000",
-      freelanceCommissions: "6250",
-      hasAgri: false,
-      agriCrop: "",
-      agriRevenue: "",
-      agriExpenses: "",
-      hasProfessional: false,
-      professionalPractice: "",
-      professionalRevenue: "",
-      professionalExpenses: "",
-    },
-    section5: {
-      properties: [
-        {
-          addr: "42A, Flower Road, Colombo 03",
-          type: "residential",
-          usage: "rented",
-          months: "12",
-          rent: "35000",
-          gross: "420000",
-          joint: "no",
-          share: "100",
-          maintenance: "21000",
-          insurance: "",
-          mortgage: "",
-          mgmt: "",
-          other: "",
-        },
-      ],
-      hasDisposal: false,
-      disposalAddr: "",
-      disposalAcquired: "",
-      disposalDisposed: "",
-      disposalCost: "",
-      disposalProceeds: "",
-      disposalExpenses: "",
-      hasLand: false,
-      landAddr: "",
-      landType: "",
-      landRevenue: "",
-    },
-    section6: {
-      hasLife: true,
-      lifePremium,
-      lifeInsurer: "AIA Life Sri Lanka",
-      lifePolicy: "AIA-LK-20181234",
-      hasMedical: profile?.health_insurance ?? false,
-      medicalPremium: "",
-      medicalInsurer: "",
-      hasCharitable: Number(donations) > 0,
-      charitablePresident: "",
-      charitableApproved: donations || "",
-      charitableReligious: "",
-      charitableOther: "",
-      hasEducation: false,
-      educationSchool: "",
-      educationFees: "",
-      educationChildren: "1",
-      hasPension: false,
-      pensionFund: "",
-      pensionType: "",
-      pensionAmount: "",
-      hasMortgage: Number(homeLoanInterest) > 0,
-      mortgageBank: "",
-      mortgageAccount: "",
-      mortgageInterest: homeLoanInterest,
-      hasRD: false,
-      rdAmount: "",
-      rdDescription: "",
-      hasDisability: false,
-      disabilityCategory: "",
-      disabilityAmount: "",
-    },
-    section7: {
-      hasForEmp: false,
-      forEmpEmployer: "",
-      forEmpCountry: "",
-      forEmpCurrency: "usd",
-      forEmpFgross: "",
-      forEmpRate: "",
-      forEmpLkr: "",
-      forEmpFtax: "",
-      forEmpDta: "unsure",
-      hasForBiz: false,
-      forBizDescription: "",
-      forBizCountry: "",
-      forBizRevenue: "",
-      forBizFtax: "",
-      hasForDiv: false,
-      forDivCompany: "",
-      forDivCountry: "",
-      forDivTotal: "",
-      forDivFtax: "",
-      hasForProp: false,
-      forPropCountry: "",
-      forPropAddr: "",
-      forPropType: "",
-      forPropRental: "",
-      forPropFtax: "",
-      hasDTA: false,
-      dtaCountry: "",
-      dtaFtaxPaid: "",
-      dtaCreditClaimed: "",
-    },
-    section8: {
-      agreed: false,
-    },
+    };
+  }
+
+  detail.section6 = {
+    ...detail.section6,
+    hasLife: hasPositiveAmount(lifePremium),
+    lifePremium,
+    hasMedical: profile.health_insurance ?? false,
+    hasCharitable: hasPositiveAmount(donations),
+    charitableApproved: donations,
+    hasMortgage: hasPositiveAmount(homeLoanInterest),
+    mortgageInterest: homeLoanInterest,
   };
+
+  return detail;
 }

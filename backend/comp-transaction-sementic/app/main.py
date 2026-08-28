@@ -45,6 +45,8 @@ from .schemas.tax_reasoning import (
     AnalyzeBatchResponse,
     ApplyClassBatchRequest,
     ApplyClassBatchResponse,
+    DocumentClassificationItem,
+    DocumentClassificationsResponse,
     InflowSummaryResponse,
     IncomeTypeCatalogItem,
     IncomeTypeCatalogResponse,
@@ -87,6 +89,10 @@ from .services import (
     rename_document,
 )
 from .services.analysis_persistence import persist_transaction_analysis
+from .services.classification_persistence import (
+    load_current_classifications,
+    persist_extracted_classifications,
+)
 from .services.rule_engine_service import get_rule_executor
 from .services.taxable_income_summary import build_taxable_income_summary
 from .services.inflow_summary import (
@@ -143,6 +149,34 @@ def _with_taxpayer_id(
     if "taxpayer_id" not in merged:
         merged["taxpayer_id"] = "taxpayer_00001"
     return merged
+
+
+def _resolve_classification_profile_id(
+    db: Session,
+    *,
+    document_id: UUID | None,
+    financial_profile_id: UUID | None,
+) -> UUID:
+    if document_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="document_id is required to save classifications.",
+        )
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    profile_id = financial_profile_id or snap.document.financial_profile_id
+    if profile_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Document is not linked to a financial profile.",
+        )
+    if financial_profile_id and snap.document.financial_profile_id != financial_profile_id:
+        raise HTTPException(
+            status_code=400,
+            detail="financial_profile_id does not match the document owner.",
+        )
+    return profile_id
 
 
 def _to_analyze_response(analysis: TransactionAnalysisResult) -> AnalyzeTransactionResponse:
@@ -269,8 +303,12 @@ def analyze_transactions_batch_endpoint(
             document_filename = snap.document.filename
 
     results: list[AnalyzeBatchItemResponse] = []
+    classification_rows: list[
+        tuple[str | None, TransactionAnalysisResult, AnalyzeTransactionResponse, Decimal]
+    ] = []
     for item, analysis in zip(payload.items, analyses, strict=True):
         facts = item.facts.model_dump(exclude_none=True) if item.facts else None
+        response = _to_analyze_response(analysis)
         if payload.persist:
             raw_payload: dict[str, object] = {
                 "facts": facts,
@@ -296,8 +334,22 @@ def analyze_transactions_batch_endpoint(
         results.append(
             AnalyzeBatchItemResponse(
                 row_id=item.row_id,
-                result=_to_analyze_response(analysis),
+                result=response,
             ),
+        )
+        classification_rows.append((item.row_id, analysis, response, item.amount_lkr))
+
+    if payload.persist_classifications and classification_rows:
+        profile_id = _resolve_classification_profile_id(
+            db,
+            document_id=payload.document_id,
+            financial_profile_id=payload.financial_profile_id,
+        )
+        persist_extracted_classifications(
+            db,
+            financial_profile_id=profile_id,
+            document_id=payload.document_id,  # type: ignore[arg-type]
+            rows=classification_rows,
         )
 
     logger.bind(processed_count=len(results)).info("analyze_transactions_batch_completed")
@@ -330,6 +382,7 @@ def analyze_transactions_batch_endpoint(
 @app.post("/v1/transactions/apply-class-batch", response_model=ApplyClassBatchResponse)
 def apply_transactions_class_batch_endpoint(
     payload: ApplyClassBatchRequest,
+    db: Session = Depends(get_db),
 ) -> ApplyClassBatchResponse:
     """Re-run IRA rules for manually selected taxonomy classes."""
     inputs = [
@@ -350,13 +403,32 @@ def apply_transactions_class_batch_endpoint(
         document_type=payload.document_type,
         model_semantic_categories=[item.model_semantic_category for item in payload.items],
     )
-    results = [
-        AnalyzeBatchItemResponse(
-            row_id=item.row_id,
-            result=_to_analyze_response(analysis),
+    results: list[AnalyzeBatchItemResponse] = []
+    classification_rows: list[
+        tuple[str | None, TransactionAnalysisResult, AnalyzeTransactionResponse, Decimal]
+    ] = []
+    for item, analysis in zip(payload.items, analyses, strict=True):
+        response = _to_analyze_response(analysis)
+        results.append(
+            AnalyzeBatchItemResponse(
+                row_id=item.row_id,
+                result=response,
+            ),
         )
-        for item, analysis in zip(payload.items, analyses, strict=True)
-    ]
+        classification_rows.append((item.row_id, analysis, response, item.amount_lkr))
+
+    if payload.persist_classifications and classification_rows:
+        profile_id = _resolve_classification_profile_id(
+            db,
+            document_id=payload.document_id,
+            financial_profile_id=payload.financial_profile_id,
+        )
+        persist_extracted_classifications(
+            db,
+            financial_profile_id=profile_id,
+            document_id=payload.document_id,  # type: ignore[arg-type]
+            rows=classification_rows,
+        )
     logger.bind(processed_count=len(results)).info("apply_transactions_class_batch_completed")
     return ApplyClassBatchResponse(results=results, processed_count=len(results))
 
@@ -529,27 +601,78 @@ async def extract_document_transactions(
     )
 
 
+def _uploaded_document_summary(
+    document: Any,
+    *,
+    row_count: int,
+    selected_parser: str | None,
+) -> UploadedDocumentSummary:
+    return UploadedDocumentSummary(
+        document_id=document.id,
+        filename=document.filename,
+        status=document.status.value,
+        size_bytes=document.size_bytes,
+        bank_detected=document.bank_detected,
+        selected_parser=selected_parser,
+        extracted_row_count=row_count,
+        financial_profile_id=getattr(document, "financial_profile_id", None),
+        tax_year=getattr(document, "tax_year", None),
+        statement_period_from=getattr(document, "statement_period_from", None),
+        statement_period_to=getattr(document, "statement_period_to", None),
+    )
+
+
 @app.get("/v1/documents", response_model=DocumentListResponse)
 def list_uploaded_documents(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    financial_profile_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> DocumentListResponse:
-    """List persisted uploads (newest first)."""
-    rows, total = list_documents(db, limit=limit, offset=offset)
+    """List persisted uploads (newest first), optionally scoped to a financial profile."""
+    rows, total = list_documents(
+        db,
+        limit=limit,
+        offset=offset,
+        financial_profile_id=financial_profile_id,
+    )
     items = [
-        UploadedDocumentSummary(
-            document_id=document.id,
-            filename=document.filename,
-            status=document.status.value,
-            size_bytes=document.size_bytes,
-            bank_detected=document.bank_detected,
-            selected_parser=selected_parser,
-            extracted_row_count=row_count,
-        )
+        _uploaded_document_summary(document, row_count=row_count, selected_parser=selected_parser)
         for document, row_count, selected_parser in rows
     ]
     return DocumentListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@app.get("/v1/documents/{document_id}/classifications", response_model=DocumentClassificationsResponse)
+def get_document_classifications(
+    document_id: UUID,
+    financial_profile_id: UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> DocumentClassificationsResponse:
+    """Return saved tax classifications for extracted rows on a document."""
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    profile_id = financial_profile_id or snap.document.financial_profile_id
+    loaded = load_current_classifications(
+        db,
+        document_id=document_id,
+        financial_profile_id=profile_id,
+    )
+    items = [
+        DocumentClassificationItem(
+            extracted_transaction_id=extracted_id,
+            result=result,
+        )
+        for extracted_id, result in loaded
+    ]
+    return DocumentClassificationsResponse(
+        document_id=document_id,
+        financial_profile_id=profile_id,
+        items=items,
+        total=len(items),
+    )
 
 
 @app.patch("/v1/documents/{document_id}", response_model=DocumentRenameResponse)
@@ -568,14 +691,10 @@ def rename_uploaded_document(
 
     document, row_count, updated_related, selected_parser = result
     return DocumentRenameResponse(
-        document=UploadedDocumentSummary(
-            document_id=document.id,
-            filename=document.filename,
-            status=document.status.value,
-            size_bytes=document.size_bytes,
-            bank_detected=document.bank_detected,
+        document=_uploaded_document_summary(
+            document,
+            row_count=row_count,
             selected_parser=selected_parser,
-            extracted_row_count=row_count,
         ),
         updated_related_transaction_count=updated_related,
     )
@@ -584,11 +703,19 @@ def rename_uploaded_document(
 @app.post("/v1/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
+    financial_profile_id: UUID | None = Query(default=None),
+    tax_year: str | None = Query(default=None, max_length=8),
     db: Session = Depends(get_db),
 ) -> DocumentUploadResponse:
     payload = await file.read()
     try:
-        result = ingest_document_metadata(db=db, upload=file, content=payload)
+        result = ingest_document_metadata(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -597,14 +724,10 @@ async def upload_document(
 
     document = result.document
     return DocumentUploadResponse(
-        document=UploadedDocumentSummary(
-            document_id=document.id,
-            filename=document.filename,
-            status=document.status.value,
-            size_bytes=document.size_bytes,
-            bank_detected=document.bank_detected,
+        document=_uploaded_document_summary(
+            document,
+            row_count=result.extracted_count,
             selected_parser=result.selected_parser,
-            extracted_row_count=result.extracted_count,
         ),
         extraction_run_id=result.extract_run.id,
         metadata_extraction_run_id=result.metadata_run.id,
@@ -684,6 +807,8 @@ async def preview_document(
 @app.post("/v1/documents/upload-batch", response_model=DocumentBatchUploadResponse)
 async def upload_document_batch(
     files: list[UploadFile] = File(...),
+    financial_profile_id: UUID | None = Query(default=None),
+    tax_year: str | None = Query(default=None, max_length=8),
     db: Session = Depends(get_db),
 ) -> DocumentBatchUploadResponse:
     if not files:
@@ -694,20 +819,22 @@ async def upload_document_batch(
     for file in files:
         payload = await file.read()
         try:
-            result = ingest_document_metadata(db=db, upload=file, content=payload)
+            result = ingest_document_metadata(
+                db=db,
+                upload=file,
+                content=payload,
+                financial_profile_id=financial_profile_id,
+                tax_year=tax_year,
+            )
         except ValueError as exc:
             logger.warning(f"batch_upload_skipped filename={file.filename} reason={exc}")
             continue
         document = result.document
         docs.append(
-            UploadedDocumentSummary(
-                document_id=document.id,
-                filename=document.filename,
-                status=document.status.value,
-                size_bytes=document.size_bytes,
-                bank_detected=document.bank_detected,
+            _uploaded_document_summary(
+                document,
+                row_count=result.extracted_count,
                 selected_parser=result.selected_parser,
-                extracted_row_count=result.extracted_count,
             ),
         )
         run_ids.append(result.extract_run.id)

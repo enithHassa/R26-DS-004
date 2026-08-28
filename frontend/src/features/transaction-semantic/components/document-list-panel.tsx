@@ -10,12 +10,14 @@ import {
   renameDocument,
   type UploadedDocumentSummary,
 } from "@/features/transaction-semantic/api";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
 
 export interface DocumentListPanelProps {
   selectedDocumentId: string | null;
   onSelect: (documentId: string) => void;
   onRenamed?: (documentId: string) => void;
   refreshKey?: number;
+  financialProfileId?: string | null;
 }
 
 export function DocumentListPanel({
@@ -23,6 +25,7 @@ export function DocumentListPanel({
   onSelect,
   onRenamed,
   refreshKey = 0,
+  financialProfileId = null,
 }: DocumentListPanelProps) {
   const [documents, setDocuments] = useState<UploadedDocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -33,10 +36,15 @@ export function DocumentListPanel({
   const [isRenaming, setIsRenaming] = useState(false);
 
   async function loadDocuments(): Promise<void> {
+    if (!financialProfileId) {
+      setDocuments([]);
+      setTotal(0);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      const response = await listDocuments(100, 0);
+      const response = await listDocuments(100, 0, financialProfileId);
       setDocuments(response.items);
       setTotal(response.total);
     } catch (err) {
@@ -48,7 +56,7 @@ export function DocumentListPanel({
 
   useEffect(() => {
     void loadDocuments();
-  }, [refreshKey]);
+  }, [refreshKey, financialProfileId]);
 
   function startRename(document: UploadedDocumentSummary): void {
     setEditingId(document.document_id);
@@ -91,10 +99,13 @@ export function DocumentListPanel({
       <CardHeader>
         <CardTitle>Saved documents</CardTitle>
         <CardDescription>
-          Uploads are stored in the database with extracted rows linked by document ID.
+          Bank statements linked to the active taxpayer profile in the right panel.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!financialProfileId ? (
+          <ActiveProfileBanner moduleLabel="Document library" />
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
             {isLoading ? "Loading..." : `${total} saved document(s)`}
@@ -109,7 +120,9 @@ export function DocumentListPanel({
 
         {documents.length === 0 && !isLoading ? (
           <p className="text-sm text-muted-foreground">
-            No saved documents yet. Upload a statement to create one.
+            {financialProfileId
+              ? "No saved documents for this taxpayer yet. Upload a statement below."
+              : "Select a taxpayer in the right panel to view their documents."}
           </p>
         ) : (
           <div className="space-y-2">

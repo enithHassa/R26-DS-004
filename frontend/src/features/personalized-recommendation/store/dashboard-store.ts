@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { ImpactScenario, RecommendationResponse } from "../types";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 
 export type ImpactScenarioState = {
   horizonYears: number;
@@ -13,10 +14,8 @@ export type ImpactScenarioState = {
 };
 
 type DashboardState = {
-  activeProfileId: string | null;
   lastRecommendations: RecommendationResponse | null;
   impactScenario: ImpactScenarioState;
-  setActiveProfileId: (id: string | null) => void;
   setLastRecommendations: (data: RecommendationResponse | null) => void;
   setImpactScenario: (partial: Partial<ImpactScenarioState>) => void;
   toImpactScenarioPayload: (withStrategy: boolean) => ImpactScenario;
@@ -34,10 +33,8 @@ const defaultScenario: ImpactScenarioState = {
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set, get) => ({
-      activeProfileId: null,
       lastRecommendations: null,
       impactScenario: defaultScenario,
-      setActiveProfileId: (id) => set({ activeProfileId: id }),
       setLastRecommendations: (data) => set({ lastRecommendations: data }),
       setImpactScenario: (partial) =>
         set((s) => ({ impactScenario: { ...s.impactScenario, ...partial } })),
@@ -55,3 +52,12 @@ export const useDashboardStore = create<DashboardState>()(
     { name: "comp3-dashboard" },
   ),
 );
+
+/** Shared active profile id — lives in auditor workspace store. */
+export function useActiveProfileId(): string | null {
+  return useAuditorWorkspaceStore((s) => s.activeProfileId);
+}
+
+export function setActiveProfileId(id: string | null): void {
+  useAuditorWorkspaceStore.getState().setActiveProfile(id);
+}

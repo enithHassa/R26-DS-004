@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DocumentListPanel } from "@/features/transaction-semantic/components/document-list-panel";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useActiveAuditorProfile } from "@/hooks/use-active-auditor-profile";
+import { useActiveProfileId } from "@/features/personalized-recommendation/store/dashboard-store";
 import {
   exportFilteredDocumentsCsv,
   exportSingleDocumentCsv,
@@ -36,6 +39,8 @@ function formatMoney(value: string | null): string {
 }
 
 export function TransactionDocumentExtractionPage() {
+  const activeProfileId = useActiveProfileId();
+  const profileQuery = useActiveAuditorProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [documentId, setDocumentId] = useState(searchParams.get("document") ?? "");
@@ -122,11 +127,18 @@ export function TransactionDocumentExtractionPage() {
       setError("Choose a file first.");
       return;
     }
+    if (!activeProfileId) {
+      setError("Select a taxpayer profile in the right panel before uploading.");
+      return;
+    }
     setIsUploading(true);
     setError(null);
     setSuccess(null);
     try {
-      const resp = await uploadDocument(file);
+      const resp = await uploadDocument(file, {
+        financialProfileId: activeProfileId,
+        taxYear: profileQuery.data?.tax_year ?? null,
+      });
       setSearchParams({ document: resp.document.document_id });
       setSuccess(resp.message);
       setPreviewMeta(null);
@@ -325,6 +337,8 @@ export function TransactionDocumentExtractionPage() {
 
   return (
     <div className="space-y-6">
+      <ActiveProfileBanner moduleLabel="Document extraction" />
+
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Transaction documents</h1>
         <p className="text-sm text-muted-foreground">
@@ -342,6 +356,7 @@ export function TransactionDocumentExtractionPage() {
           }
         }}
         refreshKey={libraryRefreshKey}
+        financialProfileId={activeProfileId}
       />
 
       <Card>

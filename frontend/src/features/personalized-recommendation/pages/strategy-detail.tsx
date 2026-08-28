@@ -8,12 +8,12 @@ import { EligibilityTraceCard } from "../components/eligibility-trace-card";
 import { ExplainPanel } from "../components/explain-panel";
 import { FeasibilityCard } from "../components/feasibility-card";
 import { CATALOG_STRATEGIES, recommendationCodeToCatalog } from "../constants/strategies";
-import { useDashboardStore } from "../store/dashboard-store";
+import { useDashboardStore, useActiveProfileId } from "../store/dashboard-store";
 
 export function StrategyDetailPage() {
   const { strategyId } = useParams();
   const [searchParams] = useSearchParams();
-  const activeProfileId = useDashboardStore((s) => s.activeProfileId);
+  const activeProfileId = useActiveProfileId();
   const lastRecommendations = useDashboardStore((s) => s.lastRecommendations);
   const profileId = searchParams.get("profile") ?? activeProfileId ?? "";
 
