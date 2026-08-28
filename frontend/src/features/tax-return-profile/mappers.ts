@@ -18,11 +18,22 @@ function isTaxReturnDetail(value: unknown): value is TaxReturnDetail {
 }
 
 export function detailFromProfile(profile: FinancialProfile): TaxReturnDetail {
+  const base = createDefaultTaxReturnDetail(profile);
   const stored = profile.tax_return_detail;
-  if (isTaxReturnDetail(stored)) {
-    return stored;
+  if (!isTaxReturnDetail(stored)) {
+    return base;
   }
-  return createDefaultTaxReturnDetail(profile);
+  return {
+    ...base,
+    section1: { ...base.section1, ...stored.section1 },
+    section2: { ...base.section2, ...stored.section2 },
+    section3: { ...base.section3, ...stored.section3 },
+    section4: { ...base.section4, ...stored.section4 },
+    section5: { ...base.section5, ...stored.section5 },
+    section6: { ...base.section6, ...stored.section6 },
+    section7: { ...base.section7, ...stored.section7 },
+    section8: { ...base.section8, ...stored.section8 },
+  };
 }
 
 export function detailToUpdatePayload(

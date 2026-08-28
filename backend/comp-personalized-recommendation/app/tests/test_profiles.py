@@ -223,3 +223,36 @@ def test_patch_tax_return_detail_persists_and_syncs_scalars(client: TestClient) 
     assert body["tax_return_detail"]["section1"]["fullName"] == "Kasun Perera"
     assert body["section_completion"] == [1, 2]
     assert Decimal(body["gross_monthly_income"]) == Decimal("150000.00")
+
+
+def test_tax_return_detail_round_trips_pension_and_gifts(client: TestClient) -> None:
+    created = client.post("/api/v1/profiles", json=_payload()).json()
+    pid = created["id"]
+
+    detail = {
+        "section1": {"fullName": "Test User", "taxYear": "2024-2025"},
+        "section2": {
+            "employers": [],
+            "hasPension": True,
+            "pensionAmount": "240000",
+            "pensionPayer": "ABC Pension Fund",
+            "pensionType": "employer",
+            "hasGifts": True,
+            "giftAmount": "50000",
+            "giftDescription": "Long-service award",
+        },
+    }
+
+    resp = client.patch(
+        f"/api/v1/profiles/{pid}",
+        json={"tax_return_detail": detail, "section_completion": [2]},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    s2 = body["tax_return_detail"]["section2"]
+    assert s2["pensionAmount"] == "240000"
+    assert s2["giftAmount"] == "50000"
+    assert body["section_completion"] == [2]
+
+    fetched = client.get(f"/api/v1/profiles/{pid}").json()
+    assert fetched["tax_return_detail"]["section2"]["giftDescription"] == "Long-service award"
