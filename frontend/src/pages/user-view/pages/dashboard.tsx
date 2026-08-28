@@ -6,6 +6,7 @@ import { getProfile, getProfileFeatures } from "@/features/personalized-recommen
 import { formatLkr } from "@/features/personalized-recommendation/utils/format-lkr";
 import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
 import { UserViewShell } from "@/pages/user-view/components/user-view-shell";
+import { TAXWISE_PROFILE, TAXWISE_RECOMMENDATIONS } from "@/pages/user-view/paths";
 
 /** Placeholder data — wired to real APIs later. */
 const PLACEHOLDER_TRANSACTIONS = [
@@ -88,7 +89,7 @@ export function UserDashboardPage() {
     <UserViewShell subtitle={`${taxYearLabel} · Last updated just now`}>
       <div className="mx-auto max-w-6xl space-y-8">
         <Link
-          to="/taxwise/profile"
+          to={TAXWISE_PROFILE}
           className="flex items-center justify-between rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-5 py-4 transition-colors hover:border-[var(--uv-accent)]/40"
         >
           <div className="flex items-center gap-3">
@@ -183,9 +184,12 @@ export function UserDashboardPage() {
           <section className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] lg:col-span-2">
             <div className="flex items-center justify-between border-b border-[var(--uv-border)] px-5 py-4">
               <h2 className="font-semibold">Top Recommendations</h2>
-              <button type="button" disabled className="text-sm text-[var(--uv-accent)] opacity-50">
+              <Link
+                to={TAXWISE_RECOMMENDATIONS}
+                className="text-sm text-[var(--uv-accent)] hover:underline"
+              >
                 View all
-              </button>
+              </Link>
             </div>
             <ul className="divide-y divide-[var(--uv-border)]/60">
               {PLACEHOLDER_RECOMMENDATIONS.map((item) => (

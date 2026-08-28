@@ -5,8 +5,6 @@ import { features } from "@/features";
 import { AboutYouPage } from "@/features/personalized-recommendation/pages/about-you";
 import { FinancialIntakePage } from "@/features/personalized-recommendation/pages/financial-intake";
 import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
-import { CreateAccountPage } from "@/features/users/pages/create-account";
-import { UserPortalPage } from "@/features/personalized-recommendation/pages/user-portal";
 import { demoRoutes } from "@/pages/demo";
 import { userViewRoutes } from "@/pages/user-view";
 
@@ -31,11 +29,9 @@ export default function App() {
     { path: "/tax-optimization/explorer", element: <Navigate to="/tax/explorer" replace /> },
     { path: "/tax-optimization/filing", element: <Navigate to="/tax/filing" replace /> },
     { path: "/login", element: <UserLoginPage /> },
-    { path: "/signup", element: <CreateAccountPage /> },
     // Comp 3 taxpayer onboarding / hub (not TaxWise shell)
     { path: "/portal/financial-intake", element: <FinancialIntakePage /> },
     { path: "/portal/about-you", element: <AboutYouPage /> },
-    { path: "/portal/summary", element: <UserPortalPage /> },
     // TaxWise user-view (`/taxwise/*`) + legacy `/portal` redirects
     ...userViewRoutes,
     ...demoRoutes,
