@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
 import { getGuideNotes, getReliefs } from "../api";
 import { reliefListedForInterview } from "../compare-types";
 import { formatMoneyInput, parseLkr, yaDisplay } from "../format-lkr";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useOeSnapshotPersistence } from "@/hooks/use-oe-snapshot";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 import { useInterview } from "../session";
 import {
   hasSubItems,
@@ -113,7 +116,11 @@ export function InterviewReliefsPage() {
 
 function ReliefsStepper() {
   const navigate = useNavigate();
-  const { session, upsertReliefAnswer, clearReliefAnswer, setEvidenceCheck } = useInterview();
+  const { session, upsertReliefAnswer, clearReliefAnswer, setEvidenceCheck, replaceSession } =
+    useInterview();
+  const activeProfileId = useAuditorWorkspaceStore((s) => s.activeProfileId);
+  const { saveDraft, loadLatestDraft, saveState, draftState, canPersist, errorMessage } =
+    useOeSnapshotPersistence(activeProfileId);
   const { assessmentYear, reliefAnswers, income, excludeSourceDocId } = session;
 
   const reliefsQuery = useQuery({
@@ -196,7 +203,55 @@ function ReliefsStepper() {
   const initial = draftsForEntry(current, existing, income);
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start">
+    <div className="space-y-4">
+      <ActiveProfileBanner moduleLabel="Optimization reliefs" />
+      {canPersist ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+          <p className="flex-1 text-sm text-muted-foreground">
+            Save or reload the interview draft for this taxpayer profile.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={draftState === "loading"}
+            onClick={() =>
+              void loadLatestDraft(session.assessmentYear).then((loaded) => {
+                if (loaded) replaceSession(loaded);
+              })
+            }
+          >
+            {draftState === "loading" ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                Loading…
+              </>
+            ) : (
+              "Load saved draft"
+            )}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={saveState === "loading"}
+            onClick={() => void saveDraft(session)}
+          >
+            {saveState === "loading" ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                Saving…
+              </>
+            ) : saveState === "done" ? (
+              "Draft saved"
+            ) : (
+              "Save draft"
+            )}
+          </Button>
+        </div>
+      ) : null}
+      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
       <ReliefJumpNav
         assessmentYear={assessmentYear}
         entries={entries}
@@ -249,6 +304,7 @@ function ReliefsStepper() {
           }}
         />
       </div>
+    </div>
     </div>
   );
 }

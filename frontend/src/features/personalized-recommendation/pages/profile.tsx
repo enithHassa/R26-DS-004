@@ -44,7 +44,8 @@ import {
 } from "../api/profiles";
 import { PageHeader } from "../components/page-header";
 import { WizardNav } from "../components/wizard-nav";
-import { useDashboardStore } from "../store/dashboard-store";
+import { profileToAuditorSummary } from "@/lib/profile-bridge/profile-summary";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
 
 const decimalString = z
@@ -313,7 +314,7 @@ function ageBandFromYears(age: number): string {
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
-  const setActiveProfileId = useDashboardStore((s) => s.setActiveProfileId);
+  const setActiveProfile = useAuditorWorkspaceStore((s) => s.setActiveProfile);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -369,7 +370,7 @@ export function ProfilePage() {
       await queryClient.invalidateQueries({ queryKey: ["profiles"] });
       await queryClient.invalidateQueries({ queryKey: ["profiles-count"] });
       setSelectedId(created.id);
-      setActiveProfileId(created.id);
+      setActiveProfile(created.id, profileToAuditorSummary(created));
       setStep(0);
       reset(defaultValues);
     },
@@ -381,6 +382,9 @@ export function ProfilePage() {
       await queryClient.invalidateQueries({ queryKey: ["profiles"] });
       await queryClient.invalidateQueries({ queryKey: ["profiles-count"] });
       if (selectedId === id) setSelectedId(null);
+      if (useAuditorWorkspaceStore.getState().activeProfileId === id) {
+        useAuditorWorkspaceStore.getState().clearProfile();
+      }
     },
   });
 
@@ -882,7 +886,13 @@ export function ProfilePage() {
                     }`}
                     onClick={() => {
                       setSelectedId(p.id);
-                      setActiveProfileId(p.id);
+                      setActiveProfile(p.id, {
+                        id: p.id,
+                        fullName: p.full_name,
+                        occupation: p.occupation,
+                        taxYear: p.tax_year,
+                        tin: "",
+                      });
                       setPreviewId(p.id);
                     }}
                   >

@@ -2,12 +2,37 @@
 
 The 8-section wizard stores rich detail in ``tax_return_detail``; this module
 derives the aggregate columns the recommendation ranker already understands.
+
+Scalars the auditor sets for recommendations (expenses, debt, risk, income mix,
+etc.) are **not** overwritten from the tax-return wizard — only Bucket A fields
+that belong on the return itself are synced here.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
+
+# Auditor / intake fields — preserved when taxpayer saves Tax Return Profile.
+RECOMMENDATION_ONLY_SCALAR_KEYS = frozenset(
+    {
+        "monthly_expenses",
+        "monthly_debt_service",
+        "total_debt",
+        "liquid_savings",
+        "existing_investments",
+        "vehicle_value",
+        "property_value",
+        "occupation",
+        "employment_type",
+        "employer_sector",
+        "years_employed",
+        "risk_tolerance",
+        "investment_horizon_years",
+        "retirement_age_target",
+        "income_sources",
+    }
+)
 
 
 def _dec(value: object, default: str = "0") -> Decimal:
@@ -31,6 +56,9 @@ def _ya_to_tax_year(ya: str) -> str:
     if "-" in cleaned:
         start, end = cleaned.split("-", 1)
         return f"{start}_{end[-2:]}"
+    if cleaned.isdigit() and len(cleaned) == 4:
+        start = int(cleaned)
+        return f"{cleaned}_{str(start + 1)[-2:]}"
     return "2026_27"
 
 
@@ -48,21 +76,41 @@ def _residency_from_detail(value: str) -> str:
     mapping = {
         "resident": "resident",
         "non-resident": "non_resident",
+        "dual": "dual",
         "deemed": "dual",
     }
     return mapping.get(value, "resident")
 
 
+def _nationality_from_detail(value: str) -> str:
+    mapping = {
+        "lk": "Sri Lankan",
+        "dual": "Dual Citizen",
+        "foreign": "Foreign",
+    }
+    return mapping.get(value, value)
+
+
+def _sum_charitable(s6: dict[str, Any]) -> Decimal:
+    return sum(
+        (
+            _dec(s6.get("charitablePresident")),
+            _dec(s6.get("charitableApproved")),
+            _dec(s6.get("charitableReligious")),
+            _dec(s6.get("charitableOther")),
+        ),
+        Decimal("0"),
+    )
+
+
 def sync_scalars_from_tax_return(detail: dict[str, Any]) -> dict[str, Any]:
-    """Return ORM column updates derived from ``tax_return_detail``."""
+    """Return ORM column updates derived from ``tax_return_detail`` (Bucket A only)."""
     if not detail:
         return {}
 
     out: dict[str, Any] = {}
     s1 = detail.get("section1") or {}
     s2 = detail.get("section2") or {}
-    s3 = detail.get("section3") or {}
-    s5 = detail.get("section5") or {}
     s6 = detail.get("section6") or {}
 
     if s1.get("fullName"):
@@ -78,10 +126,7 @@ def sync_scalars_from_tax_return(detail: dict[str, Any]) -> dict[str, Any]:
     if s1.get("residency"):
         out["residency_status"] = _residency_from_detail(str(s1["residency"]))
     if s1.get("nationality"):
-        nat = str(s1["nationality"])
-        out["nationality"] = {"lk": "Sri Lankan", "dual": "Dual Citizen", "foreign": "Foreign"}.get(
-            nat, nat
-        )
+        out["nationality"] = _nationality_from_detail(str(s1["nationality"]))
     if s1.get("dependants") not in (None, ""):
         out["dependents"] = int(_dec(s1["dependants"]))
     if s1.get("taxYear"):
@@ -95,92 +140,22 @@ def sync_scalars_from_tax_return(detail: dict[str, Any]) -> dict[str, Any]:
         etf_annual = _sum_employer_field(employers, "etf")
         if gross_annual > 0:
             out["gross_monthly_income"] = (gross_annual / Decimal("12")).quantize(Decimal("0.01"))
-        out["annual_bonus_lkr"] = bonus_annual
-        out["epf_balance"] = epf_annual
-        out["etf_balance"] = etf_annual
-        out["occupation"] = "employee"
+        if bonus_annual > 0:
+            out["annual_bonus_lkr"] = bonus_annual
+        if epf_annual > 0:
+            out["epf_balance"] = epf_annual
+        if etf_annual > 0:
+            out["etf_balance"] = etf_annual
 
-    fds = list(s3.get("fds") or [])
-    fd_principal = sum((_dec(fd.get("principal")) for fd in fds), Decimal("0"))
-    fd_interest = sum((_dec(fd.get("interest")) for fd in fds), Decimal("0"))
-    savings_interest = _dec((s3.get("savings") or {}).get("interest"))
-    if fd_principal > 0 or fd_interest > 0 or savings_interest > 0:
-        out["existing_investments"] = fd_principal
-        if savings_interest > 0:
-            out["liquid_savings"] = savings_interest
-
-    props = list(s5.get("properties") or [])
-    if props:
-        gross_rent = sum((_dec(p.get("gross")) for p in props), Decimal("0"))
-        maintenance = sum((_dec(p.get("maintenance")) for p in props), Decimal("0"))
-        out["property_value"] = gross_rent
-        out["monthly_expenses"] = (maintenance / Decimal("12")).quantize(Decimal("0.01"))
-
-    life = s6.get("life") or {}
-    if life.get("premium"):
-        out["life_insurance_premium_annual"] = _dec(life["premium"])
+    # Section 6 — flat keys (matches frontend ``types.ts``).
+    if s6.get("lifePremium"):
+        out["life_insurance_premium_annual"] = _dec(s6["lifePremium"])
+    if s6.get("hasMedical") or _dec(s6.get("medicalPremium")) > 0:
         out["health_insurance"] = True
-    medical = s6.get("medical") or {}
-    if medical.get("premium"):
-        out["health_insurance"] = True
-    mortgage = s6.get("mortgage") or {}
-    if mortgage.get("interest"):
-        out["home_loan_interest_annual"] = _dec(mortgage["interest"])
-    charitable = s6.get("charitable") or {}
-    donations = sum(
-        (
-            _dec(charitable.get("president")),
-            _dec(charitable.get("approved")),
-            _dec(charitable.get("religious")),
-            _dec(charitable.get("other")),
-        ),
-        Decimal("0"),
-    )
+    if s6.get("mortgageInterest"):
+        out["home_loan_interest_annual"] = _dec(s6["mortgageInterest"])
+    donations = _sum_charitable(s6)
     if donations > 0:
         out["donations_annual"] = donations
 
-    income_sources: list[dict[str, Any]] = []
-    if employers and _sum_employer_field(employers, "gross") > 0:
-        income_sources.append(
-            {
-                "kind": "employment",
-                "monthly_amount": str(out.get("gross_monthly_income", Decimal("0"))),
-                "currency": "LKR",
-                "is_taxable": True,
-            }
-        )
-    freelance = s2.get("freelance") or {}
-    if _dec(freelance.get("lkr")) > 0:
-        income_sources.append(
-            {
-                "kind": "business",
-                "monthly_amount": str((_dec(freelance["lkr"]) / Decimal("12")).quantize(Decimal("0.01"))),
-                "currency": "LKR",
-                "is_taxable": True,
-            }
-        )
-    if props and sum((_dec(p.get("gross")) for p in props), Decimal("0")) > 0:
-        monthly_rent = (
-            sum((_dec(p.get("gross")) for p in props), Decimal("0")) / Decimal("12")
-        ).quantize(Decimal("0.01"))
-        income_sources.append(
-            {
-                "kind": "rental",
-                "monthly_amount": str(monthly_rent),
-                "currency": "LKR",
-                "is_taxable": True,
-            }
-        )
-    if fd_interest > 0:
-        income_sources.append(
-            {
-                "kind": "interest",
-                "monthly_amount": str((fd_interest / Decimal("12")).quantize(Decimal("0.01"))),
-                "currency": "LKR",
-                "is_taxable": True,
-            }
-        )
-    if income_sources:
-        out["income_sources"] = income_sources
-
-    return out
+    return {k: v for k, v in out.items() if k not in RECOMMENDATION_ONLY_SCALAR_KEYS}

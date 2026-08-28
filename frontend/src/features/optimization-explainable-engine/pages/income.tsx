@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useActiveAuditorProfile } from "@/hooks/use-active-auditor-profile";
+import { useOeSnapshotPersistence } from "@/hooks/use-oe-snapshot";
+import { getProfileMonthlyTaxableIncome } from "@/features/personalized-recommendation/api/profiles";
+import { profileToInterviewIncome } from "@/lib/profile-bridge/tax-return-to-oe-income";
+import { mergeBreakdownIntoIncome } from "@/lib/profile-bridge/transaction-summary-to-oe-income";
+import { normalizeDocumentTaxYear } from "@/lib/profile-bridge/tax-year-bridge";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 
 import { CalculatorGroupHead } from "../catalog-card-shell";
 import { FieldExplainDrawer } from "../field-explain";
@@ -43,8 +51,22 @@ function newLine(): InterestScheduleLine {
 
 export function InterviewIncomePage() {
   const navigate = useNavigate();
-  const { session, patchIncome } = useInterview();
+  const { session, patchIncome, replaceIncome, replaceSession } = useInterview();
   const { income } = session;
+  const profileQuery = useActiveAuditorProfile();
+  const activeProfileId = useAuditorWorkspaceStore((s) => s.activeProfileId);
+  const profileSummary = useAuditorWorkspaceStore((s) => s.profileSummary);
+  const { saveDraft, loadLatestDraft, saveState, draftState, canPersist, errorMessage } =
+    useOeSnapshotPersistence(activeProfileId);
+  const pendingTransactionBreakdown = useAuditorWorkspaceStore(
+    (s) => s.pendingTransactionBreakdown,
+  );
+  const setPendingTransactionBreakdown = useAuditorWorkspaceStore(
+    (s) => s.setPendingTransactionBreakdown,
+  );
+  const [profileLoadState, setProfileLoadState] = useState<"idle" | "loading" | "done">("idle");
+  const [monthlyLoadState, setMonthlyLoadState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [monthlyLoadMessage, setMonthlyLoadMessage] = useState<string | null>(null);
 
   const employmentCard = incomeCatalogCard("employment");
   const businessCard = incomeCatalogCard("business");
@@ -99,8 +121,171 @@ export function InterviewIncomePage() {
     );
   }
 
+  function loadFromTaxReturnProfile(): void {
+    if (!profileQuery.data) return;
+    setProfileLoadState("loading");
+    const mapped = profileToInterviewIncome(profileQuery.data);
+    replaceIncome(mapped.income, mapped.assessmentYear);
+    setProfileLoadState("done");
+  }
+
+  function mergeTransactionTotals(): void {
+    if (!pendingTransactionBreakdown?.length) return;
+    const merged = mergeBreakdownIntoIncome(income, pendingTransactionBreakdown);
+    replaceIncome(merged);
+    setPendingTransactionBreakdown(null);
+  }
+
+  async function mergeSavedMonthlyTotals(): Promise<void> {
+    if (!activeProfileId) return;
+    setMonthlyLoadState("loading");
+    setMonthlyLoadMessage(null);
+    try {
+      const taxYear = normalizeDocumentTaxYear(profileSummary?.taxYear);
+      const response = await getProfileMonthlyTaxableIncome(activeProfileId, taxYear);
+      const byClass = new Map<string, number>();
+      for (const line of response.lines) {
+        const amount = Number(line.taxable_amount_lkr);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+        byClass.set(line.class_key, (byClass.get(line.class_key) ?? 0) + amount);
+      }
+      const breakdown = [...byClass.entries()].map(([classKey, amount]) => ({
+        classKey,
+        amount,
+      }));
+      if (!breakdown.length) {
+        setMonthlyLoadState("error");
+        setMonthlyLoadMessage(
+          taxYear
+            ? `No saved taxable credits for tax year ${taxYear}. Classify documents first.`
+            : "No saved taxable credits for this profile. Classify documents first.",
+        );
+        return;
+      }
+      const merged = mergeBreakdownIntoIncome(income, breakdown);
+      replaceIncome(merged);
+      setMonthlyLoadState("done");
+      setMonthlyLoadMessage(`Merged ${breakdown.length} income bucket(s) from saved bank data.`);
+    } catch {
+      setMonthlyLoadState("error");
+      setMonthlyLoadMessage("Could not load monthly bank totals.");
+    }
+  }
+
+  async function handleLoadSavedDraft(): Promise<void> {
+    const loaded = await loadLatestDraft(session.assessmentYear);
+    if (loaded) replaceSession(loaded);
+  }
+
   return (
     <div className="space-y-6">
+      <ActiveProfileBanner moduleLabel="Optimization income" />
+
+      {canPersist ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+          <p className="flex-1 text-sm text-muted-foreground">
+            Save or reload the interview draft (income + reliefs) for the locked taxpayer profile.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={draftState === "loading"}
+            onClick={() => void handleLoadSavedDraft()}
+          >
+            {draftState === "loading" ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                Loading…
+              </>
+            ) : (
+              "Load saved draft"
+            )}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={saveState === "loading"}
+            onClick={() => void saveDraft(session)}
+          >
+            {saveState === "loading" ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+                Saving…
+              </>
+            ) : saveState === "done" ? (
+              "Draft saved"
+            ) : (
+              "Save draft"
+            )}
+          </Button>
+        </div>
+      ) : null}
+      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
+        <p className="flex-1 text-sm text-muted-foreground">
+          Pre-fill user-side income from the selected taxpayer&apos;s Tax Return Profile
+          (employment, FDs, dividends, business, rents).
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={!profileQuery.data || profileQuery.isLoading || profileLoadState === "loading"}
+          onClick={loadFromTaxReturnProfile}
+        >
+          {profileLoadState === "loading" ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+              Loading…
+            </>
+          ) : (
+            "Load from Tax Return Profile"
+          )}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={!activeProfileId || monthlyLoadState === "loading"}
+          onClick={() => void mergeSavedMonthlyTotals()}
+        >
+          {monthlyLoadState === "loading" ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+              Loading…
+            </>
+          ) : (
+            "Merge saved monthly bank totals"
+          )}
+        </Button>
+      </div>
+      {monthlyLoadMessage ? (
+        <p
+          className={
+            monthlyLoadState === "error"
+              ? "text-sm text-destructive"
+              : "text-sm text-muted-foreground"
+          }
+        >
+          {monthlyLoadMessage}
+        </p>
+      ) : null}
+
+      {pendingTransactionBreakdown && pendingTransactionBreakdown.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+          <p className="flex-1 text-sm">
+            Transaction classification totals ready ({pendingTransactionBreakdown.length}{" "}
+            bucket{pendingTransactionBreakdown.length === 1 ? "" : "s"}).
+          </p>
+          <Button type="button" size="sm" onClick={mergeTransactionTotals}>
+            Merge transaction totals
+          </Button>
+        </div>
+      ) : null}
+
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Income</h2>
         <p className="text-sm text-muted-foreground">

@@ -158,6 +158,11 @@ class FinancialProfileBase(BaseModel):
         default=None,
         description="Completed section numbers (1–7) for the tax return wizard.",
     )
+    transaction_taxpayer_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Transaction semantic YAML profile id (e.g. taxpayer_00001).",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -178,6 +183,7 @@ class FinancialProfileCreate(FinancialProfileBase):
 
 class FinancialProfileUpdate(BaseModel):
     full_name: str | None = None
+    date_of_birth: date | None = None
     gender: Gender | None = None
     district: str | None = Field(default=None, max_length=64)
     marital_status: MaritalStatus | None = None

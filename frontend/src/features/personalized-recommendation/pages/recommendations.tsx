@@ -12,11 +12,11 @@ import { generateRecommendations } from "../api/recommendations";
 import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { RecommendationCard } from "../components/recommendation-card";
-import { useDashboardStore } from "../store/dashboard-store";
+import { useActiveProfileId, useDashboardStore } from "../store/dashboard-store";
 import { formatLkr } from "../utils/format-lkr";
 
 export function RecommendationsPage() {
-  const activeProfileId = useDashboardStore((s) => s.activeProfileId);
+  const activeProfileId = useActiveProfileId();
   const lastRecommendations = useDashboardStore((s) => s.lastRecommendations);
   const setLastRecommendations = useDashboardStore((s) => s.setLastRecommendations);
 

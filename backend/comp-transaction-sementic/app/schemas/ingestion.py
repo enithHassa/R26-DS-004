@@ -17,6 +17,10 @@ class UploadedDocumentSummary(BaseModel):
     bank_detected: str | None = None
     selected_parser: str | None = None
     extracted_row_count: int = 0
+    financial_profile_id: UUID | None = None
+    tax_year: str | None = None
+    statement_period_from: date | None = None
+    statement_period_to: date | None = None
 
 
 class DocumentUploadResponse(BaseModel):

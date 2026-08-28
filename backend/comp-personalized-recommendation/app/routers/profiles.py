@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -19,7 +20,18 @@ from app.schemas import (
     ProfileHistorySnapshot,
 )
 from app.services import behavioural_answer_service, history_service, profile_service
+from app.services import profile_taxable_income_service, tax_computation_service
 from backend.shared.schemas.common import PaginatedResponse
+from app.schemas.taxable_income_monthly import (
+    ProfileTaxableIncomeMonthDetailResponse,
+    ProfileTaxableIncomeMonthlyResponse,
+)
+from app.schemas.tax_computation_snapshot import (
+    TaxComputationSnapshotDetail,
+    TaxComputationSnapshotStatusUpdate,
+    TaxComputationSnapshotSummary,
+    TaxComputationSnapshotUpsert,
+)
 
 router = APIRouter()
 
@@ -164,3 +176,134 @@ def set_eligibility_override(
     except profile_service.ProfileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return profile_service.compute_derived_features(orm)
+
+
+@router.get(
+    "/{profile_id}/taxable-income/monthly",
+    response_model=ProfileTaxableIncomeMonthlyResponse,
+)
+def get_profile_monthly_taxable_income(
+    profile_id: UUID,
+    tax_year: str | None = Query(None, description="Filter by assessment year label, e.g. 2024_25."),
+    db: Session = DBSession,
+) -> ProfileTaxableIncomeMonthlyResponse:
+    _profile_or_404(db, profile_id)
+    return profile_taxable_income_service.list_monthly_taxable_income(
+        db,
+        profile_id=profile_id,
+        tax_year=tax_year,
+    )
+
+
+@router.get(
+    "/{profile_id}/taxable-income/monthly/{calendar_month}",
+    response_model=ProfileTaxableIncomeMonthDetailResponse,
+)
+def get_profile_monthly_taxable_income_detail(
+    profile_id: UUID,
+    calendar_month: date,
+    tax_year: str | None = Query(None, description="Optional assessment year filter."),
+    db: Session = DBSession,
+) -> ProfileTaxableIncomeMonthDetailResponse:
+    _profile_or_404(db, profile_id)
+    return profile_taxable_income_service.get_monthly_taxable_income_detail(
+        db,
+        profile_id=profile_id,
+        calendar_month=calendar_month,
+        tax_year=tax_year,
+    )
+
+
+@router.post(
+    "/{profile_id}/tax-computations",
+    response_model=TaxComputationSnapshotDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def save_profile_tax_computation(
+    profile_id: UUID,
+    payload: TaxComputationSnapshotUpsert,
+    db: Session = DBSession,
+) -> TaxComputationSnapshotDetail:
+    _profile_or_404(db, profile_id)
+    return tax_computation_service.save_snapshot(db, profile_id=profile_id, payload=payload)
+
+
+@router.get(
+    "/{profile_id}/tax-computations",
+    response_model=list[TaxComputationSnapshotSummary],
+)
+def list_profile_tax_computations(
+    profile_id: UUID,
+    assessment_year: str | None = Query(None, description="Filter by assessment year, e.g. 2025_26."),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = DBSession,
+) -> list[TaxComputationSnapshotSummary]:
+    _profile_or_404(db, profile_id)
+    return tax_computation_service.list_snapshots(
+        db,
+        profile_id=profile_id,
+        assessment_year=assessment_year,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/{profile_id}/tax-computations/latest",
+    response_model=TaxComputationSnapshotDetail,
+)
+def get_latest_profile_tax_computation(
+    profile_id: UUID,
+    assessment_year: str | None = Query(None, description="Filter by assessment year, e.g. 2025_26."),
+    db: Session = DBSession,
+) -> TaxComputationSnapshotDetail:
+    _profile_or_404(db, profile_id)
+    snapshot = tax_computation_service.get_latest_snapshot(
+        db,
+        profile_id=profile_id,
+        assessment_year=assessment_year,
+    )
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No snapshot found.")
+    return snapshot
+
+
+@router.get(
+    "/{profile_id}/tax-computations/{snapshot_id}",
+    response_model=TaxComputationSnapshotDetail,
+)
+def get_profile_tax_computation(
+    profile_id: UUID,
+    snapshot_id: UUID,
+    db: Session = DBSession,
+) -> TaxComputationSnapshotDetail:
+    _profile_or_404(db, profile_id)
+    try:
+        return tax_computation_service.get_snapshot(
+            db,
+            profile_id=profile_id,
+            snapshot_id=snapshot_id,
+        )
+    except tax_computation_service.SnapshotNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.patch(
+    "/{profile_id}/tax-computations/{snapshot_id}",
+    response_model=TaxComputationSnapshotDetail,
+)
+def update_profile_tax_computation_status(
+    profile_id: UUID,
+    snapshot_id: UUID,
+    payload: TaxComputationSnapshotStatusUpdate,
+    db: Session = DBSession,
+) -> TaxComputationSnapshotDetail:
+    _profile_or_404(db, profile_id)
+    try:
+        return tax_computation_service.update_snapshot_status(
+            db,
+            profile_id=profile_id,
+            snapshot_id=snapshot_id,
+            status=payload.status,
+        )
+    except tax_computation_service.SnapshotNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

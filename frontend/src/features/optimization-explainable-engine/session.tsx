@@ -2,16 +2,17 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 
 import {
-  SESSION_STORAGE_KEY,
   adjacentCompareYa,
   createDefaultSession,
   hydrateIncomeAmounts,
+  sessionStorageKey,
   type InterviewIncomeState,
   type InterviewSession,
   type ReliefAnswer,
@@ -27,6 +28,8 @@ type InterviewContextValue = {
   setExcludeSourceDocId: (sourceDocId: string | null) => void;
   setSelectedCompareGroupId: (compareGroupId: string | null) => void;
   patchIncome: (patch: IncomePatch) => void;
+  replaceIncome: (income: InterviewIncomeState, assessmentYear?: string) => void;
+  replaceSession: (session: InterviewSession) => void;
   upsertReliefAnswer: (answer: ReliefAnswer) => void;
   setEvidenceCheck: (entryId: string, item: string, checked: boolean) => void;
   clearReliefAnswer: (entryId: string) => void;
@@ -35,9 +38,9 @@ type InterviewContextValue = {
 
 const InterviewContext = createContext<InterviewContextValue | null>(null);
 
-function loadSession(): InterviewSession {
+function loadSession(storageKey: string): InterviewSession {
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = sessionStorage.getItem(storageKey);
     if (!raw) return createDefaultSession();
     const parsed = JSON.parse(raw) as InterviewSession;
     if (!parsed?.assessmentYear || !parsed?.income) {
@@ -98,105 +101,164 @@ function loadSession(): InterviewSession {
   }
 }
 
-function persist(session: InterviewSession): void {
+function persist(session: InterviewSession, storageKey: string): void {
   try {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    sessionStorage.setItem(storageKey, JSON.stringify(session));
   } catch {
     // ignore quota / private mode
   }
 }
 
-export function InterviewProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<InterviewSession>(() => loadSession());
+export function InterviewProvider({
+  children,
+  profileId,
+}: {
+  children: ReactNode;
+  profileId?: string | null;
+}) {
+  const storageKey = sessionStorageKey(profileId);
+  const [session, setSession] = useState<InterviewSession>(() => loadSession(storageKey));
 
-  const setAssessmentYear = useCallback((assessmentYear: string, availableYears?: string[]) => {
-    setSession((prev) => {
-      const changed = prev.assessmentYear !== assessmentYear;
-      const next: InterviewSession = {
-        ...prev,
-        assessmentYear,
-        compareYear: changed
-          ? adjacentCompareYa(assessmentYear, availableYears)
-          : prev.compareYear,
-        excludeSourceDocId: changed ? null : prev.excludeSourceDocId,
-        ...(changed ? { reliefAnswers: [] } : {}),
+  useEffect(() => {
+    setSession(loadSession(storageKey));
+  }, [storageKey]);
+
+  const setAssessmentYear = useCallback(
+    (assessmentYear: string, availableYears?: string[]) => {
+      setSession((prev) => {
+        const changed = prev.assessmentYear !== assessmentYear;
+        const next: InterviewSession = {
+          ...prev,
+          assessmentYear,
+          compareYear: changed
+            ? adjacentCompareYa(assessmentYear, availableYears)
+            : prev.compareYear,
+          excludeSourceDocId: changed ? null : prev.excludeSourceDocId,
+          ...(changed ? { reliefAnswers: [] } : {}),
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  const setExcludeSourceDocId = useCallback(
+    (sourceDocId: string | null) => {
+      setSession((prev) => {
+        const next: InterviewSession = {
+          ...prev,
+          excludeSourceDocId: sourceDocId,
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  const setSelectedCompareGroupId = useCallback(
+    (compareGroupId: string | null) => {
+      setSession((prev) => {
+        const next: InterviewSession = {
+          ...prev,
+          selectedCompareGroupId: compareGroupId,
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  const patchIncome = useCallback(
+    (patch: IncomePatch) => {
+      setSession((prev) => {
+        const partial = typeof patch === "function" ? patch(prev.income) : patch;
+        const next = { ...prev, income: { ...prev.income, ...partial } };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  const replaceIncome = useCallback(
+    (income: InterviewIncomeState, assessmentYear?: string) => {
+      setSession((prev) => {
+        const next: InterviewSession = {
+          ...prev,
+          ...(assessmentYear ? { assessmentYear } : {}),
+          income,
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
+
+  const replaceSession = useCallback(
+    (next: InterviewSession) => {
+      const hydrated: InterviewSession = {
+        ...next,
+        income: hydrateIncomeAmounts(next.income),
       };
-      persist(next);
-      return next;
-    });
-  }, []);
+      setSession(hydrated);
+      persist(hydrated, storageKey);
+    },
+    [storageKey],
+  );
 
-  const setExcludeSourceDocId = useCallback((sourceDocId: string | null) => {
-    setSession((prev) => {
-      const next: InterviewSession = {
-        ...prev,
-        excludeSourceDocId: sourceDocId,
-      };
-      persist(next);
-      return next;
-    });
-  }, []);
+  const upsertReliefAnswer = useCallback(
+    (answer: ReliefAnswer) => {
+      setSession((prev) => {
+        const others = prev.reliefAnswers.filter((a) => a.entry_id !== answer.entry_id);
+        const next = { ...prev, reliefAnswers: [...others, answer] };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
 
-  const setSelectedCompareGroupId = useCallback((compareGroupId: string | null) => {
-    setSession((prev) => {
-      const next: InterviewSession = {
-        ...prev,
-        selectedCompareGroupId: compareGroupId,
-      };
-      persist(next);
-      return next;
-    });
-  }, []);
+  const clearReliefAnswer = useCallback(
+    (entryId: string) => {
+      setSession((prev) => {
+        const next = {
+          ...prev,
+          reliefAnswers: prev.reliefAnswers.filter((row) => row.entry_id !== entryId),
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
 
-  const patchIncome = useCallback((patch: IncomePatch) => {
-    setSession((prev) => {
-      const partial = typeof patch === "function" ? patch(prev.income) : patch;
-      const next = { ...prev, income: { ...prev.income, ...partial } };
-      persist(next);
-      return next;
-    });
-  }, []);
-
-  const upsertReliefAnswer = useCallback((answer: ReliefAnswer) => {
-    setSession((prev) => {
-      const others = prev.reliefAnswers.filter((a) => a.entry_id !== answer.entry_id);
-      const next = { ...prev, reliefAnswers: [...others, answer] };
-      persist(next);
-      return next;
-    });
-  }, []);
-
-  const clearReliefAnswer = useCallback((entryId: string) => {
-    setSession((prev) => {
-      const next = {
-        ...prev,
-        reliefAnswers: prev.reliefAnswers.filter((row) => row.entry_id !== entryId),
-      };
-      persist(next);
-      return next;
-    });
-  }, []);
-
-  const setEvidenceCheck = useCallback((entryId: string, item: string, checked: boolean) => {
-    setSession((prev) => {
-      const current = prev.evidenceChecks[entryId] ?? {};
-      const next: InterviewSession = {
-        ...prev,
-        evidenceChecks: {
-          ...prev.evidenceChecks,
-          [entryId]: { ...current, [item]: checked },
-        },
-      };
-      persist(next);
-      return next;
-    });
-  }, []);
+  const setEvidenceCheck = useCallback(
+    (entryId: string, item: string, checked: boolean) => {
+      setSession((prev) => {
+        const current = prev.evidenceChecks[entryId] ?? {};
+        const next: InterviewSession = {
+          ...prev,
+          evidenceChecks: {
+            ...prev.evidenceChecks,
+            [entryId]: { ...current, [item]: checked },
+          },
+        };
+        persist(next, storageKey);
+        return next;
+      });
+    },
+    [storageKey],
+  );
 
   const resetSession = useCallback(() => {
     const next = createDefaultSession();
     setSession(next);
-    persist(next);
-  }, []);
+    persist(next, storageKey);
+  }, [storageKey]);
 
   const value = useMemo(
     () => ({
@@ -205,6 +267,8 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
       setExcludeSourceDocId,
       setSelectedCompareGroupId,
       patchIncome,
+      replaceIncome,
+      replaceSession,
       upsertReliefAnswer,
       clearReliefAnswer,
       setEvidenceCheck,
@@ -216,6 +280,8 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
       setExcludeSourceDocId,
       setSelectedCompareGroupId,
       patchIncome,
+      replaceIncome,
+      replaceSession,
       upsertReliefAnswer,
       clearReliefAnswer,
       setEvidenceCheck,

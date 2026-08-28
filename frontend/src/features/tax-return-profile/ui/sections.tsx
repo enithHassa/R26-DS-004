@@ -29,6 +29,7 @@ import {
   blankFd,
   blankProp,
 } from "../defaults";
+import { assessmentYearSelectOptions } from "../assessment-years";
 import type { TaxReturnDetail } from "../types";
 import {
   AmountField,
@@ -160,12 +161,7 @@ function Sec1({ detail, onDetailChange, onComplete, onSave }: SecProps) {
               label="Year of Assessment"
               value={s.taxYear}
               onChange={(v) => patch({ taxYear: v })}
-              options={[
-                "2024-2025",
-                "2023-2024",
-                "2022-2023",
-                "2021-2022",
-              ].map((y) => ({ value: y, label: `YA ${y}` }))}
+              options={assessmentYearSelectOptions()}
               required
             />
           </G3>

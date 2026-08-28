@@ -256,3 +256,75 @@ def test_tax_return_detail_round_trips_pension_and_gifts(client: TestClient) -> 
 
     fetched = client.get(f"/api/v1/profiles/{pid}").json()
     assert fetched["tax_return_detail"]["section2"]["giftDescription"] == "Long-service award"
+
+
+def test_patch_tax_return_preserves_recommendation_only_scalars(client: TestClient) -> None:
+    """Auditor-filled feasibility / preference scalars must survive TRP save."""
+    created = client.post(
+        "/api/v1/profiles",
+        json=_payload(
+            monthly_expenses="200000.00",
+            monthly_debt_service="55000.00",
+            total_debt="3000000.00",
+            liquid_savings="900000.00",
+            risk_tolerance="high",
+            years_employed=12,
+            income_sources=[
+                {"kind": "employment", "monthly_amount": "320000.00", "is_taxable": True},
+                {"kind": "dividend", "monthly_amount": "15000.00", "is_taxable": True},
+            ],
+        ),
+    ).json()
+    pid = created["id"]
+
+    detail = {
+        "section1": {
+            "fullName": "Updated Name",
+            "dob": "1991-03-20",
+            "gender": "female",
+            "district": "Kandy",
+            "marital": "married",
+            "residency": "resident",
+            "nationality": "lk",
+            "dependants": "2",
+            "taxYear": "2024-2025",
+        },
+        "section2": {
+            "employers": [{"name": "Co", "gross": "2400000", "bonus": "0", "epf": "0", "etf": "0"}],
+        },
+        "section5": {
+            "properties": [{"gross": "600000", "maintenance": "120000"}],
+        },
+        "section6": {
+            "hasMedical": True,
+            "medicalPremium": "25000",
+            "lifePremium": "80000",
+            "mortgageInterest": "0",
+            "charitableApproved": "10000",
+            "charitablePresident": "5000",
+        },
+    }
+
+    resp = client.patch(
+        f"/api/v1/profiles/{pid}",
+        json={"tax_return_detail": detail, "section_completion": [1, 2, 5, 6]},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert body["full_name"] == "Updated Name"
+    assert body["district"] == "Kandy"
+    assert body["dependents"] == 2
+    assert body["health_insurance"] is True
+    assert Decimal(body["gross_monthly_income"]) == Decimal("200000.00")
+    assert Decimal(body["donations_annual"]) == Decimal("15000.00")
+
+    # Bucket B — unchanged despite section5 maintenance / no TRP inputs.
+    assert Decimal(body["monthly_expenses"]) == Decimal("200000.00")
+    assert Decimal(body["monthly_debt_service"]) == Decimal("55000.00")
+    assert Decimal(body["total_debt"]) == Decimal("3000000.00")
+    assert Decimal(body["liquid_savings"]) == Decimal("900000.00")
+    assert body["risk_tolerance"] == "high"
+    assert body["years_employed"] == 12
+    assert len(body["income_sources"]) == 2
+    assert body["income_sources"][1]["kind"] == "dividend"

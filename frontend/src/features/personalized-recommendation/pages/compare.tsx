@@ -10,13 +10,13 @@ import { CompareCharts } from "../components/compare-charts";
 import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { CATALOG_STRATEGIES } from "../constants/strategies";
-import { useDashboardStore } from "../store/dashboard-store";
+import { useDashboardStore, useActiveProfileId } from "../store/dashboard-store";
 import type { ImpactSimulationResponse } from "../types";
 import { formatLkr } from "../utils/format-lkr";
 
 export function ComparePage() {
   const [searchParams] = useSearchParams();
-  const activeProfileId = useDashboardStore((s) => s.activeProfileId);
+  const activeProfileId = useActiveProfileId();
   const impactScenario = useDashboardStore((s) => s.impactScenario);
 
   const [profileId, setProfileId] = useState(searchParams.get("profile") ?? activeProfileId ?? "");

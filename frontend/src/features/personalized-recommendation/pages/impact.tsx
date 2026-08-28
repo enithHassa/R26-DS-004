@@ -18,14 +18,14 @@ import { ImpactSummaryCards } from "../components/impact-summary-cards";
 import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { CATALOG_STRATEGIES, recommendationCodeToCatalog } from "../constants/strategies";
-import { useDashboardStore } from "../store/dashboard-store";
+import { useDashboardStore, useActiveProfileId } from "../store/dashboard-store";
 import { formatLkr } from "../utils/format-lkr";
 
 export function ImpactPage() {
   const { strategyId: routeStrategy } = useParams();
   const [searchParams] = useSearchParams();
 
-  const activeProfileId = useDashboardStore((s) => s.activeProfileId);
+  const activeProfileId = useActiveProfileId();
   const impactScenario = useDashboardStore((s) => s.impactScenario);
   const toImpactScenarioPayload = useDashboardStore((s) => s.toImpactScenarioPayload);
 

@@ -130,6 +130,8 @@ def ingest_document_metadata(
     db: Session,
     upload: UploadFile,
     content: bytes,
+    financial_profile_id: uuid.UUID | None = None,
+    tax_year: str | None = None,
 ) -> IngestionResult:
     """Create document, metadata extraction run, page stubs, then router run (Phase 2)."""
     if not content:
@@ -150,6 +152,8 @@ def ingest_document_metadata(
         bank_detected=None,
         status=DocumentStatus.PROCESSING,
         storage_path=str(storage_path),
+        financial_profile_id=financial_profile_id,
+        tax_year=tax_year,
     )
     db.add(document)
     db.flush()
@@ -541,14 +545,19 @@ def list_documents(
     *,
     limit: int = 50,
     offset: int = 0,
+    financial_profile_id: uuid.UUID | None = None,
 ) -> tuple[list[tuple[Document, int, str | None]], int]:
-    total = int(db.scalar(select(func.count()).select_from(Document)) or 0)
+    base = select(Document)
+    if financial_profile_id is not None:
+        base = base.where(Document.financial_profile_id == financial_profile_id)
+
+    count_stmt = select(func.count()).select_from(Document)
+    if financial_profile_id is not None:
+        count_stmt = count_stmt.where(Document.financial_profile_id == financial_profile_id)
+    total = int(db.scalar(count_stmt) or 0)
     documents = list(
         db.scalars(
-            select(Document)
-            .order_by(Document.uploaded_at.desc())
-            .offset(offset)
-            .limit(limit),
+            base.order_by(Document.uploaded_at.desc()).offset(offset).limit(limit),
         ).all(),
     )
     summaries: list[tuple[Document, int, str | None]] = []
@@ -725,6 +734,8 @@ def _persist_extraction_phase(
                     period_end=ctx.period_end,
                 ),
             )
+        document.statement_period_from = ctx.period_start
+        document.statement_period_to = ctx.period_end
 
     extract_run.status = ExtractionRunStatus.COMPLETED
     extract_run.finished_at = now
