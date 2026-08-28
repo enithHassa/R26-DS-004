@@ -609,7 +609,7 @@ function Sec2({ detail, onDetailChange, onComplete, onSave }: SecProps) {
                   hint="Vehicle, rent, meal allowances"
                 />
                 <AmountField
-                  label="Overtime Pay (LKR)"
+                  label="Overtime (LKR)"
                   value={e.overtime}
                   onChange={(v) => u("overtime", v)}
                 />

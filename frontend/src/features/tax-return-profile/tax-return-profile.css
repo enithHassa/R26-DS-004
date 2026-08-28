@@ -214,7 +214,8 @@
 
 .trp-label-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 6px;
 }
@@ -224,6 +225,9 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .trp-label-required {
@@ -398,6 +402,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+
+.trp-g2 > *,
+.trp-g3 > *,
+.trp-g4 > *,
+.trp-field {
+  min-width: 0;
 }
 
 .trp-g3 {
@@ -949,6 +960,12 @@
 
 .trp-spacer-sm {
   height: 16px;
+}
+
+@media (max-width: 1280px) {
+  .trp-g4 {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 1024px) {

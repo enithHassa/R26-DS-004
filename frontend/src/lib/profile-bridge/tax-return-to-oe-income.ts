@@ -1,4 +1,5 @@
-import { detailFromProfile, taxYearToOrm } from "@/features/tax-return-profile/mappers";
+import { detailFromProfile } from "@/features/tax-return-profile/mappers";
+import { normalizeTaxYearToOrm } from "@/lib/profile-bridge/tax-year-bridge";
 import type { TaxReturnDetail } from "@/features/tax-return-profile/types";
 import type { FinancialProfile } from "@/features/personalized-recommendation/types";
 import type {
@@ -216,7 +217,7 @@ export function taxReturnDetailToInterviewIncome(
     terminalBenefits,
   });
 
-  const assessmentYear = taxYearToOrm(detail.section1.taxYear || "") || "2025_26";
+  const assessmentYear = normalizeTaxYearToOrm(detail.section1.taxYear || "") || "2025_26";
 
   return { assessmentYear, income };
 }

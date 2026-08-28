@@ -49,13 +49,18 @@ def _sum_employer_field(employers: list[dict[str, Any]], key: str) -> Decimal:
 
 
 def _ya_to_tax_year(ya: str) -> str:
-    """``2024-2025`` → ``2024_25`` for the profile ``tax_year`` column."""
-    cleaned = ya.strip()
+    """``2024-2025`` / ``2024/25`` → ``2024_25`` for the profile ``tax_year`` column."""
+    cleaned = ya.strip().replace(" ", "")
     if "_" in cleaned and len(cleaned) == 7:
         return cleaned
+    if "/" in cleaned:
+        start, end = cleaned.split("/", 1)
+        if start.isdigit() and len(start) == 4 and end:
+            return f"{start}_{end[-2:]}"
     if "-" in cleaned:
         start, end = cleaned.split("-", 1)
-        return f"{start}_{end[-2:]}"
+        if start.isdigit() and len(start) == 4 and end:
+            return f"{start}_{end[-2:]}"
     if cleaned.isdigit() and len(cleaned) == 4:
         start = int(cleaned)
         return f"{cleaned}_{str(start + 1)[-2:]}"
