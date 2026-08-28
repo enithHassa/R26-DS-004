@@ -105,7 +105,11 @@ def update_profile(
     return FinancialProfile.model_validate(orm)
 
 
-@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
 def delete_profile(profile_id: UUID, db: Session = DBSession) -> None:
     try:
         profile_service.delete_profile(db, profile_id)
