@@ -72,16 +72,17 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
     markComplete,
     isSaving,
     isLoading,
-    error,
+    loadError,
+    saveError,
   } = useTaxReturnProfile(profileId);
 
   if (isLoading) {
     return <div className="trp-loading">Loading tax return profile…</div>;
   }
 
-  if (error) {
+  if (loadError) {
     const message =
-      error instanceof Error ? error.message : "Could not load your profile from the server.";
+      loadError instanceof Error ? loadError.message : "Could not load your profile from the server.";
     const needsMigration =
       message.includes("500") ||
       message.toLowerCase().includes("internal server") ||
@@ -108,6 +109,8 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
   const progress = Math.round((completed.size / SECTIONS.length) * 100);
   const estimates = computeQuickEstimates(detail);
   const taxYear = detail.section1.taxYear;
+  const saveErrorMessage =
+    saveError instanceof Error ? saveError.message : saveError ? String(saveError) : null;
 
   const sectionProps = {
     detail,
@@ -240,6 +243,16 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
         </aside>
 
         <div className="trp-main">
+          {saveErrorMessage ? (
+            <div
+              className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+              role="alert"
+            >
+              <p className="font-semibold">Could not save draft</p>
+              <p className="mt-1 text-red-200/90">{saveErrorMessage}</p>
+            </div>
+          ) : null}
+
           {activeSection === 1 && <Sec1 {...sectionProps} />}
           {activeSection === 2 && <Sec2 {...sectionProps} />}
           {activeSection === 3 && <Sec3 {...sectionProps} />}

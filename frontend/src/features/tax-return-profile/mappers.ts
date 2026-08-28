@@ -22,24 +22,7 @@ function sumEmployerField(employers: EmployerRow[], key: keyof EmployerRow): num
   }, 0);
 }
 
-/** ``2024-2025`` or ``2024`` → ``2024_25`` for the ORM ``tax_year`` column. */
-export function taxYearToOrm(ya: string): string {
-  const cleaned = ya.trim();
-  if (/^\d{4}_\d{2}$/.test(cleaned)) {
-    return cleaned;
-  }
-  if (cleaned.includes("-")) {
-    const [start, end] = cleaned.split("-", 2);
-    if (start && end) {
-      return `${start}_${end.slice(-2)}`;
-    }
-  }
-  if (/^\d{4}$/.test(cleaned)) {
-    const start = Number(cleaned);
-    return `${cleaned}_${String(start + 1).slice(-2)}`;
-  }
-  return cleaned;
-}
+import { normalizeTaxYearToOrm, taxYearForUi } from "@/lib/profile-bridge/tax-year-bridge";
 
 function sumDonations(section6: TaxReturnDetail["section6"]): string {
   const total =
@@ -102,7 +85,11 @@ export function detailFromProfile(profile: FinancialProfile): TaxReturnDetail {
   }
   return {
     ...base,
-    section1: { ...base.section1, ...stored.section1 },
+    section1: {
+      ...base.section1,
+      ...stored.section1,
+      taxYear: taxYearForUi(stored.section1?.taxYear ?? base.section1.taxYear ?? profile.tax_year),
+    },
     section2: {
       ...base.section2,
       ...stored.section2,
@@ -161,7 +148,8 @@ export function detailToUpdatePayload(
     payload.nationality = natMap[s1.nationality] ?? s1.nationality;
   }
   payload.dependents = Number(s1.dependants) || 0;
-  if (s1.taxYear) payload.tax_year = taxYearToOrm(s1.taxYear);
+  const ormTaxYear = normalizeTaxYearToOrm(s1.taxYear);
+  if (ormTaxYear) payload.tax_year = ormTaxYear;
 
   if (grossAnnual > 0) {
     payload.gross_monthly_income = String(Math.round(grossAnnual / 12));
