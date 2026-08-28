@@ -197,6 +197,13 @@ export function createDefaultTaxReturnDetail(profile?: FinancialProfile): TaxRet
       hasCommission: false,
       commissionAmount: "",
       commissionPayer: "",
+      hasPension: false,
+      pensionAmount: "",
+      pensionPayer: "",
+      pensionType: "",
+      hasGifts: false,
+      giftAmount: "",
+      giftDescription: "",
     },
     section3: {
       fds: [

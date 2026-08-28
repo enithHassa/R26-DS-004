@@ -119,6 +119,13 @@ export interface Section2Detail {
   hasCommission: boolean;
   commissionAmount: string;
   commissionPayer: string;
+  hasPension: boolean;
+  pensionAmount: string;
+  pensionPayer: string;
+  pensionType: string;
+  hasGifts: boolean;
+  giftAmount: string;
+  giftDescription: string;
 }
 
 export interface Section3Detail {

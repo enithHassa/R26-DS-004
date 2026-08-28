@@ -6,6 +6,7 @@ import {
   CheckCircle,
   FileCheck,
   FileText,
+  Gift,
   Globe,
   Home,
   Landmark,
@@ -814,6 +815,83 @@ function Sec2({ detail, onDetailChange, onComplete, onSave }: SecProps) {
                 label="Paying Organisation"
                 value={s.commissionPayer}
                 onChange={(v) => patch({ commissionPayer: v })}
+              />
+            </G2>
+          )}
+        </Stack>
+      </Card>
+
+      <Card
+        title="Pension Payments"
+        subtitle="Regular pension income from a former employer or approved scheme (Sec 5(2)(a))"
+        icon={PiggyBank}
+        accent={C.blue}
+        optional
+      >
+        <Stack>
+          <Toggle
+            label="I received pension payments during the year"
+            subLabel="Include employer or private pension paid to you — not EPF lump withdrawals (use Gratuity if applicable)"
+            checked={s.hasPension}
+            onChange={(v) => patch({ hasPension: v })}
+          />
+          {s.hasPension && (
+            <G3>
+              <AmountField
+                label="Total Pension Received (LKR)"
+                value={s.pensionAmount}
+                onChange={(v) => patch({ pensionAmount: v })}
+                required
+              />
+              <Field
+                label="Paying Organisation / Scheme"
+                value={s.pensionPayer}
+                onChange={(v) => patch({ pensionPayer: v })}
+                placeholder="e.g. Former employer, SLA Pension"
+              />
+              <Select
+                label="Pension Type"
+                value={s.pensionType}
+                onChange={(v) => patch({ pensionType: v })}
+                options={[
+                  { value: "employer", label: "Employer Pension" },
+                  { value: "government", label: "Government / Public Service" },
+                  { value: "private", label: "Private / Approved Scheme" },
+                  { value: "foreign", label: "Foreign Pension" },
+                ]}
+              />
+            </G3>
+          )}
+        </Stack>
+      </Card>
+
+      <Card
+        title="Gifts in Respect of Employment"
+        subtitle="Cash or benefits received as gifts from your employer (Sec 5(2)(i))"
+        icon={Gift}
+        accent={C.purple}
+        optional
+      >
+        <Stack>
+          <Toggle
+            label="I received gifts from my employer or in connection with employment"
+            subLabel="Report the amount you received — your auditor confirms whether it is taxable employment income"
+            checked={s.hasGifts}
+            onChange={(v) => patch({ hasGifts: v })}
+          />
+          {s.hasGifts && (
+            <G2>
+              <AmountField
+                label="Total Gift Value Received (LKR)"
+                value={s.giftAmount}
+                onChange={(v) => patch({ giftAmount: v })}
+                required
+              />
+              <Field
+                label="Description / Occasion"
+                value={s.giftDescription}
+                onChange={(v) => patch({ giftDescription: v })}
+                placeholder="e.g. Long-service award, festival gift"
               />
             </G2>
           )}
