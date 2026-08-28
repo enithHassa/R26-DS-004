@@ -69,6 +69,7 @@ export function useTaxReturnProfile(profileId: string) {
     markComplete,
     isSaving: saveMutation.isPending,
     isLoading: profileQuery.isLoading,
-    error: profileQuery.error ?? saveMutation.error ?? null,
+    loadError: profileQuery.error ?? null,
+    saveError: saveMutation.error ?? null,
   };
 }

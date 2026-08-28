@@ -125,20 +125,7 @@ function nationalityToCode(nationality?: string | null): string {
   return "lk";
 }
 
-function taxYearForUi(taxYear?: string): string {
-  if (!taxYear) return "";
-  if (taxYear.includes("-")) return taxYear;
-  const match = /^(\d{4})_(\d{2})$/.exec(taxYear);
-  if (match) {
-    const endYear = `${match[1].slice(0, 2)}${match[2]}`;
-    return `${match[1]}-${endYear}`;
-  }
-  if (/^\d{4}$/.test(taxYear)) {
-    const start = Number(taxYear);
-    return `${start}-${start + 1}`;
-  }
-  return taxYear;
-}
+import { normalizeTaxYearToOrm, taxYearForUi } from "@/lib/profile-bridge/tax-year-bridge";
 
 function hasPositiveAmount(value?: string | null): boolean {
   return value != null && value !== "" && Number(value) > 0;
