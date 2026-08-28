@@ -23,7 +23,6 @@ from oe_engine_app.services.archive import archive_previous_and_diff
 from oe_engine_app.services.effective_dates import fill_effective_dates
 from oe_engine_app.services.engine_scope import infer_engine_scope
 from oe_engine_app.services.extract_llm import ExtractLLM, QuoteCheck
-from oe_engine_app.services.quote_gate import quote_gate
 from oe_engine_app.services.split_period import expand_split_period_relief
 from oe_engine_app.services.spend import (
     PHASE6_HARD_STOP_USD,
@@ -31,8 +30,14 @@ from oe_engine_app.services.spend import (
     SpendLedger,
 )
 from oe_engine_app.services.extract_dedupe import (
+    canonical_compare_group_id,
     collapse_duplicate_extract_entities,
     scrub_interview_fields,
+)
+from oe_engine_app.services.quote_gate import quote_gate, trim_quote_to_verbatim
+from oe_engine_app.services.terminal_benefit import (
+    is_terminal_rate_group,
+    stamp_terminal_rate_payload,
 )
 from oe_engine_app.services.windows import (
     DocText,
@@ -69,6 +74,12 @@ _GUIDE_GROUP_ALIASES = {
     "senior_citizen_interest_relief": "senior_citizen_interest_income_relief",
     "senior_citizen_relief": "senior_citizen_interest_income_relief",
     "foreign_currency_relief": "foreign_currency_income_relief",
+    "foreign_currency_income": "foreign_currency_income_relief",
+    "resident_individual_expenditure": "expenditure_relief",
+    "fifth_schedule_2_f": "expenditure_relief",
+    "contribution_to_samurdhi_shop": "qp_samurdhi_shop",
+    "contribution_shop_samurdhi": "qp_samurdhi_shop",
+    "samurdhi_shop_contribution": "qp_samurdhi_shop",
     "charitable_donation": "donation_to_charitable_institution",
     "donations": "donation_to_charitable_institution",
     "solar": "solar_panel_relief",
@@ -129,17 +140,19 @@ def _relief_entity(
     check: QuoteCheck,
 ) -> dict[str, Any]:
     elig = row.eligibility
+    quote = trim_quote_to_verbatim(row.quote, window.text, doc.stream, doc.tables_blob)
+    group = canonical_compare_group_id(row.compare_group_id, entity_kind="relief")
     entity = ReliefEntity(
         entry_id=f"{source_doc_id}:{window_id}:relief:{idx}",
         source_doc_id=source_doc_id,
-        compare_group_id=row.compare_group_id,
+        compare_group_id=group,
         display_name=row.display_name,
         paragraph_ref=row.paragraph_ref,
         section_ref=row.section_ref,
         act_name=row.act_name,
         cap_amount=row.cap_amount or None,
         unit=_normalize_unit(row.unit),
-        quote=row.quote,
+        quote=quote,
         eligibility={
             "text": elig.text,
             "review_status": "pending",
@@ -157,11 +170,11 @@ def _relief_entity(
             applies_to="",
             display_name=row.display_name,
             eligibility_text=elig.text,
-            compare_group_id=row.compare_group_id,
+            compare_group_id=group,
         ),
         pass2_verbatim=check.verbatim,
         pass2_note=check.note,
-        **_gate_fields(row.quote, window, doc),
+        **_gate_fields(quote, window, doc),
     )
     return fill_effective_dates(entity.model_dump(mode="json"))
 
@@ -176,10 +189,12 @@ def _rate_entity(
     doc: DocText,
     check: QuoteCheck,
 ) -> dict[str, Any]:
+    raw_group = row.compare_group_id or "first_schedule_rates"
+    group = canonical_compare_group_id(raw_group, entity_kind="rate_band")
     entity = RateBandEntity(
         entry_id=f"{source_doc_id}:{window_id}:band:{idx}",
         source_doc_id=source_doc_id,
-        compare_group_id=row.compare_group_id or "first_schedule_rates",
+        compare_group_id=group,
         band_index=row.band_index,
         band_label=row.band_label,
         lower=row.lower,
@@ -191,17 +206,23 @@ def _rate_entity(
         effective_from=row.effective_from,
         effective_to=row.effective_to or "",
         quote=row.quote,
+        employment_period_condition=str(getattr(row, "employment_period_condition", "") or ""),
+        rule_family=str(getattr(row, "rule_family", "") or ""),
         engine_scope=infer_engine_scope(
             applies_to=row.applies_to,
             display_name=row.band_label,
-            compare_group_id=row.compare_group_id or "first_schedule_rates",
+            compare_group_id=raw_group or group,
             band_label=row.band_label,
         ),
         pass2_verbatim=check.verbatim,
         pass2_note=check.note,
         **_gate_fields(row.quote, window, doc),
     )
-    return fill_effective_dates(entity.model_dump(mode="json"))
+    payload = fill_effective_dates(entity.model_dump(mode="json"))
+    if is_terminal_rate_group(str(payload.get("compare_group_id") or raw_group)):
+        payload["compare_group_id"] = raw_group
+        payload = stamp_terminal_rate_payload(payload)
+    return payload
 
 
 def _guide_entity(

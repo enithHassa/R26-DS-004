@@ -28,10 +28,10 @@ from oe_engine_app.services.compiler import (
     assessment_year_label,
     compile_maps,
     load_promoted_entities,
-    rate_winner_key,
     recompile_year_views,
     resolved_effective_from,
     validate_rate_band_set,
+    validate_rate_ladder_key,
 )
 from oe_engine_app.services.engine_scope import is_promotable_scope, resolve_engine_scope
 from oe_engine_app.services.extract_dedupe import (
@@ -908,7 +908,7 @@ def impact_preview(session: Session, source_doc_id: str, *, paths: ActAdminPaths
     rate_impact = _diff_maps(
         before_rates,
         after_rates,
-        key_fn=lambda item: (rate_winner_key(item), int(item.get("band_index") or 0)),
+        key_fn=lambda item: (validate_rate_ladder_key(item), int(item.get("band_index") or 0)),
     )
     relief_group_ids = {
         str(e.get("compare_group_id") or "")

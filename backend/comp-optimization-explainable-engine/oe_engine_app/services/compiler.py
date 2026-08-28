@@ -19,7 +19,15 @@ from oe_engine_app.services.definitions import (
     interpretation_section_ref,
 )
 from oe_engine_app.services.engine_scope import is_promotable_scope
+from oe_engine_app.services.extract_dedupe import canonical_compare_group_id, named_window_rank
 from oe_engine_app.services.sub_items import sub_items_for
+from oe_engine_app.services.terminal_benefit import (
+    TERMINAL_BENEFIT_GROUP,
+    clip_period_to_year,
+    infer_employment_period_condition,
+    is_terminal_rate_group,
+    stamp_terminal_rate_payload,
+)
 
 ASSESSMENT_YEARS: tuple[str, ...] = (
     "2018_19",
@@ -42,12 +50,29 @@ _DOC_YEAR_RE = re.compile(r"(\d{4})$")
 # First YA start that must not receive the 24/2017 row: 2020-04-01.
 RELIEF_SUNSET_YA_START: dict[str, date] = {
     "employment_income_relief": date(2020, 4, 1),
+    # Fifth Schedule 2(f) ended w.e.f. 1 Jan 2023 (Act 45 of 2022). First YA
+    # that must not receive the last-wins row: 2023-04-01.
+    "expenditure_relief": date(2023, 4, 1),
 }
+
+# Fifth Schedule 2(e) (Act 24/2017) was limited to qualifying income up to
+# 31 Dec 2019 by Act 10 of 2021 s.55(2)(d). Later consolidated reprints still
+# quote the Rs. 15m cap; those reprints must not reopen YA 2020/21+.
+RELIEF_HARD_CLOSE_YA_START: dict[str, date] = {
+    "foreign_currency_income_relief": date(2020, 4, 1),
+}
+
+FOREIGN_CURRENCY_INCOME_THROUGH = date(2019, 12, 31)
 
 
 def year_start(assessment_year: str) -> date:
     year = int(assessment_year.split("_")[0])
     return date(year, 4, 1)
+
+
+def year_end(assessment_year: str) -> date:
+    start = year_start(assessment_year)
+    return date(start.year + 1, 4, 1)
 
 
 def assessment_year_label(ya_start: date) -> str:
@@ -181,11 +206,49 @@ def entity_applies(payload: dict[str, Any], assessment_year: str) -> bool:
         return False
     if effective_to is not None and start >= effective_to:
         return False
-    group = str(payload.get("compare_group_id") or "")
+    return _relief_open_for_ya_start(
+        payload,
+        start,
+        effective_from=effective_from,
+    )
+
+
+def _relief_open_for_ya_start(
+    payload: dict[str, Any],
+    ya_start: date,
+    *,
+    effective_from: date | None = None,
+) -> bool:
+    """Hard-close / sunset gates shared by compile and interview list filtering."""
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
+    hard_close = RELIEF_HARD_CLOSE_YA_START.get(group)
+    if hard_close is not None and ya_start >= hard_close:
+        return False
+    if effective_from is None:
+        effective_from = resolved_effective_from(payload)
     sunset = RELIEF_SUNSET_YA_START.get(group)
-    if sunset is not None and start >= sunset and effective_from < sunset:
+    if sunset is not None and ya_start >= sunset and effective_from < sunset:
         return False
     return True
+
+
+def relief_interview_visible(payload: dict[str, Any], assessment_year: str) -> bool:
+    """Drop hard-closed / sunset reliefs from taxpayer interview (incl. stale views)."""
+    start = year_start(assessment_year)
+    effective_from = resolved_effective_from(payload)
+    effective_to = _parse_iso(str(payload.get("effective_to") or ""))
+    if start < effective_from:
+        return False
+    if effective_to is not None and start >= effective_to:
+        return False
+    return _relief_open_for_ya_start(
+        payload,
+        start,
+        effective_from=effective_from,
+    )
 
 
 def _sort_key(row: OeEnginePromotedEntity) -> tuple:
@@ -193,6 +256,19 @@ def _sort_key(row: OeEnginePromotedEntity) -> tuple:
     effective = resolved_effective_from(payload)
     promoted = row.promoted_at or datetime.min
     return (effective, promoted, row.id or 0)
+
+
+def _relief_winner_better(row: OeEnginePromotedEntity, current: OeEnginePromotedEntity) -> bool:
+    """Later effective date wins; reprints of the same date keep the named schedule."""
+    row_key = _sort_key(row)
+    cur_key = _sort_key(current)
+    if row_key[0] != cur_key[0]:
+        return row_key > cur_key
+    named_row = named_window_rank(str(row.entry_id or ""))
+    named_cur = named_window_rank(str(current.entry_id or ""))
+    if named_row != named_cur:
+        return named_row < named_cur
+    return row_key >= cur_key
 
 
 # Reliefs the engine has modelled and that genuinely reduce tax on their own.
@@ -206,7 +282,6 @@ AUTO_APPLYING_RELIEF_GROUPS = frozenset(
         "rental_income_relief",
         "rent_relief",
         "senior_citizen_interest_income_relief",
-        "foreign_currency_income_relief",
         "donation_to_charitable_institution",
         "donation_to_government_or_approved_fund",
         "qualifying_payment_carry_forward",
@@ -217,13 +292,22 @@ AUTO_APPLYING_RELIEF_GROUPS = frozenset(
 
 def _stated_or_default_input_kind(payload: dict[str, Any]) -> str:
     stated = str(payload.get("input_kind") or "").strip()
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
+    if group == "qp_samurdhi_shop":
+        return "amount"
+    if group == "foreign_currency_income_relief":
+        return "amount"
     if stated:
         return stated
-    group = str(payload.get("compare_group_id") or "")
     if group == "personal_relief":
         return "notice"
     if group in {"solar_panel_relief", "qualifying_payments", "donations"}:
         return "yes_no_amount"
+    if group == "expenditure_relief":
+        return "amount"
     if group in {"rental_income_relief", "rent_relief"}:
         return "boolean"
     return "notice"
@@ -237,7 +321,10 @@ def infer_input_kind(payload: dict[str, Any]) -> str:
     # so it takes a rupee amount per item instead of applying on its own.
     if payload.get("sub_items"):
         return "amount"
-    group = str(payload.get("compare_group_id") or "")
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
     if group in AUTO_APPLYING_RELIEF_GROUPS:
         return kind
     # An uncapped relief that states a minimum spend is still expenditure the
@@ -256,7 +343,10 @@ def infer_engine_binding(payload: dict[str, Any]) -> dict[str, str]:
     binding = payload.get("engine_binding")
     if isinstance(binding, dict) and str(binding.get("kind") or "").strip():
         return {"kind": str(binding.get("kind"))}
-    group = str(payload.get("compare_group_id") or "")
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
     mapping = {
         "solar_panel_relief": "solar_panel_relief",
         "rental_income_relief": "rent_relief",
@@ -264,12 +354,45 @@ def infer_engine_binding(payload: dict[str, Any]) -> dict[str, str]:
         "qualifying_payments": "qualifying_payments",
         "donations": "donations",
         "senior_citizen_interest_relief": "senior_citizen_interest_relief",
+        "expenditure_relief": "filing_line",
+        "qp_samurdhi_shop": "filing_line",
+        "foreign_currency_income_relief": "filing_line",
     }
     return {"kind": mapping.get(group, "none")}
 
 
+def _stamp_foreign_currency_year_copy(payload: dict[str, Any], assessment_year: str) -> None:
+    """Keep Fifth Schedule 2(e) in 2018/19–2019/20, with the Act 10 income cutoff."""
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
+    if group != "foreign_currency_income_relief":
+        return
+    payload["display_name"] = "Foreign currency service income relief"
+    if not str(payload.get("effective_from") or "").strip():
+        payload["effective_from"] = year_start("2018_19").isoformat()
+    if not str(payload.get("effective_to") or "").strip():
+        payload["effective_to"] = FOREIGN_CURRENCY_INCOME_THROUGH.isoformat()
+    if assessment_year != "2019_20":
+        return
+    hint = (
+        "Qualifying foreign-currency service income is counted only up to "
+        "31 December 2019."
+    )
+    existing = str(payload.get("help") or "").strip()
+    if hint.lower() not in existing.lower():
+        payload["help"] = f"{existing} {hint}".strip() if existing else hint
+
+
 def default_question_prompt(payload: dict[str, Any]) -> str:
     """Taxpayer question used when extract / prior catalog did not supply one."""
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
+    if group == "foreign_currency_income_relief":
+        return "What is your qualifying foreign-currency service income?"
     name = str(payload.get("display_name") or payload.get("compare_group_id") or "Relief")
     kind = str(payload.get("input_kind") or "notice")
     if kind == "notice":
@@ -302,6 +425,77 @@ def rate_winner_key(payload: dict[str, Any]) -> str:
     return text
 
 
+def compile_rate_key(payload: dict[str, Any]) -> str:
+    """Last-wins key: ordinary ladders share applies_to; terminal family is independent."""
+    applies = rate_winner_key(payload)
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="rate_band",
+    )
+    if is_terminal_rate_group(group) or is_terminal_rate_group(
+        str(payload.get("compare_group_id") or "")
+    ):
+        condition = infer_employment_period_condition(payload)
+        period_to = str(payload.get("period_to") or "").strip() or "full_ya"
+        return f"terminal|{applies}|{condition}|{period_to}"
+    return f"ordinary|{applies}"
+
+
+def entity_overlaps_year(payload: dict[str, Any], assessment_year: str) -> bool:
+    """True when [effective_from, effective_to] overlaps the YA (inclusive end date)."""
+    ya_start = year_start(assessment_year)
+    ya_end = year_end(assessment_year)
+    effective_from = resolved_effective_from(payload)
+    effective_to = _parse_iso(str(payload.get("effective_to") or ""))
+    if effective_from >= ya_end:
+        return False
+    if effective_to is not None and effective_to < ya_start:
+        return False
+    return True
+
+
+def _prepare_rate_payload(
+    row: OeEnginePromotedEntity,
+    assessment_year: str,
+) -> dict[str, Any] | None:
+    payload = payload_for_apply(row)
+    if is_terminal_rate_group(str(payload.get("compare_group_id") or "")):
+        payload = stamp_terminal_rate_payload(payload)
+        if not entity_overlaps_year(payload, assessment_year):
+            return None
+        period_from, period_to = clip_period_to_year(
+            ya_start=year_start(assessment_year),
+            ya_end=year_end(assessment_year),
+            effective_from=resolved_effective_from(payload),
+            effective_to=_parse_iso(str(payload.get("effective_to") or "")),
+        )
+        if period_from > period_to:
+            return None
+        payload["period_from"] = period_from.isoformat()
+        payload["period_to"] = period_to.isoformat()
+        payload["compare_group_id"] = TERMINAL_BENEFIT_GROUP
+        payload["rule_family"] = TERMINAL_BENEFIT_GROUP
+        payload["ladder_key"] = compile_rate_key(payload)
+        return payload
+    if not entity_applies(payload, assessment_year):
+        return None
+    payload["ladder_key"] = compile_rate_key(payload)
+    return payload
+
+
+def validate_rate_ladder_key(entity: dict[str, Any]) -> str:
+    applies = rate_winner_key(entity)
+    group = canonical_compare_group_id(
+        str(entity.get("compare_group_id") or ""),
+        entity_kind="rate_band",
+    )
+    if is_terminal_rate_group(group) or is_terminal_rate_group(
+        str(entity.get("compare_group_id") or "")
+    ):
+        return f"terminal|{applies}|{infer_employment_period_condition(entity)}"
+    return f"ordinary|{applies}"
+
+
 def _decimal(value: object) -> float | None:
     text = str(value or "").replace(",", "").strip()
     if not text:
@@ -313,13 +507,13 @@ def _decimal(value: object) -> float | None:
 
 
 def validate_rate_band_set(entities: list[dict[str, Any]]) -> list[str]:
-    """Validate ordering, overlaps, gaps, and duplicate indices per taxpayer class."""
+    """Validate ordering, overlaps, gaps, and duplicate indices per ladder."""
     errors: list[str] = []
     by_class: dict[str, list[dict[str, Any]]] = {}
     for entity in entities:
         if entity.get("entity_kind") != "rate_band":
             continue
-        key = rate_winner_key(entity)
+        key = validate_rate_ladder_key(entity)
         by_class.setdefault(key, []).append(entity)
     for applies_to, bands in sorted(by_class.items()):
         ordered = sorted(bands, key=lambda row: int(row.get("band_index") or 0))
@@ -357,6 +551,7 @@ def _repeal_dates(rows: list[OeEnginePromotedEntity]) -> dict[str, date]:
         if str(payload.get("change_action") or "") != "repeal":
             continue
         group = str(payload.get("compare_group_id") or row.compare_group_id or "")
+        group = canonical_compare_group_id(group, entity_kind="relief")
         if not group:
             continue
         repeal_from = resolved_effective_from(payload)
@@ -441,16 +636,22 @@ def compile_maps(
         for row in relief_rows:
             if not entity_applies(payload_for_apply(row), ya):
                 continue
-            group = row.compare_group_id
             payload = payload_for_apply(row)
+            group = canonical_compare_group_id(
+                str(payload.get("compare_group_id") or row.compare_group_id or ""),
+                entity_kind="relief",
+            )
+            if not group:
+                continue
             winner_from = resolved_effective_from(payload)
             if _repealed_for_year(group, ya, repeal_map, winner_from):
                 continue
             current = winners.get(group)
-            if current is None or _sort_key(row) >= _sort_key(current):
+            if current is None or _relief_winner_better(row, current):
                 winners[group] = row
         for group, row in sorted(winners.items()):
             payload = strip_threshold_cap(payload_for_apply(row))
+            payload["compare_group_id"] = group
             items = resolve_sub_items(payload)
             if items:
                 payload["sub_items"] = items
@@ -463,30 +664,36 @@ def compile_maps(
                 payload["question_prompt"] = default_question_prompt(payload)
             payload["help"] = str(payload.get("help") or "")
             payload["assessment_year"] = ya
+            _stamp_foreign_currency_year_copy(payload, ya)
             reliefs_by_year[ya].append(payload)
         attach_covered_items(reliefs_by_year[ya])
 
         rate_winners: dict[str, OeEnginePromotedEntity] = {}
+        prepared: list[tuple[OeEnginePromotedEntity, dict[str, Any]]] = []
         for row in rate_rows:
-            apply_payload = payload_for_apply(row)
-            if not entity_applies(apply_payload, ya):
+            payload = _prepare_rate_payload(row, ya)
+            if payload is None:
                 continue
-            key = rate_winner_key(apply_payload)
+            prepared.append((row, payload))
+            key = str(payload.get("ladder_key") or compile_rate_key(payload))
             current = rate_winners.get(key)
             if current is None or _sort_key(row) >= _sort_key(current):
                 rate_winners[key] = row
         bands: list[dict[str, Any]] = []
         for key, winner in rate_winners.items():
-            for row in rate_rows:
-                apply_payload = payload_for_apply(row)
+            for row, payload in prepared:
                 if row.source_doc_id != winner.source_doc_id:
                     continue
-                if rate_winner_key(apply_payload) != key:
+                if str(payload.get("ladder_key") or compile_rate_key(payload)) != key:
                     continue
-                if not entity_applies(apply_payload, ya):
-                    continue
-                bands.append(dict(apply_payload))
-        bands.sort(key=lambda b: int(b.get("band_index") or 0))
+                bands.append(dict(payload))
+        bands.sort(
+            key=lambda b: (
+                str(b.get("compare_group_id") or ""),
+                str(b.get("ladder_key") or ""),
+                int(b.get("band_index") or 0),
+            )
+        )
         for band in bands:
             band["assessment_year"] = ya
         rates_by_year[ya] = bands
@@ -531,6 +738,8 @@ def persist_year_views(
             session.add(
                 OeEngineYearRate(
                     assessment_year=ya,
+                    compare_group_id=str(payload.get("compare_group_id") or "first_schedule_rates"),
+                    ladder_key=str(payload.get("ladder_key") or compile_rate_key(payload)),
                     band_index=int(payload.get("band_index") or 0),
                     lower=str(payload.get("lower") or "0"),
                     upper=None if upper in (None, "") else str(upper),

@@ -1143,6 +1143,44 @@
       "pass2_note": "The candidate quote appears verbatim in the source window.",
       "included": true,
       "engine_scope": "other"
+    },
+    {
+      "entity_kind": "relief",
+      "entry_id": "oee-act-45-2022:fifth_schedule:relief:expenditure_2f",
+      "source_doc_id": "oee-act-45-2022",
+      "compare_group_id": "expenditure_relief",
+      "display_name": "Expenditure relief (Act 45 bound)",
+      "paragraph_ref": "2(f)",
+      "section_ref": "Fifth Schedule",
+      "act_name": "Inland Revenue Amendment Act No. 45 of 2022",
+      "cap_amount": "900000",
+      "unit": "lkr",
+      "quote": "and sum of Rs. 900,000, incurred for the first nine months of the year of assessment commencing on April 1, 2022: -",
+      "eligibility": {
+        "text": "resident individuals",
+        "review_status": "pending",
+        "quote": "and sum of Rs. 900,000, incurred for the first nine months of the year of assessment commencing on April 1, 2022"
+      },
+      "required_evidence": [],
+      "filing_line": "",
+      "stacking": "",
+      "effective_from": "2022-04-01",
+      "effective_to": "",
+      "input_kind": "amount",
+      "auto_applied": false,
+      "engine_binding": {
+        "kind": "filing_line",
+        "component_id": "relief_fifth_sch_2f_expenditure"
+      },
+      "sort_order": 0,
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source text.",
+      "included": true,
+      "engine_scope": "individual"
     }
   ],
   "notes": [

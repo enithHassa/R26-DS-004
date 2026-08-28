@@ -1,0 +1,29 @@
+{
+  "id": "e58edb14-2b79-4937-b963-c8858d3a0203",
+  "status": "extracted",
+  "source_doc_id": "oee-act-24-2017",
+  "original_filename": "IR_Act_No_24_2017_E.pdf",
+  "storage_path": "D:/R26-DS-004/R26-DS-004/models/opt-explain-engine/act-admin/uploads/e58edb14-2b79-4937-b963-c8858d3a0203__IR_Act_No_24_2017_E.pdf",
+  "pdf_sha256": "e857f11ec026b424c4c8a5bc458f3fdd9cf1cca96e667b9a9bb80d8ccd972d77",
+  "act_identity": {
+    "act_no": "24",
+    "act_year": "2017",
+    "label": "Act No. 24 of 2017",
+    "source": "running_header",
+    "quote": "INLAND REVENUE   ACT,  No.  24  OF  2017"
+  },
+  "reviewer": "Vidumini Chalanika",
+  "uploaded_at": "2026-08-27T20:10:20.900254+00:00",
+  "error": null,
+  "extract_started_at": "2026-08-27T20:10:21.154828+00:00",
+  "ingest_status": "skipped_sha256",
+  "chunk_count": 1296,
+  "embedding_usd": 0.0,
+  "extract_finished_at": "2026-08-27T20:11:54.924873+00:00",
+  "extraction_run_id": "20260827T201154Z-9b4aa7",
+  "entity_count": 21,
+  "included_count": 21,
+  "usd_this_run": 0.124683,
+  "model": "gpt-4o",
+  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-24-2017"
+}

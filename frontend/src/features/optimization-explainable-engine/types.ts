@@ -6,6 +6,7 @@ import {
   totalIncomeLkr,
 } from "./income-aggregate";
 import { emptyAmountsForCard, incomeCatalogCard } from "./income-catalog";
+import { hydrateTerminalBenefits } from "./terminal-benefits";
 
 export type OtherCustomRow = {
   key: string;
@@ -135,6 +136,24 @@ export type InterestScheduleLine = {
   wht: string;
 };
 
+export type TerminalBenefitType =
+  | ""
+  | "commuted_pension"
+  | "retiring_gratuity"
+  | "loss_of_office_compensation"
+  | "etf_retirement_payment";
+
+export type TerminalBenefitPeriod = "" | "pre_2020" | "from_2020_01_01";
+
+export type TerminalBenefitRow = {
+  id: string;
+  type: TerminalBenefitType;
+  amount: string;
+  employmentPeriodOver20Years: boolean;
+  lossOfOfficeSchemeApproved: boolean;
+  terminalBenefitPeriod: TerminalBenefitPeriod;
+};
+
 export type InterviewIncomeState = {
   taxpayerName: string;
   tin: string;
@@ -149,6 +168,8 @@ export type InterviewIncomeState = {
   otherAmounts: Record<string, string>;
   otherCustomRows: OtherCustomRow[];
   interestSchedule: InterestScheduleLine[];
+  hasTerminalBenefits: boolean;
+  terminalBenefits: TerminalBenefitRow[];
 };
 
 function sortAssessmentYears(years: string[]): string[] {
@@ -191,7 +212,15 @@ function seedEmploymentAmounts(): Record<string, string> {
   return amounts;
 }
 
-export function hydrateIncomeAmounts(income: InterviewIncomeState): InterviewIncomeState {
+type IncomeHydrationInput = InterviewIncomeState & {
+  terminalBenefitType?: TerminalBenefitType;
+  terminalBenefitAmount?: string;
+  employmentPeriodOver20Years?: boolean;
+  lossOfOfficeSchemeApproved?: boolean;
+  terminalBenefitPeriod?: TerminalBenefitPeriod;
+};
+
+export function hydrateIncomeAmounts(income: IncomeHydrationInput): InterviewIncomeState {
   return {
     ...income,
     employmentAmounts: {
@@ -210,6 +239,7 @@ export function hydrateIncomeAmounts(income: InterviewIncomeState): InterviewInc
       ...emptyAmountsForCard(incomeCatalogCard("other_income")),
       ...income.otherAmounts,
     },
+    ...hydrateTerminalBenefits(income),
   };
 }
 
@@ -243,6 +273,8 @@ export function createDefaultSession(): InterviewSession {
       interestSchedule: [
         { id: "bank-1", label: "Bank interest", interest: "2000000", wht: "0" },
       ],
+      hasTerminalBenefits: false,
+      terminalBenefits: [],
     }),
     reliefAnswers: [],
     evidenceChecks: {},

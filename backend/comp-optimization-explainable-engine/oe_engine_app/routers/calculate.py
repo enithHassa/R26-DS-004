@@ -13,6 +13,14 @@ from oe_engine_app.services import calculate as calc_engine
 router = APIRouter(tags=["calculate"])
 
 
+class TerminalBenefitIn(BaseModel):
+    type: str | None = None
+    amount: int = 0
+    employment_period_over_20_years: bool | None = None
+    loss_of_office_scheme_approved: bool | None = None
+    terminal_benefit_period: str | None = None
+
+
 class IncomeIn(BaseModel):
     employment: int = 0
     business: int = 0
@@ -21,6 +29,12 @@ class IncomeIn(BaseModel):
     interest: int = 0
     rents: int = 0
     wht_already_paid: int = 0
+    terminal_benefits: list[TerminalBenefitIn] = Field(default_factory=list)
+    terminal_benefit_amount: int = 0
+    terminal_benefit_type: str | None = None
+    employment_period_over_20_years: bool | None = None
+    loss_of_office_scheme_approved: bool | None = None
+    terminal_benefit_period: str | None = None
 
 
 class ComponentClaimIn(BaseModel):

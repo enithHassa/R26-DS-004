@@ -1,5 +1,6 @@
 import type { CalculateComponentClaim, CalculateRequest } from "./api";
 import { parseLkr } from "./format-lkr";
+import { buildTerminalBenefitsPayload } from "./terminal-benefits";
 import {
   type ReliefAnswer,
   businessIncomeLkr,
@@ -21,6 +22,11 @@ function componentClaims(answer: ReliefAnswer): CalculateComponentClaim[] {
 
 export function buildCalculateRequest(session: InterviewSession): CalculateRequest {
   const { income } = session;
+  const terminalBenefits = buildTerminalBenefitsPayload(
+    income.hasTerminalBenefits,
+    income.terminalBenefits,
+    session.assessmentYear,
+  );
   return {
     assessment_year: session.assessmentYear,
     income: {
@@ -30,6 +36,7 @@ export function buildCalculateRequest(session: InterviewSession): CalculateReque
       other: otherIncomeLkr(income),
       interest: interestIncomeLkr(income),
       rents: rentsIncomeLkr(income),
+      ...(terminalBenefits.length > 0 ? { terminal_benefits: terminalBenefits } : {}),
     },
     claims: session.reliefAnswers.map((a) => ({
       entry_id: a.entry_id,

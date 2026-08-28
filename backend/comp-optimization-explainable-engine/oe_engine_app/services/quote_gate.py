@@ -99,6 +99,45 @@ def quote_gate(
     }
 
 
+MIN_VERBATIM_QUOTE_CHARS = 15
+
+
+def _quote_passes_gate(
+    quote: str,
+    window_text: str,
+    stream_text: str,
+    tables_text: str,
+) -> bool:
+    gated = quote_gate(quote, window_text, stream_text, tables_text)
+    return bool(gated["quote_ok_window"] and gated["quote_ok_full_doc"])
+
+
+def trim_quote_to_verbatim(
+    quote: str,
+    window_text: str,
+    stream_text: str,
+    tables_text: str,
+) -> str:
+    """Drop a stitched tail until the leading span is a contiguous Act quote.
+
+    Extractors sometimes join Fifth Schedule 2(f) items (i)–(v) with punctuation
+    the PDF does not use. Keep the longest leading substring that still gates.
+    """
+    candidate = (quote or "").strip()
+    if not candidate or _quote_passes_gate(candidate, window_text, stream_text, tables_text):
+        return candidate
+    text = candidate
+    while True:
+        cut = max(text.rfind(" "), text.rfind(";"), text.rfind(":"))
+        if cut < MIN_VERBATIM_QUOTE_CHARS:
+            return candidate
+        text = text[:cut].rstrip(" ;,:-")
+        if len(text) < MIN_VERBATIM_QUOTE_CHARS:
+            return candidate
+        if _quote_passes_gate(text, window_text, stream_text, tables_text):
+            return text
+
+
 PASS2_NEIGHBORHOOD_CHARS = 1_800
 
 

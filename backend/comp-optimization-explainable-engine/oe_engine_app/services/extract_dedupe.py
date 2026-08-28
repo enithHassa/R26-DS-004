@@ -6,6 +6,10 @@ import re
 from typing import Any
 
 from oe_engine_app.services.quote_gate import normalize_for_match
+from oe_engine_app.services.terminal_benefit import (
+    TERMINAL_RATE_ALIASES,
+    infer_employment_period_condition,
+)
 
 _NAMED_WINDOWS = frozenset({"first_schedule", "fifth_schedule"})
 
@@ -16,6 +20,13 @@ _RELIEF_GROUP_ALIASES = {
     "digital_productivity": "digital_productivity_equipment_relief",
     "digital_productivity_relief": "digital_productivity_equipment_relief",
     "digital_productivity_equipment": "digital_productivity_equipment_relief",
+    "foreign_currency_income": "foreign_currency_income_relief",
+    "foreign_currency_relief": "foreign_currency_income_relief",
+    "resident_individual_expenditure": "expenditure_relief",
+    "fifth_schedule_2_f": "expenditure_relief",
+    "contribution_to_samurdhi_shop": "qp_samurdhi_shop",
+    "contribution_shop_samurdhi": "qp_samurdhi_shop",
+    "samurdhi_shop_contribution": "qp_samurdhi_shop",
 }
 
 _RATE_GROUP_ALIASES = {
@@ -23,6 +34,7 @@ _RATE_GROUP_ALIASES = {
     "individual_tax_rates_2026_27": "first_schedule_rates",
     "individual_rate_bands": "first_schedule_rates",
     "individual_progressive_rates": "first_schedule_rates",
+    **TERMINAL_RATE_ALIASES,
 }
 
 # Definitions / restated caps of a relief already kept under the parent group.
@@ -57,6 +69,49 @@ def canonical_compare_group_id(group: str, *, entity_kind: str = "relief") -> st
     if entity_kind == "rate_band":
         return _RATE_GROUP_ALIASES.get(key, key)
     return _RELIEF_GROUP_ALIASES.get(key, key)
+
+
+def named_window_rank(entry_id: str) -> int:
+    """0 for Fifth/First Schedule windows, 1 for numbered reprint windows."""
+    return 0 if _window_id({"entry_id": entry_id}) in _NAMED_WINDOWS else 1
+
+
+def _prefer_year_relief(new: dict[str, Any], old: dict[str, Any]) -> bool:
+    new_from = str(new.get("effective_from") or "")
+    old_from = str(old.get("effective_from") or "")
+    if new_from != old_from:
+        return new_from > old_from
+    new_named = named_window_rank(str(new.get("entry_id") or ""))
+    old_named = named_window_rank(str(old.get("entry_id") or ""))
+    if new_named != old_named:
+        return new_named < old_named
+    return len(str(new.get("quote") or "")) > len(str(old.get("quote") or ""))
+
+
+def collapse_year_relief_aliases(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One catalog row when extracts used alias compare_group_id values for the same relief."""
+    winners: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for entry in entries:
+        ranked = dict(entry)
+        group = canonical_compare_group_id(
+            str(ranked.get("compare_group_id") or ""),
+            entity_kind="relief",
+        )
+        if not group:
+            key = f"__ungrouped__{len(order)}"
+            winners[key] = ranked
+            order.append(key)
+            continue
+        ranked["compare_group_id"] = group
+        existing = winners.get(group)
+        if existing is None:
+            winners[group] = ranked
+            order.append(group)
+            continue
+        if _prefer_year_relief(ranked, existing):
+            winners[group] = ranked
+    return [winners[key] for key in order]
 
 
 def _window_id(entity: dict[str, Any]) -> str:
@@ -114,6 +169,7 @@ def _rate_key(entity: dict[str, Any]) -> tuple[str, ...]:
         str(entity.get("rate_percent") or "").strip(),
         str(entity.get("effective_from") or "").strip(),
         _applies_bucket(str(entity.get("applies_to") or "")),
+        infer_employment_period_condition(entity),
     )
 
 
