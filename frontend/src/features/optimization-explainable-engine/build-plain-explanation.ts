@@ -124,12 +124,15 @@ export function buildPlainExplanation(result: CalculateResponse): PlainExplanati
   if (payingBands.length > 0) {
     const bandLines = payingBands.map((band, index) => simpleBandStep(band, index + 1));
     const parts = payingBands.map((band) => formatLkr(band.tax));
+    const ordinaryTax = payingBands.reduce((sum, band) => sum + band.tax, 0);
     blocks.push({
       heading: "How the tax is added up",
       lines: [
         "Tax is not one flat percentage on everything. It works like stairs — a small slice at a low rate, then the next slice at a higher rate, and so on.",
         ...bandLines,
-        `Add those steps: ${parts.join(" + ")} = ${formatLkr(result.tax_payable)}.`,
+        (result.terminal_benefit_tax ?? 0) > 0
+          ? `Ordinary income tax on those steps is ${formatLkr(ordinaryTax)}.`
+          : `Add those steps: ${parts.join(" + ")} = ${formatLkr(result.tax_payable)}.`,
       ],
     });
   } else if (bands.length > 0) {
@@ -144,6 +147,18 @@ export function buildPlainExplanation(result: CalculateResponse): PlainExplanati
     blocks.push({
       heading: "How the tax is added up",
       lines: [`Your tax payable is ${formatLkr(result.tax_payable)}.`],
+    });
+  }
+
+  const terminalBands = usedBands(result.terminal_benefit_slab_lines ?? []);
+  if (terminalBands.length > 0) {
+    blocks.push({
+      heading: "Terminal-benefit tax",
+      lines: [
+        "A qualifying terminal benefit is taxed on its own ladder, separate from ordinary salary.",
+        ...terminalBands.map((band, index) => simpleBandStep(band, index + 1)),
+        `That extra tax is ${formatLkr(result.terminal_benefit_tax ?? 0)}, included in the ${formatLkr(result.tax_payable)} total.`,
+      ],
     });
   }
 

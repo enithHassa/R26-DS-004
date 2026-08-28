@@ -501,3 +501,70 @@ def test_collapse_reprint_reliefs_keeps_dated_variants() -> None:
     assert survivor["question_prompt"] == "What is your personal relief amount?"
     assert "April" not in survivor["question_prompt"]
 
+
+def test_collapse_foreign_currency_alias_groups() -> None:
+    from oe_engine_app.services.extract_dedupe import (
+        canonical_compare_group_id,
+        collapse_duplicate_extract_entities,
+        collapse_year_relief_aliases,
+    )
+
+    assert (
+        canonical_compare_group_id("foreign_currency_income")
+        == "foreign_currency_income_relief"
+    )
+    rows = [
+        {
+            "entity_kind": "relief",
+            "entry_id": "oee-act-24-2017:w042:relief:0",
+            "compare_group_id": "foreign_currency_income",
+            "cap_amount": "15000000",
+            "quote": "short foreign currency reprint",
+            "included": True,
+            "review_status": "pending",
+        },
+        {
+            "entity_kind": "relief",
+            "entry_id": "oee-act-24-2017:fifth_schedule:relief:8",
+            "compare_group_id": "foreign_currency_income_relief",
+            "cap_amount": "15000000",
+            "quote": "Fifth Schedule foreign currency income relief at Rs. 15,000,000.",
+            "included": True,
+            "review_status": "pending",
+        },
+    ]
+    collapsed = collapse_duplicate_extract_entities(rows)
+    groups = [str(r.get("compare_group_id")) for r in collapsed]
+    assert groups == ["foreign_currency_income_relief"]
+    assert "fifth_schedule" in collapsed[0]["entry_id"]
+
+    listed = collapse_year_relief_aliases(
+        [
+            {
+                "compare_group_id": "foreign_currency_income",
+                "entry_id": "oee-act-24-2017:w042:relief:0",
+                "quote": "short",
+                "display_name": "Foreign currency income relief",
+            },
+            {
+                "compare_group_id": "foreign_currency_income_relief",
+                "entry_id": "oee-act-24-2017:fifth_schedule:relief:8",
+                "quote": "longer Fifth Schedule quote",
+                "display_name": "Foreign Currency Income Relief",
+            },
+        ]
+    )
+    assert len(listed) == 1
+    assert listed[0]["compare_group_id"] == "foreign_currency_income_relief"
+    assert "fifth_schedule" in listed[0]["entry_id"]
+
+
+def test_collapse_maps_resident_expenditure_alias() -> None:
+    from oe_engine_app.services.extract_dedupe import canonical_compare_group_id
+
+    assert (
+        canonical_compare_group_id("resident_individual_expenditure")
+        == "expenditure_relief"
+    )
+    assert canonical_compare_group_id("fifth_schedule_2_f") == "expenditure_relief"
+

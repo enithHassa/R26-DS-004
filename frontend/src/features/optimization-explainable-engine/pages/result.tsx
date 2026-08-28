@@ -8,7 +8,8 @@ import { postCalculate, postExplain } from "../api";
 import { buildCalculateRequest } from "../build-calculate-request";
 import { buildPlainExplanation } from "../build-plain-explanation";
 import { buildScenarioCitations } from "../build-scenario-citations";
-import { formatLkr, formatMoneyInput, yaDisplay } from "../format-lkr";
+import { formatLkr, yaDisplay } from "../format-lkr";
+import { ResultRateTables } from "../result-rate-tables";
 import { useInterview } from "../session";
 
 export function InterviewResultPage() {
@@ -74,7 +75,6 @@ export function InterviewResultPage() {
 
   const result = calcQuery.data;
   const reliefLines = (result.relief_lines ?? []).filter((line) => line.applied > 0);
-  const slabLines = result.slab_lines ?? [];
   const plainExplanation = buildPlainExplanation(result);
   const narrativeParagraphs = (explainQuery.data?.narrative ?? "")
     .split(/\n\s*\n/)
@@ -100,6 +100,18 @@ export function InterviewResultPage() {
         <SummaryTile label="Reliefs applied" value={result.total_reliefs} />
         <SummaryTile label="Taxable income" value={result.taxable_income} />
         <SummaryTile label="Tax payable" value={result.tax_payable} />
+        {(result.terminal_benefit_tax ?? 0) > 0 ? (
+          <SummaryTile
+            label="Ordinary income tax"
+            value={result.tax_payable - (result.terminal_benefit_tax ?? 0)}
+          />
+        ) : null}
+        {(result.terminal_benefit_tax ?? 0) > 0 ? (
+          <SummaryTile
+            label="Of which terminal-benefit tax"
+            value={result.terminal_benefit_tax ?? 0}
+          />
+        ) : null}
         <SummaryTile label="WHT credit" value={result.wht_credit ?? 0} />
         {(result.tax_refund ?? 0) > 0 ? (
           <SummaryTile label="Refund" value={result.tax_refund ?? 0} emphasize />
@@ -155,37 +167,7 @@ export function InterviewResultPage() {
         )}
       </section>
 
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Rate bands (this YA)</h3>
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Band</th>
-                <th className="px-3 py-2 font-medium">Rate</th>
-                <th className="px-3 py-2 font-medium">Slice</th>
-                <th className="px-3 py-2 font-medium">Tax</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {slabLines.map((band) => (
-                <tr key={band.band_index} className="border-t">
-                  <td className="px-3 py-2">
-                    {band.band_label || `#${band.band_index}`}
-                  </td>
-                  <td className="px-3 py-2">{band.rate_percent}%</td>
-                  <td className="px-3 py-2">{formatMoneyInput(String(band.slice))}</td>
-                  <td className="px-3 py-2">{formatLkr(band.tax)}</td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {band.source_doc_id}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ResultRateTables result={result} />
 
       <section className="space-y-4 rounded-md border bg-muted/20 p-4">
         <div className="space-y-1">

@@ -60,6 +60,28 @@ def test_wrapped_hyphen_in_pdf_still_matches_act_spelling() -> None:
     assert gated["reassembled_out"] is False
 
 
+def test_trim_quote_drops_stitched_fifth_schedule_list() -> None:
+    from oe_engine_app.services.quote_gate import trim_quote_to_verbatim
+
+    window = (
+        "(f) in the case of a resident individual, following expenditure up to "
+        "a total sum of Rs. 1,200,000, incurred for a year of assessment on or "
+        "after January 1, 2020: -\n(i) health expenditure including contributions "
+        "to medical insurance;"
+    )
+    stitched = (
+        "(f) in the case of a resident individual, following expenditure up to "
+        "a total sum of Rs. 1,200,000, incurred for a year of assessment on or "
+        "after January 1, 2020: - (i) health expenditure including contributions "
+        "to medical insurance; (ii) vocational education or other educational "
+        "expenditure incurred locally"
+    )
+    trimmed = trim_quote_to_verbatim(stitched, window, window, "")
+    assert trimmed.startswith("(f) in the case of a resident individual")
+    assert "(ii)" not in trimmed
+    assert quote_gate(trimmed, window, window, "")["quote_ok_window"] is True
+
+
 def test_hyphen_fold_does_not_admit_a_paraphrase() -> None:
     stream = "a cost of not exceeding twenty- five million rupees"
     gated = quote_gate("a cost of about twenty-five million rupees", stream, stream, "")

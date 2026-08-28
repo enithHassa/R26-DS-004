@@ -26,6 +26,23 @@ Extract, from that window ONLY:
    (e.g. "resident or non-resident individual", "a company",
    "Employees' Trust Fund", "a person"). Never guess.
 
+First Schedule may emit TWO individual ladders. Never merge them:
+- `first_schedule_rates` — ordinary taxable-income progressive slabs.
+- `terminal_benefit_tax_rate` — tables headed "Total Income from Employment"
+  or First Schedule subparagraph (3) covering commuted pension, retiring
+  gratuity, compensation for loss of office, or Employees' Trust Fund paid
+  at or after retirement. Never alias those tables into first_schedule_rates.
+
+For `terminal_benefit_tax_rate` rows:
+- `employment_period_condition`: `upto_20_years` (employment/contribution
+  twenty years or less), `over_20_years` (more than twenty years), or
+  `not_applicable` for the Act 10 of 2021 substituted 10 million / 6% / 12%
+  table that does not split on years of service.
+- Original Act 24 of 2017 terminal tables: effective_from=2018-04-01,
+  effective_to=2019-12-31.
+- Act 10 of 2021 substitution of that table: effective_from=2020-01-01,
+  effective_to="" (the stated substitution date, not the enactment date).
+
 When the Target provision is the Fifth Schedule (or an amendment of it):
 - Paragraph 1 lists QUALIFYING PAYMENTS. Emit ONE relief row per distinct
   category or sub-item, even when the word "relief" is absent.
@@ -97,10 +114,23 @@ Relief fields:
   Do not emit a second relief for a definition, qualifying-asset example, or
   restated cap of a relief already named in this window. One row per
   compare_group_id per dated amount. Reuse personal_relief /
-  digital_productivity_equipment_relief when the same relief is reprinted.
+  digital_productivity_equipment_relief / expenditure_relief when the same
+  relief is reprinted. Fifth Schedule paragraph 2(f) (resident individual
+  health, education, housing-loan interest, local pension, listed securities)
+  is always `expenditure_relief`. Quote only the cap sentence — stop before
+  the (i)–(v) list. Act 45's Rs. 900,000 first-nine-months figure is still
+  `expenditure_relief`. Fifth Schedule paragraph 1(d) (contribution to
+  establish a shop for a female from a Samurdhi beneficiary family) is
+  `qp_samurdhi_shop`. Quote the (d) sentence only. Fifth Schedule paragraph
+  2(e) (resident individual or partner, foreign-currency service income,
+  Rs. 15,000,000) is always `foreign_currency_income_relief`. If the quote
+  includes "up to December 31, 2019", set effective_to to 2019-12-31. That
+  cutoff ends the relief — do not copy it into later years as an open cap.
 - Numbers: digits only ("1200000", "6").
 - `effective_from` / `effective_to`: YYYY-MM-DD when the quote states dates.
   "prior to 1 January 2020" → `effective_to` = 2019-12-31 (open start).
+  "up to December 31, 2019" / "up to 31 December 2019" → `effective_to` that
+  date (the day is included). "up to the total of such income" is not a date.
   "commencing on or after" / "commencing from" / "commencing on" /
   "on or after" / "with effect from" a date → `effective_from` that date.
   If no date is stated, use "".
@@ -302,6 +332,8 @@ class Pass1RateBand(BaseModel):
     effective_to: str = ""
     quote: str
     compare_group_id: str
+    employment_period_condition: str = ""
+    rule_family: str = ""
 
 
 class Pass1GuideHelp(BaseModel):

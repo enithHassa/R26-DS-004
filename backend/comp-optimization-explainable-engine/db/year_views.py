@@ -76,14 +76,17 @@ class OeEngineYearRate(Base):
     __table_args__ = (
         UniqueConstraint(
             "assessment_year",
+            "compare_group_id",
+            "ladder_key",
             "band_index",
-            "applies_to",
-            name="uq_oe_engine_year_rates_year_band_applies",
+            name="uq_oe_engine_year_rates_year_group_ladder_band",
         ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     assessment_year: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    compare_group_id: Mapped[str] = mapped_column(String(128), nullable=False, default="first_schedule_rates", index=True)
+    ladder_key: Mapped[str] = mapped_column(String(256), nullable=False, default="ordinary|full_ya")
     band_index: Mapped[int] = mapped_column(Integer, nullable=False)
     lower: Mapped[str] = mapped_column(String(32), nullable=False)
     upper: Mapped[str | None] = mapped_column(String(32), nullable=True)

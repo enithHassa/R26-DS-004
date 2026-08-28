@@ -83,6 +83,16 @@ def test_refund_does_not_count_as_fund() -> None:
     assert infer_engine_scope(eligibility_text="tax refund of personal relief") == "individual"
 
 
+def test_terminal_benefit_gratuity_text_stays_individual() -> None:
+    assert (
+        infer_engine_scope(
+            compare_group_id="terminal_benefit_tax_rate",
+            eligibility_text="retiring gratuity paid under the Act",
+        )
+        == "individual"
+    )
+
+
 def test_extract_sets_scope_on_rate_band() -> None:
     stream = "FIRST SCHEDULE\nTax rates for a resident individual.\n"
     tables = "Taxable Income | Tax Payable\nNot Exceeding Rs. 600,000 | 4%"

@@ -93,6 +93,13 @@ class RateBandEntity(BaseModel):
     pass2_note: str = ""
     included: bool = False
     engine_scope: EngineScope = "individual"
+    rule_family: str = ""
+    employment_period_condition: str = ""
+    qualifying_income_types: list[str] = Field(default_factory=list)
+    base_act_name: str = ""
+    amendment_act_name: str = ""
+    period_from: str = ""
+    period_to: str = ""
 
 
 class GuideHelpEntity(BaseModel):

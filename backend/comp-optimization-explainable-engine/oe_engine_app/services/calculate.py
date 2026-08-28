@@ -11,6 +11,10 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from oe_engine_app.services import year_store
+from oe_engine_app.services.terminal_benefit import (
+    qualifying_terminal_claim,
+    select_terminal_bands,
+)
 
 BINDER_AUTO_CAP = "auto_cap"
 BINDER_MIN_CLAIM_CAP = "min(claim, cap)"
@@ -223,6 +227,45 @@ def tax_from_slabs(taxable: int, bands: list[dict[str, Any]]) -> tuple[int, list
     return total, lines
 
 
+def _legacy_terminal_items(income: dict[str, Any]) -> list[dict[str, Any]]:
+    amount = _as_int(income.get("terminal_benefit_amount"))
+    kind = income.get("terminal_benefit_type")
+    if amount <= 0 and not str(kind or "").strip():
+        return []
+    return [
+        {
+            "type": kind,
+            "amount": amount,
+            "employment_period_over_20_years": income.get("employment_period_over_20_years"),
+            "loss_of_office_scheme_approved": income.get("loss_of_office_scheme_approved"),
+            "terminal_benefit_period": income.get("terminal_benefit_period"),
+        }
+    ]
+
+
+def _terminal_items(income: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]:
+    raw = income.get("terminal_benefits")
+    if isinstance(raw, list) and raw:
+        return raw, False
+    return _legacy_terminal_items(income), True
+
+
+def _terminal_ladder_group_key(assessment_year: str, item: dict[str, Any]) -> str | None:
+    """Bucket that shares one progressive terminal ladder. None = skip (e.g. missing 2019/20 period)."""
+    period = str(item.get("terminal_benefit_period") or "").strip()
+    over_20 = bool(item.get("employment_period_over_20_years"))
+    if assessment_year == "2019_20":
+        if period == "from_2020_01_01":
+            return "from_2020_01_01"
+        if period == "pre_2020":
+            return f"pre_2020|{'over_20_years' if over_20 else 'upto_20_years'}"
+        return None
+    ya_start_year = int(assessment_year.split("_")[0])
+    if ya_start_year >= 2020:
+        return "not_applicable"
+    return "over_20_years" if over_20 else "upto_20_years"
+
+
 def calculate(
     session: Session,
     assessment_year: str,
@@ -235,14 +278,36 @@ def calculate(
     rates = year_store.rates_for_year(session, assessment_year, exclude_source_doc_id)
     if reliefs is None or rates is None:
         raise KeyError(assessment_year)
-    if not rates:
+    ordinary_rates, terminal_rates = year_store.split_year_rates(rates)
+    if not ordinary_rates:
         raise ValueError("no_rate_bands")
 
-    employment = _as_int(income.get("employment"))
+    raw_employment = _as_int(income.get("employment"))
+    terminal_items, subtract_legacy = _terminal_items(income)
+    employment = raw_employment
+    if subtract_legacy and terminal_items:
+        legacy = terminal_items[0]
+        legacy_amount = _as_int(legacy.get("amount"))
+        if qualifying_terminal_claim(
+            amount=legacy_amount,
+            benefit_type=legacy.get("type"),
+            loss_of_office_scheme_approved=legacy.get("loss_of_office_scheme_approved"),
+        ) and raw_employment >= legacy_amount:
+            employment = raw_employment - legacy_amount
     business = _as_int(income.get("business"))
     investment = _as_int(income.get("investment"))
     other = _as_int(income.get("other"))
-    gross = employment + business + investment + other
+    ordinary_gross = employment + business + investment + other
+    qualifying_amount = 0
+    for item in terminal_items:
+        amount = _as_int(item.get("amount"))
+        if qualifying_terminal_claim(
+            amount=amount,
+            benefit_type=item.get("type"),
+            loss_of_office_scheme_approved=item.get("loss_of_office_scheme_approved"),
+        ):
+            qualifying_amount += amount
+    gross = ordinary_gross + qualifying_amount
     packed = {
         "employment": employment,
         "business": business,
@@ -250,11 +315,11 @@ def calculate(
         "other": other,
         "interest": _as_int(income.get("interest")),
         "rents": _as_int(income.get("rents")),
-        "gross": gross,
+        "gross": ordinary_gross,
     }
 
     by_id = _claim_map(claims or [])
-    remaining = gross
+    remaining = ordinary_gross
     relief_lines: list[dict[str, Any]] = []
     ordered = sorted(
         reliefs,
@@ -268,7 +333,58 @@ def calculate(
         relief_lines.append(line)
 
     taxable = remaining
-    tax_payable, slab_lines = tax_from_slabs(taxable, rates)
+    tax_payable, slab_lines = tax_from_slabs(taxable, ordinary_rates)
+    terminal_tax = 0
+    terminal_slab_lines: list[dict[str, Any]] = []
+    terminal_benefit_lines: list[dict[str, Any]] = []
+    grouped: dict[str, list[tuple[dict[str, Any], int]]] = {}
+    group_order: list[str] = []
+    prepared: list[tuple[str, dict[str, Any], int]] = []
+    for item in terminal_items:
+        amount = _as_int(item.get("amount"))
+        if not qualifying_terminal_claim(
+            amount=amount,
+            benefit_type=item.get("type"),
+            loss_of_office_scheme_approved=item.get("loss_of_office_scheme_approved"),
+        ):
+            continue
+        key = _terminal_ladder_group_key(assessment_year, item)
+        if key is None:
+            continue
+        prepared.append((key, item, amount))
+        if key not in grouped:
+            grouped[key] = []
+            group_order.append(key)
+        grouped[key].append((item, amount))
+    taxed_groups: set[str] = set()
+    for key in group_order:
+        members = grouped[key]
+        sample, _ = members[0]
+        chosen = select_terminal_bands(
+            terminal_rates,
+            assessment_year=assessment_year,
+            over_20_years=sample.get("employment_period_over_20_years"),
+            period=sample.get("terminal_benefit_period"),
+        )
+        if not chosen:
+            continue
+        group_total = sum(amount for _, amount in members)
+        group_tax, group_slabs = tax_from_slabs(group_total, chosen)
+        terminal_tax += group_tax
+        terminal_slab_lines.extend(group_slabs)
+        taxed_groups.add(key)
+    for key, item, amount in prepared:
+        if key not in taxed_groups:
+            continue
+        terminal_benefit_lines.append(
+            {
+                "type": item.get("type"),
+                "amount": amount,
+                "tax": None,
+                "slab_lines": [],
+            }
+        )
+    tax_payable += terminal_tax
     claimed_wht = _as_int(wht_already_paid if wht_already_paid else income.get("wht_already_paid"))
     credits_applied = min(claimed_wht, tax_payable)
     balance_payable = tax_payable - credits_applied
@@ -280,9 +396,12 @@ def calculate(
         "business_income": business,
         "investment_income": investment,
         "other_income": other,
-        "total_reliefs": gross - taxable,
+        "total_reliefs": ordinary_gross - taxable,
         "taxable_income": taxable,
         "tax_payable": tax_payable,
+        "terminal_benefit_amount": qualifying_amount,
+        "terminal_benefit_tax": terminal_tax,
+        "terminal_benefit_lines": terminal_benefit_lines,
         "wht_already_paid": claimed_wht,
         "wht_credit": credits_applied,
         "balance_payable": balance_payable,
@@ -290,4 +409,5 @@ def calculate(
         "exclude_source_doc_id": exclude_source_doc_id or None,
         "relief_lines": relief_lines,
         "slab_lines": slab_lines,
+        "terminal_benefit_slab_lines": terminal_slab_lines,
     }

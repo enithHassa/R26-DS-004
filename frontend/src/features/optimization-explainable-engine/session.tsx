@@ -29,6 +29,7 @@ type InterviewContextValue = {
   patchIncome: (patch: IncomePatch) => void;
   upsertReliefAnswer: (answer: ReliefAnswer) => void;
   setEvidenceCheck: (entryId: string, item: string, checked: boolean) => void;
+  clearReliefAnswer: (entryId: string) => void;
   resetSession: () => void;
 };
 
@@ -165,6 +166,17 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const clearReliefAnswer = useCallback((entryId: string) => {
+    setSession((prev) => {
+      const next = {
+        ...prev,
+        reliefAnswers: prev.reliefAnswers.filter((row) => row.entry_id !== entryId),
+      };
+      persist(next);
+      return next;
+    });
+  }, []);
+
   const setEvidenceCheck = useCallback((entryId: string, item: string, checked: boolean) => {
     setSession((prev) => {
       const current = prev.evidenceChecks[entryId] ?? {};
@@ -194,6 +206,7 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
       setSelectedCompareGroupId,
       patchIncome,
       upsertReliefAnswer,
+      clearReliefAnswer,
       setEvidenceCheck,
       resetSession,
     }),
@@ -204,6 +217,7 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
       setSelectedCompareGroupId,
       patchIncome,
       upsertReliefAnswer,
+      clearReliefAnswer,
       setEvidenceCheck,
       resetSession,
     ],

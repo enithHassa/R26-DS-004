@@ -102,6 +102,12 @@ export function compareRowStatus(
   ) {
     return "Removed";
   }
+  if (
+    group === "foreign_currency_income_relief" &&
+    assessmentYear > "2019_20"
+  ) {
+    return "Removed";
+  }
   if (!entry) return "Not available";
   if (
     entry.compare_group_id === "expenditure_relief" &&
@@ -115,11 +121,25 @@ export function compareRowStatus(
   ) {
     return "Removed";
   }
+  if (
+    entry.compare_group_id === "foreign_currency_income_relief" &&
+    assessmentYear > "2019_20"
+  ) {
+    return "Removed";
+  }
   if (entry.needs_manual_verification) return "Limited verification";
   if (isUnconfirmedTransitionalCarry(entry, assessmentYear)) {
     return "Last known figure — not confirmed for this year";
   }
   return "Listed";
+}
+
+/** Whether a relief should appear in the taxpayer Reliefs interview for this YA. */
+export function reliefListedForInterview(
+  entry: ReliefEntry,
+  assessmentYear: string,
+): boolean {
+  return compareRowStatus(entry, assessmentYear) !== "Removed";
 }
 
 export function formatCompareCap(entry: ReliefEntry | null | undefined): string {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 import { getGuideNotes, getReliefs } from "../api";
+import { reliefListedForInterview } from "../compare-types";
 import { formatMoneyInput, parseLkr, yaDisplay } from "../format-lkr";
 import { useInterview } from "../session";
 import {
@@ -81,6 +83,25 @@ function draftsForEntry(
   return { amount: existing?.amount ?? "0", affirmed, components };
 }
 
+function claimedAmount(entry: ReliefEntry, answer: ReliefAnswer): number {
+  if (answer.components && Object.keys(answer.components).length > 0) {
+    return subItemTotalLkr(entry, answer.components);
+  }
+  return parseLkr(answer.amount);
+}
+
+/** Placeholder 0 / auto-filled notice is not a user answer. */
+function hasRealClaim(entry: ReliefEntry, answer: ReliefAnswer): boolean {
+  if (answer.skipped) return false;
+  const kind = entry.input_kind;
+  if (kind === "boolean") return answer.affirmed === true;
+  if (kind === "yes_no_amount") {
+    return answer.affirmed === true && claimedAmount(entry, answer) > 0;
+  }
+  if (kind === "notice") return false;
+  return claimedAmount(entry, answer) > 0;
+}
+
 export function InterviewReliefsPage() {
   const { session } = useInterview();
   return (
@@ -92,7 +113,7 @@ export function InterviewReliefsPage() {
 
 function ReliefsStepper() {
   const navigate = useNavigate();
-  const { session, upsertReliefAnswer, setEvidenceCheck } = useInterview();
+  const { session, upsertReliefAnswer, clearReliefAnswer, setEvidenceCheck } = useInterview();
   const { assessmentYear, reliefAnswers, income, excludeSourceDocId } = session;
 
   const reliefsQuery = useQuery({
@@ -107,8 +128,18 @@ function ReliefsStepper() {
     retry: false,
   });
 
-  const entries = sortReliefs(reliefsQuery.data?.entries ?? []);
+  const entries = sortReliefs(
+    (reliefsQuery.data?.entries ?? []).filter((entry) =>
+      reliefListedForInterview(entry, assessmentYear),
+    ),
+  );
   const [step, setStep] = useState(0);
+  const flushCurrentRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (entries.length === 0) return;
+    if (step >= entries.length) setStep(entries.length - 1);
+  }, [entries.length, step]);
 
   const current = entries[step] ?? null;
 
@@ -165,36 +196,123 @@ function ReliefsStepper() {
   const initial = draftsForEntry(current, existing, income);
 
   return (
-    <ReliefStepCard
-      key={current.entry_id}
-      entry={current}
-      assessmentYear={assessmentYear}
-      entryCount={entries.length}
-      step={step}
-      income={income}
-      initialAmount={initial.amount}
-      initialAffirmed={initial.affirmed}
-      initialComponents={initial.components}
-      evidenceChecks={session.evidenceChecks[current.entry_id] ?? {}}
-      onEvidenceCheck={(item, checked) =>
-        setEvidenceCheck(current.entry_id, item, checked)
-      }
-      onBack={() => {
-        if (step <= 0) {
-          void navigate("/optimization-explainable-engine/income");
-          return;
-        }
-        setStep((s) => s - 1);
-      }}
-      onSave={(answer, advanceToDone) => {
-        upsertReliefAnswer(answer);
-        if (advanceToDone) {
-          void navigate("/optimization-explainable-engine/result");
-          return;
-        }
-        setStep((s) => s + 1);
-      }}
-    />
+    <div className="flex flex-col gap-4 md:flex-row md:items-start">
+      <ReliefJumpNav
+        assessmentYear={assessmentYear}
+        entries={entries}
+        step={step}
+        onSelect={(index) => {
+          if (index === step) return;
+          flushCurrentRef.current();
+          setStep(index);
+        }}
+      />
+      <div className="min-w-0 flex-1">
+        <ReliefStepCard
+          key={current.entry_id}
+          entry={current}
+          assessmentYear={assessmentYear}
+          entryCount={entries.length}
+          step={step}
+          income={income}
+          initialAmount={initial.amount}
+          initialAffirmed={initial.affirmed}
+          initialComponents={initial.components}
+          evidenceChecks={session.evidenceChecks[current.entry_id] ?? {}}
+          onEvidenceCheck={(item, checked) =>
+            setEvidenceCheck(current.entry_id, item, checked)
+          }
+          onRegisterFlush={(flush) => {
+            flushCurrentRef.current = flush;
+          }}
+          onFlush={upsertReliefAnswer}
+          onClear={clearReliefAnswer}
+          onBack={() => {
+            flushCurrentRef.current();
+            if (step <= 0) {
+              void navigate("/optimization-explainable-engine/income");
+              return;
+            }
+            setStep((s) => s - 1);
+          }}
+          onSave={(answer, advanceToDone) => {
+            if (answer.skipped || hasRealClaim(current, answer)) {
+              upsertReliefAnswer(answer);
+            } else {
+              clearReliefAnswer(answer.entry_id);
+            }
+            if (advanceToDone) {
+              void navigate("/optimization-explainable-engine/result");
+              return;
+            }
+            setStep((s) => s + 1);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ReliefJumpNav({
+  assessmentYear,
+  entries,
+  step,
+  onSelect,
+}: {
+  assessmentYear: string;
+  entries: ReliefEntry[];
+  step: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <aside className="md:sticky md:top-3 md:w-60 md:shrink-0">
+      <nav
+        className="rounded-md border bg-background"
+        aria-label={`Reliefs for YA ${yaDisplay(assessmentYear)}`}
+      >
+        <div className="border-b px-3 py-2">
+          <p className="text-xs font-medium">
+            {entries.length} reliefs · YA {yaDisplay(assessmentYear)}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Jump to any relief. The list comes from this year’s RAG catalog,
+            including newly activated Acts.
+          </p>
+        </div>
+        <ol className="flex max-h-40 gap-1 overflow-x-auto p-2 md:max-h-[min(32rem,calc(100vh-12rem))] md:flex-col md:overflow-y-auto">
+          {entries.map((entry, index) => {
+            const current = index === step;
+            return (
+              <li key={entry.entry_id} className="shrink-0 md:shrink">
+                <button
+                  type="button"
+                  aria-current={current ? "step" : undefined}
+                  onClick={() => onSelect(index)}
+                  className={cn(
+                    "flex w-full min-w-[11rem] items-start gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors md:min-w-0",
+                    current
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 w-5 shrink-0 text-[10px] font-medium tabular-nums",
+                      current ? "text-primary-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="line-clamp-2 min-w-0 flex-1 font-medium leading-snug">
+                    {entry.display_name}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    </aside>
   );
 }
 
@@ -345,6 +463,9 @@ function ReliefStepCard({
   initialComponents,
   evidenceChecks,
   onEvidenceCheck,
+  onRegisterFlush,
+  onFlush,
+  onClear,
   onBack,
   onSave,
 }: {
@@ -358,12 +479,17 @@ function ReliefStepCard({
   initialComponents: Record<string, string>;
   evidenceChecks: Record<string, boolean>;
   onEvidenceCheck: (item: string, checked: boolean) => void;
+  onRegisterFlush: (flush: () => void) => void;
+  onFlush: (answer: ReliefAnswer) => void;
+  onClear: (entryId: string) => void;
   onBack: () => void;
   onSave: (answer: ReliefAnswer, advanceToDone: boolean) => void;
 }) {
   const [amountDraft, setAmountDraft] = useState(initialAmount);
   const [affirmedDraft, setAffirmedDraft] = useState(initialAffirmed);
   const [componentsDraft, setComponentsDraft] = useState(initialComponents);
+  const draftsRef = useRef({ amountDraft, affirmedDraft, componentsDraft });
+  draftsRef.current = { amountDraft, affirmedDraft, componentsDraft };
 
   const split = hasSubItems(entry);
   const totalIncome = totalIncomeLkr(income);
@@ -388,6 +514,37 @@ function ReliefStepCard({
     cap != null
       ? capAndIncomeCopy(cap, incomeBase || totalIncome, applied)
       : null;
+
+  useEffect(() => {
+    onRegisterFlush(() => {
+      const drafts = draftsRef.current;
+      const splitItems = hasSubItems(entry);
+      const kindNow = entry.input_kind;
+      const needsYesNoNow = kindNow === "yes_no_amount" || kindNow === "boolean";
+      const claim = splitItems
+        ? subItemTotalLkr(entry, drafts.componentsDraft)
+        : parseLkr(drafts.amountDraft);
+      const appliedNow = previewAppliedLkr(
+        entry,
+        income,
+        claim,
+        drafts.affirmedDraft,
+      );
+      const answer = {
+        entry_id: entry.entry_id,
+        compare_group_id: entry.compare_group_id,
+        amount: String(appliedNow),
+        affirmed: needsYesNoNow ? drafts.affirmedDraft : true,
+        skipped: false,
+        components: splitItems ? drafts.componentsDraft : undefined,
+      };
+      if (hasRealClaim(entry, answer)) {
+        onFlush(answer);
+      } else {
+        onClear(entry.entry_id);
+      }
+    });
+  }, [entry, income, onClear, onFlush, onRegisterFlush]);
 
   function save(skipped: boolean): void {
     if (skipped) {

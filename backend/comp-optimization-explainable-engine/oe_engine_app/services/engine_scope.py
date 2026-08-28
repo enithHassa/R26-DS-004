@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
+from oe_engine_app.services.terminal_benefit import is_terminal_rate_group
+
 EngineScope = Literal["individual", "other"]
 
 _INDIVIDUAL_RE = re.compile(
@@ -77,6 +79,8 @@ def infer_engine_scope(
     compare_group_id: str = "",
     band_label: str = "",
 ) -> EngineScope:
+    if is_terminal_rate_group(compare_group_id):
+        return "individual"
     text = _haystack(
         applies_to=applies_to,
         display_name=display_name,

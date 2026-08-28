@@ -172,6 +172,14 @@ def test_extract_fills_empty_dates_from_quote() -> None:
     assert entities[0]["effective_to"] == "2019-12-31"
 
 
+def test_foreign_currency_quote_lifts_effective_to() -> None:
+    _, end = lift_effective_dates(
+        "Rs. 15,000,000 for each year of assessment, up to the total of such income "
+        "for the year up to December 31, 2019;",
+    )
+    assert end == "2019-12-31"
+
+
 def test_scan_helper_after_fill() -> None:
     row = {
         "entity_kind": "relief",

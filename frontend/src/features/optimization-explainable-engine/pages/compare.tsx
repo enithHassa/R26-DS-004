@@ -217,7 +217,7 @@ export function InterviewComparePage() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {status === "Removed" ? "—" : (row.section_ref ?? "—")}
+                    {status === "Removed" ? "—" : (row.section_ref ?? row.entry?.section_ref ?? "—")}
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {status === "Removed" ? (

@@ -251,6 +251,52 @@ def test_rate_band_validation_detects_gap() -> None:
     assert any("Gap or overlap" in err for err in errors)
 
 
+def test_rate_band_validation_allows_ordinary_and_terminal_individual_ladders() -> None:
+    errors = validate_rate_band_set(
+        [
+            {
+                "entity_kind": "rate_band",
+                "band_index": 1,
+                "lower": "0",
+                "upper": "1000000",
+                "rate_percent": "6",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+            },
+            {
+                "entity_kind": "rate_band",
+                "band_index": 2,
+                "lower": "1000001",
+                "upper": None,
+                "rate_percent": "18",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+            },
+            {
+                "entity_kind": "rate_band",
+                "band_index": 1,
+                "lower": "0",
+                "upper": "10000000",
+                "rate_percent": "0",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "terminal_benefit_tax_rate",
+                "employment_period_condition": "not_applicable",
+            },
+            {
+                "entity_kind": "rate_band",
+                "band_index": 2,
+                "lower": "10000000",
+                "upper": None,
+                "rate_percent": "6",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "terminal_benefit_tax_rate",
+                "employment_period_condition": "not_applicable",
+            },
+        ]
+    )
+    assert errors == []
+
+
 def test_rate_band_validation_allows_inclusive_upper_to_next_lower() -> None:
     errors = validate_rate_band_set(
         [

@@ -52,6 +52,14 @@ export type ActsResponse = {
   act_count: number;
 };
 
+export type TerminalBenefitItem = {
+  type: string;
+  amount: number;
+  employment_period_over_20_years?: boolean | null;
+  loss_of_office_scheme_approved?: boolean | null;
+  terminal_benefit_period?: string | null;
+};
+
 export type CalculateIncome = {
   employment: number;
   business: number;
@@ -59,6 +67,12 @@ export type CalculateIncome = {
   other: number;
   interest: number;
   rents: number;
+  terminal_benefits?: TerminalBenefitItem[];
+  terminal_benefit_amount?: number;
+  terminal_benefit_type?: string | null;
+  employment_period_over_20_years?: boolean | null;
+  loss_of_office_scheme_approved?: boolean | null;
+  terminal_benefit_period?: string | null;
 };
 
 export type CalculateComponentClaim = {
@@ -114,6 +128,13 @@ export type SlabLine = {
   section_ref?: string;
 };
 
+export type TerminalBenefitLine = {
+  type: string;
+  amount: number;
+  tax?: number | null;
+  slab_lines?: SlabLine[];
+};
+
 export type CalculateResponse = {
   assessment_year: string;
   gross_income: number;
@@ -127,6 +148,10 @@ export type CalculateResponse = {
   exclude_source_doc_id?: string | null;
   relief_lines: ReliefLine[];
   slab_lines: SlabLine[];
+  terminal_benefit_amount?: number;
+  terminal_benefit_tax?: number;
+  terminal_benefit_slab_lines?: SlabLine[];
+  terminal_benefit_lines?: TerminalBenefitLine[];
 };
 
 export async function getHealth(): Promise<OptimizationExplainableHealth> {
@@ -137,6 +162,53 @@ export async function getHealth(): Promise<OptimizationExplainableHealth> {
 
 export async function getYears(): Promise<YearsResponse> {
   const { data } = await optimizationExplainableApi.get<YearsResponse>("/years");
+  return data;
+}
+
+export type TerminalBenefitBand = {
+  band_index?: number;
+  lower?: number | string | null;
+  upper?: number | string | null;
+  rate_percent?: number | string | null;
+  band_label?: string;
+  quote?: string;
+  source_doc_id?: string;
+  act_name?: string;
+  section_ref?: string;
+};
+
+export type TerminalBenefitLadder = {
+  compare_group_id?: string;
+  rule_family?: string;
+  ladder_key?: string;
+  employment_period_condition?: string;
+  period_from?: string;
+  period_to?: string;
+  act_name?: string;
+  base_act_name?: string;
+  amendment_act_name?: string;
+  effective_from?: string;
+  effective_to?: string;
+  qualifying_income_types?: string[];
+  source_doc_id?: string;
+  section_ref?: string;
+  entry_id?: string;
+  quote?: string;
+  bands?: TerminalBenefitBand[];
+};
+
+export type RatesResponse = {
+  assessment_year: string;
+  exclude_source_doc_id?: string | null;
+  bands: unknown[];
+  band_count: number;
+  terminal_benefit_ladders?: TerminalBenefitLadder[];
+};
+
+export async function getRates(assessmentYear: string): Promise<RatesResponse> {
+  const { data } = await optimizationExplainableApi.get<RatesResponse>(
+    `/rates/${encodeURIComponent(assessmentYear)}`,
+  );
   return data;
 }
 

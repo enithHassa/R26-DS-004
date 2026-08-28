@@ -88,5 +88,16 @@ export function buildScenarioCitations(
     out.push(cite);
   }
 
+  for (const band of result.terminal_benefit_slab_lines ?? []) {
+    if (!slabIsInScenario(band)) continue;
+    const label = band.band_label?.trim() || `Terminal-benefit band ${band.band_index}`;
+    const cite = lineToCitation(band, label);
+    if (!cite) continue;
+    const key = citationKey(cite);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(cite);
+  }
+
   return out;
 }

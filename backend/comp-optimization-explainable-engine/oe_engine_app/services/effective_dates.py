@@ -44,9 +44,11 @@ _FROM_PREFIX = (
     r"with\s+effect\s+from|commencing\s+on)\s+"
 )
 _PRIOR_PREFIX = r"(?<!or\s)prior\s+to\s+"
+_UNTIL_PREFIX = r"up\s*to\s+"
 _DATE_PHRASE_RE = re.compile(
     r"(?<!or\s)prior\s+to\s+|commencing\s+on\s+or\s+after\s+|commencing\s+from\s+"
-    r"|on\s+or\s+after\s+|with\s+effect\s+from\s+|commencing\s+on\s+",
+    r"|on\s+or\s+after\s+|with\s+effect\s+from\s+|commencing\s+on\s+"
+    rf"|up\s*to\s+(?:{_MONTH})",
     re.IGNORECASE,
 )
 
@@ -96,10 +98,13 @@ def lift_effective_dates(
     text = quote or ""
     from_date = _first_date(_FROM_PREFIX, text)
     prior_date = _first_date(_PRIOR_PREFIX, text)
+    until_date = _first_date(_UNTIL_PREFIX, text)
     if not start and from_date is not None:
         start = _iso(from_date)
     if not end and prior_date is not None and from_date is None:
         end = _day_before(prior_date)
+    if not end and until_date is not None and (from_date is None or from_date <= until_date):
+        end = _iso(until_date)
     return start, end
 
 
@@ -130,6 +135,16 @@ def dates_still_missing(entity: dict[str, Any]) -> bool:
     end = str(entity.get("effective_to") or "").strip()
     from_date = _first_date(_FROM_PREFIX, quote)
     prior_date = _first_date(_PRIOR_PREFIX, quote)
+    until_date = _first_date(_UNTIL_PREFIX, quote)
     needs_from = from_date is not None and not start
-    needs_to = prior_date is not None and from_date is None and not end
+    needs_to = (
+        (prior_date is not None and from_date is None and not end)
+        or (until_date is not None and from_date is None and not end)
+        or (
+            until_date is not None
+            and from_date is not None
+            and from_date <= until_date
+            and not end
+        )
+    )
     return needs_from or needs_to

@@ -25,6 +25,11 @@ import {
 } from "../income-cards";
 import { INCOME_CATALOG_BADGE, incomeCatalogCard, type IncomeCatalogField } from "../income-catalog";
 import { useInterview } from "../session";
+import { TerminalBenefitSection } from "../terminal-benefit-section";
+import {
+  terminalBenefitsBlockContinue,
+  terminalBenefitsTotalLkr,
+} from "../terminal-benefits";
 import type { IncomeFormSlice, InterestScheduleLine } from "../types";
 
 function newLine(): InterestScheduleLine {
@@ -58,6 +63,14 @@ export function InterviewIncomePage() {
   const investment = investmentIncomeLkr(income);
   const other = otherIncomeLkr(income);
   const schedule = interestScheduleTotals(income);
+  const terminalAmount = income.hasTerminalBenefits
+    ? terminalBenefitsTotalLkr(income.terminalBenefits)
+    : 0;
+  const terminalIncomplete = terminalBenefitsBlockContinue(
+    income.hasTerminalBenefits,
+    income.terminalBenefits,
+    session.assessmentYear,
+  );
 
   function patchForm<K extends keyof IncomeFormSlice>(
     key: K,
@@ -223,6 +236,8 @@ export function InterviewIncomePage() {
         </div>
       </div>
 
+      <TerminalBenefitSection />
+
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">
           Assessable income (before reliefs):{" "}
@@ -231,6 +246,9 @@ export function InterviewIncomePage() {
         <p className="text-xs text-muted-foreground">
           Employment {formatLkr(employment)} · Business {formatLkr(business)} · Investment{" "}
           {formatLkr(investment)} · Other {formatLkr(other)}
+          {terminalAmount > 0
+            ? ` · Terminal benefits ${formatLkr(terminalAmount)}`
+            : ""}
         </p>
       </div>
 
@@ -244,11 +262,22 @@ export function InterviewIncomePage() {
         </Button>
         <Button
           type="button"
+          disabled={terminalIncomplete}
           onClick={() => void navigate("/optimization-explainable-engine/reliefs")}
         >
           Continue to reliefs
         </Button>
       </div>
+      {terminalIncomplete ? (
+        <p className="text-sm text-destructive" role="alert">
+          Complete each retirement & terminal benefit (type, amount
+          {session.assessmentYear === "2019_20" ? ", 2019/20 period" : ""}
+          {income.terminalBenefits.some((row) => row.type === "loss_of_office_compensation")
+            ? ", and the uniform-scheme confirmation for loss of office"
+            : ""}
+          ) before continuing.
+        </p>
+      ) : null}
 
       <FieldExplainDrawer
         field={explainField}
