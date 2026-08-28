@@ -288,7 +288,7 @@ export function FinancialIntakePage() {
     onSuccess: (created) => {
       setProfileId(created.id);
       // Behavioural questions come next, then the recommendations portal.
-      navigate("/portal/about-you", { replace: true });
+      navigate("/taxwise?habits=open", { replace: true });
     },
   });
 

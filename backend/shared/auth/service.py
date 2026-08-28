@@ -19,6 +19,10 @@ class InvalidCredentialsError(LookupError):
     """Raised when a username/password pair doesn't match a user record."""
 
 
+class AmbiguousLoginError(LookupError):
+    """Raised when multiple user rows match the same login identifier."""
+
+
 class EmailTakenError(ValueError):
     """Raised at signup when the email is already registered."""
 
@@ -85,23 +89,57 @@ def _latest_profile_id(db: Session, user_id: UUID) -> UUID | None:
 
 
 def authenticate_user(db: Session, username: str, password: str) -> tuple[User, UUID | None]:
-    """Verify credentials; return user and optional latest ``financial_profiles.id``."""
-    candidates = list(
-        db.execute(
-            select(User)
-            .where((User.email == username) | (User.full_name == username))
-            .order_by(User.created_at.desc())
+    """Verify credentials; return user and optional latest ``financial_profiles.id``.
+
+    Login identifier resolution (shared Azure DB, no local SQLite users):
+    1. If ``username`` contains ``@``, match **email only** (exact, case-sensitive).
+    2. Otherwise try email exact match first, then ``full_name`` exact match.
+    3. When several rows share the same display name, pick the one with a linked
+       financial profile; if still tied, the most recently created account.
+    """
+    login = username.strip()
+    if not login or not password:
+        raise InvalidCredentialsError("Invalid username or password")
+
+    if "@" in login:
+        candidates = list(
+            db.execute(select(User).where(User.email == login).order_by(User.created_at.desc()))
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
+    else:
+        by_email = list(
+            db.execute(select(User).where(User.email == login).order_by(User.created_at.desc()))
+            .scalars()
+            .all()
+        )
+        by_name = list(
+            db.execute(select(User).where(User.full_name == login).order_by(User.created_at.desc()))
+            .scalars()
+            .all()
+        )
+        candidates = by_email if by_email else by_name
+
     matching = [user for user in candidates if user.password == password]
     if not matching:
         raise InvalidCredentialsError("Invalid username or password")
 
-    for user in matching:
+    def _sort_key(user: User) -> tuple[int, float]:
         profile_id = _latest_profile_id(db, user.id)
-        if profile_id is not None:
-            return user, profile_id
+        created = user.created_at.timestamp() if user.created_at else 0.0
+        return (1 if profile_id is not None else 0, created)
 
-    return matching[0], None
+    matching.sort(key=_sort_key, reverse=True)
+    user = matching[0]
+
+    # Same password on duplicate full_name rows without email login — ask for email.
+    if "@" not in login and len(matching) > 1:
+        top = matching[0]
+        for other in matching[1:]:
+            if other.full_name == top.full_name and other.id != top.id:
+                raise AmbiguousLoginError(
+                    "Multiple accounts share this username. Sign in with your email address instead."
+                )
+
+    profile_id = _latest_profile_id(db, user.id)
+    return user, profile_id

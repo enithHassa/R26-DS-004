@@ -80,12 +80,12 @@ export function UserLoginPage() {
                 htmlFor="username"
                 className="block text-sm font-medium text-[var(--demo-text-muted)]"
               >
-                Username
+                Username or email
               </label>
               <input
                 id="username"
                 autoComplete="username"
-                placeholder="Taxpayer_00001"
+                placeholder="Email or Taxpayer_00001"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-lg border border-[var(--demo-border)] bg-[var(--demo-bg)] px-3.5 py-2.5 text-sm text-[var(--demo-text)] outline-none placeholder:text-[var(--demo-text-muted)]/60 focus:border-[var(--demo-accent)]/50 focus:ring-1 focus:ring-[var(--demo-accent)]/40"
