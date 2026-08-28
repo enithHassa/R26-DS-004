@@ -33,7 +33,8 @@ class OeEngineSettings(BaseSettings):
     OE_ENGINE_EXTRACT_OUT: Path = Field(
         default_factory=lambda: PROJECT_ROOT / "models" / "opt-explain-engine" / "extracted"
     )
-    OE_ENGINE_ACT_ADMIN_TOKEN: str | None = None
+    # Default matches frontend VITE_OE_ENGINE_ACT_ADMIN_TOKEN for local auditor flow.
+    OE_ENGINE_ACT_ADMIN_TOKEN: str | None = "local-oe-act-admin"
     OE_ENGINE_ACT_ADMIN_WORK_DIR: Path | None = None
 
     model_config = SettingsConfigDict(
