@@ -19,6 +19,10 @@ Separate from:
 | TaxWise (new) | `/taxwise/profile` | 8-section tax return profile wizard (save/update to DB) |
 | TaxWise (new) | `/taxwise/recommendations` | Personalized recommendations |
 | TaxWise (new) | `/taxwise/financial-impact` | Long-term financial impact |
+| TaxWise (new) | `/taxwise/optimization-explainable` | OE Engine user Overview (what’s best / auditor-approved) |
+| TaxWise (new) | `/taxwise/optimization-explainable/income` | My Income |
+| TaxWise (new) | `/taxwise/optimization-explainable/reliefs` | My Reliefs |
+| TaxWise (new) | `/taxwise/optimization-explainable/result` | My Tax Result |
 | Comp 3 taxpayer | `/portal/financial-intake` | First-time financial questions |
 | Comp 3 taxpayer | `/portal/about-you` | Optional behavioural questions |
 | Comp 3 taxpayer | `/portal/summary` | Legacy redirect → TaxWise recommendations pages |
@@ -37,8 +41,10 @@ the demo landing page).
 Use the prefix consistently, e.g.:
 
 - `/taxwise/transactions`
-- `/taxwise/tax-strategy`
+- `/taxwise/optimization-explainable`
 - `/taxwise/ai-advisor`
 - `/taxwise/recommendations`
 
 Do **not** put new TaxWise pages under `/portal` or under auditor `/profile`.
+Auditor OE Engine remains at `/optimization-explainable-engine/**` (Approve for taxpayer
+publishes a finalized snapshot that TaxWise OE reads).

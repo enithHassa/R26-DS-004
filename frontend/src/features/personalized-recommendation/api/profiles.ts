@@ -204,10 +204,33 @@ export async function listTaxComputationSnapshots(
 export async function getLatestTaxComputationSnapshot(
   profileId: string,
   assessmentYear?: string,
+  preferStatus?: TaxComputationSnapshotStatus,
 ): Promise<TaxComputationSnapshotDetail> {
   const { data } = await recommendationApi.get<TaxComputationSnapshotDetail>(
     `/profiles/${profileId}/tax-computations/latest`,
-    { params: assessmentYear ? { assessment_year: assessmentYear } : undefined },
+    {
+      params: {
+        ...(assessmentYear ? { assessment_year: assessmentYear } : {}),
+        ...(preferStatus ? { prefer_status: preferStatus } : {}),
+      },
+    },
   );
   return data;
+}
+
+/** Taxpayer OE view: official auditor-approved result for a YA. */
+export async function getFinalizedTaxComputationSnapshot(
+  profileId: string,
+  assessmentYear: string,
+): Promise<TaxComputationSnapshotDetail | null> {
+  try {
+    const snap = await getLatestTaxComputationSnapshot(
+      profileId,
+      assessmentYear,
+      "finalized",
+    );
+    return snap.status === "finalized" ? snap : null;
+  } catch {
+    return null;
+  }
 }

@@ -368,6 +368,8 @@ export function InterviewIncomePage() {
             }
             form={income.form}
             onPatch={patchForm}
+            apitAlreadyPaid={income.apitAlreadyPaid ?? "0"}
+            onApitChange={(v) => patchIncome({ apitAlreadyPaid: v })}
             open={employmentOpen}
             onToggle={() => setEmploymentOpen((v) => !v)}
             actVersionLabel={INCOME_CATALOG_BADGE}

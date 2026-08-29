@@ -258,6 +258,10 @@ def list_profile_tax_computations(
 def get_latest_profile_tax_computation(
     profile_id: UUID,
     assessment_year: str | None = Query(None, description="Filter by assessment year, e.g. 2025_26."),
+    prefer_status: str | None = Query(
+        None,
+        description="Prefer this status first: finalized | calculated | draft.",
+    ),
     db: Session = DBSession,
 ) -> TaxComputationSnapshotDetail:
     _profile_or_404(db, profile_id)
@@ -265,6 +269,7 @@ def get_latest_profile_tax_computation(
         db,
         profile_id=profile_id,
         assessment_year=assessment_year,
+        prefer_status=prefer_status,
     )
     if snapshot is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No snapshot found.")

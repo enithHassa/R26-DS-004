@@ -67,6 +67,8 @@ export type CalculateIncome = {
   other: number;
   interest: number;
   rents: number;
+  wht_already_paid?: number;
+  apit_already_paid?: number;
   terminal_benefits?: TerminalBenefitItem[];
   terminal_benefit_amount?: number;
   terminal_benefit_type?: string | null;
@@ -94,6 +96,7 @@ export type CalculateRequest = {
   claims: CalculateClaim[];
   exclude_source_doc_id?: string | null;
   wht_already_paid?: number;
+  apit_already_paid?: number;
 };
 
 export type ReliefLine = {
@@ -141,6 +144,8 @@ export type CalculateResponse = {
   total_reliefs: number;
   taxable_income: number;
   tax_payable: number;
+  apit_already_paid?: number;
+  apit_credit?: number;
   wht_already_paid?: number;
   wht_credit?: number;
   balance_payable?: number;
@@ -270,6 +275,7 @@ export type ExplainResponse = {
   total_reliefs: number;
   taxable_income: number;
   tax_payable: number;
+  apit_credit?: number;
   wht_credit?: number;
   balance_payable?: number;
   tax_refund?: number;

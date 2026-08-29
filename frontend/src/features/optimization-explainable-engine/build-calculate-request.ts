@@ -10,6 +10,7 @@ import {
   otherIncomeLkr,
   rentsIncomeLkr,
   whtAlreadyPaidLkr,
+  apitAlreadyPaidLkr,
   type InterviewSession,
 } from "./types";
 
@@ -47,5 +48,6 @@ export function buildCalculateRequest(session: InterviewSession): CalculateReque
     })),
     exclude_source_doc_id: session.excludeSourceDocId,
     wht_already_paid: whtAlreadyPaidLkr(income),
+    apit_already_paid: apitAlreadyPaidLkr(income),
   };
 }
