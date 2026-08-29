@@ -372,7 +372,7 @@ function ReliefStepCard({
         )}
 
         <div className="rounded-md border bg-muted/30 p-3 text-[11px] text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground">Provenance (this YA)</p>
+          <p className="font-medium text-foreground">Legal source (this YA)</p>
           <p>
             {entry.act_name} · {entry.section_ref} · {entry.source_doc_id}
           </p>

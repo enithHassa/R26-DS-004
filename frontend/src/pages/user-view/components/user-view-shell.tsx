@@ -2,14 +2,18 @@ import type { ReactNode } from "react";
 import { NavLink, Navigate, useLocation } from "react-router-dom";
 import {
   Bell,
+  BookOpen,
+  Calculator,
   ChevronRight,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   MessageSquare,
   Receipt,
   Sparkles,
   TrendingUp,
   UserRound,
+  Wallet,
   Zap,
 } from "lucide-react";
 
@@ -18,6 +22,11 @@ import { useUserSessionStore } from "@/features/personalized-recommendation/stor
 import {
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
+  TAXWISE_OE,
+  TAXWISE_OE_EXPLANATIONS,
+  TAXWISE_OE_INCOME,
+  TAXWISE_OE_RELIEFS,
+  TAXWISE_OE_RESULT,
   TAXWISE_PROFILE,
   TAXWISE_RECOMMENDATIONS,
 } from "@/pages/user-view/paths";
@@ -31,13 +40,6 @@ const NAV_ITEMS = [
     label: "Transactions",
     icon: Receipt,
     to: `${TAXWISE_BASE}/transactions`,
-    enabled: false,
-  },
-  {
-    key: "tax-strategy",
-    label: "Tax Strategy",
-    icon: TrendingUp,
-    to: `${TAXWISE_BASE}/tax-strategy`,
     enabled: false,
   },
   {
@@ -61,6 +63,14 @@ const RECOMMENDATION_SUB_ITEMS = [
   { label: "Financial Impact", icon: TrendingUp, to: TAXWISE_FINANCIAL_IMPACT },
 ] as const;
 
+const OE_SUB_ITEMS = [
+  { label: "Overview", icon: TrendingUp, to: TAXWISE_OE, end: true },
+  { label: "My Income", icon: Wallet, to: TAXWISE_OE_INCOME, end: false },
+  { label: "My Reliefs", icon: ListChecks, to: TAXWISE_OE_RELIEFS, end: false },
+  { label: "My Tax Result", icon: Calculator, to: TAXWISE_OE_RESULT, end: false },
+  { label: "Explanations", icon: BookOpen, to: TAXWISE_OE_EXPLANATIONS, end: false },
+] as const;
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase() || "U";
@@ -72,40 +82,57 @@ function displayFirstName(name: string): string {
   return parts[0] ?? name;
 }
 
-function RecommendationsNavGroup() {
+function FlyoutNavGroup({
+  label,
+  icon: Icon,
+  items,
+  groupClass,
+}: {
+  label: string;
+  icon: typeof Sparkles;
+  items: ReadonlyArray<{ label: string; icon: typeof Sparkles; to: string; end?: boolean }>;
+  groupClass: string;
+}) {
   const location = useLocation();
-  const isGroupActive = RECOMMENDATION_SUB_ITEMS.some((item) => location.pathname === item.to);
+  const isGroupActive = items.some((item) =>
+    item.end
+      ? location.pathname === item.to
+      : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
+  );
 
   return (
-    <div className="group/recommendations relative">
+    <div className={cn("relative", groupClass)}>
       <div
         className={cn(
           "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
           isGroupActive
             ? "bg-[var(--uv-accent)] text-[var(--uv-accent-foreground)]"
-            : "text-[var(--uv-text-muted)] group-hover/recommendations:bg-white/5 group-hover/recommendations:text-[var(--uv-text)]",
+            : "text-[var(--uv-text-muted)] group-hover:bg-white/5 group-hover:text-[var(--uv-text)]",
         )}
       >
-        <Sparkles className="h-4 w-4 shrink-0" />
-        Recommendations
-        <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-60" />
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 leading-snug">{label}</span>
+        <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />
       </div>
 
       <div
         className={cn(
-          "invisible absolute left-full top-0 z-50 ml-1 min-w-[11.5rem] rounded-lg border border-[var(--uv-border)] bg-[var(--uv-bg-card)] py-1 pl-1 opacity-0 shadow-xl transition-all",
+          "invisible absolute left-full top-0 z-50 ml-1 min-w-[12.5rem] rounded-lg border border-[var(--uv-border)] bg-[var(--uv-bg-card)] py-1 pl-1 opacity-0 shadow-xl transition-all",
           "before:absolute before:-left-2 before:top-0 before:h-full before:w-2 before:content-['']",
-          "group-hover/recommendations:visible group-hover/recommendations:opacity-100",
+          "group-hover:visible group-hover:opacity-100",
           isGroupActive && "border-[var(--uv-accent)]/30",
         )}
       >
-        {RECOMMENDATION_SUB_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = location.pathname === item.to;
+        {items.map((item) => {
+          const ItemIcon = item.icon;
+          const active = item.end
+            ? location.pathname === item.to
+            : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-colors",
                 active
@@ -113,7 +140,7 @@ function RecommendationsNavGroup() {
                   : "text-[var(--uv-text-muted)] hover:bg-white/5 hover:text-[var(--uv-text)]",
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <ItemIcon className="h-4 w-4 shrink-0" />
               {item.label}
             </NavLink>
           );
@@ -155,7 +182,7 @@ export function UserViewShell({ children, title, subtitle, embedded }: UserViewS
         </div>
 
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.slice(0, 4).map((item) => {
+          {NAV_ITEMS.slice(0, 2).map((item) => {
             const Icon = item.icon;
             if (!item.enabled) {
               return (
@@ -191,9 +218,37 @@ export function UserViewShell({ children, title, subtitle, embedded }: UserViewS
             );
           })}
 
-          <RecommendationsNavGroup />
+          <FlyoutNavGroup
+            label="Optimization and Explainable"
+            icon={TrendingUp}
+            items={OE_SUB_ITEMS}
+            groupClass="group/oe group"
+          />
 
-          {NAV_ITEMS.slice(4).map((item) => {
+          {NAV_ITEMS.slice(2, 3).map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                disabled
+                title="Coming soon"
+                className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[var(--uv-text-muted)] opacity-60"
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </button>
+            );
+          })}
+
+          <FlyoutNavGroup
+            label="Recommendations"
+            icon={Sparkles}
+            items={RECOMMENDATION_SUB_ITEMS}
+            groupClass="group/recommendations group"
+          />
+
+          {NAV_ITEMS.slice(3).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

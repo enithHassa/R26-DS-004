@@ -24,6 +24,7 @@ def post_explain(body: CalculateRequest) -> dict[str, Any]:
             claims=[c.model_dump() for c in body.claims],
             exclude_source_doc_id=body.exclude_source_doc_id,
             wht_already_paid=body.wht_already_paid or body.income.wht_already_paid,
+            apit_already_paid=body.apit_already_paid or body.income.apit_already_paid,
         )
     except KeyError:
         raise HTTPException(

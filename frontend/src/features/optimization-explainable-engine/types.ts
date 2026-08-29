@@ -1,4 +1,4 @@
-import { parseLkr } from "./format-lkr";
+import { parseLkr, roundLkr } from "./format-lkr";
 import {
   employmentIncomeLkr,
   interestIncomeLkr,
@@ -23,6 +23,7 @@ export {
   rentsIncomeLkr,
   totalIncomeLkr,
   whtAlreadyPaidLkr,
+  apitAlreadyPaidLkr,
 } from "./income-aggregate";
 
 export type ReliefInputKind = "notice" | "yes_no_amount" | "amount" | "boolean";
@@ -168,6 +169,8 @@ export type InterviewIncomeState = {
   otherAmounts: Record<string, string>;
   otherCustomRows: OtherCustomRow[];
   interestSchedule: InterestScheduleLine[];
+  /** APIT deducted at source from employment (Form 16) — tax credit, not income reduction. */
+  apitAlreadyPaid: string;
   hasTerminalBenefits: boolean;
   terminalBenefits: TerminalBenefitRow[];
 };
@@ -225,11 +228,17 @@ type IncomeHydrationInput = InterviewIncomeState & {
   employmentPeriodOver20Years?: boolean;
   lossOfOfficeSchemeApproved?: boolean;
   terminalBenefitPeriod?: TerminalBenefitPeriod;
+  /** Optional on load — hydrate defaults missing APIT to "0". */
+  apitAlreadyPaid?: string;
 };
 
 export function hydrateIncomeAmounts(income: IncomeHydrationInput): InterviewIncomeState {
   return {
     ...income,
+    apitAlreadyPaid:
+      typeof income.apitAlreadyPaid === "string" && income.apitAlreadyPaid !== ""
+        ? income.apitAlreadyPaid
+        : "0",
     employmentAmounts: {
       ...emptyAmountsForCard(incomeCatalogCard("employment")),
       ...income.employmentAmounts,
@@ -280,6 +289,7 @@ export function createDefaultSession(): InterviewSession {
       interestSchedule: [
         { id: "bank-1", label: "Bank interest", interest: "2000000", wht: "0" },
       ],
+      apitAlreadyPaid: "0",
       hasTerminalBenefits: false,
       terminalBenefits: [],
     }),
@@ -330,8 +340,9 @@ export function previewAppliedLkr(
     ) {
       return 0;
     }
-    const base = kind === "rent_relief" ? rentsIncomeLkr(income) : totalIncomeLkr(income);
-    return Math.floor((base * cap) / 100);
+    // OE calculate uses income.rents for percent binders (rental relief 25%).
+    const base = incomeBaseForEntry(entry, income);
+    return roundLkr((base * cap) / 100);
   }
 
   if (inputKind === "notice") {
@@ -360,10 +371,28 @@ export function previewAppliedLkr(
   return Math.min(cap, claimLkr);
 }
 
+function isRentReliefEntry(entry: ReliefEntry): boolean {
+  const kind = (entry.engine_binding?.kind ?? "").toLowerCase();
+  const group = (entry.compare_group_id ?? "").toLowerCase();
+  const name = (entry.display_name ?? "").toLowerCase();
+  return (
+    kind === "rent_relief" ||
+    group === "rental_income_relief" ||
+    group === "rent_relief" ||
+    group.includes("rental_income") ||
+    name.includes("rental income relief")
+  );
+}
+
+/** Income base for a relief — aligned with OE Engine `calculate._income_base`. */
 function incomeBaseForEntry(entry: ReliefEntry, income: InterviewIncomeState): number {
   const kind = entry.engine_binding?.kind ?? "none";
   if (kind === "senior_citizen_interest_relief") return interestIncomeLkr(income);
-  if (kind === "rent_relief") return rentsIncomeLkr(income);
+  // Percent rental relief (Fifth Sch) and any rent_relief binding use rents only —
+  // never total assessable income.
+  if (isRentReliefEntry(entry) || entry.unit === "percent") {
+    return rentsIncomeLkr(income);
+  }
   if (entry.compare_group_id === "employment_income_relief") {
     return employmentIncomeLkr(income);
   }

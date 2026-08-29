@@ -170,6 +170,7 @@ export function taxReturnDetailToInterviewIncome(
   const bonus = sumEmployerField(detail, "bonus");
   const overtime = sumEmployerField(detail, "overtime");
   const allowances = sumEmployerField(detail, "allowances");
+  const apit = sumEmployerField(detail, "apit");
 
   const income = hydrateIncomeAmounts({
     taxpayerName: detail.section1.fullName || "",
@@ -213,6 +214,7 @@ export function taxReturnDetailToInterviewIncome(
     otherAmounts: {},
     otherCustomRows: [],
     interestSchedule,
+    apitAlreadyPaid: str(apit),
     hasTerminalBenefits: terminalBenefits.length > 0,
     terminalBenefits,
   });

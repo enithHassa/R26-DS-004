@@ -85,6 +85,13 @@ describe("buildCalculateRequest terminal_benefits", () => {
     ]);
   });
 
+  it("sends APIT credit from employment Form 16 field", () => {
+    const session = createDefaultSession();
+    session.income.apitAlreadyPaid = "125000";
+    const request = buildCalculateRequest(session);
+    expect(request.apit_already_paid).toBe(125_000);
+  });
+
   it("hydrates a legacy scalar session into one row", () => {
     const hydrated = hydrateTerminalBenefits({
       terminalBenefitType: "retiring_gratuity",

@@ -20,6 +20,7 @@ import {
   groupRatesBySection,
   RateBandReviewSection,
   LiveCatalogPreviewPanel,
+  RejectedNoiseSection,
   ReliefReviewCard,
   ReviewProgressStrip,
   YearKindBanner,
@@ -30,6 +31,7 @@ export function ActAdminReviewPage() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [previewYear, setPreviewYear] = useState("");
+  const [alreadyInSystemNotice, setAlreadyInSystemNotice] = useState<string | null>(null);
 
   const reviewQuery = useQuery({
     queryKey: ["oe-act-admin", "review", sourceDocId],
@@ -39,6 +41,8 @@ export function ActAdminReviewPage() {
   });
 
   const review = reviewQuery.data;
+  const alreadyInSystem =
+    Boolean(review?.already_in_system) || Boolean(review?.ingest_note);
   const yearKindStamp = useMemo(() => {
     const rows = [...(review?.reliefs ?? []), ...(review?.rates ?? [])];
     return rows.map((row) => `${row.entry_id}:${row.year_kind ?? ""}`).join("|");
@@ -58,9 +62,23 @@ export function ActAdminReviewPage() {
   });
 
   const previewYears = previewYearsQuery.data?.preview_years ?? [];
-  const latestPreviewYear = previewYears[previewYears.length - 1] || "";
+  const actTargetYear = String(
+    review?.year_context?.new_assessment_year ??
+      review?.reliefs?.[0]?.derived_assessment_year ??
+      review?.rates?.[0]?.derived_assessment_year ??
+      "",
+  ).trim();
+  const preferredPreviewYear = (() => {
+    if (alreadyInSystem && actTargetYear && previewYears.includes(actTargetYear)) {
+      return actTargetYear;
+    }
+    if (alreadyInSystem && previewYears.includes("2018_19")) {
+      return "2018_19";
+    }
+    return previewYears[previewYears.length - 1] || "";
+  })();
   const effectivePreviewYear =
-    previewYear && previewYears.includes(previewYear) ? previewYear : latestPreviewYear;
+    previewYear && previewYears.includes(previewYear) ? previewYear : preferredPreviewYear;
 
   const catalogPreviewForYearQuery = useQuery({
     queryKey: [
@@ -89,6 +107,8 @@ export function ActAdminReviewPage() {
       void queryClient.invalidateQueries({ queryKey: ["optimization-explainable-engine", "years"] });
       void queryClient.invalidateQueries({ queryKey: ["optimization-explainable-engine", "compare"] });
       void queryClient.invalidateQueries({ queryKey: ["oe-act-admin"] });
+      // TaxWise taxpayer OE shares the same /years + reliefs catalog after activate.
+      void queryClient.invalidateQueries({ queryKey: ["taxwise-oe"] });
     },
   });
 
@@ -98,9 +118,10 @@ export function ActAdminReviewPage() {
   const rateCounts = useMemo(() => countReviewRows(rates), [rates]);
   const reliefSections = useMemo(() => groupReliefsBySection(reliefs), [reliefs]);
   const rateSections = useMemo(() => groupRatesBySection(rates), [rates]);
-  const needsNewYearChoice = [...reliefs, ...rates].some(
-    (row) => String(row.year_kind_suggested ?? "") === "NEW_YEAR",
-  );
+  const rejectedNoise = useMemo(() => review?.rejected_noise ?? [], [review]);
+  const needsNewYearChoice =
+    !alreadyInSystem &&
+    [...reliefs, ...rates].some((row) => String(row.year_kind_suggested ?? "") === "NEW_YEAR");
   const yearKindSample = [...reliefs, ...rates].find(
     (row) => String(row.year_kind_suggested ?? "") === "NEW_YEAR",
   );
@@ -113,6 +134,12 @@ export function ActAdminReviewPage() {
   }
 
   async function patchRow(entryId: string, body: Record<string, unknown>): Promise<void> {
+    if (alreadyInSystem) {
+      const row = [...reliefs, ...rates].find((entity) => String(entity.entry_id ?? "") === entryId);
+      const status = String(row?.review_status ?? "pending");
+      // Keep prior accept/reject locked; allow deciding brand-new pending rows only.
+      if (status === "accepted" || status === "rejected") return;
+    }
     setBusyId(entryId);
     try {
       const updated = await patchActAdminRow(sourceDocId, entryId, body);
@@ -123,6 +150,7 @@ export function ActAdminReviewPage() {
   }
 
   async function patchYearKindRows(entryIds: string[], kind: YearKind): Promise<void> {
+    if (alreadyInSystem) return;
     setBusyId("year-kind");
     try {
       let updated = review;
@@ -137,6 +165,7 @@ export function ActAdminReviewPage() {
   }
 
   async function applyYearKindAll(kind: YearKind): Promise<void> {
+    if (alreadyInSystem) return;
     setBusyId("year-kind");
     try {
       const updated = await setActAdminYearKindAll(sourceDocId, kind);
@@ -146,12 +175,25 @@ export function ActAdminReviewPage() {
     }
   }
 
+  function handleActivateClick(): void {
+    if (alreadyInSystem) {
+      setAlreadyInSystemNotice(
+        "This document is already extracted and in the system.",
+      );
+      return;
+    }
+    setAlreadyInSystemNotice(null);
+    activate.mutate();
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{review?.act_title ?? "Review extract"}</h2>
         <p className="text-sm text-muted-foreground">
-          {review?.entity_count ?? 0} individual income tax rows to review before activate.
+          {alreadyInSystem
+            ? `${review?.entity_count ?? 0} individual income tax rules already live in the catalog (read-only demo).`
+            : `${review?.entity_count ?? 0} individual income tax rows to review before activate.`}
         </p>
       </div>
 
@@ -161,7 +203,12 @@ export function ActAdminReviewPage() {
 
       {review ? (
         <>
-          <ReviewProgressStrip relief={reliefCounts} rates={rateCounts} />
+          <ReviewProgressStrip
+            relief={reliefCounts}
+            rates={rateCounts}
+            rejectedNoise={rejectedNoise.length}
+            alreadyInSystem={alreadyInSystem}
+          />
           {needsNewYearChoice && yearKindSample ? (
             <YearKindBanner
               sample={yearKindSample}
@@ -176,8 +223,11 @@ export function ActAdminReviewPage() {
             extractedAt={review.extracted_at}
             entityCount={review.entity_count}
             extractedEntityCount={review.extracted_entity_count}
-            outOfScopeCount={review.out_of_scope_count}
+            outOfScopeCount={
+              alreadyInSystem ? rejectedNoise.length : review.out_of_scope_count
+            }
             note={review.note}
+            alreadyInSystem={alreadyInSystem}
           />
         </>
       ) : null}
@@ -187,7 +237,9 @@ export function ActAdminReviewPage() {
           <div className="space-y-1">
             <h3 className="text-base font-semibold">Reliefs extracted from this Act</h3>
             <p className="text-sm text-muted-foreground">
-              Skim the interview preview and Act quote, then Quick approve each row you accept.
+              {alreadyInSystem
+            ? "Approved rows match the live catalog (read-only). Previously rejected rows stay rejected and out of year views."
+            : "Skim the interview preview and Act quote, then Quick approve each row you accept."}
             </p>
           </div>
           {reliefSections.map(([section, rows]) => (
@@ -208,6 +260,7 @@ export function ActAdminReviewPage() {
                       key={entryId}
                       entity={entity}
                       busy={busyId === entryId || busyId === "year-kind"}
+                      readOnlyApproved={alreadyInSystem}
                       onQuickApprove={() => void patchRow(entryId, approveBody)}
                       onReject={() => void patchRow(entryId, { review_status: "rejected" })}
                       onSaveQuestions={(fields) => void patchRow(entryId, fields)}
@@ -226,7 +279,9 @@ export function ActAdminReviewPage() {
           <div className="space-y-1">
             <h3 className="text-base font-semibold">Tax rates</h3>
             <p className="text-sm text-muted-foreground">
-              One row per band — compare against the Act, then Quick approve each row.
+              {alreadyInSystem
+                ? "Approved bands are read-only. Rejected bands stay out of year views."
+                : "Review the exact Act quote on each band, then Quick approve or Reject. Auditors with legal knowledge should check the quote against the PDF."}
             </p>
           </div>
           {rateSections.map(([section, rows]) => (
@@ -235,6 +290,7 @@ export function ActAdminReviewPage() {
               title={section}
               rows={rows}
               busyId={busyId}
+              readOnlyApproved={alreadyInSystem}
               onApprove={(entryId) => {
                 const entity = rows.find((row) => String(row.entry_id) === entryId);
                 const body: Record<string, unknown> = { review_status: "accepted" };
@@ -253,17 +309,26 @@ export function ActAdminReviewPage() {
         </section>
       ) : null}
 
+      <RejectedNoiseSection rows={rejectedNoise} />
+
       <LiveCatalogPreviewPanel
         preview={catalogPreviewForYearQuery.data}
         selectedYear={effectivePreviewYear}
         onYearChange={setPreviewYear}
+        alreadyInSystem={alreadyInSystem}
       />
 
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          disabled={!review?.activate_allowed || activate.isPending}
-          onClick={() => activate.mutate()}
+          disabled={!alreadyInSystem && (!review?.activate_allowed || activate.isPending)}
+          aria-disabled={alreadyInSystem || undefined}
+          title={
+            alreadyInSystem
+              ? "This document is already extracted and in the system"
+              : undefined
+          }
+          onClick={handleActivateClick}
         >
           Activate into year views
         </Button>
@@ -272,17 +337,44 @@ export function ActAdminReviewPage() {
         </Button>
       </div>
 
-      {review?.ingest_note ? (
+      {alreadyInSystemNotice ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+          {alreadyInSystemNotice}
+        </p>
+      ) : null}
+
+      {review?.ingest_note && !alreadyInSystem ? (
         <p className="text-sm text-muted-foreground">{review.ingest_note}</p>
       ) : null}
-      {!review?.activate_allowed && review?.activate_block_reason ? (
-        <p className="text-sm text-muted-foreground">{review.activate_block_reason}</p>
+      {alreadyInSystem ? (
+        <p className="text-sm text-muted-foreground">
+          This PDF is already extracted and live in the engine. Activate stays available to click for
+          the demo message only — it does not change year views again.
+        </p>
+      ) : null}
+      {!alreadyInSystem ? (
+        <p className="text-sm text-muted-foreground">
+          Rejected rows never enter year views. After Activate, new assessment years and approved
+          reliefs/rates are available in auditor OE Engine and TaxWise user views.
+        </p>
+      ) : null}
+      {!alreadyInSystem && !review?.activate_allowed && review?.activate_block_reason ? (
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">{review.activate_block_reason}</p>
+          {(review.blocking_issues?.length ?? 0) > 0 ? (
+            <ul className="list-disc space-y-0.5 pl-5 text-sm text-destructive">
+              {review.blocking_issues.map((issue) => (
+                <li key={`${issue.entry_id}-${issue.code}`}>{issue.message}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
 
       {activate.isSuccess ? (
         <p className="text-sm text-muted-foreground">
-          Activated. Interview year views and RAG catalog are updated — open Reliefs or Compare in
-          the main OE Engine flow.
+          Activated. Rejected rows were not promoted. New years and approved reliefs are live for
+          auditor OE Engine and TaxWise — refresh year pickers if a tab was already open.
         </p>
       ) : null}
       {activate.isError ? (

@@ -14,6 +14,7 @@ export type SnapshotSaveOptions = {
   status: "draft" | "calculated" | "finalized";
   calculateResult?: CalculateResponse | null;
   explainNarrative?: string | null;
+  auditorComments?: string | null;
   source?: "auditor_manual" | "profile_load" | "transaction_merge";
 };
 
@@ -21,6 +22,15 @@ export function buildSnapshotPayload(
   session: InterviewSession,
   options: SnapshotSaveOptions,
 ) {
+  const meta: Record<string, unknown> = {
+    compareYear: session.compareYear,
+    excludeSourceDocId: session.excludeSourceDocId,
+    selectedCompareGroupId: session.selectedCompareGroupId,
+  };
+  // Always persist when provided (including "") so calculated saves do not drop a prior note.
+  if (options.auditorComments !== undefined) {
+    meta.auditorComments = (options.auditorComments ?? "").trim();
+  }
   return {
     assessment_year: session.assessmentYear,
     status: options.status,
@@ -29,15 +39,19 @@ export function buildSnapshotPayload(
     income_state: session.income as unknown as Record<string, unknown>,
     relief_answers: session.reliefAnswers as unknown as Record<string, unknown>[],
     evidence_checks: session.evidenceChecks,
-    session_meta: {
-      compareYear: session.compareYear,
-      excludeSourceDocId: session.excludeSourceDocId,
-      selectedCompareGroupId: session.selectedCompareGroupId,
-    },
+    session_meta: meta,
     calculate_result: (options.calculateResult ?? null) as Record<string, unknown> | null,
     explain_narrative: options.explainNarrative ?? null,
     source: options.source ?? "auditor_manual",
   };
+}
+
+/** Auditor note saved with a finalized snapshot (profile-scoped). */
+export function auditorCommentsFromSnapshot(
+  snapshot: TaxComputationSnapshotDetail | null | undefined,
+): string {
+  const raw = snapshot?.session_meta?.auditorComments;
+  return typeof raw === "string" ? raw.trim() : "";
 }
 
 export function sessionFromSnapshot(snapshot: TaxComputationSnapshotDetail): InterviewSession {

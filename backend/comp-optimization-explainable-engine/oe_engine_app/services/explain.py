@@ -43,6 +43,7 @@ def explain(
     claims: list[dict[str, Any]] | None = None,
     exclude_source_doc_id: str | None = None,
     wht_already_paid: int = 0,
+    apit_already_paid: int = 0,
     *,
     query_embedding: list[float] | None = None,
 ) -> dict[str, Any]:
@@ -53,6 +54,7 @@ def explain(
         claims=claims,
         exclude_source_doc_id=exclude_source_doc_id,
         wht_already_paid=wht_already_paid,
+        apit_already_paid=apit_already_paid,
     )
     query = _trace_query(calc)
     hits = hybrid_retrieve(
