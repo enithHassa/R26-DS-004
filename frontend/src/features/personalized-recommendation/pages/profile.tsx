@@ -8,7 +8,6 @@ import { z } from "zod";
 import {
   Loader2,
   Trash2,
-  RefreshCw,
   X,
   Plus,
   UserRound,
@@ -43,6 +42,7 @@ import {
   setEligibilityOverride,
 } from "../api/profiles";
 import { PageHeader } from "../components/page-header";
+import { ProfileFeaturesTab } from "../components/profile-features-tab";
 import { WizardNav } from "../components/wizard-nav";
 import { profileToAuditorSummary } from "@/lib/profile-bridge/profile-summary";
 import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
@@ -50,21 +50,35 @@ import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
 
 const decimalString = z
   .string()
+  .optional()
+  .or(z.literal(""))
+  .transform((v) => (v === undefined || v === "" ? "0" : v))
+  .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, "Must be ≥ 0");
+
+const requiredDecimalString = z
+  .string()
   .min(1, "Required")
   .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, "Must be ≥ 0");
 
-const integerString = (max: number, min = 0) =>
-  z
-    .string()
-    .min(1, "Required")
-    .regex(/^\d+$/, "Must be a whole number")
-    .transform((v) => Number(v))
-    .refine((n) => n <= max && n >= min, `Must be between ${min} and ${max}`);
+const integerString = (max: number, min = 0, defaultValue = "0") =>
+  z.preprocess(
+    (val) => (val === undefined || val === "" ? defaultValue : val),
+    z
+      .string()
+      .regex(/^\d+$/, "Must be a whole number")
+      .transform((v) => Number(v))
+      .refine((n) => n <= max && n >= min, `Must be between ${min} and ${max}`),
+  );
+
+const optionalEnum = <T extends readonly [string, ...string[]]>(
+  values: T,
+  defaultValue: T[number],
+) =>
+  z.union([z.enum(values), z.literal("")]).transform((v) => (v === "" ? defaultValue : v));
 
 const incomeSourceSchema = z.object({
   kind: z.enum(
     ["employment", "business", "rental", "interest", "dividend", "capital_gain", "other"],
-    { errorMap: () => ({ message: "Required" }) },
   ),
   monthly_amount: decimalString,
   is_taxable: z.boolean(),
@@ -72,11 +86,12 @@ const incomeSourceSchema = z.object({
 
 const profileSchema = z.object({
   full_name: z.string().min(1, "Required").max(200),
-  age_band: z.enum(["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-70", "70+"], {
-    errorMap: () => ({ message: "Required" }),
-  }),
-  gender: z.enum(["male", "female", "other"], { errorMap: () => ({ message: "Required" }) }),
-  province: z.enum(
+  age_band: optionalEnum(
+    ["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-70", "70+"],
+    "30-34",
+  ),
+  gender: optionalEnum(["male", "female", "other"], "other"),
+  province: optionalEnum(
     [
       "Western",
       "Central",
@@ -88,31 +103,25 @@ const profileSchema = z.object({
       "Uva",
       "Sabaragamuwa",
     ],
-    { errorMap: () => ({ message: "Required" }) },
+    "Western",
   ),
-  marital_status: z.enum(["single", "married", "divorced", "widowed"], {
-    errorMap: () => ({ message: "Required" }),
-  }),
-  residency_status: z.enum(["resident", "non_resident", "dual"], {
-    errorMap: () => ({ message: "Required" }),
-  }),
+  marital_status: optionalEnum(["single", "married", "divorced", "widowed"], "single"),
+  residency_status: optionalEnum(["resident", "non_resident", "dual"], "resident"),
   nationality: z.string().max(64).optional().or(z.literal("")),
-  occupation: z.enum(
+  occupation: optionalEnum(
     ["employee", "self_employed", "business_owner", "investor", "professional", "other"],
-    { errorMap: () => ({ message: "Required" }) },
+    "employee",
   ),
-  employment_type: z.enum(
+  employment_type: optionalEnum(
     ["permanent", "contract", "part_time", "freelance", "unemployed"],
-    { errorMap: () => ({ message: "Required" }) },
+    "permanent",
   ),
-  employer_sector: z.enum(["private", "public", "ngo", "self_employed"], {
-    errorMap: () => ({ message: "Required" }),
-  }),
+  employer_sector: optionalEnum(["private", "public", "ngo", "self_employed"], "private"),
   dependents: integerString(20),
   years_employed: integerString(60),
-  gross_monthly_income: decimalString,
+  gross_monthly_income: requiredDecimalString,
   annual_bonus_lkr: decimalString,
-  monthly_expenses: decimalString,
+  monthly_expenses: requiredDecimalString,
   monthly_debt_service: decimalString,
   liquid_savings: decimalString,
   existing_investments: decimalString,
@@ -121,15 +130,19 @@ const profileSchema = z.object({
   etf_balance: decimalString,
   vehicle_value: decimalString,
   property_value: decimalString,
-  health_insurance: z.boolean(),
   life_insurance_premium_annual: decimalString,
   home_loan_interest_annual: decimalString,
   donations_annual: decimalString,
-  risk_tolerance: z.enum(["low", "medium", "high"], { errorMap: () => ({ message: "Required" }) }),
-  investment_horizon_years: integerString(50),
-  retirement_age_target: integerString(75, 40),
-  tax_year: z.string().regex(/^\d{4}_\d{2}$/, "Format YYYY_YY"),
-  income_sources: z.array(incomeSourceSchema).min(1, "Add at least one income source"),
+  risk_tolerance: optionalEnum(["low", "medium", "high"], "medium"),
+  investment_horizon_years: integerString(50, 0, "10"),
+  retirement_age_target: integerString(75, 40, "60"),
+  tax_year: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === undefined || v === "" ? "2026_27" : v))
+    .refine((v) => /^\d{4}_\d{2}$/.test(v), "Format YYYY_YY"),
+  income_sources: z.array(incomeSourceSchema).default([]),
 });
 
 type ProfileForm = z.input<typeof profileSchema>;
@@ -214,41 +227,6 @@ const INCOME_SOURCE_KIND_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-const STEP_FIELDS: (keyof ProfileForm)[][] = [
-  [
-    "full_name",
-    "age_band",
-    "gender",
-    "marital_status",
-    "residency_status",
-    "nationality",
-    "province",
-    "dependents",
-  ],
-  ["occupation", "employment_type", "employer_sector", "years_employed"],
-  ["gross_monthly_income", "annual_bonus_lkr", "monthly_expenses", "monthly_debt_service"],
-  [
-    "liquid_savings",
-    "existing_investments",
-    "total_debt",
-    "epf_balance",
-    "etf_balance",
-    "vehicle_value",
-    "property_value",
-  ],
-  ["income_sources"],
-  [
-    "life_insurance_premium_annual",
-    "home_loan_interest_annual",
-    "donations_annual",
-    "health_insurance",
-    "risk_tolerance",
-    "investment_horizon_years",
-    "retirement_age_target",
-    "tax_year",
-  ],
-];
-
 const defaultValues: ProfileForm = {
   full_name: taxpayerName(0),
   age_band: "" as ProfileForm["age_band"],
@@ -273,7 +251,6 @@ const defaultValues: ProfileForm = {
   etf_balance: "",
   vehicle_value: "0",
   property_value: "0",
-  health_insurance: false,
   life_insurance_premium_annual: "",
   home_loan_interest_annual: "",
   donations_annual: "",
@@ -319,6 +296,7 @@ export function ProfilePage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [step, setStep] = useState(0);
+  const [activeTab, setActiveTab] = useState<"create" | "features">("create");
 
   const form = useForm<ProfileForm, unknown, ProfileFormOutput>({
     resolver: zodResolver(profileSchema),
@@ -372,6 +350,7 @@ export function ProfilePage() {
       setSelectedId(created.id);
       setActiveProfile(created.id, profileToAuditorSummary(created));
       setStep(0);
+      setActiveTab("features");
       reset(defaultValues);
     },
   });
@@ -397,24 +376,53 @@ export function ProfilePage() {
   });
 
   const onSubmit = (values: ProfileFormOutput) => {
-    const payload: FinancialProfileCreate = {
+    const incomeSources =
+      values.income_sources.length > 0
+        ? values.income_sources
+        : [{ kind: "employment" as const, monthly_amount: values.gross_monthly_income, is_taxable: true }];
+    createMutation.mutate({
       ...values,
-      income_sources: values.income_sources.map((s) => ({
+      health_insurance: false,
+      income_sources: incomeSources.map((s) => ({
         kind: s.kind,
         monthly_amount: s.monthly_amount,
-        currency: "LKR",
+        currency: "LKR" as const,
         is_taxable: s.is_taxable,
       })),
-    };
-    createMutation.mutate(payload);
+    } as FinancialProfileCreate);
   };
 
   return (
     <div className="space-y-6">
       <PageHeader icon={UserRound} title="Financial profiles" />
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="border-t-4 border-t-primary/70">
+      <div className="flex gap-2 border-b border-border pb-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("create")}
+          className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "create"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Create profile
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("features")}
+          className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "features"
+              ? "border-b-2 border-primary text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Features
+        </button>
+      </div>
+
+      {activeTab === "create" && (
+      <Card className="max-w-5xl border-t-4 border-t-primary/70">
           <form onSubmit={handleSubmit(onSubmit)}>
             <CardHeader>
               <CardTitle>Create profile</CardTitle>
@@ -742,10 +750,6 @@ export function ProfilePage() {
                     {...withDecimalSanitize(register("donations_annual"))}
                   />
                 </Field>
-                <div className="flex items-center gap-2 pt-6">
-                  <Checkbox id="health_insurance" {...register("health_insurance")} />
-                  <Label htmlFor="health_insurance">Has health insurance</Label>
-                </div>
               </Section>
 
               <Section title="Risk & horizon">
@@ -818,8 +822,11 @@ export function ProfilePage() {
                   <Button
                     type="button"
                     onClick={async () => {
-                      const ok = await form.trigger(STEP_FIELDS[step]);
-                      if (ok) setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
+                      if (step === 0) {
+                        const ok = await form.trigger(["full_name"]);
+                        if (!ok) return;
+                      }
+                      setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
                     }}
                   >
                     Next
@@ -834,116 +841,43 @@ export function ProfilePage() {
             </CardFooter>
           </form>
         </Card>
+      )}
 
-        <div className="space-y-6">
-          <DerivedFeaturesCard
-            isLoading={featuresQuery.isFetching}
-            features={featuresQuery.data}
-            error={(featuresQuery.error as Error | null)?.message}
-            placeholder={!selectedId}
-            onToggleFlag={(flag, nextValue) =>
-              overrideMutation.mutate({ flag, value: nextValue })
-            }
-            pendingFlag={overrideMutation.isPending ? overrideMutation.variables?.flag : undefined}
-          />
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle>Recent profiles</CardTitle>
-                <CardDescription>
-                  {profilesQuery.data
-                    ? `${profilesQuery.data.total} total · page ${page}`
-                    : "Loading…"}
-                </CardDescription>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => profilesQuery.refetch()}
-                disabled={profilesQuery.isFetching}
-              >
-                <RefreshCw className={profilesQuery.isFetching ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {profilesQuery.isError && (
-                <div className="text-sm text-destructive">
-                  {(profilesQuery.error as Error).message}
-                </div>
-              )}
-              {profilesQuery.data?.items.length === 0 && (
-                <div className="text-sm text-muted-foreground">
-                  No profiles yet. Create one with the form on the left.
-                </div>
-              )}
-              <ul className="divide-y">
-                {profilesQuery.data?.items.map((p) => (
-                  <li
-                    key={p.id}
-                    className={`flex items-center justify-between gap-3 py-3 cursor-pointer rounded-md px-2 ${
-                      selectedId === p.id ? "bg-accent/50" : "hover:bg-accent/30"
-                    }`}
-                    onClick={() => {
-                      setSelectedId(p.id);
-                      setActiveProfile(p.id, {
-                        id: p.id,
-                        fullName: p.full_name,
-                        occupation: p.occupation,
-                        taxYear: p.tax_year,
-                        tin: "",
-                      });
-                      setPreviewId(p.id);
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{p.full_name}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {p.occupation} · {p.district} · {formatLkr(p.gross_monthly_income)}
-                        /mo
-                      </div>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete ${p.full_name}?`)) {
-                          deleteMutation.mutate(p.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            {profilesQuery.data && profilesQuery.data.total > profilesQuery.data.page_size && (
-              <CardFooter className="flex justify-between border-t pt-4">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={
-                    page * profilesQuery.data.page_size >= profilesQuery.data.total
-                  }
-                >
-                  Next
-                </Button>
-              </CardFooter>
-            )}
-          </Card>
-        </div>
-      </div>
+      {activeTab === "features" && (
+        <ProfileFeaturesTab
+          selectedId={selectedId}
+          selectedProfile={profilesQuery.data?.items.find((p) => p.id === selectedId)}
+          features={featuresQuery.data}
+          featuresLoading={featuresQuery.isFetching}
+          featuresError={(featuresQuery.error as Error | null)?.message}
+          onToggleFlag={(flag, nextValue) => overrideMutation.mutate({ flag, value: nextValue })}
+          pendingFlag={overrideMutation.isPending ? overrideMutation.variables?.flag : undefined}
+          profiles={profilesQuery.data?.items ?? []}
+          profilesTotal={profilesQuery.data?.total ?? 0}
+          page={page}
+          pageSize={profilesQuery.data?.page_size ?? 10}
+          profilesLoading={profilesQuery.isFetching}
+          profilesError={(profilesQuery.error as Error | null)?.message}
+          onSelectProfile={(p) => {
+            setSelectedId(p.id);
+            setActiveProfile(p.id, {
+              id: p.id,
+              fullName: p.full_name,
+              occupation: p.occupation,
+              taxYear: p.tax_year,
+              tin: "",
+            });
+            setPreviewId(p.id);
+          }}
+          onDeleteProfile={(id, name) => {
+            if (confirm(`Delete ${name}?`)) deleteMutation.mutate(id);
+          }}
+          onRefreshProfiles={() => profilesQuery.refetch()}
+          onPagePrev={() => setPage((p) => Math.max(1, p - 1))}
+          onPageNext={() => setPage((p) => p + 1)}
+          DerivedFeaturesCard={DerivedFeaturesCard}
+        />
+      )}
 
       {previewId && (
         <ProfilePreviewModal

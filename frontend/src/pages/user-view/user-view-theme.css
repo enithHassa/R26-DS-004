@@ -15,3 +15,13 @@
   color: var(--uv-text);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
 }
+
+/* shadcn Card defaults use light-theme foreground — override inside TaxWise shell */
+.user-view [data-slot="card"],
+.user-view .rounded-lg.border {
+  --tw-text-opacity: 1;
+}
+
+.user-view .text-card-foreground {
+  color: var(--uv-text);
+}

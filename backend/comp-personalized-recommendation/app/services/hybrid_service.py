@@ -1,4 +1,4 @@
-"""Hybrid recommendation service: LightGBM + LambdaMART (0.7) + RAG TF-IDF (0.3).
+"""Hybrid recommendation service: LightGBM + LambdaMART + RAG + adoption fusion.
 
 Pipeline:
   1. Load profile from DB and compute derived features.
@@ -6,20 +6,23 @@ Pipeline:
   3. Run LambdaMART ranker        → lambdamart_score per strategy (min-max normalised).
   4. Run TF-IDF RAG retrieval     → rag_similarity_score per strategy (cosine similarity).
   5. Filter strategies by IRD eligibility rules.
-  6. hybrid_score = 0.7 × lambdamart_score + 0.3 × rag_similarity_score
-  7. Sort by hybrid_score descending → return top-K.
+  6. retrieval_hybrid = lambda_weight × lambdamart + (1-lambda_weight) × rag
+  7. fusion_score = w_savings×LM + w_adoption×adopt + w_feasibility×feas − w_risk×risk
+  8. Sort by fusion_score descending → return top-K.
 """
 
 from __future__ import annotations
 
 import sys
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
+import yaml
 from sqlalchemy.orm import Session
 
 from app.config import component_settings
@@ -71,6 +74,79 @@ def _min_max_norm(values: list[float]) -> list[float]:
     if hi <= lo:
         return [0.5] * len(values)
     return [(v - lo) / (hi - lo) for v in values]
+
+
+@lru_cache(maxsize=1)
+def _default_fusion_weights() -> dict[str, float]:
+    from app.services.inference_assets import resolve_artifacts_dir
+
+    for candidate in (
+        resolve_artifacts_dir(),
+        Path(__file__).resolve().parents[1] / "artifacts",
+        Path(component_settings.COMP_RECOMMENDATION_ARTIFACTS_DIR),
+    ):
+        weights_path = candidate / "scoring_weights.yaml"
+        if weights_path.exists():
+            raw = yaml.safe_load(weights_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                return {
+                    "w_savings": float(raw.get("w_savings", 0.40)),
+                    "w_adoption": float(raw.get("w_adoption", 0.30)),
+                    "w_feasibility": float(raw.get("w_feasibility", 0.20)),
+                    "w_risk_penalty": float(raw.get("w_risk_penalty", 0.10)),
+                }
+    return {
+        "w_savings": float(component_settings.COMP_RECOMMENDATION_W_SAVINGS),
+        "w_adoption": float(component_settings.COMP_RECOMMENDATION_W_ADOPTION),
+        "w_feasibility": float(component_settings.COMP_RECOMMENDATION_W_FEASIBILITY),
+        "w_risk_penalty": float(component_settings.COMP_RECOMMENDATION_W_RISK_PENALTY),
+    }
+
+
+def _fuse_rank_score(
+    *,
+    lambdamart_score: float,
+    adoption_probability: float,
+    feasibility: float,
+    risk_penalty: float,
+    weights: dict[str, float] | None = None,
+) -> float:
+    w = weights or _default_fusion_weights()
+    savings = min(1.0, max(0.0, lambdamart_score))
+    adopt = min(1.0, max(0.0, adoption_probability))
+    feas = min(1.0, max(0.0, feasibility))
+    risk = min(1.0, max(0.0, risk_penalty))
+    return (
+        w["w_savings"] * savings
+        + w["w_adoption"] * adopt
+        + w["w_feasibility"] * feas
+        - w["w_risk_penalty"] * risk
+    )
+
+
+def _adoption_probabilities(artifacts: Any, X_user: pd.DataFrame) -> dict[str, float]:
+    """Map strategy_id → P(adopt) from the Phase 4 multi-label adoption model."""
+    adopt_proba = artifacts.adoption_model.predict_proba(X_user)
+    if isinstance(adopt_proba, list):
+        if len(adopt_proba) != len(artifacts.strategy_ids):
+            raise RuntimeError(
+                f"Adoption model returned {len(adopt_proba)} outputs "
+                f"but manifest lists {len(artifacts.strategy_ids)} strategy_ids"
+            )
+        adopt_cols = np.column_stack([p[:, 1] for p in adopt_proba])
+    else:
+        adopt_cols = np.asarray(adopt_proba)
+        if adopt_cols.ndim == 1:
+            adopt_cols = adopt_cols.reshape(1, -1)
+    if adopt_cols.shape[1] != len(artifacts.strategy_ids):
+        raise RuntimeError(
+            f"Adoption probability width {adopt_cols.shape[1]} "
+            f"!= strategy_ids length {len(artifacts.strategy_ids)}"
+        )
+    return {
+        sid: float(adopt_cols[0, i])
+        for i, sid in enumerate(artifacts.strategy_ids)
+    }
 
 
 def _build_ctx(profile: FinancialProfileORM, artifacts: Any) -> tuple[pd.DataFrame, dict]:
@@ -202,6 +278,8 @@ class HybridResult:
         category: str,
         description: str,
         hybrid_score: float,
+        retrieval_hybrid_score: float,
+        fusion_score: float,
         lambdamart_score: float,
         rag_similarity_score: float,
         adoption_probability: float,
@@ -219,6 +297,8 @@ class HybridResult:
         self.category = category
         self.description = description
         self.hybrid_score = hybrid_score
+        self.retrieval_hybrid_score = retrieval_hybrid_score
+        self.fusion_score = fusion_score
         self.lambdamart_score = lambdamart_score
         self.rag_similarity_score = rag_similarity_score
         self.adoption_probability = adoption_probability
@@ -258,15 +338,7 @@ def hybrid_query(
     X_user, ctx = _build_ctx(profile, artifacts)
 
     # ── Step 2: LightGBM adoption probability ────────────────────────────────
-    adopt_proba = artifacts.adoption_model.predict_proba(X_user)
-    if isinstance(adopt_proba, list):
-        adopt_cols = np.column_stack([p[:, 1] for p in adopt_proba])
-    else:
-        adopt_cols = adopt_proba
-    adopt_by_sid = {
-        sid: float(adopt_cols[0, i])
-        for i, sid in enumerate(artifacts.strategy_ids)
-    }
+    adopt_by_sid = _adoption_probabilities(artifacts, X_user)
 
     # ── Step 3: LambdaMART ranking scores ────────────────────────────────────
     build_pair_dataframe = _import_pair_features()
@@ -319,8 +391,9 @@ def hybrid_query(
         for i in range(len(raw_strategies))
     }
 
-    # ── Step 5: Filter eligible + compute hybrid score ────────────────────────
+    # ── Step 5: Filter eligible + compute fusion score ─────────────────────────
     rag_weight = 1.0 - lambda_weight
+    fusion_weights = _default_fusion_weights()
     candidates: list[tuple[float, HybridResult]] = []
 
     for s in catalog.strategies:
@@ -331,25 +404,37 @@ def hybrid_query(
         sid = s.strategy_id
         lm_score = lambdamart_by_sid.get(sid, 0.0)
         rag_score = rag_by_sid.get(sid, 0.0)
-        hybrid_score = round(lambda_weight * lm_score + rag_weight * rag_score, 6)
+        retrieval_hybrid = round(lambda_weight * lm_score + rag_weight * rag_score, 6)
 
         adopt = adopt_by_sid.get(sid, 0.0)
         baseline_tax = float(ctx.get("baseline_tax_liability_lkr", 0.0) or 0.0)
         est_savings = max(0.0, min(baseline_tax * 0.45, baseline_tax * lm_score * 0.35))
         risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
         feasibility = float(eval_result.feasibility_score)
+        fusion_score = round(
+            _fuse_rank_score(
+                lambdamart_score=lm_score,
+                adoption_probability=adopt,
+                feasibility=feasibility,
+                risk_penalty=risk_penalty,
+                weights=fusion_weights,
+            ),
+            6,
+        )
 
         raw_s = next((r for r in raw_strategies if r.get("strategy_id") == sid), {})
 
         candidates.append((
-            hybrid_score,
+            fusion_score,
             HybridResult(
                 rank=0,
                 strategy_id=sid,
                 name=s.name,
                 category=s.category.replace("_", " "),
                 description=s.description,
-                hybrid_score=hybrid_score,
+                hybrid_score=fusion_score,
+                retrieval_hybrid_score=retrieval_hybrid,
+                fusion_score=fusion_score,
                 lambdamart_score=round(lm_score, 4),
                 rag_similarity_score=round(rag_score, 4),
                 adoption_probability=round(adopt, 4),
