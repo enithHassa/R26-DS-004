@@ -90,10 +90,26 @@ export interface ProfileTaxableIncomeMonthlyLine {
   computed_at: string;
 }
 
+export interface ProfileTaxableIncomeMonthCoverage {
+  calendar_month: string;
+  month_label: string;
+  status: "covered" | "missing";
+  extracted_transaction_count: number;
+  classified_transaction_count: number;
+  taxable_credit_count: number;
+  taxable_amount_lkr: string;
+}
+
 export interface ProfileTaxableIncomeMonthlyResponse {
   financial_profile_id: string;
   tax_year: string | null;
+  assessment_year_label: string | null;
+  ya_period_start: string | null;
+  ya_period_end: string | null;
   total_taxable_lkr: string;
+  covered_month_count: number;
+  missing_month_count: number;
+  month_coverage: ProfileTaxableIncomeMonthCoverage[];
   lines: ProfileTaxableIncomeMonthlyLine[];
 }
 
