@@ -16,6 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from backend.shared.db.enums import TxnDirection
+from backend.shared.db.financial_profile_ref import FinancialProfileRef  # noqa: F401
 from backend.shared.db.profile_taxable_income_monthly import ProfileTaxableIncomeMonthly
 
 _DB_ROOT = Path(__file__).resolve().parents[2] / "comp-transaction-sementic" / "db"

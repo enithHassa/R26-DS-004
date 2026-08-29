@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Info, Scale, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ActivitySummaryPanel } from "@/features/transaction-semantic/components/activity-summary-panel";
