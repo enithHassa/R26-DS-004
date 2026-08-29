@@ -10,6 +10,8 @@ name (``comp-transaction-sementic``) contains hyphens and therefore
 cannot be a regular Python package.
 """
 
+from backend.shared.db.financial_profile_ref import FinancialProfileRef  # noqa: F401
+
 from . import enums  # noqa: F401
 from . import classified_extracted_transaction  # noqa: F401
 from . import document  # noqa: F401
