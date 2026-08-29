@@ -58,6 +58,15 @@ export function trpTaxYearToOeAssessmentYear(taxYear: string): string | null {
   return normalizeTaxYearToOrm(taxYear);
 }
 
+/** ORM tax year → display label (`2025/26`). */
+export function assessmentYearLabelFromOrm(taxYear: string | null | undefined): string | null {
+  const orm = normalizeTaxYearToOrm(taxYear);
+  if (!orm) return null;
+  const startYear = Number(orm.split("_")[0]);
+  if (!Number.isFinite(startYear)) return null;
+  return `${startYear}/${String(startYear + 1).slice(-2)}`;
+}
+
 /** Normalize document / rollup `tax_year` for API filters. */
 export function normalizeDocumentTaxYear(taxYear: string | null | undefined): string | undefined {
   const orm = normalizeTaxYearToOrm(taxYear);
