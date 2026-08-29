@@ -58,9 +58,26 @@ export function AppShell() {
 
         {features.map((feature) => (
           <div key={feature.id} className="mb-6">
-            <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {feature.title}
-            </div>
+            {feature.navRoot ? (
+              <NavLink
+                to={feature.navRoot}
+                end
+                className={({ isActive }) =>
+                  cn(
+                    "mb-1 block rounded-md px-3 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )
+                }
+              >
+                {feature.title}
+              </NavLink>
+            ) : (
+              <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {feature.title}
+              </div>
+            )}
             <nav className="flex flex-col gap-1">
               {feature.nav.map((item) => (
                 <NavLink

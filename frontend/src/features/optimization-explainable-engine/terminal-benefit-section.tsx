@@ -1,15 +1,13 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { getRates } from "./api";
-import { formatMoneyInput, parseLkr } from "./format-lkr";
+import { CatalogCardShell } from "./catalog-card-shell";
+import { formatMoneyInput } from "./format-lkr";
 import { useInterview } from "./session";
-import { TerminalBenefitExplainPanel } from "./terminal-benefit-explain";
 import {
   TERMINAL_BENEFIT_TYPE_OPTIONS,
   newTerminalBenefitRow,
@@ -19,13 +17,25 @@ import {
 } from "./terminal-benefits";
 import type { TerminalBenefitRow, TerminalBenefitType } from "./types";
 
-export function TerminalBenefitSection() {
+export function TerminalBenefitSection({
+  open,
+  onToggle,
+  actVersionLabel,
+  onExplain,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  actVersionLabel?: string | null;
+  onExplain: () => void;
+}) {
   const { session, patchIncome } = useInterview();
   const { income, assessmentYear } = session;
-  const [explainOpen, setExplainOpen] = useState(false);
   const rows = income.terminalBenefits ?? [];
   const has = Boolean(income.hasTerminalBenefits);
   const allTypesUsed = rows.length >= TERMINAL_BENEFIT_TYPE_OPTIONS.length;
+  const fieldHint = has
+    ? `${rows.length} benefit${rows.length === 1 ? "" : "s"}`
+    : "optional";
 
   function setHasTerminalBenefits(next: boolean): void {
     if (next) {
@@ -65,87 +75,76 @@ export function TerminalBenefitSection() {
   }
 
   return (
-    <section className="space-y-3 rounded-md border p-3">
-      <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold">Retirement & terminal benefits</h3>
+    <CatalogCardShell
+      title="Retirement & terminal benefits"
+      subtitle="Commuted pension, retiring gratuity, loss of office, or ETF at retirement — taxed on a special ladder, separate from ordinary income."
+      actVersionLabel={actVersionLabel}
+      fieldCount={has ? rows.length : undefined}
+      open={open}
+      onToggle={onToggle}
+    >
+      <div className="space-y-3 border-t border-border/60 pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            Optional — most returns leave this as No.{" "}
+            <span className="text-[10px] text-muted-foreground/80">({fieldHint})</span>
+          </p>
           <button
             type="button"
-            className="text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            onClick={() => setExplainOpen((open) => !open)}
-            aria-expanded={explainOpen}
+            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            onClick={onExplain}
+            aria-label="Explain retirement and terminal benefits"
           >
+            <Info className="h-3 w-3" aria-hidden />
             Explain
           </button>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Did you receive any of the following during this year: commuted pension, retiring
-          gratuity, qualifying compensation for loss of office, or an Employees' Trust Fund (ETF)
-          payment at or after retirement?
-        </p>
-        {explainOpen ? <TerminalBenefitExplainLoader assessmentYear={assessmentYear} /> : null}
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Did you receive any of these benefits?</legend>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="has-terminal-benefits"
+                checked={!has}
+                onChange={() => setHasTerminalBenefits(false)}
+              />
+              No
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="radio"
+                name="has-terminal-benefits"
+                checked={has}
+                onChange={() => setHasTerminalBenefits(true)}
+              />
+              Yes
+            </label>
+          </div>
+        </fieldset>
+
+        {has
+          ? rows.map((row, index) => (
+              <TerminalBenefitRowCard
+                key={row.id}
+                row={row}
+                index={index}
+                assessmentYear={assessmentYear}
+                availableTypes={unusedTerminalBenefitTypes(rows, row.id)}
+                onPatch={(patch) => patchRow(row.id, patch)}
+                onRemove={() => removeRow(row.id)}
+              />
+            ))
+          : null}
+
+        {has && !allTypesUsed ? (
+          <Button type="button" size="sm" variant="outline" onClick={addRow}>
+            + Add another terminal benefit
+          </Button>
+        ) : null}
       </div>
-
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Did you receive any of these benefits?</legend>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="has-terminal-benefits"
-              checked={!has}
-              onChange={() => setHasTerminalBenefits(false)}
-            />
-            No
-          </label>
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name="has-terminal-benefits"
-              checked={has}
-              onChange={() => setHasTerminalBenefits(true)}
-            />
-            Yes
-          </label>
-        </div>
-      </fieldset>
-
-      {has
-        ? rows.map((row, index) => (
-            <TerminalBenefitRowCard
-              key={row.id}
-              row={row}
-              index={index}
-              assessmentYear={assessmentYear}
-              availableTypes={unusedTerminalBenefitTypes(rows, row.id)}
-              onPatch={(patch) => patchRow(row.id, patch)}
-              onRemove={() => removeRow(row.id)}
-            />
-          ))
-        : null}
-
-      {has && !allTypesUsed ? (
-        <Button type="button" size="sm" variant="outline" onClick={addRow}>
-          + Add another terminal benefit
-        </Button>
-      ) : null}
-    </section>
-  );
-}
-
-function TerminalBenefitExplainLoader({ assessmentYear }: { assessmentYear: string }) {
-  const query = useQuery({
-    queryKey: ["optimization-explainable-engine", "rates", assessmentYear],
-    queryFn: () => getRates(assessmentYear),
-    retry: false,
-  });
-  return (
-    <TerminalBenefitExplainPanel
-      assessmentYear={assessmentYear}
-      ladders={query.data?.terminal_benefit_ladders}
-      loading={query.isPending}
-      error={query.isError}
-    />
+    </CatalogCardShell>
   );
 }
 
@@ -175,7 +174,7 @@ function TerminalBenefitRowCard({
     `benefit ${index + 1}`;
 
   return (
-    <div className="space-y-3 rounded-md border p-3">
+    <div className="space-y-3 rounded-md border border-border/80 bg-background/40 p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`terminal-type-${row.id}`}>Type</Label>
@@ -205,9 +204,9 @@ function TerminalBenefitRowCard({
           <Label htmlFor={`terminal-amount-${row.id}`}>Amount (LKR)</Label>
           <Input
             id={`terminal-amount-${row.id}`}
-            inputMode="numeric"
+            inputMode="decimal"
             value={formatMoneyInput(row.amount ?? "0")}
-            onChange={(event) => onPatch({ amount: String(parseLkr(event.target.value)) })}
+            onChange={(event) => onPatch({ amount: formatMoneyInput(event.target.value) })}
           />
         </div>
       </div>

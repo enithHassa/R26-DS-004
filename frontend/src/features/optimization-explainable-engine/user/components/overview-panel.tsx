@@ -7,11 +7,11 @@ import {
   IncomeMixChart,
   IncomeSummaryStrip,
   OpportunityCards,
-  ReliefImpactChart,
   TaxBreakdownPanel,
 } from "./overview-charts";
 import { UvPanelShell, YaSelector } from "./uv-chrome";
 import {
+  TAXWISE_OE_EXPLANATIONS,
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
@@ -36,7 +36,7 @@ function opportunitiesFromResult(result: CalculateResponse) {
       };
     })
     .sort((a, b) => b.tax_saved - a.tax_saved || b.applied - a.applied)
-    .slice(0, 5);
+    .slice(0, 3);
 }
 
 export function OverviewPanel() {
@@ -78,6 +78,8 @@ export function OverviewPanel() {
   const plain = result ? buildPlainExplanation(result) : null;
   const opportunityLines =
     explore?.opportunities ?? (result ? opportunitiesFromResult(result) : []);
+  // Match My Reliefs page catalog — not the capped "Best for you" list.
+  const reliefsIdentified = scenario.reliefEntries.length;
 
   return (
     <UvPanelShell
@@ -90,8 +92,8 @@ export function OverviewPanel() {
               {scenario.fullName || "Taxpayer"}
               {scenario.tin ? ` · TIN ${scenario.tin}` : ""}
               {ya ? ` · YA ${yaDisplay(ya)}` : ""}
-              {opportunityLines.length > 0
-                ? ` · ${opportunityLines.length} relief${opportunityLines.length === 1 ? "" : "s"} identified`
+              {reliefsIdentified > 0
+                ? ` · ${reliefsIdentified} relief${reliefsIdentified === 1 ? "" : "s"} identified`
                 : ""}
             </p>
           </div>
@@ -135,32 +137,30 @@ export function OverviewPanel() {
       ) : null}
 
       {result || explore ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.9fr)]">
-          <div className="space-y-4">
-            <OpportunityCards opportunities={opportunityLines} />
+        <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.85fr)]">
+          <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
+            <OpportunityCards opportunities={opportunityLines} fillHeight />
 
             {opportunityLines.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 <Link
                   to={TAXWISE_OE_RELIEFS}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--uv-accent)] px-4 py-2 text-sm font-medium text-[var(--uv-accent-foreground)]"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--uv-accent)] px-3 py-1.5 text-sm font-medium text-[var(--uv-accent-foreground)]"
                 >
                   <Eye className="h-4 w-4" aria-hidden />
                   View relief details
                 </Link>
                 <Link
                   to={TAXWISE_OE_RESULT}
-                  className="rounded-lg border border-[var(--uv-border)] px-4 py-2 text-sm font-medium text-[var(--uv-text)] hover:bg-white/5"
+                  className="rounded-lg border border-[var(--uv-border)] px-3 py-1.5 text-sm font-medium text-[var(--uv-text)] hover:bg-white/5"
                 >
                   Compare full result
                 </Link>
               </div>
             ) : null}
-
-            <ReliefImpactChart lines={opportunityLines} />
           </div>
 
-          <div className="space-y-4">
+          <div className="flex min-w-0 flex-col gap-3">
             <TaxBreakdownPanel explore={explore} official={official} />
             <IncomeMixChart income={scenario.session.income} />
           </div>
@@ -171,7 +171,7 @@ export function OverviewPanel() {
         <section className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-5">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start">
             <div className="min-w-0 space-y-2">
-              <h2 className="text-base font-semibold">In plain English</h2>
+              <h2 className="text-base font-semibold">Your tax, decoded</h2>
               <p className="text-base font-medium leading-snug text-[var(--uv-text)]">
                 {plain.headline}
               </p>
@@ -229,9 +229,15 @@ export function OverviewPanel() {
         </section>
       ) : plain ? (
         <section className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4">
-          <h2 className="text-base font-semibold">In plain English</h2>
+          <h2 className="text-base font-semibold">Your tax, decoded</h2>
           <p className="mt-2 text-sm font-medium">{plain.headline}</p>
           <p className="mt-1 text-sm text-[var(--uv-text-muted)]">{plain.summary}</p>
+          <Link
+            to={TAXWISE_OE_EXPLANATIONS}
+            className="mt-3 inline-flex text-sm font-medium text-[var(--uv-accent)] hover:underline"
+          >
+            Open full Explanations →
+          </Link>
         </section>
       ) : null}
 

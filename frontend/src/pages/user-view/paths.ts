@@ -11,3 +11,4 @@ export const TAXWISE_OE = `${TAXWISE_BASE}/optimization-explainable`;
 export const TAXWISE_OE_INCOME = `${TAXWISE_OE}/income`;
 export const TAXWISE_OE_RELIEFS = `${TAXWISE_OE}/reliefs`;
 export const TAXWISE_OE_RESULT = `${TAXWISE_OE}/result`;
+export const TAXWISE_OE_EXPLANATIONS = `${TAXWISE_OE}/explanations`;

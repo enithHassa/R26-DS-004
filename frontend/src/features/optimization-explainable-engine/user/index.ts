@@ -2,6 +2,7 @@ export { OverviewPanel } from "./components/overview-panel";
 export { IncomePanel } from "./components/income-panel";
 export { ReliefsPanel } from "./components/reliefs-panel";
 export { ResultPanel } from "./components/result-panel";
+export { ExplanationsPanel } from "./components/explanations-panel";
 export { OeNavChips } from "./components/oe-nav-chips";
 export { TaxpayerOeProvider, useTaxpayerOe } from "./taxpayer-oe-context";
 export {
@@ -9,4 +10,5 @@ export {
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
+  TAXWISE_OE_EXPLANATIONS,
 } from "./paths";

@@ -2,7 +2,6 @@ import {
   Calculator,
   FileText,
   GitCompareArrows,
-  LayoutDashboard,
   Library,
   ListChecks,
   MessageCircle,
@@ -29,6 +28,8 @@ import { ActAdminUploadPage } from "./act-admin/upload";
 const optimizationExplainableEngine: FeatureModule = {
   id: "optimization-explainable-engine",
   title: "Optimization and Explainable Engine",
+  /** Section title in the sidebar opens the landing page (no separate Home row). */
+  navRoot: "/optimization-explainable-engine/home",
   routes: [
     {
       path: "optimization-explainable-engine/home",
@@ -67,7 +68,6 @@ const optimizationExplainableEngine: FeatureModule = {
     },
   ],
   nav: [
-    { to: "/optimization-explainable-engine/home", label: "Home", icon: LayoutDashboard },
     { to: "/optimization-explainable-engine", label: "Interview", icon: MessageCircle },
     { to: "/optimization-explainable-engine/acts", label: "Acts", icon: FileText },
     { to: "/optimization-explainable-engine/income", label: "Income", icon: Wallet },

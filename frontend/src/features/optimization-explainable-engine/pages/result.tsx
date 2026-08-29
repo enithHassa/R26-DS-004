@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
 import {
   getLatestTaxComputationSnapshot,
@@ -11,6 +12,7 @@ import {
 } from "@/features/personalized-recommendation/api/profiles";
 import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 import {
+  auditorCommentsFromSnapshot,
   buildSnapshotPayload,
   sessionCalculationFingerprint,
   snapshotCalculationFingerprint,
@@ -19,9 +21,11 @@ import {
 import { postCalculate, postExplain, type CalculateResponse } from "../api";
 import { buildCalculateRequest } from "../build-calculate-request";
 import { buildPlainExplanation } from "../build-plain-explanation";
+import { PlainExplanationView } from "../plain-explanation-view";
 import { buildScenarioCitations } from "../build-scenario-citations";
 import { formatLkr, yaDisplay } from "../format-lkr";
 import { ResultRateTables } from "../result-rate-tables";
+import { ResultSummaryBoard } from "../result-summary-board";
 import { useInterview } from "../session";
 
 export function InterviewResultPage() {
@@ -35,6 +39,8 @@ export function InterviewResultPage() {
     "idle",
   );
   const [approveMessage, setApproveMessage] = useState<string | null>(null);
+  const [auditorComments, setAuditorComments] = useState("");
+  const commentsHydratedRef = useRef<string | null>(null);
 
   const snapshotQuery = useQuery({
     queryKey: ["oe-snapshot", profileId, session.assessmentYear],
@@ -88,16 +94,30 @@ export function InterviewResultPage() {
   });
 
   useEffect(() => {
+    const snap = snapshotQuery.data;
+    if (!snap) return;
+    const key = `${snap.id}:${snap.updated_at ?? snap.created_at}`;
+    if (commentsHydratedRef.current === key) return;
+    commentsHydratedRef.current = key;
+    const saved = auditorCommentsFromSnapshot(snap);
+    if (saved) setAuditorComments(saved);
+  }, [snapshotQuery.data]);
+
+  useEffect(() => {
     if (!profileId || cachedResult || !calcQuery.data || calcQuery.isFetching) return;
     const key = `${fingerprint}:${calcQuery.dataUpdatedAt}`;
     if (savedRef.current === key) return;
     savedRef.current = key;
+    // Prefer the textarea; fall back to any note already on this profile's snapshot.
+    const commentsToSave =
+      auditorComments.trim() || auditorCommentsFromSnapshot(snapshotQuery.data);
     void saveTaxComputationSnapshot(
       profileId,
       buildSnapshotPayload(session, {
         status: "calculated",
         calculateResult: calcQuery.data,
         explainNarrative: explainQuery.data?.narrative ?? null,
+        auditorComments: commentsToSave,
       }),
     ).then(() => {
       void snapshotQuery.refetch();
@@ -111,6 +131,8 @@ export function InterviewResultPage() {
     explainQuery.data?.narrative,
     fingerprint,
     session,
+    auditorComments,
+    snapshotQuery.data,
     snapshotQuery.refetch,
   ]);
 
@@ -175,12 +197,15 @@ export function InterviewResultPage() {
           calculateResult: result,
           explainNarrative:
             cachedExplainNarrative ?? explainQuery.data?.narrative ?? null,
+          auditorComments,
           source: "auditor_manual",
         }),
       );
       setApproveState("done");
       setApproveMessage(
-        `Approved for taxpayer · YA ${yaDisplay(session.assessmentYear)}. Visible on TaxWise Optimization and Explainable.`,
+        auditorComments.trim()
+          ? `Approved for taxpayer · YA ${yaDisplay(session.assessmentYear)}. Your comments are visible on that taxpayer’s TaxWise result.`
+          : `Approved for taxpayer · YA ${yaDisplay(session.assessmentYear)}. Visible on TaxWise Optimization and Explainable.`,
       );
       void snapshotQuery.refetch();
     } catch (err) {
@@ -206,35 +231,7 @@ export function InterviewResultPage() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryTile label="Assessable (gross)" value={result.gross_income} />
-        <SummaryTile label="Reliefs applied" value={result.total_reliefs} />
-        <SummaryTile label="Taxable income" value={result.taxable_income} />
-        <SummaryTile label="Tax payable" value={result.tax_payable} />
-        {(result.terminal_benefit_tax ?? 0) > 0 ? (
-          <SummaryTile
-            label="Ordinary income tax"
-            value={result.tax_payable - (result.terminal_benefit_tax ?? 0)}
-          />
-        ) : null}
-        {(result.terminal_benefit_tax ?? 0) > 0 ? (
-          <SummaryTile
-            label="Of which terminal-benefit tax"
-            value={result.terminal_benefit_tax ?? 0}
-          />
-        ) : null}
-        <SummaryTile label="WHT credit" value={result.wht_credit ?? 0} />
-        <SummaryTile label="APIT credit" value={result.apit_credit ?? 0} />
-        {(result.tax_refund ?? 0) > 0 ? (
-          <SummaryTile label="Refund" value={result.tax_refund ?? 0} emphasize />
-        ) : (
-          <SummaryTile
-            label="Balance payable"
-            value={result.balance_payable ?? result.tax_payable}
-            emphasize
-          />
-        )}
-      </div>
+      <ResultSummaryBoard result={result} />
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">Reliefs applied in this scenario</h3>
@@ -264,7 +261,7 @@ export function InterviewResultPage() {
                   {line.formula ? ` · ${line.formula}` : ""}
                 </p>
                 <div className="space-y-1 rounded-md border bg-muted/30 p-2 text-[11px] text-muted-foreground">
-                  <p className="font-medium text-foreground">Provenance</p>
+                  <p className="font-medium text-foreground">Legal source</p>
                   <p>
                     {line.act_name} · {line.section_ref} · {line.source_doc_id}
                   </p>
@@ -278,28 +275,31 @@ export function InterviewResultPage() {
 
       <ResultRateTables result={result} />
 
-      <section className="space-y-4 rounded-md border bg-muted/20 p-4">
+      <PlainExplanationView explanation={plainExplanation} />
+
+      <section className="space-y-2 rounded-xl border border-border/80 bg-card/40 p-3 shadow-sm">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold">In plain English</h3>
+          <Label htmlFor="oe-auditor-comments" className="text-sm font-semibold">
+            Auditor comments for taxpayer
+          </Label>
           <p className="text-xs text-muted-foreground">
-            A step-by-step story of your result — written so anyone can follow, no tax background
-            needed.
+            Optional note for this locked taxpayer only. Shown on their TaxWise result after you
+            approve.
           </p>
         </div>
-        <p className="text-base font-medium leading-snug">{plainExplanation.headline}</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">{plainExplanation.summary}</p>
-        <div className="space-y-4">
-          {plainExplanation.blocks.map((block) => (
-            <div key={block.heading} className="space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">{block.heading}</h4>
-              <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed">
-                {block.lines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <textarea
+          id="oe-auditor-comments"
+          value={auditorComments}
+          onChange={(event) => setAuditorComments(event.target.value)}
+          rows={4}
+          placeholder="e.g. Confirm solar receipts before filing. Rental relief applied at 25% of rents."
+          className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {!profileId ? (
+          <p className="text-xs text-muted-foreground">
+            Lock a taxpayer profile so comments can be saved with the approval.
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-2">
@@ -424,25 +424,6 @@ export function InterviewResultPage() {
           {approveMessage}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function SummaryTile({
-  label,
-  value,
-  emphasize,
-}: {
-  label: string;
-  value: number;
-  emphasize?: boolean;
-}) {
-  return (
-    <div className="rounded-md border p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={emphasize ? "text-lg font-semibold" : "text-sm font-medium"}>
-        {formatLkr(value)}
-      </p>
     </div>
   );
 }

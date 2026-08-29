@@ -1,4 +1,4 @@
-import { parseLkr } from "./format-lkr";
+import { parseLkr, roundLkr } from "./format-lkr";
 import {
   employmentIncomeLkr,
   interestIncomeLkr,
@@ -342,7 +342,7 @@ export function previewAppliedLkr(
     }
     // OE calculate uses income.rents for percent binders (rental relief 25%).
     const base = incomeBaseForEntry(entry, income);
-    return Math.floor((base * cap) / 100);
+    return roundLkr((base * cap) / 100);
   }
 
   if (inputKind === "notice") {

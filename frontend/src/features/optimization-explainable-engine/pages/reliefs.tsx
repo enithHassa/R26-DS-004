@@ -16,6 +16,7 @@ import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner"
 import { useOeSnapshotPersistence } from "@/hooks/use-oe-snapshot";
 import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 import { useInterview } from "../session";
+import { sortReliefsForInterview } from "../sort-reliefs";
 import {
   hasSubItems,
   incomeBaseLkr,
@@ -31,9 +32,7 @@ import {
 } from "../types";
 
 function sortReliefs(entries: ReliefEntry[]): ReliefEntry[] {
-  return [...entries].sort(
-    (a, b) => a.sort_order - b.sort_order || a.entry_id.localeCompare(b.entry_id),
-  );
+  return sortReliefsForInterview(entries);
 }
 
 function capAndIncomeCopy(
@@ -778,7 +777,7 @@ function ReliefStepCard({
         {entry.covers ? <CoveredItemsBlock covers={entry.covers} /> : null}
 
         <div className="rounded-md border bg-muted/30 p-3 text-[11px] text-muted-foreground space-y-1">
-          <p className="font-medium text-foreground">Provenance (this YA)</p>
+          <p className="font-medium text-foreground">Legal source (this YA)</p>
           <p>
             {entry.act_name} · {entry.section_ref} · {entry.source_doc_id}
           </p>

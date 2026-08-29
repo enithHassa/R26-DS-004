@@ -5,6 +5,7 @@ import {
   type SlabLine,
 } from "../api";
 import { buildCalculateRequest } from "../build-calculate-request";
+import { roundLkr } from "../format-lkr";
 import type { InterviewSession, ReliefAnswer } from "../types";
 
 /** One relief opportunity with the tax payable cut attributable to that relief. */
@@ -24,7 +25,7 @@ export type TaxpayerComputeResult = {
 
 /** Same progressive-slab math as OE Engine `tax_from_slabs` (ordinary income tax only). */
 export function ordinaryTaxFromSlabs(taxable: number, bands: SlabLine[]): number {
-  const safeTaxable = Math.max(0, Math.round(taxable));
+  const safeTaxable = Math.max(0, roundLkr(taxable));
   let total = 0;
   const ordered = [...bands].sort(
     (a, b) => (a.band_index ?? 0) - (b.band_index ?? 0),
@@ -44,7 +45,7 @@ export function ordinaryTaxFromSlabs(taxable: number, bands: SlabLine[]): number
     } else {
       slice = Math.max(0, Math.min(safeTaxable, upper) - lower);
     }
-    total += Math.round((slice * rate) / 100);
+    total = roundLkr(total + roundLkr((slice * rate) / 100));
   }
   return total;
 }
@@ -95,7 +96,7 @@ export async function computeTaxpayerScenario(
       return { ...line, tax_saved, tax_before };
     })
     .sort((a, b) => b.tax_saved - a.tax_saved || b.applied - a.applied)
-    .slice(0, 5);
+    .slice(0, 3);
 
   return { baseline, optimized, savings, opportunities };
 }

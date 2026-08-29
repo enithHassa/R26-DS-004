@@ -4,4 +4,5 @@ export {
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
+  TAXWISE_OE_EXPLANATIONS,
 } from "@/pages/user-view/paths";

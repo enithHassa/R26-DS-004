@@ -525,7 +525,7 @@ export function InvestmentIncomeSection({
     <CatalogCardShell
       card={card}
       title="Investment Income"
-      subtitle="Enter interest on the WHT schedule. Other Sec 7 includes and exclusions below."
+      subtitle="Enter interest on the WHT schedule. Other Sec 7 components below."
       actVersionLabel={actVersionLabel}
       fieldCount={fields.filter((f) => f.component_id !== "inv_interest").length}
       open={open}
@@ -563,8 +563,8 @@ export function InvestmentIncomeSection({
               />
               <MoneyField
                 id="investment_final_withholding"
-                label="Less: Exempt / Final Withholding (Sec 7(3)(a))"
-                hint="Excluded from investment income — not an income include."
+                label="Final WHT / exempt amounts (Sec 7(3)(a))"
+                hint="Optional — amounts excluded from assessable investment income."
                 value={form.investment_final_withholding}
                 onChange={(v) => onPatch("investment_final_withholding", v)}
               />
@@ -580,68 +580,33 @@ export function InvestmentIncomeSection({
             {interestSchedule}
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="border-b border-border pb-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                  Income components
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Sec 7(2) amounts included in gains and profits from an investment.
-                  Interest is the WHT schedule — not a separate amount field.
-                </p>
-              </div>
-              {interestSchedule}
+          <div className="space-y-3">
+            {interestSchedule}
+            {includeFields.length === 0 && exclusionFields.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No investment fields loaded.</p>
+            ) : (
               <CatalogMoneyFields
-                fields={includeFields}
+                fields={[...includeFields, ...exclusionFields]}
                 amounts={amounts}
                 onAmountChange={onAmountChange}
-                treatmentLabel={() => "include"}
                 onExplainField={onExplainField}
               />
-            </div>
-
-            {exclusionFields.length > 0 ? (
-              <div className="space-y-2 rounded-md border border-dashed border-border bg-background/60 p-3">
-                <div className="border-b border-border pb-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                    Exclusions
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Sec 7(3) — subtracted from investment income; not added as income.
-                  </p>
-                </div>
-                <CatalogMoneyFields
-                  fields={exclusionFields}
-                  amounts={amounts}
-                  onAmountChange={onAmountChange}
-                  treatmentLabel={() => "less / exclude"}
-                  onExplainField={onExplainField}
-                />
-              </div>
-            ) : null}
-
-            <div className="space-y-1 border-t border-border pt-3">
-              <p className="text-xs text-muted-foreground">
-                Included subtotal:{" "}
-                <span className="font-medium text-foreground">
-                  {formatLkr(String(includeSubtotal))}
-                </span>
-                {exclusionSubtotal > 0 ? (
-                  <>
-                    {" "}
-                    − exclusions{" "}
-                    <span className="font-medium text-foreground">
-                      {formatLkr(String(exclusionSubtotal))}
-                    </span>{" "}
-                    → net preview{" "}
-                    <span className="font-medium text-foreground">
-                      {formatLkr(String(netPreview))}
-                    </span>
-                  </>
-                ) : null}
-              </p>
-            </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Included subtotal:{" "}
+              <span className="font-medium text-foreground">
+                {formatLkr(String(includeSubtotal))}
+              </span>
+              {exclusionSubtotal > 0 ? (
+                <>
+                  {" "}
+                  − exclusions {formatLkr(String(exclusionSubtotal))} → net{" "}
+                  <span className="font-medium text-foreground">
+                    {formatLkr(String(netPreview))}
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
         )}
       </div>
