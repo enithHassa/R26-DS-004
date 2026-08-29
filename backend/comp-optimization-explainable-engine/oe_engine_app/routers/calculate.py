@@ -1,4 +1,4 @@
-"""POST /calculate — year-view caps and First Schedule slabs + WHT credit."""
+"""POST /calculate — year-view caps and First Schedule slabs + APIT/WHT credits."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ class IncomeIn(BaseModel):
     interest: int = 0
     rents: int = 0
     wht_already_paid: int = 0
+    apit_already_paid: int = 0
     terminal_benefits: list[TerminalBenefitIn] = Field(default_factory=list)
     terminal_benefit_amount: int = 0
     terminal_benefit_type: str | None = None
@@ -58,6 +59,7 @@ class CalculateRequest(BaseModel):
     claims: list[ClaimIn] = Field(default_factory=list)
     exclude_source_doc_id: str | None = None
     wht_already_paid: int = 0
+    apit_already_paid: int = 0
 
 
 @router.post("/calculate")
@@ -71,6 +73,7 @@ def post_calculate(body: CalculateRequest) -> dict[str, Any]:
             claims=[c.model_dump() for c in body.claims],
             exclude_source_doc_id=body.exclude_source_doc_id,
             wht_already_paid=body.wht_already_paid or body.income.wht_already_paid,
+            apit_already_paid=body.apit_already_paid or body.income.apit_already_paid,
         )
     except KeyError:
         raise HTTPException(

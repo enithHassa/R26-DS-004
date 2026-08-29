@@ -67,12 +67,13 @@ def save_snapshot(
     profile_id: uuid.UUID,
     payload: TaxComputationSnapshotUpsert,
 ) -> TaxComputationSnapshotDetail:
-    if payload.status == "draft":
+    # Upsert draft and finalized so the same profile+YA has one official row each.
+    if payload.status in ("draft", "finalized"):
         existing = db.scalar(
             select(TaxComputationSnapshot).where(
                 TaxComputationSnapshot.financial_profile_id == profile_id,
                 TaxComputationSnapshot.assessment_year == payload.assessment_year,
-                TaxComputationSnapshot.status == "draft",
+                TaxComputationSnapshot.status == payload.status,
             ),
         )
         if existing is not None:
@@ -117,6 +118,7 @@ def get_latest_snapshot(
     *,
     profile_id: uuid.UUID,
     assessment_year: str | None = None,
+    prefer_status: str | None = None,
 ) -> TaxComputationSnapshotDetail | None:
     base = select(TaxComputationSnapshot).where(
         TaxComputationSnapshot.financial_profile_id == profile_id,
@@ -124,7 +126,15 @@ def get_latest_snapshot(
     if assessment_year is not None:
         base = base.where(TaxComputationSnapshot.assessment_year == assessment_year)
 
-    for status in ("calculated", "draft", "finalized"):
+    # Taxpayer view wants finalized first; auditor draft reload prefers calculated.
+    if prefer_status == "finalized":
+        status_order = ("finalized", "calculated", "draft")
+    elif prefer_status == "draft":
+        status_order = ("draft", "calculated", "finalized")
+    else:
+        status_order = ("calculated", "draft", "finalized")
+
+    for status in status_order:
         row = db.scalar(
             base.where(TaxComputationSnapshot.status == status).order_by(
                 desc(TaxComputationSnapshot.updated_at),

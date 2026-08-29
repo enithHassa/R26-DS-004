@@ -29,6 +29,8 @@ export function EmploymentIncomeSection({
   onAmountChange,
   form,
   onPatch,
+  apitAlreadyPaid,
+  onApitChange,
   open,
   onToggle,
   actVersionLabel,
@@ -42,6 +44,8 @@ export function EmploymentIncomeSection({
   onAmountChange: (componentId: string, value: string) => void;
   form: IncomeFormSlice;
   onPatch: <K extends keyof IncomeFormSlice>(key: K, value: IncomeFormSlice[K]) => void;
+  apitAlreadyPaid: string;
+  onApitChange: (value: string) => void;
   open: boolean;
   onToggle: () => void;
   actVersionLabel?: string | null;
@@ -152,6 +156,16 @@ export function EmploymentIncomeSection({
             </p>
           </div>
         )}
+
+        <div className="rounded-md border border-dashed bg-muted/20 p-3">
+          <MoneyField
+            id="apit_already_paid"
+            label="APIT deducted at source (tax credit)"
+            hint="From APIT Certificate / Form 16 — credited against tax payable, not subtracted from employment income."
+            value={apitAlreadyPaid}
+            onChange={onApitChange}
+          />
+        </div>
       </div>
     </CatalogCardShell>
   );

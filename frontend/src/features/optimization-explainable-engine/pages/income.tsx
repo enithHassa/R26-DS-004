@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Info, Loader2 } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner"
 import { useActiveAuditorProfile } from "@/hooks/use-active-auditor-profile";
 import { useOeSnapshotPersistence } from "@/hooks/use-oe-snapshot";
 import { getProfileMonthlyTaxableIncome } from "@/features/personalized-recommendation/api/profiles";
+import { profileToAuditorSummary } from "@/lib/profile-bridge/profile-summary";
 import { profileToInterviewIncome } from "@/lib/profile-bridge/tax-return-to-oe-income";
 import { mergeBreakdownIntoIncome } from "@/lib/profile-bridge/transaction-summary-to-oe-income";
 import { normalizeDocumentTaxYear } from "@/lib/profile-bridge/tax-year-bridge";
@@ -78,6 +79,36 @@ export function InterviewIncomePage() {
   const [investmentOpen, setInvestmentOpen] = useState(true);
   const [otherOpen, setOtherOpen] = useState(false);
   const [explainField, setExplainField] = useState<IncomeCatalogField | null>(null);
+
+  // Keep Name / TIN in sync with the auditor's active taxpayer (including switches).
+  useEffect(() => {
+    let name = "";
+    let tin = "";
+
+    if (!activeProfileId) {
+      name = "";
+      tin = "";
+    } else if (profileQuery.data) {
+      const summary = profileToAuditorSummary(profileQuery.data);
+      name = summary.fullName || "";
+      tin = summary.tin || "";
+    } else if (profileSummary?.id === activeProfileId) {
+      name = profileSummary.fullName || "";
+      tin = profileSummary.tin || "";
+    } else {
+      return;
+    }
+
+    if (income.taxpayerName === name && income.tin === tin) return;
+    patchIncome({ taxpayerName: name, tin });
+  }, [
+    activeProfileId,
+    profileQuery.data,
+    profileSummary,
+    income.taxpayerName,
+    income.tin,
+    patchIncome,
+  ]);
 
   const total = totalIncomeLkr(income);
   const employment = employmentIncomeLkr(income);
@@ -289,9 +320,9 @@ export function InterviewIncomePage() {
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">Income</h2>
         <p className="text-sm text-muted-foreground">
-          Name and TIN are for this session only. Catalog cards cover Sections 5–8.
-          Interest rows follow the WHT schedule — withheld tax becomes a credit on Result,
-          not a reduction of assessable income.
+          Name and TIN sync from the active taxpayer profile when one is selected.
+          Catalog cards cover Sections 5–8. Interest rows follow the WHT schedule —
+          withheld tax becomes a credit on Result, not a reduction of assessable income.
         </p>
       </div>
 
@@ -337,6 +368,8 @@ export function InterviewIncomePage() {
             }
             form={income.form}
             onPatch={patchForm}
+            apitAlreadyPaid={income.apitAlreadyPaid ?? "0"}
+            onApitChange={(v) => patchIncome({ apitAlreadyPaid: v })}
             open={employmentOpen}
             onToggle={() => setEmploymentOpen((v) => !v)}
             actVersionLabel={INCOME_CATALOG_BADGE}

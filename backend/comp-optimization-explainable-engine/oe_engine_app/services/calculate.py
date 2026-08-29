@@ -80,9 +80,15 @@ def binder_for(entry: dict[str, Any]) -> str:
 def _income_base(entry: dict[str, Any], income: dict[str, int]) -> int:
     kind = _binding_kind(entry)
     group = str(entry.get("compare_group_id") or "")
+    unit = str(entry.get("unit") or "")
     if kind == "senior_citizen_interest_relief":
         return income["interest"]
-    if kind == "rent_relief" or str(entry.get("unit") or "") == "percent":
+    # Fifth Schedule rental relief is always % of rents — never gross assessable.
+    if (
+        kind == "rent_relief"
+        or group in {"rental_income_relief", "rent_relief"}
+        or unit == "percent"
+    ):
         return income["rents"]
     if group == "employment_income_relief":
         return income["employment"]
@@ -273,6 +279,7 @@ def calculate(
     claims: list[dict[str, Any]] | None = None,
     exclude_source_doc_id: str | None = None,
     wht_already_paid: int = 0,
+    apit_already_paid: int = 0,
 ) -> dict[str, Any]:
     reliefs = year_store.reliefs_for_year(session, assessment_year, exclude_source_doc_id)
     rates = year_store.rates_for_year(session, assessment_year, exclude_source_doc_id)
@@ -385,10 +392,17 @@ def calculate(
             }
         )
     tax_payable += terminal_tax
+    # Prepaid credits against tax payable (not reductions of employment income):
+    # APIT = Advance Personal Income Tax deducted from salary; WHT = interest WHT.
+    claimed_apit = _as_int(
+        apit_already_paid if apit_already_paid else income.get("apit_already_paid")
+    )
     claimed_wht = _as_int(wht_already_paid if wht_already_paid else income.get("wht_already_paid"))
-    credits_applied = min(claimed_wht, tax_payable)
-    balance_payable = tax_payable - credits_applied
-    tax_refund = max(0, claimed_wht - tax_payable)
+    apit_credit = min(claimed_apit, tax_payable)
+    remaining_after_apit = tax_payable - apit_credit
+    wht_credit = min(claimed_wht, remaining_after_apit)
+    balance_payable = tax_payable - apit_credit - wht_credit
+    tax_refund = max(0, claimed_apit + claimed_wht - tax_payable)
     return {
         "assessment_year": assessment_year,
         "gross_income": gross,
@@ -402,8 +416,10 @@ def calculate(
         "terminal_benefit_amount": qualifying_amount,
         "terminal_benefit_tax": terminal_tax,
         "terminal_benefit_lines": terminal_benefit_lines,
+        "apit_already_paid": claimed_apit,
+        "apit_credit": apit_credit,
         "wht_already_paid": claimed_wht,
-        "wht_credit": credits_applied,
+        "wht_credit": wht_credit,
         "balance_payable": balance_payable,
         "tax_refund": tax_refund,
         "exclude_source_doc_id": exclude_source_doc_id or None,

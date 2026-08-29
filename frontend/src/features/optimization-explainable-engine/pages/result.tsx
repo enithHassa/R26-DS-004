@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -31,6 +31,10 @@ export function InterviewResultPage() {
   const request = buildCalculateRequest(session);
   const fingerprint = sessionCalculationFingerprint(session);
   const savedRef = useRef<string | null>(null);
+  const [approveState, setApproveState] = useState<"idle" | "loading" | "done" | "error">(
+    "idle",
+  );
+  const [approveMessage, setApproveMessage] = useState<string | null>(null);
 
   const snapshotQuery = useQuery({
     queryKey: ["oe-snapshot", profileId, session.assessmentYear],
@@ -159,6 +163,34 @@ export function InterviewResultPage() {
     .filter(Boolean);
   const legalCitations = buildScenarioCitations(result, session);
 
+  async function approveForTaxpayer() {
+    if (!profileId || !result) return;
+    setApproveState("loading");
+    setApproveMessage(null);
+    try {
+      await saveTaxComputationSnapshot(
+        profileId,
+        buildSnapshotPayload(session, {
+          status: "finalized",
+          calculateResult: result,
+          explainNarrative:
+            cachedExplainNarrative ?? explainQuery.data?.narrative ?? null,
+          source: "auditor_manual",
+        }),
+      );
+      setApproveState("done");
+      setApproveMessage(
+        `Approved for taxpayer · YA ${yaDisplay(session.assessmentYear)}. Visible on TaxWise Optimization and Explainable.`,
+      );
+      void snapshotQuery.refetch();
+    } catch (err) {
+      setApproveState("error");
+      setApproveMessage(
+        err instanceof Error ? err.message : "Could not approve snapshot for taxpayer.",
+      );
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ActiveProfileBanner moduleLabel="Optimization result" />
@@ -192,6 +224,7 @@ export function InterviewResultPage() {
           />
         ) : null}
         <SummaryTile label="WHT credit" value={result.wht_credit ?? 0} />
+        <SummaryTile label="APIT credit" value={result.apit_credit ?? 0} />
         {(result.tax_refund ?? 0) > 0 ? (
           <SummaryTile label="Refund" value={result.tax_refund ?? 0} emphasize />
         ) : (
@@ -345,7 +378,7 @@ export function InterviewResultPage() {
         ) : null}
       </section>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
@@ -360,7 +393,37 @@ export function InterviewResultPage() {
         >
           Back to income
         </Button>
+        {profileId ? (
+          <Button
+            type="button"
+            disabled={approveState === "loading"}
+            onClick={() => void approveForTaxpayer()}
+          >
+            {approveState === "loading" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                Approving…
+              </>
+            ) : approveState === "done" ? (
+              "Approved for taxpayer"
+            ) : (
+              "Approve for taxpayer"
+            )}
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Lock a taxpayer profile to approve this result for TaxWise.
+          </p>
+        )}
       </div>
+      {approveMessage ? (
+        <p
+          className={`text-sm ${approveState === "error" ? "text-destructive" : "text-muted-foreground"}`}
+          role={approveState === "error" ? "alert" : undefined}
+        >
+          {approveMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { CalculateResponse, ReliefLine, SlabLine } from "./api";
 import { formatLkr, yaDisplay } from "./format-lkr";
+import { activeSlabLines, ordinaryTaxFromSlabs } from "./tax-buildup";
 
 export type PlainExplanationBlock = {
   heading: string;
@@ -18,10 +19,6 @@ function appliedReliefs(lines: ReliefLine[]): ReliefLine[] {
 
 function usedBands(lines: SlabLine[]): SlabLine[] {
   return lines.filter((line) => line.slice > 0);
-}
-
-function taxedBands(lines: SlabLine[]): SlabLine[] {
-  return lines.filter((line) => line.tax > 0);
 }
 
 function reliefKidLine(line: ReliefLine): string {
@@ -64,16 +61,17 @@ function simpleBandStep(band: SlabLine, stepNumber: number): string {
   const label = band.band_label?.trim();
 
   if (label) {
-    return `Step ${stepNumber}: ${slice} falls in “${label}”. Tax at ${rate}% on that slice is ${tax}.`;
+    return `Step ${stepNumber}: ${slice} of taxable income is in “${label}” (${rate}%) → tax ${tax}.`;
   }
-  return `Step ${stepNumber}: ${slice} is taxed at ${rate}%, which is ${tax}.`;
+  return `Step ${stepNumber}: ${slice} taxed at ${rate}% → ${tax}.`;
 }
 
 export function buildPlainExplanation(result: CalculateResponse): PlainExplanation {
   const ya = yaDisplay(result.assessment_year);
   const reliefs = appliedReliefs(result.relief_lines ?? []);
-  const bands = usedBands(result.slab_lines ?? []);
-  const payingBands = taxedBands(result.slab_lines ?? []);
+  const bands = activeSlabLines(result.slab_lines ?? []);
+  const ordinaryTax = ordinaryTaxFromSlabs(result.slab_lines);
+  const terminalTax = result.terminal_benefit_tax ?? 0;
 
   const blocks: PlainExplanationBlock[] = [];
 
@@ -121,26 +119,19 @@ export function buildPlainExplanation(result: CalculateResponse): PlainExplanati
     ],
   });
 
-  if (payingBands.length > 0) {
-    const bandLines = payingBands.map((band, index) => simpleBandStep(band, index + 1));
-    const parts = payingBands.map((band) => formatLkr(band.tax));
-    const ordinaryTax = payingBands.reduce((sum, band) => sum + band.tax, 0);
+  if (bands.length > 0) {
+    const bandLines = bands.map((band, index) => simpleBandStep(band, index + 1));
+    const parts = bands.map((band) => formatLkr(band.tax));
+    const sumLine =
+      terminalTax > 0
+        ? `Ordinary bands add up to ${formatLkr(ordinaryTax)}. Terminal-benefit tax adds ${formatLkr(terminalTax)}. Together: ${formatLkr(ordinaryTax)} + ${formatLkr(terminalTax)} = ${formatLkr(result.tax_payable)} tax payable.`
+        : `Add every band: ${parts.join(" + ")} = ${formatLkr(ordinaryTax)} tax payable.`;
     blocks.push({
       heading: "How the tax is added up",
       lines: [
-        "Tax is not one flat percentage on everything. It works like stairs — a small slice at a low rate, then the next slice at a higher rate, and so on.",
+        "Tax is not one flat percentage on everything. It works like stairs — a slice at each rate:",
         ...bandLines,
-        (result.terminal_benefit_tax ?? 0) > 0
-          ? `Ordinary income tax on those steps is ${formatLkr(ordinaryTax)}.`
-          : `Add those steps: ${parts.join(" + ")} = ${formatLkr(result.tax_payable)}.`,
-      ],
-    });
-  } else if (bands.length > 0) {
-    blocks.push({
-      heading: "How the tax is added up",
-      lines: [
-        "Your income fell into the rate bands for this year, but the tax due worked out to zero.",
-        `Tax payable: ${formatLkr(result.tax_payable)}.`,
+        sumLine,
       ],
     });
   } else {
@@ -157,7 +148,7 @@ export function buildPlainExplanation(result: CalculateResponse): PlainExplanati
       lines: [
         "A qualifying terminal benefit is taxed on its own ladder, separate from ordinary salary.",
         ...terminalBands.map((band, index) => simpleBandStep(band, index + 1)),
-        `That extra tax is ${formatLkr(result.terminal_benefit_tax ?? 0)}, included in the ${formatLkr(result.tax_payable)} total.`,
+        `That extra tax is ${formatLkr(terminalTax)}, included in the ${formatLkr(result.tax_payable)} total.`,
       ],
     });
   }
@@ -165,9 +156,17 @@ export function buildPlainExplanation(result: CalculateResponse): PlainExplanati
   blocks.push({
     heading: "The bottom line",
     lines: [
-      result.wht_credit
-        ? `Tax before credits is ${formatLkr(result.tax_payable)}. WHT already paid of ${formatLkr(result.wht_credit)} is credited, leaving ${formatLkr(result.balance_payable ?? result.tax_payable)} to pay${(result.tax_refund ?? 0) > 0 ? ` (or a refund of ${formatLkr(result.tax_refund)})` : ""}.`
-        : `You keep ${formatLkr(result.gross_income - result.tax_payable)} after paying ${formatLkr(result.tax_payable)} in tax (before any other payments or credits).`,
+      (() => {
+        const apit = result.apit_credit ?? 0;
+        const wht = result.wht_credit ?? 0;
+        if (apit <= 0 && wht <= 0) {
+          return `You keep ${formatLkr(result.gross_income - result.tax_payable)} after paying ${formatLkr(result.tax_payable)} in tax (before any other payments or credits).`;
+        }
+        const parts: string[] = [];
+        if (apit > 0) parts.push(`APIT of ${formatLkr(apit)}`);
+        if (wht > 0) parts.push(`WHT of ${formatLkr(wht)}`);
+        return `Tax before credits is ${formatLkr(result.tax_payable)}. ${parts.join(" and ")} already paid is credited, leaving ${formatLkr(result.balance_payable ?? result.tax_payable)} to pay${(result.tax_refund ?? 0) > 0 ? ` (or a refund of ${formatLkr(result.tax_refund)})` : ""}.`;
+      })(),
       "These numbers come from the official rules loaded for this year — the same calculation shown in the tables above.",
     ],
   });
