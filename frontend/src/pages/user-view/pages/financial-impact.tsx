@@ -12,8 +12,8 @@ export function UserFinancialImpactPage() {
   }
 
   return (
-    <UserViewShell title="Financial Impact" subtitle="Long-term projection from your top recommendation">
-      <div className="mx-auto max-w-4xl">
+    <UserViewShell title="Financial Impact" subtitle="Simple charts for each recommendation — see how your money could change">
+      <div className="mx-auto max-w-5xl">
         <TaxpayerImpactPanel profileId={profileId} />
       </div>
     </UserViewShell>

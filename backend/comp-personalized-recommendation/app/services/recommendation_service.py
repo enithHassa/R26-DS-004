@@ -27,6 +27,7 @@ from app.schemas.recommendation import (
 )
 from app.schemas.strategy import Strategy, StrategyCategory
 from app.services.inference_assets import InferenceArtifacts, load_inference_artifacts
+from app.services.hybrid_service import _default_fusion_weights, _fuse_rank_score
 from app.services.profile_service import ProfileNotFoundError, compute_derived_features, get_profile
 
 
@@ -539,25 +540,36 @@ def _generate_phase4(
         for i in range(len(artifacts.strategy_ids))
     }
 
-    # --- Filter eligible strategies and build recommendation items ---
+    # Sort by fusion score (tax fit + adoption + feasibility − risk).
+    fusion_weights = _default_fusion_weights()
+
     candidates: list[RecommendationItem] = []
     for s in catalog.strategies:
         eval_result = evaluate_strategy(s, ctx)
         if not eval_result.is_eligible:
             continue
         lm_score = lambdamart_by_sid.get(s.strategy_id, 0.0)
+        adopt = adopt_by_sid.get(s.strategy_id, 0.0)
+        risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
+        feasibility = float(eval_result.feasibility_score)
+        fusion_score = _fuse_rank_score(
+            lambdamart_score=lm_score,
+            adoption_probability=adopt,
+            feasibility=feasibility,
+            risk_penalty=risk_penalty,
+            weights=fusion_weights,
+        )
         candidates.append(
             _item_from_strategy(
                 s=s,
                 ctx=ctx,
                 eval_result=eval_result,
-                adoption_prob=adopt_by_sid.get(s.strategy_id, 0.0),
+                adoption_prob=adopt,
                 tax_savings_norm=lm_score,
-                lambdamart_score=lm_score,  # drives final_score and rank order
+                lambdamart_score=fusion_score,
             )
         )
 
-    # Sort by LambdaMART-driven final_score (highest first).
     candidates.sort(key=lambda x: x.scores.final_score, reverse=True)
     for i, it in enumerate(candidates[:top_k], start=1):
         it.rank = i
