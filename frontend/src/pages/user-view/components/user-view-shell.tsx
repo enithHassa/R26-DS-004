@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink, Navigate, useLocation } from "react-router-dom";
 import {
   Bell,
+  BookOpen,
   Calculator,
   ChevronRight,
   LayoutDashboard,
@@ -22,6 +23,7 @@ import {
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
   TAXWISE_OE,
+  TAXWISE_OE_EXPLANATIONS,
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
@@ -66,6 +68,7 @@ const OE_SUB_ITEMS = [
   { label: "My Income", icon: Wallet, to: TAXWISE_OE_INCOME, end: false },
   { label: "My Reliefs", icon: ListChecks, to: TAXWISE_OE_RELIEFS, end: false },
   { label: "My Tax Result", icon: Calculator, to: TAXWISE_OE_RESULT, end: false },
+  { label: "Explanations", icon: BookOpen, to: TAXWISE_OE_EXPLANATIONS, end: false },
 ] as const;
 
 function initials(name: string): string {

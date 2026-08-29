@@ -1,0 +1,29 @@
+{
+  "id": "144b9f3c-eec0-48b8-bc45-779f269b7f5f",
+  "status": "extracted",
+  "source_doc_id": "oee-act-100-2026",
+  "original_filename": "Inland_Revenue_Amendment_Act_2026_PersonalRelief_3M (1).pdf",
+  "storage_path": "D:/R26-DS-004/R26-DS-004/models/opt-explain-engine/act-admin/uploads/144b9f3c-eec0-48b8-bc45-779f269b7f5f__Inland_Revenue_Amendment_Act_2026_PersonalRelief_3M_1_.pdf",
+  "pdf_sha256": "3e4e11d8c1897177245ff587d718235a32cf14db5ed7ebad9df1d5bb566f0398",
+  "act_identity": {
+    "act_no": "100",
+    "act_year": "2026",
+    "label": "Act No. 100 of 2026",
+    "source": "short_title",
+    "quote": "This Act may be cited as the Inland Revenue (Amendment) Act, No. 100 of 2026"
+  },
+  "reviewer": "Auditor",
+  "uploaded_at": "2026-08-29T17:30:28.635184+00:00",
+  "error": null,
+  "extract_started_at": "2026-08-29T17:30:28.782562+00:00",
+  "ingest_status": "skipped_sha256",
+  "chunk_count": 760,
+  "embedding_usd": 0.0,
+  "extract_finished_at": "2026-08-29T17:31:02.832213+00:00",
+  "extraction_run_id": "20260829T173102Z-592faf",
+  "entity_count": 7,
+  "included_count": 4,
+  "usd_this_run": 0.118582,
+  "model": "gpt-4o",
+  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-100-2026"
+}

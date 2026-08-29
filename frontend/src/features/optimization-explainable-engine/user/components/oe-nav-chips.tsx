@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   TAXWISE_OE,
+  TAXWISE_OE_EXPLANATIONS,
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
@@ -13,6 +14,7 @@ const TABS = [
   { label: "My Income", to: TAXWISE_OE_INCOME, end: false },
   { label: "My Reliefs", to: TAXWISE_OE_RELIEFS, end: false },
   { label: "My Tax Result", to: TAXWISE_OE_RESULT, end: false },
+  { label: "Explanations", to: TAXWISE_OE_EXPLANATIONS, end: false },
 ] as const;
 
 export function OeNavChips() {

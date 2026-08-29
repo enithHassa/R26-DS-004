@@ -11,8 +11,8 @@ export const features: FeatureModule[] = [
   personalizedRecommendation,
   transactionSemantic,
   languageModel,
+  optimizationExplainableEngine,
   taxOptimization,
   adaptiveTax,
   optimizationExplainable,
-  optimizationExplainableEngine,
 ];

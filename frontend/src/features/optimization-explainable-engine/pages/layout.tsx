@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { GitCompare, Library, Scale } from "lucide-react";
+import { Library, Scale } from "lucide-react";
 
 import { Select } from "@/components/ui/select";
 
@@ -24,7 +24,8 @@ function StepNav() {
   const yearsQuery = useQuery({
     queryKey: ["optimization-explainable-engine", "years"],
     queryFn: getYears,
-    retry: false,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
   });
   const listed = yearsQuery.data?.assessment_years ?? [];
   useEffect(() => {
@@ -122,17 +123,7 @@ export function CompareLayout() {
   const activeProfileId = useActiveProfileId();
   return (
     <InterviewProvider profileId={activeProfileId}>
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div className="space-y-1 border-b border-border pb-4">
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <GitCompare className="h-5 w-5 text-muted-foreground" aria-hidden />
-            Compare
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            This is an Optimization and Explainable Engine page, not a step in the
-            taxpayer interview flow. Values come from this engine’s year views.
-          </p>
-        </div>
+      <div className="mx-auto max-w-4xl">
         <Outlet />
       </div>
     </InterviewProvider>
@@ -149,9 +140,18 @@ export function LoadActLayout() {
           Load new act
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ingest, review, Act promote, Guide display, Consolidated mismatches.
+          Upload a new Act via Act admin. Corpus library and fixture tools live under Past Acts.
         </p>
       </div>
+      <Outlet />
+    </div>
+  );
+}
+
+/** Past Acts — ingested corpus library (read-focused). */
+export function PastActsLayout() {
+  return (
+    <div className="mx-auto max-w-4xl">
       <Outlet />
     </div>
   );

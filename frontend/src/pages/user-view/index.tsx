@@ -5,6 +5,7 @@ import { UserAboutYouPage } from "@/pages/user-view/pages/about-you";
 import { UserDashboardPage } from "@/pages/user-view/pages/dashboard";
 import { UserFinancialImpactPage } from "@/pages/user-view/pages/financial-impact";
 import { UserOeLayout } from "@/pages/user-view/pages/oe-layout";
+import { UserOeExplanationsPage } from "@/pages/user-view/pages/oe-explanations";
 import { UserOeIncomePage } from "@/pages/user-view/pages/oe-income";
 import { UserOeOverviewPage } from "@/pages/user-view/pages/oe-overview";
 import { UserOeReliefsPage } from "@/pages/user-view/pages/oe-reliefs";
@@ -26,6 +27,7 @@ export {
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
   TAXWISE_OE,
+  TAXWISE_OE_EXPLANATIONS,
   TAXWISE_OE_INCOME,
   TAXWISE_OE_RELIEFS,
   TAXWISE_OE_RESULT,
@@ -56,6 +58,7 @@ export const userViewRoutes: RouteObject[] = [
       { path: "income", element: <UserOeIncomePage /> },
       { path: "reliefs", element: <UserOeReliefsPage /> },
       { path: "result", element: <UserOeResultPage /> },
+      { path: "explanations", element: <UserOeExplanationsPage /> },
     ],
   },
   // Legacy Comp 3 summary tabs → TaxWise pages

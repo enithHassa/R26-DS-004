@@ -6,6 +6,8 @@ import {
   Tooltip,
 } from "recharts";
 
+import { cn } from "@/lib/utils";
+
 import type { CalculateResponse, ReliefLine } from "../../api";
 import { formatLkr } from "../../format-lkr";
 import {
@@ -28,7 +30,54 @@ const C = {
   track: "rgba(148, 163, 184, 0.15)",
   text: "#f8fafc",
   mutedText: "#94a3b8",
+  tooltipBg: "#0f172a",
+  tooltipBorder: "rgba(148, 163, 184, 0.35)",
 };
+
+/** Dark-theme pie tooltip — Recharts default item text is nearly invisible on TaxWise. */
+function DarkPieTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    name?: string;
+    value?: number;
+    payload?: { name?: string; value?: number; color?: string };
+    color?: string;
+  }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]!;
+  const name = row.name ?? row.payload?.name ?? "";
+  const value = Number(row.value ?? row.payload?.value ?? 0);
+  const color = row.payload?.color ?? row.color ?? C.teal;
+
+  return (
+    <div
+      className="rounded-lg border px-3 py-2 shadow-lg"
+      style={{
+        background: C.tooltipBg,
+        borderColor: C.tooltipBorder,
+        color: C.text,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: color }}
+          aria-hidden
+        />
+        <p className="text-xs font-medium" style={{ color: C.text }}>
+          {name}
+        </p>
+      </div>
+      <p className="mt-1 text-sm font-semibold tabular-nums" style={{ color: C.text }}>
+        {formatLkr(value)}
+      </p>
+    </div>
+  );
+}
 
 function formatMetricPercent(percent: number): string {
   const p = Math.max(0, Math.min(100, percent));
@@ -172,23 +221,23 @@ function MiniDonut({
   const data = compositionSlices(result);
   if (data.length === 0) {
     return (
-      <div className="flex h-[140px] items-center justify-center text-xs text-[var(--uv-text-muted)]">
+      <div className="flex h-[88px] items-center justify-center text-xs text-[var(--uv-text-muted)]">
         No data
       </div>
     );
   }
   return (
     <div className="flex flex-col items-center">
-      <p className="mb-1 text-xs font-medium text-[var(--uv-text-muted)]">{title}</p>
-      <div className="h-[120px] w-full">
+      <p className="mb-0.5 text-[11px] font-medium text-[var(--uv-text-muted)]">{title}</p>
+      <div className="h-[88px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius={34}
-              outerRadius={52}
+              innerRadius={24}
+              outerRadius={38}
               paddingAngle={2}
               stroke="none"
             >
@@ -196,20 +245,11 @@ function MiniDonut({
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip
-              formatter={(value: number, name: string) => [formatLkr(value), name]}
-              contentStyle={{
-                background: "#151c2e",
-                border: "1px solid rgba(148,163,184,0.2)",
-                borderRadius: 8,
-                fontSize: 12,
-                color: C.text,
-              }}
-            />
+            <Tooltip content={<DarkPieTooltip />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-sm font-semibold text-[var(--uv-text)]">
+      <p className="text-xs font-semibold tabular-nums text-[var(--uv-text)]">
         Tax {formatLkr(result.tax_payable)}
       </p>
     </div>
@@ -233,26 +273,26 @@ export function TaxBreakdownPanel({
   if (!after && !before) return null;
 
   return (
-    <div className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4">
+    <div className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-3">
       <h3 className="text-sm font-semibold text-[var(--uv-text)]">Tax breakdown</h3>
-      <p className="mt-0.5 text-xs text-[var(--uv-text-muted)]">
+      <p className="mt-0.5 text-[11px] text-[var(--uv-text-muted)]">
         Reliefs vs tax vs what you keep — before and after your claims.
       </p>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-1">
         {before ? <MiniDonut title="Before" result={before} /> : <div />}
         {after ? (
           <MiniDonut title={before ? "After" : "Your result"} result={after} />
         ) : null}
       </div>
       {savings > 0 ? (
-        <div className="mt-4 border-t border-[var(--uv-border)] pt-3 text-center">
-          <p className="text-xs text-[var(--uv-text-muted)]">Total savings potential</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight text-[var(--uv-accent)]">
+        <div className="mt-2 border-t border-[var(--uv-border)] pt-2 text-center">
+          <p className="text-[11px] text-[var(--uv-text-muted)]">Total savings potential</p>
+          <p className="mt-0.5 text-xl font-bold tracking-tight text-[var(--uv-accent)]">
             {formatLkr(savings)}
           </p>
         </div>
       ) : null}
-      <ul className="mt-3 flex flex-wrap justify-center gap-3 text-[10px] text-[var(--uv-text-muted)]">
+      <ul className="mt-2 flex flex-wrap justify-center gap-3 text-[10px] text-[var(--uv-text-muted)]">
         <li className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full" style={{ background: C.teal }} /> Reliefs
         </li>
@@ -267,79 +307,36 @@ export function TaxBreakdownPanel({
   );
 }
 
-/** Compact full-width relief bars — names + amounts, no truncated chart axis. */
-export function ReliefImpactChart({ lines }: { lines: ReliefLine[] }) {
-  const rows = lines
-    .filter((l) => l.applied > 0)
-    .slice(0, 5)
-    .map((l) => ({
-      id: l.entry_id,
-      name: l.display_name || l.compare_group_id,
-      applied: l.applied,
-    }));
-
-  if (rows.length === 0) return null;
-
-  const maxApplied = Math.max(...rows.map((r) => r.applied), 1);
-
-  return (
-    <div className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">Relief impact</h3>
-          <p className="mt-0.5 text-xs text-[var(--uv-text-muted)]">
-            How much each relief reduced your taxable base this YA.
-          </p>
-        </div>
-        <p className="text-[11px] text-[var(--uv-text-muted)]">
-          Total {formatLkr(rows.reduce((s, r) => s + r.applied, 0))}
-        </p>
-      </div>
-      <ul className="mt-4 space-y-3">
-        {rows.map((row) => {
-          const pct = Math.max(4, Math.round((row.applied / maxApplied) * 100));
-          return (
-            <li key={row.id} className="space-y-1.5">
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="min-w-0 truncate font-medium text-[var(--uv-text)]">
-                  {row.name}
-                </span>
-                <span className="shrink-0 tabular-nums text-[var(--uv-accent)]">
-                  {formatLkr(row.applied)}
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full" style={{ background: C.track }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, background: C.teal }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 /** Strategy-style cards: tax saved by each relief + how much of its cap was used. */
 export function OpportunityCards({
   opportunities,
+  fillHeight = false,
 }: {
   opportunities: Array<
     ReliefLine & { tax_saved?: number; tax_before?: number }
   >;
+  /** Stretch cards so the column matches the charts column height. */
+  fillHeight?: boolean;
 }) {
   if (opportunities.length === 0) return null;
 
+  const top = opportunities.slice(0, 3);
+
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-[var(--uv-text)]">Best for you</h3>
-      <ul className="space-y-3">
-        {opportunities.slice(0, 4).map((line, index) => {
+    <div className={cn("flex flex-col gap-2", fillHeight && "min-h-0 flex-1")}>
+      <div className="flex shrink-0 items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-[var(--uv-text)]">Best for you</h3>
+        <p className="text-[11px] text-[var(--uv-text-muted)]">Top {top.length} reliefs</p>
+      </div>
+      <ul
+        className={cn(
+          "flex flex-col gap-2",
+          fillHeight ? "min-h-0 flex-1" : "space-y-0",
+        )}
+      >
+        {top.map((line, index) => {
           const taxSaved = Math.max(0, line.tax_saved ?? 0);
           const taxBefore = Math.max(0, line.tax_before ?? 0);
-          // Example: tax was 100,000; relief cut 50,000 → Tax Impact 50%.
           const taxImpact =
             taxBefore > 0
               ? Math.min(100, Math.max(0, (taxSaved / taxBefore) * 100))
@@ -353,34 +350,33 @@ export function OpportunityCards({
           return (
             <li
               key={line.entry_id}
-              className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4"
+              className={cn(
+                "rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-3",
+                fillHeight
+                  ? "flex min-h-[7.5rem] flex-1 flex-col justify-center py-3.5 lg:min-h-0"
+                  : "py-2.5",
+              )}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex min-w-0 items-start gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--uv-accent)]/15 text-xs font-semibold text-[var(--uv-accent)]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--uv-accent)]/15 text-[10px] font-semibold text-[var(--uv-accent)]">
                     {index + 1}
                   </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium leading-snug">{line.display_name}</p>
-                    <span className="mt-1 inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                      Fully Compliant
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-[var(--uv-accent)]">
-                    {formatLkr(line.applied)}
+                  <p className="min-w-0 truncate text-sm font-medium leading-snug">
+                    {line.display_name}
                   </p>
-                  <p className="text-[10px] text-[var(--uv-text-muted)]">relief amount</p>
+                  <span className="hidden shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300 sm:inline-flex">
+                    Compliant
+                  </span>
                 </div>
+                <p className="shrink-0 text-sm font-semibold tabular-nums text-[var(--uv-accent)]">
+                  {formatLkr(line.applied)}
+                </p>
               </div>
-              <div className="mt-3 space-y-2">
+              <div className={cn("space-y-1.5", fillHeight ? "mt-3" : "mt-2")}>
                 <MetricBar label="Tax Impact" percent={taxImpact} color={C.teal} />
                 <MetricBar label="Relief Limit Used" percent={reliefLimitUsed} color={C.red} />
               </div>
-              {line.formula ? (
-                <p className="mt-2 text-[11px] text-[var(--uv-text-muted)]">{line.formula}</p>
-              ) : null}
             </li>
           );
         })}
@@ -401,18 +397,20 @@ export function IncomeMixChart({ income }: { income: InterviewIncomeState }) {
   if (data.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4">
+    <div className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-3">
       <h3 className="text-sm font-semibold">Income mix</h3>
-      <p className="mt-0.5 text-xs text-[var(--uv-text-muted)]">Where your assessable income comes from.</p>
-      <div className="mt-2 h-[160px]">
+      <p className="mt-0.5 text-[11px] text-[var(--uv-text-muted)]">
+        Where your assessable income comes from.
+      </p>
+      <div className="mt-1 h-[112px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius={40}
-              outerRadius={62}
+              innerRadius={28}
+              outerRadius={44}
               paddingAngle={2}
               stroke="none"
             >
@@ -420,16 +418,7 @@ export function IncomeMixChart({ income }: { income: InterviewIncomeState }) {
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip
-              formatter={(value: number, name: string) => [formatLkr(value), name]}
-              contentStyle={{
-                background: "#151c2e",
-                border: "1px solid rgba(148,163,184,0.2)",
-                borderRadius: 8,
-                fontSize: 12,
-                color: C.text,
-              }}
-            />
+            <Tooltip content={<DarkPieTooltip />} />
           </PieChart>
         </ResponsiveContainer>
       </div>

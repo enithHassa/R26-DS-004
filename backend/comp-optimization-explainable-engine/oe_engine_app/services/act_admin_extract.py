@@ -140,6 +140,9 @@ def run_extract_job(job_id: str, *, paths: ActAdminPaths | None = None) -> dict[
             draft["job_id"] = job_id
             draft["review_status"] = "pending"
             draft["reviewer"] = job.get("reviewer")
+            from oe_engine_app.services.act_admin_review import _apply_persisted_decisions
+
+            _apply_persisted_decisions(draft, paths=root, session=session)
             save_draft(draft, root)
 
             job["status"] = "extracted"

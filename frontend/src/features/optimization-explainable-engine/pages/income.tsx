@@ -34,6 +34,7 @@ import {
 } from "../income-cards";
 import { INCOME_CATALOG_BADGE, incomeCatalogCard, type IncomeCatalogField } from "../income-catalog";
 import { useInterview } from "../session";
+import { TerminalBenefitExplainDrawer } from "../terminal-benefit-explain";
 import { TerminalBenefitSection } from "../terminal-benefit-section";
 import {
   terminalBenefitsBlockContinue,
@@ -78,7 +79,14 @@ export function InterviewIncomePage() {
   const [businessOpen, setBusinessOpen] = useState(true);
   const [investmentOpen, setInvestmentOpen] = useState(true);
   const [otherOpen, setOtherOpen] = useState(false);
-  const [explainField, setExplainField] = useState<IncomeCatalogField | null>(null);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalExplainOpen, setTerminalExplainOpen] = useState(false);
+  const [explainField, setExplainFieldState] = useState<IncomeCatalogField | null>(null);
+
+  function setExplainField(field: IncomeCatalogField | null): void {
+    setTerminalExplainOpen(false);
+    setExplainFieldState(field);
+  }
 
   // Keep Name / TIN in sync with the auditor's active taxpayer (including switches).
   useEffect(() => {
@@ -451,10 +459,18 @@ export function InterviewIncomePage() {
             actVersionLabel={INCOME_CATALOG_BADGE}
             onExplainField={setExplainField}
           />
+
+          <TerminalBenefitSection
+            open={terminalOpen}
+            onToggle={() => setTerminalOpen((v) => !v)}
+            actVersionLabel={INCOME_CATALOG_BADGE}
+            onExplain={() => {
+              setExplainField(null);
+              setTerminalExplainOpen(true);
+            }}
+          />
         </div>
       </div>
-
-      <TerminalBenefitSection />
 
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">
@@ -501,7 +517,13 @@ export function InterviewIncomePage() {
         field={explainField}
         actVersionLabel={INCOME_CATALOG_BADGE}
         open={explainField !== null}
-        onClose={() => setExplainField(null)}
+        onClose={() => setExplainFieldState(null)}
+      />
+      <TerminalBenefitExplainDrawer
+        assessmentYear={session.assessmentYear}
+        actVersionLabel={INCOME_CATALOG_BADGE}
+        open={terminalExplainOpen}
+        onClose={() => setTerminalExplainOpen(false)}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { Check, Loader2 } from "lucide-react";
 
 import { formatLkr, parseLkr, yaDisplay } from "../../format-lkr";
 import { previewAppliedLkr, type ReliefAnswer, type ReliefEntry } from "../../types";
+import { sortReliefsForInterview } from "../../sort-reliefs";
 import { OeNavChips } from "./oe-nav-chips";
 import { UvPanelShell, YaSelector } from "./uv-chrome";
 import { useTaxpayerOe } from "../taxpayer-oe-context";
@@ -125,7 +126,7 @@ export function ReliefsPanel() {
   const ya = assessmentYear ?? scenario.assessmentYear;
   const answers = scenario.session.reliefAnswers;
   // Keep automatic (notice / personal) rows visible — they apply without a claim toggle.
-  const entries = scenario.reliefEntries;
+  const entries = sortReliefsForInterview(scenario.reliefEntries);
   const locked = Boolean(scenario.finalized);
 
   function toggle(entry: ReliefEntry) {

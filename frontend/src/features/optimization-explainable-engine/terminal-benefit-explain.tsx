@@ -1,4 +1,9 @@
-import type { TerminalBenefitBand, TerminalBenefitLadder } from "./api";
+import { X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+import { Button } from "@/components/ui/button";
+
+import { getRates, type TerminalBenefitBand, type TerminalBenefitLadder } from "./api";
 import { formatLkr, yaDisplay } from "./format-lkr";
 import { TERMINAL_BENEFIT_TYPE_OPTIONS } from "./terminal-benefits";
 
@@ -130,7 +135,7 @@ function LadderBlock({ ladder }: { ladder: TerminalBenefitLadder }) {
       ) : null}
       {ladder.source_doc_id || ladder.entry_id || ladder.section_ref ? (
         <div className="space-y-0.5">
-          <p className="text-[10px] font-medium text-muted-foreground">Provenance</p>
+          <p className="text-[10px] font-medium text-muted-foreground">Legal source</p>
           <p className="text-[11px] text-muted-foreground">
             {[ladder.source_doc_id, ladder.section_ref, ladder.entry_id]
               .filter(Boolean)
@@ -203,5 +208,92 @@ export function TerminalBenefitExplainPanel({
         </div>
       ))}
     </div>
+  );
+}
+
+/** Same overlay + right drawer pattern as income field Explain. */
+export function TerminalBenefitExplainDrawer({
+  assessmentYear,
+  actVersionLabel,
+  open,
+  onClose,
+}: {
+  assessmentYear: string;
+  actVersionLabel?: string | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const query = useQuery({
+    queryKey: ["optimization-explainable-engine", "rates", assessmentYear],
+    queryFn: () => getRates(assessmentYear),
+    retry: false,
+    enabled: open,
+  });
+
+  if (!open) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-40 bg-black/40"
+        aria-label="Close terminal benefit explain drawer"
+        onClick={onClose}
+      />
+      <aside
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-background shadow-xl"
+        role="dialog"
+        aria-labelledby="oe-engine-terminal-explain-title"
+      >
+        <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div className="space-y-1">
+            <p id="oe-engine-terminal-explain-title" className="text-sm font-semibold">
+              Retirement & terminal benefits
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Legal basis · terminal_benefit_tax_rate
+            </p>
+          </div>
+          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 text-sm">
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex max-w-full flex-wrap items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+              <span aria-hidden>✓</span>
+              <span>High confidence</span>
+              {actVersionLabel ? (
+                <span className="text-muted-foreground">· {actVersionLabel}</span>
+              ) : null}
+            </span>
+            <span className="inline-flex rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              Special rate ladder (not ordinary income)
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Section</p>
+            <p className="font-medium">Terminal-benefit tax rates</p>
+            <p className="text-xs text-muted-foreground">
+              Commuted pension, retiring gratuity, qualifying loss of office, and ETF at or
+              after retirement are taxed on a separate progressive ladder for this year of
+              assessment.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Year rule</p>
+            <TerminalBenefitExplainPanel
+              assessmentYear={assessmentYear}
+              ladders={query.data?.terminal_benefit_ladders}
+              loading={query.isPending}
+              error={query.isError}
+            />
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

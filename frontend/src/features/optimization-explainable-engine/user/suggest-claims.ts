@@ -2,7 +2,7 @@ import { detailFromProfile } from "@/features/tax-return-profile/mappers";
 import type { FinancialProfile } from "@/features/personalized-recommendation/types";
 import type { TaxReturnDetail } from "@/features/tax-return-profile/types";
 
-import { parseLkr } from "../format-lkr";
+import { parseLkr, roundLkr } from "../format-lkr";
 import {
   interestIncomeLkr,
   rentsIncomeLkr,
@@ -12,7 +12,7 @@ import type { InterviewIncomeState, ReliefAnswer, ReliefEntry } from "../types";
 function num(raw: string | undefined | null): number {
   if (raw == null || raw === "") return 0;
   const n = Number(String(raw).replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? roundLkr(n) : 0;
 }
 
 function ageFromDob(dob: string, assessmentYear: string): number | null {
@@ -48,7 +48,7 @@ function claim(
     entry_id: entry.entry_id,
     compare_group_id: entry.compare_group_id,
     affirmed,
-    amount: String(Math.round(amount)),
+    amount: String(roundLkr(amount)),
     skipped: false,
   };
 }
@@ -138,7 +138,7 @@ export function suggestClaimsFromProfile(
           ? Number(String(entry.cap_amount).replace(/,/g, ""))
           : 25;
         const rate = Number.isFinite(pct) && pct > 0 ? pct : 25;
-        push(claim(entry, Math.floor((rents * rate) / 100), true));
+        push(claim(entry, roundLkr((rents * rate) / 100), true));
       } else {
         const cap = entry.cap_amount ? parseLkr(entry.cap_amount) : rents;
         push(claim(entry, Math.min(rents, cap || rents), true));

@@ -1,20 +1,23 @@
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { BookOpen, Loader2, MessageSquareText } from "lucide-react";
 
 import type { CalculateResponse } from "../../api";
 import { postCalculate } from "../../api";
 import { buildCalculateRequest } from "../../build-calculate-request";
-import { buildPlainExplanation } from "../../build-plain-explanation";
 import { formatLkr, yaDisplay } from "../../format-lkr";
+import { auditorCommentsFromSnapshot } from "@/lib/profile-bridge/oe-snapshot";
 import {
   activeSlabLines,
   formatBandRange,
   slabKey,
   taxBuildupFromResult,
 } from "../../tax-buildup";
-import { OeNavChips } from "./oe-nav-chips";
-import { UvPanelShell, UvTile, YaSelector } from "./uv-chrome";
+import { TAXWISE_OE_EXPLANATIONS } from "../paths";
 import { useTaxpayerOe } from "../taxpayer-oe-context";
+import { OeNavChips } from "./oe-nav-chips";
+import { ResultFlowBoard } from "./result-flow-board";
+import { UvPanelShell, YaSelector } from "./uv-chrome";
 
 export function ResultPanel() {
   const { scenario, isLoading, isError, selectYear, assessmentYear } = useTaxpayerOe();
@@ -53,8 +56,8 @@ export function ResultPanel() {
   const ya = assessmentYear ?? scenario.assessmentYear;
   const official = scenario.finalized?.calculate_result as CalculateResponse | null | undefined;
   const result = official ?? liveQuery.data ?? null;
-  const plain = result ? buildPlainExplanation(result) : null;
   const reliefLines = (result?.relief_lines ?? []).filter((l) => l.applied > 0);
+  const auditorNote = auditorCommentsFromSnapshot(scenario.finalized);
 
   return (
     <UvPanelShell
@@ -80,6 +83,18 @@ export function ResultPanel() {
         </div>
       ) : null}
 
+      {auditorNote ? (
+        <section className="rounded-xl border border-sky-500/35 bg-sky-500/10 p-4">
+          <div className="mb-2 flex items-center gap-2 text-sky-200">
+            <MessageSquareText className="h-4 w-4 shrink-0" aria-hidden />
+            <h3 className="text-sm font-semibold">Message from your auditor</h3>
+          </div>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--uv-text)]">
+            {auditorNote}
+          </p>
+        </section>
+      ) : null}
+
       {!result && liveQuery.isFetching ? (
         <p className="flex items-center gap-2 text-sm text-[var(--uv-text-muted)]">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -96,22 +111,18 @@ export function ResultPanel() {
 
       {result ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <UvTile label="Gross income" value={formatLkr(result.gross_income)} />
-            <UvTile label="Reliefs applied" value={formatLkr(result.total_reliefs)} />
-            <UvTile label="Taxable income" value={formatLkr(result.taxable_income)} />
-            <UvTile label="Tax payable" value={formatLkr(result.tax_payable)} emphasize />
-            <UvTile label="WHT credit" value={formatLkr(result.wht_credit ?? 0)} />
-            <UvTile label="APIT credit" value={formatLkr(result.apit_credit ?? 0)} />
-            <UvTile
-              label="Balance payable"
-              value={formatLkr(result.balance_payable ?? result.tax_payable)}
-              emphasize
-            />
-          </div>
+          <ResultFlowBoard result={result} />
 
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold">Reliefs applied</h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold">Reliefs applied</h3>
+              <Link
+                to={TAXWISE_OE_EXPLANATIONS}
+                className="text-xs font-medium text-[var(--uv-accent)] hover:underline"
+              >
+                Why these applied →
+              </Link>
+            </div>
             {reliefLines.length === 0 ? (
               <p className="text-sm text-[var(--uv-text-muted)]">
                 No reliefs reduced tax in this scenario.
@@ -121,17 +132,12 @@ export function ResultPanel() {
                 {reliefLines.map((line) => (
                   <li
                     key={line.entry_id}
-                    className="rounded-lg border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-3 text-sm"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-[var(--uv-border)] bg-[var(--uv-bg-card)] px-3 py-2.5 text-sm"
                   >
-                    <div className="flex justify-between gap-2">
-                      <span className="font-medium">{line.display_name}</span>
-                      <span className="text-[var(--uv-accent)]">{formatLkr(line.applied)}</span>
-                    </div>
-                    {line.quote ? (
-                      <p className="mt-1 text-xs italic text-[var(--uv-text-muted)]">
-                        “{line.quote}”
-                      </p>
-                    ) : null}
+                    <span className="font-medium">{line.display_name}</span>
+                    <span className="shrink-0 tabular-nums text-[var(--uv-accent)]">
+                      {formatLkr(line.applied)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -249,25 +255,19 @@ export function ResultPanel() {
             )}
           </section>
 
-          {plain ? (
-            <section className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] p-4">
-              <h3 className="text-sm font-semibold">In plain English</h3>
-              <p className="mt-2 text-sm font-medium">{plain.headline}</p>
-              <p className="mt-1 text-sm text-[var(--uv-text-muted)]">{plain.summary}</p>
-              <div className="mt-4 space-y-3">
-                {plain.blocks.map((block) => (
-                  <div key={block.heading}>
-                    <h4 className="text-sm font-semibold">{block.heading}</h4>
-                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[var(--uv-text-muted)]">
-                      {block.lines.map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <Link
+            to={TAXWISE_OE_EXPLANATIONS}
+            className="flex items-start gap-3 rounded-xl border border-[var(--uv-accent)]/40 bg-[var(--uv-accent)]/10 p-4 transition-colors hover:bg-[var(--uv-accent)]/15"
+          >
+            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-[var(--uv-accent)]" aria-hidden />
+            <div>
+              <p className="text-sm font-semibold text-[var(--uv-text)]">Read the explanations</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--uv-text-muted)]">
+                Plain-language walkthrough and Act quotes for your reliefs — kept on a separate
+                page so this result stays short.
+              </p>
+            </div>
+          </Link>
         </>
       ) : null}
     </UvPanelShell>

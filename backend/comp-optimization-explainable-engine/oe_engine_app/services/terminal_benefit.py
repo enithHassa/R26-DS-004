@@ -158,7 +158,7 @@ def clip_period_to_year(
 
 def qualifying_terminal_claim(
     *,
-    amount: int,
+    amount: float,
     benefit_type: str | None,
     loss_of_office_scheme_approved: bool | None,
 ) -> bool:

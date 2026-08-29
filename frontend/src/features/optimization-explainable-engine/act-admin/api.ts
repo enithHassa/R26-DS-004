@@ -61,6 +61,7 @@ export type ReviewResponse = {
   entities: ReviewEntity[];
   reliefs: ReviewEntity[];
   rates: ReviewEntity[];
+  rejected_noise?: ReviewEntity[];
   entity_count: number;
   included_count: number;
   pending_count: number;
@@ -73,6 +74,7 @@ export type ReviewResponse = {
   activate_allowed: boolean;
   activate_block_reason?: string | null;
   ingest_note?: string | null;
+  already_in_system?: boolean;
 };
 
 export type ImpactPreviewGroup = {
@@ -114,6 +116,7 @@ export type CatalogPreviewResponse = {
   live_years: string[];
   preview_years: string[];
   accepted_count: number;
+  already_in_system?: boolean;
   assessment_year?: string;
   live_reliefs?: ReviewEntity[];
   live_rates?: ReviewEntity[];

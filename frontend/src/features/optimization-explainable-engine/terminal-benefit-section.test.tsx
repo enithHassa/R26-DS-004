@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -18,33 +19,49 @@ function renderSection(year = "2025_26") {
   seedSession(year);
   return render(
     <InterviewProvider>
-      <TerminalBenefitSection />
+      <TerminalBenefitSection
+        open
+        onToggle={() => undefined}
+        actVersionLabel="IRA Act 24/2017"
+        onExplain={() => undefined}
+      />
     </InterviewProvider>,
   );
 }
 
-function terminalSection() {
-  return screen.getByRole("heading", { name: "Retirement & terminal benefits" }).closest(
-    "section",
+function terminalCard() {
+  return screen.getByRole("button", { name: /Retirement & terminal benefits/i }).closest(
+    "div.space-y-3",
   ) as HTMLElement;
 }
 
 function yesRadio() {
-  return within(terminalSection()).getByRole("radio", { name: "Yes" });
+  return within(terminalCard()).getByRole("radio", { name: "Yes" });
 }
 
 function noRadio() {
-  return within(terminalSection()).getByRole("radio", { name: "No" });
+  return within(terminalCard()).getByRole("radio", { name: "No" });
+}
+
+async function expandTerminalOnIncomePage(
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  await user.click(screen.getByRole("button", { name: /Retirement & terminal benefits/i }));
 }
 
 function renderIncomePage(year = "2025_26") {
   seedSession(year);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter>
-      <InterviewProvider>
-        <InterviewIncomePage />
-      </InterviewProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <InterviewProvider>
+          <InterviewIncomePage />
+        </InterviewProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -53,11 +70,12 @@ describe("TerminalBenefitSection", () => {
     sessionStorage.clear();
   });
 
-  it("defaults to No and uses taxpayer-friendly heading copy", () => {
+  it("defaults to No and uses the shared catalog card shell", () => {
     renderSection();
     expect(
-      screen.getByRole("heading", { name: "Retirement & terminal benefits" }),
+      screen.getByRole("button", { name: /Retirement & terminal benefits/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/special ladder/i)).toBeInTheDocument();
     expect(noRadio()).toBeChecked();
     expect(screen.queryByLabelText("Type")).not.toBeInTheDocument();
     expect(screen.queryByText("Qualifying terminal benefits")).not.toBeInTheDocument();
@@ -119,7 +137,8 @@ describe("TerminalBenefitSection", () => {
     const user = userEvent.setup();
     renderIncomePage();
     expect(screen.getByRole("button", { name: "Continue to reliefs" })).toBeEnabled();
-    await user.click(yesRadio());
+    await expandTerminalOnIncomePage(user);
+    await user.click(screen.getByRole("radio", { name: "Yes" }));
     expect(screen.getByRole("button", { name: "Continue to reliefs" })).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent(/Complete each retirement/);
   });
