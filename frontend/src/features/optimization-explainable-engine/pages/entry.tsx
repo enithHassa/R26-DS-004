@@ -18,7 +18,9 @@ export function InterviewEntryPage() {
   const yearsQuery = useQuery({
     queryKey: ["optimization-explainable-engine", "years"],
     queryFn: getYears,
-    retry: false,
+    // Azure Postgres can drop idle SSL connections; retry briefly before surfacing.
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
   });
   const years = yearsQuery.data?.assessment_years ?? [];
   const selectedYear = years.includes(draftYear)
@@ -48,10 +50,23 @@ export function InterviewEntryPage() {
       ) : null}
 
       {yearsQuery.isError ? (
-        <p className="text-sm text-destructive" role="alert">
-          Could not load years. Start Optimization and Explainable Engine on port 8009,
-          then refresh.
-        </p>
+        <div className="space-y-2" role="alert">
+          <p className="text-sm text-destructive">
+            Could not load years.{" "}
+            {yearsQuery.error instanceof Error
+              ? yearsQuery.error.message
+              : "Start Optimization and Explainable Engine on port 8009, then retry."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void yearsQuery.refetch()}
+            disabled={yearsQuery.isFetching}
+          >
+            {yearsQuery.isFetching ? "Retrying…" : "Retry"}
+          </Button>
+        </div>
       ) : null}
 
       {!yearsQuery.isLoading && !yearsQuery.isError && years.length === 0 ? (

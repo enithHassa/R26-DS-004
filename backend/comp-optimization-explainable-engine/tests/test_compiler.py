@@ -98,6 +98,15 @@ def test_blank_dates_floor_to_act_year_not_epoch() -> None:
     assert entity_applies(payload, "2021_22") is True
 
 
+def test_act_24_2017_implicit_from_is_catalog_epoch() -> None:
+    """Certification Oct 2017 must not map Target YA to 2017/18 — catalog starts 2018/19."""
+    payload = {"source_doc_id": "oee-act-24-2017", "effective_from": ""}
+    assert act_implicit_from(payload).isoformat() == "2018-04-01"
+    from oe_engine_app.services.compiler import assessment_year_label, _ya_start_containing
+
+    assert assessment_year_label(_ya_start_containing(act_implicit_from(payload))) == "2018_19"
+
+
 def test_solar_relief_not_in_years_before_act_10_2021() -> None:
     payload = _solar_blank_payload()
     row = OeEnginePromotedEntity(

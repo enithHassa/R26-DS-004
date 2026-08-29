@@ -20,6 +20,7 @@ from oe_engine_app.services.act_admin_duplicate import (
 )
 from oe_engine_app.services.act_admin_review import (
     ReviewValidationError,
+    _open_top_accepted_rate_bands,
     activate_draft,
     catalog_preview,
     impact_preview,
@@ -1137,3 +1138,139 @@ def test_reset_activation_returns_draft_to_queue(act_admin_work_dir: Path) -> No
     assert reloaded["entities"][0]["review_status"] == "accepted"
     job = json.loads(job_path("job-99").read_text(encoding="utf-8"))
     assert job["status"] == "extracted"
+
+
+def test_reextract_restores_rejected_decision(act_admin_work_dir: Path) -> None:
+    """Fresh extract drafts are pending; decisions.json must restore prior rejects."""
+    del act_admin_work_dir
+    from oe_engine_app.services.act_admin_review import _apply_persisted_decisions
+    from oe_engine_app.services.act_admin_store import save_decisions
+
+    sid = "oee-act-99-2026"
+    paths = act_admin_paths()
+    save_decisions(
+        {
+            "spec_version": "1.0.0",
+            "rows": {
+                f"{sid}::{sid}:fifth_schedule:relief:1": {
+                    "source_doc_id": sid,
+                    "entry_id": f"{sid}:fifth_schedule:relief:1",
+                    "review_status": "rejected",
+                    "reviewer": "Auditor",
+                    "reviewed_at": "2026-08-29T14:46:55.995797+00:00",
+                },
+                f"{sid}::{sid}:fifth_schedule:relief:0": {
+                    "source_doc_id": sid,
+                    "entry_id": f"{sid}:fifth_schedule:relief:0",
+                    "review_status": "accepted",
+                    "year_kind": "NEW_YEAR",
+                    "reviewer": "Auditor",
+                    "reviewed_at": "2026-08-29T14:34:44.055589+00:00",
+                },
+            },
+        },
+        paths,
+    )
+    draft = {
+        "source_doc_id": sid,
+        "extraction_run_id": "reextract",
+        "tier": "act",
+        "entities": [
+            {
+                "entity_kind": "relief",
+                "entry_id": f"{sid}:fifth_schedule:relief:0",
+                "compare_group_id": "personal_relief",
+                "included": True,
+                "review_status": "pending",
+                "engine_scope": "individual",
+            },
+            {
+                "entity_kind": "relief",
+                "entry_id": f"{sid}:fifth_schedule:relief:1",
+                "compare_group_id": "digital_productivity_equipment_relief",
+                "included": True,
+                "review_status": "pending",
+                "engine_scope": "individual",
+            },
+        ],
+    }
+    assert _apply_persisted_decisions(draft, paths=paths) is True
+    by_id = {e["entry_id"]: e for e in draft["entities"]}
+    assert by_id[f"{sid}:fifth_schedule:relief:0"]["review_status"] == "accepted"
+    assert by_id[f"{sid}:fifth_schedule:relief:0"]["year_kind"] == "NEW_YEAR"
+    assert by_id[f"{sid}:fifth_schedule:relief:1"]["review_status"] == "rejected"
+    assert by_id[f"{sid}:fifth_schedule:relief:1"]["included"] is False
+
+
+def test_reject_top_rate_band_still_allows_activate(act_admin_work_dir: Path) -> None:
+    """Rejecting the open top slab must not block activate on the remaining ladder."""
+    del act_admin_work_dir
+    draft = {
+        "source_doc_id": "oee-fixture-rates-top",
+        "extraction_run_id": "fixture",
+        "tier": "act",
+        "entities": [
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-1",
+                "band_index": 1,
+                "lower": "0",
+                "upper": "1200000",
+                "rate_percent": "6",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "accepted",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-2",
+                "band_index": 2,
+                "lower": "1200000",
+                "upper": "6000000",
+                "rate_percent": "18",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "accepted",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-3",
+                "band_index": 3,
+                "lower": "6000000",
+                "upper": "",
+                "rate_percent": "25",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "rejected",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+        ],
+    }
+    _save_draft(draft, act_admin_paths())
+    ready = review_ready(draft)
+    assert ready["rejected_count"] == 1
+    assert ready["accepted_count"] == 2
+    assert ready["blocking_issue_count"] == 0, ready["blocking_issues"]
+    assert ready["activate_allowed"] is True
+    opened = _open_top_accepted_rate_bands(
+        [e for e in draft["entities"] if e["review_status"] == "accepted"]
+    )
+    top = next(e for e in opened if e["entry_id"] == "band-2")
+    assert str(top.get("upper") or "") == ""

@@ -59,9 +59,9 @@ const EXTRA = [
     icon: GitCompareArrows,
   },
   {
-    to: "/optimization-explainable-engine/load-act",
+    to: "/optimization-explainable-engine/act-admin",
     label: "Load new act",
-    description: "Ingest and promote a new Inland Revenue Act for a year.",
+    description: "Upload and review a new Inland Revenue Act for a year.",
     icon: Library,
   },
 ] as const;

@@ -1,5 +1,6 @@
 import {
   Calculator,
+  FileStack,
   FileText,
   GitCompareArrows,
   Library,
@@ -11,7 +12,7 @@ import {
 import type { FeatureModule } from "@/features/types";
 
 import { OptimizationExplainableHomePage } from "./pages/home";
-import { CompareLayout, InterviewLayout, LoadActLayout } from "./pages/layout";
+import { CompareLayout, InterviewLayout, LoadActLayout, PastActsLayout } from "./pages/layout";
 import { InterviewEntryPage } from "./pages/entry";
 import { InterviewActsPage } from "./pages/acts";
 import { InterviewIncomePage } from "./pages/income";
@@ -19,6 +20,7 @@ import { InterviewReliefsPage } from "./pages/reliefs";
 import { InterviewResultPage } from "./pages/result";
 import { InterviewComparePage } from "./pages/compare";
 import { LoadNewActPage } from "./pages/load-act";
+import { PastActsPage } from "./pages/past-acts";
 import { ActAdminJobPage } from "./act-admin/job";
 import { ActAdminLayout } from "./act-admin/layout";
 import { ActAdminQueuePage } from "./act-admin/queue";
@@ -44,6 +46,11 @@ const optimizationExplainableEngine: FeatureModule = {
       path: "optimization-explainable-engine/load-act",
       element: <LoadActLayout />,
       children: [{ index: true, element: <LoadNewActPage /> }],
+    },
+    {
+      path: "optimization-explainable-engine/past-acts",
+      element: <PastActsLayout />,
+      children: [{ index: true, element: <PastActsPage /> }],
     },
     {
       path: "optimization-explainable-engine/act-admin",
@@ -72,9 +79,10 @@ const optimizationExplainableEngine: FeatureModule = {
     { to: "/optimization-explainable-engine/acts", label: "Acts", icon: FileText },
     { to: "/optimization-explainable-engine/income", label: "Income", icon: Wallet },
     { to: "/optimization-explainable-engine/reliefs", label: "Reliefs", icon: ListChecks },
-    { to: "/optimization-explainable-engine/compare", label: "Compare", icon: GitCompareArrows },
     { to: "/optimization-explainable-engine/result", label: "Result", icon: Calculator },
-    { to: "/optimization-explainable-engine/load-act", label: "Load new act", icon: Library },
+    { to: "/optimization-explainable-engine/compare", label: "Compare", icon: GitCompareArrows },
+    { to: "/optimization-explainable-engine/act-admin", label: "Load new act", icon: Library },
+    { to: "/optimization-explainable-engine/past-acts", label: "Past Acts", icon: FileStack },
   ],
 };
 
