@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from oe_engine_app.services import year_store
+from oe_engine_app.services.cap_semantics import normalize_relief_amounts
 from oe_engine_app.services.terminal_benefit import (
     qualifying_terminal_claim,
     select_terminal_bands,
@@ -145,8 +146,12 @@ def _apply_one(
     income: dict[str, float],
     claim: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    # Reclassify "not less than X" at apply time so older year views that still
+    # store the floor in cap_amount do not treat 230 as a valid film claim.
+    entry = normalize_relief_amounts(entry)
     binder = binder_for(entry)
     cap = _cap(entry.get("cap_amount"))
+    min_qualifying = _cap(entry.get("min_qualifying_amount"))
     base = _income_base(entry, income)
     components = _component_claims(claim)
     claim_amt = _claimed_amount(claim, components)
@@ -168,7 +173,16 @@ def _apply_one(
         applied = min(cap, base) if cap is not None else 0.0
         formula = f"min(cap {cap or 0}, base {base})"
     elif binder == BINDER_MIN_CLAIM_CAP:
-        if cap is None:
+        if (
+            min_qualifying is not None
+            and claim_amt > 0
+            and claim_amt < min_qualifying
+        ):
+            applied = 0.0
+            formula = (
+                f"claim {claim_amt} below min qualifying {min_qualifying} → 0"
+            )
+        elif cap is None:
             applied = claim_amt
             formula = f"claim {claim_amt} (no cap)"
         else:
@@ -185,6 +199,7 @@ def _apply_one(
         "binder": binder,
         "engine_binding_kind": _binding_kind(entry),
         "cap": cap,
+        "min_qualifying": min_qualifying,
         "base": base,
         "claim": claim_amt if claim else 0,
         "applied": round(applied, 2),
