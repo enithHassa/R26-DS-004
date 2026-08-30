@@ -1,6 +1,11 @@
 /** TaxWise — code name / URL prefix for the taxpayer User View shell. */
 export const TAXWISE_BASE = "/taxwise";
 
+export const TAXWISE_TRANSACTIONS = `${TAXWISE_BASE}/transactions`;
+
+export function taxwiseTransactionDetailPath(extractedTransactionId: string): string {
+  return `${TAXWISE_TRANSACTIONS}/${extractedTransactionId}`;
+}
 export const TAXWISE_PROFILE = `${TAXWISE_BASE}/profile`;
 export const TAXWISE_ABOUT_YOU = `${TAXWISE_BASE}/about-you`;
 export const TAXWISE_RECOMMENDATIONS = `${TAXWISE_BASE}/recommendations`;

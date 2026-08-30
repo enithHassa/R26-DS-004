@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ClipboardList, MessageSquare, Send } from "lucide-react";
 
 import { getBehaviouralAnswers } from "@/features/personalized-recommendation/api/behavioural-answers";
@@ -13,23 +13,19 @@ import {
   isBehaviouralQuestionnaireComplete,
 } from "@/features/personalized-recommendation/utils/behavioural-completion";
 import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
+import {
+  getProfileTransactionSummary,
+  getUserPortalTransactions,
+} from "@/pages/user-view/api/user-transactions";
 import { BehaviouralQuestionsModal } from "@/pages/user-view/components/behavioural-questions-modal";
 import { UserViewShell } from "@/pages/user-view/components/user-view-shell";
-
-/** Placeholder data — wired to real APIs later. */
-const PLACEHOLDER_TRANSACTIONS = [
-  { date: "Jan 15, 2025", description: "SALARY CREDIT — ABC PVT LTD", amount: 150_000, status: "Taxable" as const },
-  { date: "Jan 18, 2025", description: "TRANSFER — UNKNOWN ORIGIN", amount: 45_000, status: "Uncertain" as const },
-  { date: "Jan 22, 2025", description: "GIFT RECEIPT — FAMILY", amount: 25_000, status: "Non-Taxable" as const },
-  { date: "Jan 28, 2025", description: "FREELANCE — UPWORK PAYOUT", amount: 62_500, status: "Taxable" as const },
-  { date: "Feb 02, 2025", description: "RENTAL INCOME — COLOMBO 03", amount: 35_000, status: "Taxable" as const },
-];
-
-const STATUS_STYLES = {
-  Taxable: "bg-red-500/15 text-red-400",
-  Uncertain: "bg-amber-500/15 text-amber-400",
-  "Non-Taxable": "bg-emerald-500/15 text-emerald-400",
-} as const;
+import { TAXWISE_TRANSACTIONS, taxwiseTransactionDetailPath } from "@/pages/user-view/paths";
+import {
+  complianceSubtext,
+  formatTransactionDate,
+  transactionStatusClass,
+  transactionStatusLabel,
+} from "@/pages/user-view/utils/transaction-display";
 
 function formatTaxYear(raw: string | undefined): string {
   if (!raw) return "FY 2026/27";
@@ -90,6 +86,24 @@ export function UserDashboardPage() {
   const topSavings = recommendationItems[0]?.estimated_annual_savings;
   const strategyCount = recommendationItems.length;
 
+  const taxYear = profileQuery.data?.tax_year ?? null;
+
+  const transactionSummaryQuery = useQuery({
+    queryKey: ["user-dashboard-transaction-summary", profileId, taxYear],
+    queryFn: () => getProfileTransactionSummary(profileId, taxYear),
+    enabled: !!profileId,
+  });
+
+  const recentTransactionsQuery = useQuery({
+    queryKey: ["user-dashboard-recent-transactions", profileId, taxYear],
+    queryFn: () =>
+      getUserPortalTransactions(profileId, {
+        taxYear,
+        limit: 5,
+      }),
+    enabled: !!profileId,
+  });
+
   const profile = profileQuery.data;
   const features = featuresQuery.data;
   const taxYearLabel = formatTaxYear(profile?.tax_year);
@@ -132,8 +146,13 @@ export function UserDashboardPage() {
         ? "Loading strategies…"
         : "Complete your profile for tips";
 
-  const transactionsCount = "847";
-  const complianceScore = "94%";
+  const transactionsCount = transactionSummaryQuery.data?.analyzed_transaction_count ?? 0;
+  const complianceScore =
+    transactionSummaryQuery.data?.compliance_score_pct != null
+      ? `${transactionSummaryQuery.data.compliance_score_pct}%`
+      : "—";
+  const complianceSub = complianceSubtext(transactionSummaryQuery.data?.compliance_score_pct);
+  const recentTransactions = recentTransactionsQuery.data?.items ?? [];
 
   return (
     <UserViewShell subtitle={`${taxYearLabel} · Last updated just now`}>
@@ -188,14 +207,14 @@ export function UserDashboardPage() {
           />
           <MetricCard
             label="Transactions Analyzed"
-            value={transactionsCount}
-            subtext="Last 12 months"
+            value={String(transactionsCount)}
+            subtext="Released credits this year"
             valueClassName="text-sky-300"
           />
           <MetricCard
             label="Compliance Score"
             value={complianceScore}
-            subtext="Excellent standing"
+            subtext={complianceSub}
             valueClassName="text-emerald-400"
           />
         </div>
@@ -204,16 +223,25 @@ export function UserDashboardPage() {
           <section className="rounded-xl border border-[var(--uv-border)] bg-[var(--uv-bg-card)] lg:col-span-3">
             <div className="flex items-center justify-between border-b border-[var(--uv-border)] px-5 py-4">
               <h2 className="font-semibold">Recent Transactions</h2>
-              <button
-                type="button"
-                disabled
-                className="flex items-center gap-1 text-sm text-[var(--uv-accent)] opacity-50"
+              <Link
+                to={TAXWISE_TRANSACTIONS}
+                className="flex items-center gap-1 text-sm text-[var(--uv-accent)] transition hover:opacity-90"
               >
                 View all
                 <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+              </Link>
             </div>
             <div className="overflow-x-auto">
+              {recentTransactionsQuery.isLoading ? (
+                <p className="px-5 py-8 text-sm text-[var(--uv-text-muted)]">Loading transactions…</p>
+              ) : null}
+              {!recentTransactionsQuery.isLoading && !recentTransactions.length ? (
+                <p className="px-5 py-8 text-sm text-[var(--uv-text-muted)]">
+                  No adviser-approved transactions yet. Upload a statement or check back after your
+                  adviser releases classified data.
+                </p>
+              ) : null}
+              {recentTransactions.length > 0 ? (
               <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-[var(--uv-border)] text-left text-[var(--uv-text-muted)]">
@@ -224,24 +252,37 @@ export function UserDashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {PLACEHOLDER_TRANSACTIONS.map((row) => (
-                    <tr key={row.date + row.description} className="border-b border-[var(--uv-border)]/60 last:border-0">
-                      <td className="px-5 py-3.5 text-[var(--uv-text-muted)]">{row.date}</td>
-                      <td className="px-5 py-3.5">{row.description}</td>
+                  {recentTransactions.map((row) => (
+                    <tr
+                      key={row.extracted_transaction_id}
+                      className="border-b border-[var(--uv-border)]/60 last:border-0"
+                    >
+                      <td className="px-5 py-3.5 text-[var(--uv-text-muted)]">
+                        {formatTransactionDate(row.tx_date)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Link
+                          to={taxwiseTransactionDetailPath(row.extracted_transaction_id)}
+                          className="line-clamp-1 hover:text-[var(--uv-accent)]"
+                        >
+                          {row.description}
+                        </Link>
+                      </td>
                       <td className="px-5 py-3.5 text-right tabular-nums">
-                        {row.amount.toLocaleString("en-LK")}
+                        {formatLkr(row.amount_lkr)}
                       </td>
                       <td className="px-5 py-3.5">
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${transactionStatusClass(row.taxability_status, row.needs_review)}`}
                         >
-                          {row.status}
+                          {transactionStatusLabel(row.taxability_status, row.needs_review)}
                         </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              ) : null}
             </div>
           </section>
 
