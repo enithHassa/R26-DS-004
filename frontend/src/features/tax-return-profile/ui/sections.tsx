@@ -6,6 +6,7 @@ import {
   CheckCircle,
   FileCheck,
   FileText,
+  FolderOpen,
   Gift,
   Globe,
   Home,
@@ -22,6 +23,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { YearReliefEvidencePanel } from "@/features/optimization-explainable-engine/relief-evidence";
+import { IncomeDocsFullPanel } from "@/features/optimization-explainable-engine/income-docs";
 
 import {
   blankBiz,
@@ -112,7 +114,7 @@ function Sec1({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Taxpayer Identity & Statutory Status"
         subtitle="Your legal identity, NIC, TIN, residency classification, and correspondence details."
         sectionNum={1}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -485,7 +487,7 @@ function Sec2({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Employment & Remuneration"
         subtitle="Declare all salary income, APIT deducted, EPF/ETF, and employment benefits for every employer."
         sectionNum={2}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -916,7 +918,7 @@ function Sec3({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Fixed Deposits & Financial Investments"
         subtitle="Declare interest income, dividends, government securities, and capital gains from all financial investments."
         sectionNum={3}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1285,7 +1287,7 @@ function Sec4({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Business, Freelance & Secondary Trades"
         subtitle="Profits from sole proprietorships, partnerships, professional practices, freelance, and online platforms."
         sectionNum={4}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1622,7 +1624,7 @@ function Sec5({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Real Estate & Rental Incomes"
         subtitle="Declare gross rental income, allowable deductions, property disposals, and capital gains."
         sectionNum={5}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1947,7 +1949,7 @@ function Sec6({
         title="Deductions, Insurances & Qualifying Reliefs"
         subtitle="Claim all eligible deductions and reliefs to legitimately reduce your taxable income."
         sectionNum={6}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1989,7 +1991,7 @@ function Sec7({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Foreign Income & Overseas Assets"
         subtitle="As a resident, declare all worldwide income and claim DTA relief to avoid double taxation."
         sectionNum={7}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -2298,7 +2300,62 @@ function Sec7({ detail, onDetailChange, onComplete, onSave }: SecProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION 8 — Review & Declaration
+// SECTION 8 — Additional Documents (income supportive docs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SecAdditionalDocs({
+  onComplete,
+  onSave,
+  profileId,
+  evidenceYear,
+  onEvidenceYearChange,
+  evidenceYearOptions,
+}: {
+  onComplete: () => void;
+  onSave: () => void;
+  profileId: string;
+  evidenceYear: string;
+  onEvidenceYearChange: (ya: string) => void;
+  evidenceYearOptions: { value: string; label: string }[];
+}) {
+  return (
+    <Stack gap={16}>
+      <SectionHeader
+        icon={FolderOpen}
+        color={C.blue}
+        title="Additional Documents"
+        subtitle="Upload supporting invoices for each income head — same layout as the Income form — plus retirement and terminal papers."
+        sectionNum={8}
+        totalSections={9}
+        onSave={onSave}
+        onComplete={onComplete}
+      />
+
+      <InfoBox color="blue">
+        These documents help your auditor fill Employment, Business, Investment, Other, and
+        retirement amounts. Use <strong>Save Draft</strong> or <strong>Mark Complete</strong> so
+        they appear on the auditor Income page for your profile.
+      </InfoBox>
+
+      {evidenceYear ? (
+        <IncomeDocsFullPanel
+          profileId={profileId}
+          assessmentYear={evidenceYear}
+          yearOptions={evidenceYearOptions}
+          onYearChange={onEvidenceYearChange}
+          mode="upload"
+        />
+      ) : (
+        <InfoBox color="amber">
+          Set a Year of Assessment in Section 1 before uploading documents.
+        </InfoBox>
+      )}
+    </Stack>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 9 — Review & Declaration
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Sec8({
@@ -2413,9 +2470,10 @@ function Sec8({
     5: "Real Estate & Rental Incomes",
     6: "Deductions, Insurances & Qualifying Reliefs",
     7: "Foreign Income & Overseas Assets",
+    8: "Additional Documents",
   };
 
-  const allComplete = [1, 2, 3, 4, 5, 6, 7].every((n) =>
+  const allComplete = [1, 2, 3, 4, 5, 6, 7, 8].every((n) =>
     completedSections.has(n),
   );
 
@@ -2432,7 +2490,7 @@ function Sec8({
           <div>
             <div
             >
-              SECTION 8 OF 8
+              SECTION 9 OF 9
             </div>
             <h2
             >
@@ -2630,4 +2688,4 @@ function Sec8({
   );
 }
 
-export { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8 };
+export { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8, SecAdditionalDocs };

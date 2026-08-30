@@ -275,4 +275,15 @@ export interface TaxReturnDetail {
   section6: Section6Detail;
   section7: Section7Detail;
   section8: Section8Detail;
+  /** Published additional income docs (employment / business / investment / other / terminal). */
+  incomeDocumentsByYear?: Record<
+    string,
+    Record<string, Record<string, Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      dataUrl: string;
+      uploadedAt: string;
+    }>>>
+  >;
 }

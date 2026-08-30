@@ -4,6 +4,7 @@ import {
   Building2,
   CheckCircle,
   FileCheck,
+  FolderOpen,
   Globe,
   Home,
   Landmark,
@@ -19,7 +20,17 @@ import { cn } from "@/lib/utils";
 import { TRP_COLORS } from "./ui/primitives";
 import { useTaxReturnProfile } from "./use-tax-return-profile";
 import { NavFooter } from "./ui/primitives";
-import { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8 } from "./ui/sections";
+import {
+  Sec1,
+  Sec2,
+  Sec3,
+  Sec4,
+  Sec5,
+  Sec6,
+  Sec7,
+  Sec8,
+  SecAdditionalDocs,
+} from "./ui/sections";
 
 import "./tax-return-profile.css";
 
@@ -31,7 +42,8 @@ const SECTIONS = [
   { num: 5, label: "Real Estate & Rental Incomes", short: "Real Estate", icon: Home, color: TRP_COLORS.amber },
   { num: 6, label: "Deductions & Qualifying Reliefs", short: "Deductions", icon: Shield, color: TRP_COLORS.green },
   { num: 7, label: "Foreign Income & Overseas Assets", short: "Foreign", icon: Globe, color: TRP_COLORS.blue },
-  { num: 8, label: "Review & Declaration", short: "Review", icon: FileCheck, color: TRP_COLORS.teal },
+  { num: 8, label: "Additional Documents", short: "Documents", icon: FolderOpen, color: TRP_COLORS.blue },
+  { num: 9, label: "Review & Declaration", short: "Review", icon: FileCheck, color: TRP_COLORS.teal },
 ] as const;
 
 function formatLkr(amount: string): string {
@@ -297,6 +309,16 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
           )}
           {activeSection === 7 && <Sec7 {...sectionProps} />}
           {activeSection === 8 && (
+            <SecAdditionalDocs
+              onSave={sectionProps.onSave}
+              onComplete={sectionProps.onComplete}
+              profileId={profileId}
+              evidenceYear={resolvedEvidenceYear}
+              onEvidenceYearChange={setEvidenceYear}
+              evidenceYearOptions={evidenceYearOptions}
+            />
+          )}
+          {activeSection === 9 && (
             <Sec8 detail={detail} onDetailChange={setDetail} completedSections={completed} />
           )}
 

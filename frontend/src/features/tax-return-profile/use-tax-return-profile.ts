@@ -10,6 +10,11 @@ import {
   hasPublishedEvidenceSnapshot,
   importProfileEvidence,
 } from "@/features/optimization-explainable-engine/relief-evidence";
+import {
+  exportIncomeDocs,
+  hasPublishedIncomeDocsSnapshot,
+  importIncomeDocs,
+} from "@/features/optimization-explainable-engine/income-docs";
 
 export function useTaxReturnProfile(profileId: string) {
   const queryClient = useQueryClient();
@@ -29,11 +34,17 @@ export function useTaxReturnProfile(profileId: string) {
     const stored = profileQuery.data.section_completion;
     setCompleted(new Set(Array.isArray(stored) ? stored : []));
     const storedDetail = profileQuery.data.tax_return_detail as
-      | { section6?: { reliefEvidenceByYear?: TaxReturnDetail["section6"]["reliefEvidenceByYear"] } }
+      | {
+          section6?: { reliefEvidenceByYear?: TaxReturnDetail["section6"]["reliefEvidenceByYear"] };
+          incomeDocumentsByYear?: TaxReturnDetail["incomeDocumentsByYear"];
+        }
       | undefined;
     const published = storedDetail?.section6?.reliefEvidenceByYear;
     if (hasPublishedEvidenceSnapshot(published)) {
       importProfileEvidence(profileId, published);
+    }
+    if (hasPublishedIncomeDocsSnapshot(storedDetail?.incomeDocumentsByYear)) {
+      importIncomeDocs(profileId, storedDetail?.incomeDocumentsByYear);
     }
   }, [profileId, profileQuery.data]);
 
@@ -48,14 +59,17 @@ export function useTaxReturnProfile(profileId: string) {
   const persist = useCallback(
     async (nextDetail: TaxReturnDetail, nextCompleted: Set<number>) => {
       const snapshot = exportProfileEvidence(profileId);
+      const incomeDocs = exportIncomeDocs(profileId);
       const withEvidence: TaxReturnDetail = {
         ...nextDetail,
         section6: {
           ...nextDetail.section6,
           reliefEvidenceByYear: snapshot,
         },
+        incomeDocumentsByYear: incomeDocs,
       };
       importProfileEvidence(profileId, snapshot);
+      importIncomeDocs(profileId, incomeDocs);
       setDetail(withEvidence);
       const payload = detailToUpdatePayload(withEvidence, [...nextCompleted]);
       await saveMutation.mutateAsync(payload);
@@ -74,7 +88,7 @@ export function useTaxReturnProfile(profileId: string) {
       const nextCompleted = new Set([...completed, sectionNum]);
       setCompleted(nextCompleted);
       await persist(detail, nextCompleted);
-      if (sectionNum < 8) {
+      if (sectionNum < 9) {
         setActiveSection(sectionNum + 1);
       }
     },

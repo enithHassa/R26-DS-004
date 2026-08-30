@@ -66,17 +66,15 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
       "pass2_note": "The candidate quote appears verbatim in the source window.",
       "included": true,
-      "engine_scope": "individual",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T21:24:00.724543+00:00"
+      "engine_scope": "individual"
     },
     {
       "entity_kind": "relief",
@@ -109,17 +107,15 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "rejected",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
       "pass2_note": "The candidate quote appears verbatim in the source window.",
-      "included": false,
-      "engine_scope": "individual",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T21:24:05.790711+00:00"
+      "included": true,
+      "engine_scope": "individual"
     },
     {
       "entity_kind": "relief",
@@ -152,17 +148,15 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
       "pass2_note": "The candidate quote matches a contiguous substring in the source window, ignoring whitespace.",
       "included": true,
-      "engine_scope": "individual",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T21:24:09.352222+00:00"
+      "engine_scope": "individual"
     },
     {
       "entity_kind": "relief",
@@ -195,17 +189,15 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
       "pass2_note": "The candidate quote appears verbatim in the source text.",
       "included": true,
-      "engine_scope": "individual",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:18:30.800951+00:00"
+      "engine_scope": "individual"
     },
     {
       "entity_kind": "rate_band",
@@ -224,8 +216,8 @@
       "effective_to": "",
       "quote": "First Rs. 1,000,000 (Rs. 0 – Rs. 1,000,000) | 6% of the amount",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "table_render",
@@ -239,9 +231,7 @@
       "base_act_name": "",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:39:01.735429+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -260,8 +250,8 @@
       "effective_to": "",
       "quote": "Exceeding Rs. 1,000,000 but not exceeding Rs. 2,000,000 | Rs. 60,000 plus 12% of the amount in excess of Rs. 1,000,000",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "table_render",
@@ -275,9 +265,7 @@
       "base_act_name": "",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:18:59.544253+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -296,8 +284,8 @@
       "effective_to": "",
       "quote": "Exceeding Rs. 2,000,000 but not exceeding Rs. 4,000,000 | Rs. 180,000 plus 18% of the amount in excess of Rs. 2,000,000",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "table_render",
@@ -311,9 +299,7 @@
       "base_act_name": "",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:19:02.420252+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -323,7 +309,7 @@
       "band_index": 4,
       "band_label": "Exceeding Rs. 4,000,000",
       "lower": "4000000",
-      "upper": "",
+      "upper": null,
       "rate_percent": "24",
       "applies_to": "resident or non-resident individual",
       "section_ref": "First Schedule",
@@ -332,8 +318,8 @@
       "effective_to": "",
       "quote": "Exceeding Rs. 4,000,000 | Rs. 540,000 plus 24% of the amount in excess of Rs. 4,000,000",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "table_render",
@@ -347,9 +333,7 @@
       "base_act_name": "",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:19:05.652029+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -368,8 +352,8 @@
       "effective_to": "",
       "quote": "(a) First Rs. 1,000,000: 6% of the amount;",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
@@ -388,9 +372,7 @@
       "base_act_name": "Act No. 100 of 2027",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:18:58.371247+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -409,8 +391,8 @@
       "effective_to": "",
       "quote": "(b) Exceeding Rs. 1,000,000 but not exceeding Rs. 2,000,000: Rs. 60,000 plus 12% of the excess over Rs. 1,000,000;",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
@@ -429,9 +411,7 @@
       "base_act_name": "Act No. 100 of 2027",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:19:00.962263+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -450,8 +430,8 @@
       "effective_to": "",
       "quote": "(c) Exceeding Rs. 2,000,000 but not exceeding Rs. 4,000,000: Rs. 180,000 plus 18% of the excess over Rs. 2,000,000;",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
@@ -470,9 +450,7 @@
       "base_act_name": "Act No. 100 of 2027",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:19:03.692920+00:00"
+      "period_to": ""
     },
     {
       "entity_kind": "rate_band",
@@ -482,7 +460,7 @@
       "band_index": 4,
       "band_label": "Exceeding Rs. 4,000,000",
       "lower": "4000000",
-      "upper": "",
+      "upper": null,
       "rate_percent": "24",
       "applies_to": "resident individuals",
       "section_ref": "74",
@@ -491,8 +469,8 @@
       "effective_to": "",
       "quote": "(d) Exceeding Rs. 4,000,000: Rs. 540,000 plus 24% of the excess over Rs. 4,000,000.",
       "change_action": "add",
-      "review_status": "accepted",
-      "year_kind": "NEW_YEAR",
+      "review_status": "pending",
+      "year_kind": "",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
@@ -511,9 +489,7 @@
       "base_act_name": "Act No. 100 of 2027",
       "amendment_act_name": "",
       "period_from": "",
-      "period_to": "",
-      "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:19:07.221809+00:00"
+      "period_to": ""
     }
   ],
   "notes": [
