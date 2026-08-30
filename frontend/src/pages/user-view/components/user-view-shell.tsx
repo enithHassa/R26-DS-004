@@ -40,7 +40,7 @@ const NAV_ITEMS = [
     label: "Transactions",
     icon: Receipt,
     to: `${TAXWISE_BASE}/transactions`,
-    enabled: false,
+    enabled: true,
   },
   {
     key: "ai-advisor",
@@ -155,9 +155,10 @@ type UserViewShellProps = {
   title?: string;
   subtitle?: string;
   embedded?: boolean;
+  actions?: ReactNode;
 };
 
-export function UserViewShell({ children, title, subtitle, embedded }: UserViewShellProps) {
+export function UserViewShell({ children, title, subtitle, embedded, actions }: UserViewShellProps) {
   const isAuthenticated = useUserSessionStore((s) => s.isAuthenticated);
   const role = useUserSessionStore((s) => s.role);
   const profileId = useUserSessionStore((s) => s.profileId);
@@ -301,6 +302,7 @@ export function UserViewShell({ children, title, subtitle, embedded }: UserViewS
               {subtitle && <p className="mt-0.5 text-sm text-[var(--uv-text-muted)]">{subtitle}</p>}
             </div>
             <div className="flex items-center gap-3">
+              {actions}
               <button
                 type="button"
                 disabled

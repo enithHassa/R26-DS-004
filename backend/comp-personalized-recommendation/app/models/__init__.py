@@ -17,6 +17,7 @@ from app.models.recommendation_feedback import RecommendationFeedback
 from app.models.strategy import TaxStrategy
 from app.models.tax_computation_snapshot import TaxComputationSnapshot
 from app.models.user import User
+from app.models.user_transaction_flag import UserTransactionFlag
 
 __all__ = [
     "BehaviouralAnswer",
@@ -28,4 +29,5 @@ __all__ = [
     "TaxComputationSnapshot",
     "TaxStrategy",
     "User",
+    "UserTransactionFlag",
 ]

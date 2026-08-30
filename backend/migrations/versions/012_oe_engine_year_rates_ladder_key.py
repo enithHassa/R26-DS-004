@@ -17,29 +17,43 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("oe_engine_year_rates")}
+    unique_names = {
+        uc["name"]
+        for uc in inspector.get_unique_constraints("oe_engine_year_rates")
+    }
+    index_names = {idx["name"] for idx in inspector.get_indexes("oe_engine_year_rates")}
+
     with op.batch_alter_table("oe_engine_year_rates") as batch:
-        batch.add_column(
-            sa.Column(
-                "compare_group_id",
-                sa.String(length=128),
-                nullable=False,
-                server_default="first_schedule_rates",
+        if "compare_group_id" not in columns:
+            batch.add_column(
+                sa.Column(
+                    "compare_group_id",
+                    sa.String(length=128),
+                    nullable=False,
+                    server_default="first_schedule_rates",
+                )
             )
-        )
-        batch.add_column(
-            sa.Column(
-                "ladder_key",
-                sa.String(length=256),
-                nullable=False,
-                server_default="ordinary|full_ya",
+        if "ladder_key" not in columns:
+            batch.add_column(
+                sa.Column(
+                    "ladder_key",
+                    sa.String(length=256),
+                    nullable=False,
+                    server_default="ordinary|full_ya",
+                )
             )
-        )
-        batch.drop_constraint("uq_oe_engine_year_rates_year_band_applies", type_="unique")
-        batch.create_unique_constraint(
-            "uq_oe_engine_year_rates_year_group_ladder_band",
-            ["assessment_year", "compare_group_id", "ladder_key", "band_index"],
-        )
-        batch.create_index("ix_oe_engine_year_rates_compare_group_id", ["compare_group_id"])
+        if "uq_oe_engine_year_rates_year_band_applies" in unique_names:
+            batch.drop_constraint("uq_oe_engine_year_rates_year_band_applies", type_="unique")
+        if "uq_oe_engine_year_rates_year_group_ladder_band" not in unique_names:
+            batch.create_unique_constraint(
+                "uq_oe_engine_year_rates_year_group_ladder_band",
+                ["assessment_year", "compare_group_id", "ladder_key", "band_index"],
+            )
+        if "ix_oe_engine_year_rates_compare_group_id" not in index_names:
+            batch.create_index("ix_oe_engine_year_rates_compare_group_id", ["compare_group_id"])
 
 
 def downgrade() -> None:

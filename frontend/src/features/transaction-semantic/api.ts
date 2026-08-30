@@ -32,6 +32,9 @@ export interface UploadedDocumentSummary {
   tax_year?: string | null;
   statement_period_from?: string | null;
   statement_period_to?: string | null;
+  submitted_by?: string;
+  user_visible?: boolean;
+  uploaded_at?: string | null;
 }
 
 export interface DocumentUploadResponse {
@@ -189,14 +192,90 @@ export async function listDocuments(
   limit = 50,
   offset = 0,
   financialProfileId?: string | null,
+  options?: {
+    userVisible?: boolean;
+    pendingTaxpayerRelease?: boolean;
+    submittedBy?: string;
+  },
 ): Promise<DocumentListResponse> {
   const { data } = await transactionSemanticApi.get<DocumentListResponse>("/documents", {
     params: {
       limit,
       offset,
       ...(financialProfileId ? { financial_profile_id: financialProfileId } : {}),
+      ...(options?.userVisible !== undefined ? { user_visible: options.userVisible } : {}),
+      ...(options?.pendingTaxpayerRelease
+        ? { pending_taxpayer_release: options.pendingTaxpayerRelease }
+        : {}),
+      ...(options?.submittedBy ? { submitted_by: options.submittedBy } : {}),
     },
   });
+  return data;
+}
+
+export interface DocumentSubmitResponse {
+  document: UploadedDocumentSummary;
+  message: string;
+}
+
+export interface DocumentReleaseResponse {
+  document: UploadedDocumentSummary;
+  message: string;
+}
+
+export interface DocumentSaveResponse {
+  document: UploadedDocumentSummary;
+  message: string;
+}
+
+export async function saveDocument(
+  file: File,
+  financialProfileId: string,
+  taxYear?: string | null,
+): Promise<DocumentSaveResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await transactionSemanticApi.post<DocumentSaveResponse>(
+    "/documents/save",
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      params: {
+        financial_profile_id: financialProfileId,
+        ...(taxYear ? { tax_year: taxYear } : {}),
+      },
+    },
+  );
+  return data;
+}
+
+export async function submitDocumentToAuditor(
+  file: File,
+  financialProfileId: string,
+  taxYear?: string | null,
+): Promise<DocumentSubmitResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await transactionSemanticApi.post<DocumentSubmitResponse>(
+    "/documents/submit",
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      params: {
+        financial_profile_id: financialProfileId,
+        ...(taxYear ? { tax_year: taxYear } : {}),
+      },
+    },
+  );
+  return data;
+}
+
+export async function releaseDocumentToTaxpayer(
+  documentId: string,
+): Promise<DocumentReleaseResponse> {
+  const { data } = await transactionSemanticApi.post<DocumentReleaseResponse>(
+    `/documents/${documentId}/release-to-taxpayer`,
+  );
   return data;
 }
 

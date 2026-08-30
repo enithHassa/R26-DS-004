@@ -15,7 +15,6 @@ from backend.shared.config.settings import settings
 # inside hyphenated directories (e.g. ``comp-transaction-sementic``) which
 # cannot be regular Python packages, so we load them via importlib.
 import backend.shared.db  # noqa: F401  -- registers shared models
-import backend.shared.db  # noqa: F401
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 

@@ -21,6 +21,7 @@ from backend.shared.config.database import Base
 
 class FinancialProfile(TimestampMixin, Base):
     __tablename__ = "financial_profiles"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
