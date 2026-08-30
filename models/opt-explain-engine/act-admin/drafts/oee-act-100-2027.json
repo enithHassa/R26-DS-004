@@ -323,7 +323,7 @@
       "band_index": 4,
       "band_label": "Exceeding Rs. 4,000,000",
       "lower": "4000000",
-      "upper": null,
+      "upper": "",
       "rate_percent": "24",
       "applies_to": "resident or non-resident individual",
       "section_ref": "First Schedule",
@@ -357,6 +357,5 @@
     "Collapsed 13 reprint row(s) from overlapping windows (one row per dated relief or rate slab)."
   ],
   "job_id": "0e8336a9-12fc-4946-9a81-2a1df90d28f6",
-  "review_status": "pending",
   "reviewer": "Auditor"
 }
