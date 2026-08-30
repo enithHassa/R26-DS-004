@@ -73,6 +73,8 @@ export type ReliefEntry = {
   input_kind: ReliefInputKind | string;
   auto_applied?: boolean;
   cap_amount?: string | null;
+  /** Eligibility floor from Act wording like "not less than five million". */
+  min_qualifying_amount?: string | null;
   unit?: "lkr" | "percent" | "text" | string;
   engine_binding?: ReliefEngineBinding;
   act_name: string;
@@ -319,6 +321,76 @@ export function parseCap(raw: string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const THRESHOLD_QUOTE_RE =
+  /not\s+less\s+than|no\s+less\s+than|at\s+least|minimum\s+of|or\s+more/i;
+const CEILING_QUOTE_RE =
+  /not\s+exceeding|shall\s+not\s+exceed|up\s+to|maximum|at\s+most|whichever\s+is\s+less/i;
+const THRESHOLD_AMOUNT_RE =
+  /(?:not\s+less\s+than|no\s+less\s+than|at\s+least|minimum\s+of)\s+(?:rs\.?\s*|rupees?\s*)?(?:([\d,]+(?:\.\d+)?)\s*(million)?|(twenty-five|twenty|thirty|fifteen|eleven|twelve|fifty|one|two|three|four|five|six|seven|eight|nine|ten)\s+million)/i;
+
+const WORD_MILLIONS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  fifteen: 15,
+  twenty: 20,
+  "twenty-five": 25,
+  thirty: 30,
+  fifty: 50,
+};
+
+/** Resolve Act eligibility floor — mirrors OE `normalize_relief_amounts`. */
+export function resolveMinQualifyingAmount(entry: ReliefEntry): number | null {
+  const stated = parseCap(entry.min_qualifying_amount);
+  if (stated != null) return stated;
+
+  const quote = entry.quote ?? "";
+  const cap = parseCap(entry.cap_amount);
+  const isThreshold =
+    THRESHOLD_QUOTE_RE.test(quote) && !CEILING_QUOTE_RE.test(quote);
+  if (isThreshold && cap != null) return cap;
+
+  if (!isThreshold) return null;
+  const match = THRESHOLD_AMOUNT_RE.exec(quote);
+  if (!match) return null;
+  if (match[3]) {
+    const millions = WORD_MILLIONS[match[3].toLowerCase()];
+    return millions != null ? millions * 1_000_000 : null;
+  }
+  if (match[1]) {
+    const n = Number(match[1].replace(/,/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return match[2] ? n * 1_000_000 : n;
+  }
+  return null;
+}
+
+/** Ceiling only — thresholds are not treated as caps. */
+export function resolveReliefCapAmount(entry: ReliefEntry): number | null {
+  const minQ = resolveMinQualifyingAmount(entry);
+  const cap = parseCap(entry.cap_amount);
+  if (cap == null) return null;
+  if (minQ != null && cap === minQ) return null;
+  const quote = entry.quote ?? "";
+  if (
+    THRESHOLD_QUOTE_RE.test(quote) &&
+    !CEILING_QUOTE_RE.test(quote) &&
+    cap != null
+  ) {
+    return null;
+  }
+  return cap;
+}
+
 /**
  * Preview amount shown on a relief card. Driven by RAG `input_kind` / `unit` /
  * `engine_binding.kind` — not a per-relief TypeScript module.
@@ -329,7 +401,8 @@ export function previewAppliedLkr(
   claimLkr: number,
   affirmed: boolean,
 ): number {
-  const cap = parseCap(entry.cap_amount);
+  const cap = resolveReliefCapAmount(entry);
+  const minQualifying = resolveMinQualifyingAmount(entry);
   const kind = entry.engine_binding?.kind ?? "none";
   const inputKind = entry.input_kind;
 
@@ -363,10 +436,20 @@ export function previewAppliedLkr(
       const interest = interestIncomeLkr(income);
       return cap == null ? interest : Math.min(cap, interest);
     }
+    if (
+      minQualifying != null &&
+      claimLkr > 0 &&
+      claimLkr < minQualifying
+    ) {
+      return 0;
+    }
     if (cap == null) return claimLkr;
     return Math.min(cap, claimLkr);
   }
 
+  if (minQualifying != null && claimLkr > 0 && claimLkr < minQualifying) {
+    return 0;
+  }
   if (cap == null) return claimLkr;
   return Math.min(cap, claimLkr);
 }

@@ -31,6 +31,8 @@ import {
   incomeBaseLkr,
   parseCap,
   previewAppliedLkr,
+  resolveMinQualifyingAmount,
+  resolveReliefCapAmount,
   subItemTotalLkr,
   totalIncomeLkr,
   type InterviewIncomeState,
@@ -63,13 +65,22 @@ function capAndIncomeCopy(
 }
 
 function capLine(entry: ReliefEntry, assessmentYear: string): string | null {
-  const cap = parseCap(entry.cap_amount);
-  if (cap == null) return null;
   if (entry.unit === "percent") {
-    return `Rate for YA ${yaDisplay(assessmentYear)}: ${cap}%`;
+    const rate = parseCap(entry.cap_amount);
+    if (rate == null) return null;
+    return `Rate for YA ${yaDisplay(assessmentYear)}: ${rate}%`;
   }
   if (entry.unit === "text") return null;
+  const cap = resolveReliefCapAmount(entry);
+  if (cap == null) return null;
   return `Cap for YA ${yaDisplay(assessmentYear)}: ${formatMoneyInput(String(cap))} LKR`;
+}
+
+function minQualifyingLine(entry: ReliefEntry, assessmentYear: string): string | null {
+  if (entry.unit === "percent" || entry.unit === "text") return null;
+  const minQ = resolveMinQualifyingAmount(entry);
+  if (minQ == null) return null;
+  return `Minimum qualifying spend for YA ${yaDisplay(assessmentYear)}: ${formatMoneyInput(String(minQ))} LKR`;
 }
 
 function draftsForEntry(
@@ -625,8 +636,11 @@ function ReliefStepCard({
     !split &&
     (kind === "amount" || (kind === "yes_no_amount" && affirmedDraft && !derivedAmount));
   const showSubItems = split && (!needsYesNo || affirmedDraft);
-  const cap = parseCap(entry.cap_amount);
+  const cap = resolveReliefCapAmount(entry);
+  const minQualifying = resolveMinQualifyingAmount(entry);
   const last = step + 1 >= entryCount;
+  const belowMinimum =
+    minQualifying != null && claimLkr > 0 && claimLkr < minQualifying;
   const capIncomeCopy =
     cap != null
       ? capAndIncomeCopy(cap, incomeBase || totalIncome, applied)
@@ -728,6 +742,17 @@ function ReliefStepCard({
               {capLine(entry, assessmentYear)}
             </p>
           ) : null}
+          {minQualifyingLine(entry, assessmentYear) ? (
+            <p className="text-xs text-muted-foreground">
+              {minQualifyingLine(entry, assessmentYear)}
+            </p>
+          ) : null}
+          {belowMinimum ? (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Claimed {formatMoneyInput(String(claimLkr))} LKR is below the Act minimum of{" "}
+              {formatMoneyInput(String(minQualifying))} LKR — no relief applies (0 LKR).
+            </p>
+          ) : null}
           {cap != null && entry.unit !== "percent" && entry.unit !== "text" && capIncomeCopy ? (
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{capIncomeCopy.summary}</span>
@@ -822,6 +847,19 @@ function ReliefStepCard({
                 {cap != null && entry.unit !== "percent" ? (
                   <p className="text-xs text-muted-foreground">
                     After cap:{" "}
+                    <span className="font-medium text-foreground">
+                      {formatMoneyInput(String(applied))} LKR
+                    </span>
+                  </p>
+                ) : null}
+                {belowMinimum ? (
+                  <p className="text-xs text-muted-foreground">
+                    Applied after minimum:{" "}
+                    <span className="font-medium text-foreground">0 LKR</span>
+                  </p>
+                ) : minQualifying != null && !belowMinimum && claimLkr > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Qualifies (at/above minimum) — applied{" "}
                     <span className="font-medium text-foreground">
                       {formatMoneyInput(String(applied))} LKR
                     </span>
