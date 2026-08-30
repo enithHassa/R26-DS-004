@@ -12,6 +12,8 @@ from app.schemas.nlu_v1 import NLUParseRequest, NLUParseResponse, RetrievalHit
 from app.services.domain_gate import assess_domain
 from app.services.intent_benchmark import build_intent_classifier
 from app.services.intent_tfidf_centroid import TfidfIntentCentroidClassifier
+from app.services.lex_rank import rerank_hits
+from app.services.query_preprocess import normalize_query
 from app.services.tfidf_chunk_index import TfidfChunkIndex
 from backend.shared.utils.logging import logger
 
@@ -34,12 +36,13 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
     graph_service = getattr(request.app.state, "graph_service", None)
     settings = get_lm_settings()
     k = body.top_k or settings.COMP_LLM_RETRIEVAL_TOP_K
+    normalized = normalize_query(body.utterance)
 
-    pred_intent, intent_model = _predict_intent(clf, body.utterance)
+    pred_intent, intent_model = _predict_intent(clf, normalized)
 
     if index is None:
         domain = assess_domain(
-            body.utterance,
+            normalized,
             None,
             enabled=settings.COMP_LLM_DOMAIN_GATE_ENABLED,
             min_retrieval_score=settings.COMP_LLM_MIN_RETRIEVAL_SCORE,
@@ -47,6 +50,7 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
         )
         return NLUParseResponse(
             utterance=body.utterance,
+            normalized_utterance=normalized,
             intent=body.intent_hint,
             predicted_intent=pred_intent,
             intent_model=intent_model,
@@ -59,11 +63,16 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
 
     model_id = "dense-baseline" if settings.COMP_LLM_RETRIEVAL_BACKEND == "dense" else "tfidf-baseline"
     chunk_texts: dict[str, str] = getattr(request.app.state, "chunk_text_by_id", {}) or {}
-    hits = index.search(body.utterance, k)
+    join_map: dict[str, dict[str, str | None]] = getattr(
+        request.app.state, "chunk_kg_join_by_id", None
+    ) or {}
+    hits = index.search(normalized, k)
+    if settings.COMP_LLM_LEX_SPECIALIS_RERANK:
+        hits = rerank_hits(hits, join_map)
     top_score = hits[0][1] if hits else None
     top_excerpt = chunk_texts.get(hits[0][0], "") if hits else None
     domain = assess_domain(
-        body.utterance,
+        normalized,
         top_score,
         enabled=settings.COMP_LLM_DOMAIN_GATE_ENABLED,
         min_retrieval_score=settings.COMP_LLM_MIN_RETRIEVAL_SCORE,
@@ -71,13 +80,11 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
         top_excerpt=top_excerpt,
         min_question_overlap=settings.COMP_LLM_DOMAIN_MIN_QUESTION_OVERLAP,
     )
-    join_map: dict[str, dict[str, str | None]] = getattr(
-        request.app.state, "chunk_kg_join_by_id", None
-    ) or {}
 
     if domain.status != "in_domain":
         return NLUParseResponse(
             utterance=body.utterance,
+            normalized_utterance=normalized,
             intent=body.intent_hint,
             predicted_intent=pred_intent,
             intent_model=intent_model,
@@ -120,6 +127,7 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
 
     return NLUParseResponse(
         utterance=body.utterance,
+        normalized_utterance=normalized,
         intent=body.intent_hint,
         predicted_intent=pred_intent,
         intent_model=intent_model,

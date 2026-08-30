@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"D:\\\\research\\\\R26-DS-004\\\\docs\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\research\\\\R26-DS-004\\\\backend\\\\comp-language-model\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-Command python3,py -ErrorAction SilentlyContinue)",
+      "PowerShell(py -3.11 --version 2>&1)",
+      "PowerShell(py -3 --version 2>&1)",
+      "PowerShell(py -3 -c \"import sys; print\\(sys.version\\)\" 2>&1)",
+      "Bash(.venv-backend/Scripts/pytest backend/comp-language-model/app/tests/ -v --tb=short)",
+      "Bash(../../.venv-backend/Scripts/pytest app/tests/ -v --tb=short)",
+      "Bash(../../.venv-backend/Scripts/python -c \"import sys; sys.path.insert\\(0, '.'\\); from app.main import create_app\")",
+      "Bash(.venv-backend/Scripts/python -c \"import sys; sys.path.insert\\(0, '.'\\); sys.path.insert\\(0, 'backend/comp-language-model'\\); from app.main import create_app\")",
+      "PowerShell(Get-ChildItem \"D:\\\\research\\\\R26-DS-004\\\\frontend\\\\src\" -Recurse | Where-Object { $_.Name -match \"chat|language|query\" } | Select-Object FullName)"
+    ]
+  }
+}

@@ -48,6 +48,10 @@ class NLUParseRequest(BaseModel):
 
 class NLUParseResponse(BaseModel):
     utterance: str
+    normalized_utterance: str | None = Field(
+        default=None,
+        description="Utterance after Singlish/informal normalization.",
+    )
     intent: str | None = Field(
         default=None,
         description="Echo of request intent_hint when provided (upstream routing label).",

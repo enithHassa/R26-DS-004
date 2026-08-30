@@ -252,15 +252,19 @@ def assess_domain(
             message="No legal sources were found for this question.",
         )
 
-    overlap = _question_corpus_overlap(normalized, top_excerpt)
-    if overlap is not None and overlap < min_question_overlap:
-        return DomainAssessment(
-            status="off_topic",
-            message=(
-                "The retrieved legal passages do not appear to answer this question. "
-                "Ask a Sri Lankan income-tax question instead."
-            ),
-        )
+    # Skip overlap check for short/general questions — they have too few tokens
+    # to measure meaningfully, and tax hints already confirm they are on-topic.
+    question_tokens = _content_tokens(normalized)
+    if len(question_tokens) >= 3:
+        overlap = _question_corpus_overlap(normalized, top_excerpt)
+        if overlap is not None and overlap < min_question_overlap:
+            return DomainAssessment(
+                status="off_topic",
+                message=(
+                    "The retrieved legal passages do not appear to answer this question. "
+                    "Ask a Sri Lankan income-tax question instead."
+                ),
+            )
 
     if top_score < min_retrieval_score:
         return DomainAssessment(

@@ -102,6 +102,19 @@ class LanguageModelSettings(BaseSettings):
         description="Minimum token overlap between the question and top excerpt before answering.",
     )
 
+    COMP_LLM_LEX_SPECIALIS_RERANK: bool = Field(
+        default=True,
+        description="Boost Tier A / act / amendment chunks after vector or TF-IDF retrieval.",
+    )
+    COMP_LLM_THINK_TWICE_ENABLED: bool = Field(
+        default=True,
+        description="Run symbolic Think Twice validation on synthesized plain-language answers.",
+    )
+    COMP_LLM_PROOF_MAP_ENABLED: bool = Field(
+        default=True,
+        description="Attach structured Proof Map paper trail to query and chat responses.",
+    )
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",

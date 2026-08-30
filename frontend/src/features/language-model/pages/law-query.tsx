@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { BookOpen, Loader2 } from "lucide-react";
+import { BookOpen, FileText, Loader2 } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 import { DomainNotice } from "../components/domain-notice";
 import { GraphContextPanel } from "../components/graph-context-panel";
 import { PlainAnswerCard } from "../components/plain-answer-card";
 import { anchorsFromCitations } from "../components/graph-source-anchor";
-import { retrievalModelLabel } from "../components/language-model-display";
 import { RetrievalResultCard } from "../components/retrieval-result-card";
 import { postQuery } from "../api";
 
@@ -32,23 +29,15 @@ export function LawQueryPage() {
   const [question, setQuestion] = useState(
     "What are the rules for personal relief in Sri Lanka?",
   );
-  const [topK, setTopK] = useState("8");
-  const [synthesizeAnswer, setSynthesizeAnswer] = useState(false);
+  const [synthesizeAnswer, setSynthesizeAnswer] = useState(true);
 
   const mutation = useMutation({ mutationFn: postQuery });
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    let top_k: number | undefined;
-    if (topK.trim()) {
-      const parsed = Number.parseInt(topK, 10);
-      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 50) {
-        top_k = parsed;
-      }
-    }
     mutation.mutate({
       question: question.trim(),
-      top_k,
+      top_k: 5,
       synthesize_answer: synthesizeAnswer,
     });
   }
@@ -63,8 +52,7 @@ export function LawQueryPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Law-grounded query</h1>
         <p className="text-muted-foreground">
-          Retrieve ranked legal excerpts, an optional plain-language summary, and related tax
-          knowledge from the graph.
+          Ask a tax law question and get a cited answer from real IRD law documents. You can also request a plain-language summary.
         </p>
       </div>
 
@@ -72,17 +60,16 @@ export function LawQueryPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <BookOpen className="h-5 w-5" />
-            Ask a legal question
+            Ask a tax law question
           </CardTitle>
           <CardDescription>
-            The system returns cited passages from loaded law and guidance documents. You can also
-            request a short plain-language summary grounded in those passages and graph notes.
+            Type your question below. The system will find the most relevant sections from Sri Lankan tax law and show you where the answer comes from.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor={`${idBase}-q`}>Your question</Label>
+              <label htmlFor={`${idBase}-q`} className="text-sm font-medium">Your question</label>
               <textarea
                 id={`${idBase}-q`}
                 className={textareaClass}
@@ -91,37 +78,23 @@ export function LawQueryPage() {
                 required
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor={`${idBase}-k`}>Number of excerpts (optional)</Label>
-                <Input
-                  id={`${idBase}-k`}
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={topK}
-                  onChange={(e) => setTopK(e.target.value)}
+            <div>
+              <label
+                htmlFor={`${idBase}-summary`}
+                className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/10 p-3 text-sm"
+              >
+                <Checkbox
+                  id={`${idBase}-summary`}
+                  checked={synthesizeAnswer}
+                  onChange={(e) => setSynthesizeAnswer(e.target.checked)}
                 />
-              </div>
-              <div className="flex items-end">
-                <label
-                  htmlFor={`${idBase}-summary`}
-                  className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/10 p-3 text-sm"
-                >
-                  <Checkbox
-                    id={`${idBase}-summary`}
-                    checked={synthesizeAnswer}
-                    onChange={(e) => setSynthesizeAnswer(e.target.checked)}
-                  />
-                  <span>
-                    <span className="font-medium text-foreground">Plain-language summary</span>
-                    <span className="mt-1 block text-muted-foreground">
-                      Optional. When enabled on the server, Gemini can add a short summary above the
-                      source excerpts.
-                    </span>
+                <span>
+                  <span className="font-medium text-foreground">Generate a plain-language answer</span>
+                  <span className="mt-1 block text-muted-foreground">
+                    When enabled, an AI summary is shown above the law sources.
                   </span>
-                </label>
-              </div>
+                </span>
+              </label>
             </div>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? (
@@ -159,24 +132,18 @@ export function LawQueryPage() {
           <Card className="overflow-hidden rounded-xl border border-border/80 shadow-sm">
             <div className="h-1 w-full bg-gradient-to-r from-primary/70 to-sky-600/60" aria-hidden />
             <CardHeader>
-              <CardTitle className="text-lg">Relevant law excerpts</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="h-5 w-5" />
+                Law sources used
+              </CardTitle>
               <CardDescription>
-                Showing up to {res.top_k} passages for your question using{" "}
-                {retrievalModelLabel(res.retrieval_model).toLowerCase()}.
+                These are the actual law sections the answer is based on.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-xl border border-border/70 bg-muted/15 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Your question
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-foreground">{res.question}</p>
-              </div>
-
               {res.citations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No excerpts were returned. The corpus or retrieval index may not be loaded on the
-                  server.
+                  No law sections were found. The corpus may not be loaded on the server.
                 </p>
               ) : (
                 <div className="space-y-4">

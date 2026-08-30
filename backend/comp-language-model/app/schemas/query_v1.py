@@ -8,6 +8,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.schemas.graph_v1 import GraphContext
+from app.schemas.proof_map_v1 import ProofMap
 
 
 class QueryRequest(BaseModel):
@@ -16,6 +17,14 @@ class QueryRequest(BaseModel):
     synthesize_answer: bool = Field(
         default=False,
         description="When true, optionally generate a plain-language answer from citations and graph context.",
+    )
+    assessment_year_hint: str | None = Field(
+        default=None,
+        description="Optional YYYY_YY assessment year for symbolic Think Twice validation.",
+    )
+    include_proof_map: bool = Field(
+        default=True,
+        description="When true, attach a structured Proof Map paper trail to the response.",
     )
 
 
@@ -39,6 +48,10 @@ class Citation(BaseModel):
 
 class QueryResponse(BaseModel):
     question: str
+    normalized_question: str | None = Field(
+        default=None,
+        description="Query after Singlish/informal normalization (Phase 5 preprocessing).",
+    )
     top_k: int
     citations: list[Citation]
     retrieval_model: str = Field(
@@ -68,4 +81,12 @@ class QueryResponse(BaseModel):
     domain_message: str | None = Field(
         default=None,
         description="User-facing explanation when the question is blocked or weakly matched.",
+    )
+    validation_status: str | None = Field(
+        default=None,
+        description="Think Twice symbolic validation: skipped | passed | corrected | not_run.",
+    )
+    proof_map: ProofMap | None = Field(
+        default=None,
+        description="Structured auditable paper trail from query to advisory output.",
     )

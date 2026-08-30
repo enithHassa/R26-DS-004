@@ -26,7 +26,7 @@ git switch -c your-branch-name
 
 ### Update `main` from GitHub
 
-git pull origin main
+d
 
 ### Update your branch with the latest `main`
 
@@ -97,7 +97,7 @@ This keeps model-specific and common code separated while avoiding breaking chan
 - Package managers: `pip` and `npm`
 - Container runtime: Docker Desktop (or Docker Engine + Compose)
 - Git: 2.40+
-
+cl
 ## Quick Setup
 
 ### 1. Clone and create virtual environments

@@ -10,10 +10,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.config import get_lm_settings
-from app.routers import health, nlu, query
+from app.routers import chat, health, nlu, query
 from app.routers.nlu import attach_intent_classifier, attach_retrieval_index
 from app.services.corpus_chunk_kg_join import load_chunk_kg_join_by_id
 from app.services.corpus_chunk_texts import load_chunk_texts
+from app.services.chat_session import ChatSessionStore
 from app.services.graph_service import GraphService
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
@@ -23,6 +24,7 @@ from backend.shared.utils.logging import configure_logging, logger
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: RUF029
     configure_logging(service_name="comp-language-model")
     logger.info("Language-model component starting (version={})", __version__)
+    app.state.chat_session_store = ChatSessionStore()
     lm_cfg = get_lm_settings()
     attach_retrieval_index(app.state, lm_cfg)
     texts = load_chunk_texts(lm_cfg.COMP_LLM_CORPUS_JSONL)
@@ -129,6 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, tags=["health"])
     app.include_router(nlu.router)
     app.include_router(query.router)
+    app.include_router(chat.router)
     return app
 
 

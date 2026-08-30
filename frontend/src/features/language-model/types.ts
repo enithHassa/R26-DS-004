@@ -1,4 +1,4 @@
-/** Mirrors backend `app/schemas/nlu_v1.py`, `query_v1.py`, and `graph_v1.py` (JSON field names). */
+/** Mirrors backend `app/schemas/nlu_v1.py`, `query_v1.py`, `chat_v1.py`, `proof_map_v1.py`, `graph_v1.py`. */
 
 /** Phase 3 Step 15 — optional Neo4j / ETL join hints from corpus JSONL. */
 export interface KgJoinFields {
@@ -21,7 +21,7 @@ export interface NLUParseRequest {
   intent_hint?: string | null;
 }
 
-// ── Phase 4: Knowledge Graph types (mirrors app/schemas/graph_v1.py) ────────
+// ── Phase 4: Knowledge Graph types ──────────────────────────────────────────
 
 export interface ConceptNode {
   concept_id: string;
@@ -85,7 +85,7 @@ export interface GraphContext {
   graph_model: string;
 }
 
-// ── NLU / Query contracts ──────────────────────────────────────────────────
+// ── NLU contracts ─────────────────────────────────────────────────────────
 
 export interface NLUParseResponse {
   utterance: string;
@@ -100,10 +100,14 @@ export interface NLUParseResponse {
   domain_message?: string | null;
 }
 
+// ── Query / Citation contracts ─────────────────────────────────────────────
+
 export interface QueryRequest {
   question: string;
   top_k?: number | null;
   synthesize_answer?: boolean;
+  assessment_year_hint?: string | null;
+  include_proof_map?: boolean;
 }
 
 export interface Citation extends KgJoinFields {
@@ -112,8 +116,34 @@ export interface Citation extends KgJoinFields {
   text: string;
 }
 
+// ── Phase 5: Proof Map ─────────────────────────────────────────────────────
+
+export type ProofStepKind =
+  | "user_query"
+  | "retrieval"
+  | "knowledge_graph"
+  | "evidence"
+  | "symbolic_validation"
+  | "advisory_output";
+
+export interface ProofMapStep {
+  step_id: string;
+  kind: ProofStepKind;
+  label: string;
+  detail?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ProofMap {
+  steps: ProofMapStep[];
+  evidence_refs: string[];
+  validation_status: string;
+  rule_engine_version: string;
+}
+
 export interface QueryResponse {
   question: string;
+  normalized_question?: string | null;
   top_k: number;
   citations: Citation[];
   retrieval_model: string;
@@ -123,4 +153,32 @@ export interface QueryResponse {
   answer_model?: string | null;
   domain_status?: string | null;
   domain_message?: string | null;
+  validation_status?: string | null;
+  proof_map?: ProofMap | null;
+}
+
+// ── Phase 6: Chat contracts ─────────────────────────────────────────────────
+
+export interface ChatRequest {
+  message: string;
+  session_id?: string | null;
+  top_k?: number | null;
+  synthesize_answer?: boolean;
+  assessment_year_hint?: string | null;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  created_at?: string | null;
+}
+
+export interface ChatResponse {
+  session_id: string;
+  turn_index: number;
+  user_message: string;
+  assistant_message: string;
+  query_result: QueryResponse;
+  proof_map?: ProofMap | null;
+  history_length: number;
 }
