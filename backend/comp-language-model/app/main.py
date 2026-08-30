@@ -14,6 +14,7 @@ from app.routers import chat, health, nlu, query
 from app.routers.nlu import attach_intent_classifier, attach_retrieval_index
 from app.services.corpus_chunk_kg_join import load_chunk_kg_join_by_id
 from app.services.corpus_chunk_texts import load_chunk_texts
+from app.services.chat_history_store import ChatHistoryStore
 from app.services.chat_session import ChatSessionStore
 from app.services.graph_service import GraphService
 from backend.shared.config.settings import settings
@@ -26,6 +27,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: RUF029
     logger.info("Language-model component starting (version={})", __version__)
     app.state.chat_session_store = ChatSessionStore()
     lm_cfg = get_lm_settings()
+    app.state.chat_history_store = None
+    if lm_cfg.COMP_LLM_CHAT_HISTORY_ENABLED:
+        try:
+            app.state.chat_history_store = ChatHistoryStore()
+            logger.info("Per-user chat history store ready (DB-backed)")
+        except Exception:
+            logger.exception("Chat history store init failed — falling back to in-memory sessions")
     attach_retrieval_index(app.state, lm_cfg)
     texts = load_chunk_texts(lm_cfg.COMP_LLM_CORPUS_JSONL)
     app.state.chunk_text_by_id = texts
