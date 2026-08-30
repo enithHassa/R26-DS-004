@@ -401,6 +401,90 @@ def test_later_ordinary_ladder_still_replaces_base() -> None:
     assert ordinary_2025[0]["rate_percent"] == "6"
 
 
+def test_compile_keeps_new_terminal_drops_same_act_10m_reprint() -> None:
+    sid = "oee-act-100-2026"
+
+    def _new_year(row: OeEnginePromotedEntity) -> OeEnginePromotedEntity:
+        payload = dict(row.payload_json or {})
+        payload["year_kind"] = "NEW_YEAR"
+        row.payload_json = payload
+        return row
+
+    rows = [
+        _new_year(
+            _ordinary(
+                source=sid,
+                rate="5",
+                lower="0",
+                upper="1200000",
+                ef="2027-04-01",
+                row_id=10,
+                entry=f"{sid}:first_schedule:band:0",
+            )
+        ),
+        _new_year(
+            _ordinary(
+                source=sid,
+                rate="36",
+                lower="1200000",
+                upper=None,
+                ef="2027-04-01",
+                row_id=11,
+                entry=f"{sid}:first_schedule:band:1",
+            )
+        ),
+    ]
+    for i, (lower, upper, rate) in enumerate(
+        [("0", "1000000", "6"), ("1000000", "2000000", "12"), ("2000000", "4000000", "18"), ("4000000", None, "24")],
+        start=1,
+    ):
+        rows.append(
+            _new_year(
+                _terminal(
+                    source=sid,
+                    entry=f"{sid}:first_schedule:band:t{i}",
+                    index=i,
+                    lower=lower,
+                    upper=upper,
+                    rate=rate,
+                    ef="2027-04-01",
+                    et="",
+                    group=TERMINAL_BENEFIT_GROUP,
+                    row_id=20 + i,
+                    applies="a person",
+                )
+            )
+        )
+    for i, (lower, upper, rate) in enumerate(
+        [("0", "10000000", "0"), ("10000000", "20000000", "6"), ("20000000", None, "12")],
+        start=1,
+    ):
+        rows.append(
+            _new_year(
+                _terminal(
+                    source=sid,
+                    entry=f"{sid}:part_vi_a:band:old{i}",
+                    index=i,
+                    lower=lower,
+                    upper=upper,
+                    rate=rate,
+                    ef="2027-04-01",
+                    et="",
+                    group=TERMINAL_BENEFIT_GROUP,
+                    row_id=30 + i,
+                    applies="a person",
+                )
+            )
+        )
+    _reliefs, rates = compile_maps(rows)
+    y2027 = rates["2027_28"]
+    ordinary = [row for row in y2027 if row.get("compare_group_id") != TERMINAL_BENEFIT_GROUP]
+    terminal = [row for row in y2027 if row.get("compare_group_id") == TERMINAL_BENEFIT_GROUP]
+    assert {row["rate_percent"] for row in ordinary} == {"5", "36"}
+    assert {row["rate_percent"] for row in terminal} == {"6", "12", "18", "24"}
+    assert not any(str(row.get("upper") or "") == "10000000" for row in terminal)
+
+
 def _promote_2025_with_terminal(db_session: Session) -> None:
     seed_act_document(db_session, source_doc_id="oee-fixture-act-2025", title="Fixture 2025")
     promote_act_run(db_session, load_extract_fixture("act_extract_2025.json"))

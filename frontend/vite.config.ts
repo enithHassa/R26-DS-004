@@ -78,6 +78,8 @@ export default defineConfig(({ mode }) => {
         "^/api/v1/optimization-explainable-engine": {
           target: optimizationExplainableEngineUrl,
           changeOrigin: true,
+          timeout: 180_000,
+          proxyTimeout: 180_000,
           rewrite: (p) =>
             p.replace(/^\/api\/v1\/optimization-explainable-engine/, "/api/v1"),
         },

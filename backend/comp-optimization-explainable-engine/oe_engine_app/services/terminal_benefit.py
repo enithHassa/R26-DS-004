@@ -90,9 +90,12 @@ def infer_employment_period_condition(payload: dict[str, Any]) -> str:
     lower = _as_int(payload.get("lower"))
     if lower in {10_000_000, 20_000_000}:
         return PERIOD_NA
-    if lower in {2_000_001, 3_000_001} or _as_int(payload.get("upper")) in {2_000_000, 3_000_000}:
+    # Continuation slabs of the standard (1M / 2M / 4M) terminal table must not be
+    # read as the 2017 “upto 20 years” / “over 20 years” family just because a
+    # midpoint is Rs. 2,000,000 or Rs. 5,000,000.
+    if lower in {2_000_001, 3_000_001}:
         return PERIOD_UPTO_20
-    if lower in {5_000_001, 6_000_001} or _as_int(payload.get("upper")) in {5_000_000, 6_000_000}:
+    if lower in {5_000_001, 6_000_001}:
         return PERIOD_OVER_20
     if group in {"employment_income", "employment_income_tax_rate"}:
         return PERIOD_NA

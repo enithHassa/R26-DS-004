@@ -1,0 +1,31 @@
+{
+  "id": "a6520e50-9a82-44a9-b9c2-c9316817d2d3",
+  "status": "extracted",
+  "source_doc_id": "oee-act-100-2027",
+  "original_filename": "Inland_Revenue_Amendment_Act_2027_28_AssessmentYear.pdf",
+  "storage_path": "D:/R26-DS-004/R26-DS-004/models/opt-explain-engine/act-admin/uploads/a6520e50-9a82-44a9-b9c2-c9316817d2d3__Inland_Revenue_Amendment_Act_2027_28_AssessmentYear.pdf",
+  "pdf_sha256": "7313847c4d244b45eada9b070fb98c4326ff75022a29b091511bf83dfe729ca1",
+  "act_identity": {
+    "act_no": "100",
+    "act_year": "2027",
+    "label": "Act No. 100 of 2027",
+    "source": "short_title",
+    "quote": "This Act may be cited as the Inland Revenue (Amendment) Act, No. 100 of 2027"
+  },
+  "reviewer": "Auditor",
+  "uploaded_at": "2026-08-30T05:15:30.287383+00:00",
+  "error": null,
+  "extract_started_at": "2026-08-30T05:15:30.423342+00:00",
+  "ingest_status": "skipped_sha256",
+  "chunk_count": 760,
+  "embedding_usd": 0.0,
+  "extract_finished_at": "2026-08-30T05:16:17.166597+00:00",
+  "extraction_run_id": "20260830T051616Z-d62b58",
+  "entity_count": 12,
+  "included_count": 12,
+  "usd_this_run": 0.12259,
+  "model": "gpt-4o",
+  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-100-2027",
+  "activation_reset_by": "Auditor",
+  "activation_reset_at": "2026-08-30T05:17:51.124827+00:00"
+}

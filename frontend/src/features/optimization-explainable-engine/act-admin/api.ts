@@ -122,6 +122,8 @@ export type CatalogPreviewResponse = {
   live_rates?: ReviewEntity[];
   preview_reliefs?: ReviewEntity[];
   preview_rates?: ReviewEntity[];
+  preview_ordinary_rates?: ReviewEntity[];
+  preview_terminal_rates?: ReviewEntity[];
   relief_count?: number;
   band_count?: number;
   reliefs_by_year?: Record<string, ReviewEntity[]>;
@@ -285,7 +287,30 @@ export async function activateActAdminDraft(
   const { data } = await optimizationExplainableApi.post<Record<string, unknown>>(
     `/act-admin/review/${sourceDocId}/activate`,
     { fingerprint },
-    { headers: headers(true) },
+    { headers: headers(true), timeout: 120_000 },
+  );
+  return data;
+}
+
+export type HideFromViewersResponse = {
+  source_doc_id: string;
+  hidden: boolean;
+  removed_entities?: number;
+  removed_run?: boolean;
+  years?: string[];
+  year_2027_28_present?: boolean;
+  message?: string;
+};
+
+export const DEMO_HIDE_SOURCE_DOC_ID = "oee-act-100-2026";
+
+export async function hideActAdminFromViewers(
+  sourceDocId: string,
+): Promise<HideFromViewersResponse> {
+  const { data } = await optimizationExplainableApi.post<HideFromViewersResponse>(
+    `/act-admin/review/${sourceDocId}/hide-from-viewers`,
+    {},
+    { headers: headers(true), timeout: 120_000 },
   );
   return data;
 }

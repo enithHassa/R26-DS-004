@@ -25,6 +25,7 @@ from oe_engine_app.services.act_admin_review import (
     ReviewValidationError,
     activate_draft,
     catalog_preview,
+    hide_demo_act_from_viewers,
     impact_preview,
     patch_row,
     review_payload,
@@ -353,5 +354,27 @@ def act_admin_activate(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         except ReviewValidationError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    finally:
+        session.close()
+
+
+@router.post("/review/{source_doc_id}/hide-from-viewers")
+def act_admin_hide_from_viewers(
+    source_doc_id: str,
+    _token: ActAdminToken,
+    reviewer: ActAdminReviewer,
+) -> dict[str, Any]:
+    session = get_session()
+    try:
+        try:
+            result = hide_demo_act_from_viewers(
+                session,
+                source_doc_id,
+                reviewer=reviewer,
+            )
+            session.commit()
+            return result
+        except ReviewValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     finally:
         session.close()

@@ -37,6 +37,35 @@ export function countReviewRows(rows: ReviewEntity[]): ReviewCounts {
   return { total: rows.length, approved, rejected, pending };
 }
 
+export function isIndividualEngineRow(entity: ReviewEntity): boolean {
+  if (entity.in_individual_engine === false) return false;
+  const scope = String(entity.engine_scope ?? "individual").toLowerCase();
+  return scope === "individual";
+}
+
+function entityScopeNotice(accepted: boolean, rejected: boolean): ReactNode {
+  if (rejected) {
+    return (
+      <p className="rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-2 text-sm text-rose-950">
+        Rejected — kept out of individual year views.
+      </p>
+    );
+  }
+  if (accepted) {
+    return (
+      <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950">
+        Accepted for the audit record. This engine still keeps it out of individual year views.
+      </p>
+    );
+  }
+  return (
+    <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950">
+      Extracted from the Act, but it applies to an entity / other taxpayer — not individual income
+      tax. Accept or Reject. Accepting records your decision; it still will not enter year views.
+    </p>
+  );
+}
+
 export function yearLabel(ya?: string | null): string {
   if (!ya) return "";
   return yaDisplay(String(ya));
@@ -179,12 +208,17 @@ function reliefTitle(entity: ReviewEntity): string {
 
 function reliefSectionTitle(entity: ReviewEntity): string {
   const label = String(entity.section_label ?? entity.section_ref ?? "").toLowerCase();
-  if (label.includes("fifth")) return "Fifth Schedule qualifying payments";
-  if (label.includes("first")) return "First Schedule rates";
-  if (label.includes("rent")) return "Rental income";
-  if (label.includes("personal")) return "Personal relief";
-  if (label.includes("employment")) return "Employment relief";
-  return String(entity.section_label ?? entity.section_ref ?? "Other reliefs");
+  let title = String(entity.section_label ?? entity.section_ref ?? "Other reliefs");
+  if (label.includes("fifth")) title = "Fifth Schedule qualifying payments";
+  else if (label.includes("part vi")) title = "Part VI A — special individual reliefs";
+  else if (label.includes("first")) title = "First Schedule rates";
+  else if (label.includes("rent")) title = "Rental income";
+  else if (label.includes("personal")) title = "Personal relief";
+  else if (label.includes("employment")) title = "Employment relief";
+  if (!isIndividualEngineRow(entity)) {
+    return `${title} — Entity / other taxpayer`;
+  }
+  return title;
 }
 
 function reliefSubtitle(entity: ReviewEntity): string {
@@ -344,10 +378,13 @@ export function rateBandFormula(entity: ReviewEntity): string {
   return "";
 }
 
-const TERMINAL_RATE_GROUP_HINTS = [
-  "terminal_benefit",
-  "employment_income_tax",
-  "employment_income",
+const TERMINAL_RATE_GROUP_HINTS = ["terminal_benefit", "employment_income_tax"];
+
+const ORDINARY_RATE_GROUP_HINTS = [
+  "first_schedule",
+  "individual_progressive",
+  "individual_income_tax",
+  "individual_rate",
 ];
 
 export function isTerminalRateRow(entity: ReviewEntity): boolean {
@@ -357,11 +394,13 @@ export function isTerminalRateRow(entity: ReviewEntity): boolean {
   const family = String(entity.rule_family ?? "")
     .toLowerCase()
     .replace(/-/g, "_");
-  const quote = String(entity.quote ?? "").toLowerCase();
-  if (TERMINAL_RATE_GROUP_HINTS.some((hint) => group.includes(hint) || family.includes(hint))) {
-    return true;
+  const ladder = String(entity.ladder_key ?? "").toLowerCase();
+  if (ladder.startsWith("ordinary|")) return false;
+  if (ORDINARY_RATE_GROUP_HINTS.some((hint) => group.includes(hint) || family.includes(hint))) {
+    return false;
   }
-  return quote.includes("total income from employment");
+  if (ladder.startsWith("terminal|")) return true;
+  return TERMINAL_RATE_GROUP_HINTS.some((hint) => group.includes(hint) || family.includes(hint));
 }
 
 function inferTerminalPeriodLabel(entity: ReviewEntity): string {
@@ -369,6 +408,9 @@ function inferTerminalPeriodLabel(entity: ReviewEntity): string {
   if (stated === "over_20_years") return "Employment period over 20 years";
   if (stated === "upto_20_years") return "Employment period up to 20 years";
   if (stated === "not_applicable") return "Standard terminal ladder";
+  if (!isTerminalRateRow(entity)) {
+    return String(entity.applies_to ?? "Ordinary individual income tax");
+  }
   const hay = `${entity.quote ?? ""} ${entity.band_label ?? ""} ${entity.applies_to ?? ""}`.toLowerCase();
   if (/more than twenty|exceeding twenty|>\s*20/.test(hay)) {
     return "Employment period over 20 years";
@@ -392,6 +434,8 @@ export function groupRatesBySection(
     let title: string;
     if (isTerminalRateRow(row)) {
       title = `Retirement & terminal benefits · ${inferTerminalPeriodLabel(row)}`;
+    } else if (!isIndividualEngineRow(row)) {
+      title = `${section} — Entity / other taxpayer`;
     } else if (groupId.includes("withholding")) {
       title = `${section} — Withholding`;
     } else if (groupId.includes("individual") || groupId.includes("first_schedule")) {
@@ -685,14 +729,20 @@ function DecisionPanel({
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Your decision
         </p>
-        {!rejected ? (
+        {!rejected && isIndividualEngineRow(entity) ? (
           <YearKindButtons entity={entity} busy={busy} onSet={onSetYearKind} />
         ) : null}
-        {pending ? (
+        {pending && isIndividualEngineRow(entity) ? (
           <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
             <strong>Quick approve</strong> keeps the
             {fromPrior ? " live catalog" : " LLM"} question as-is. Use the editor below to change it
             first.
+          </p>
+        ) : null}
+        {pending && !isIndividualEngineRow(entity) ? (
+          <p className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+            <strong>Accept</strong> or <strong>Reject</strong> this extract. It will not enter
+            individual year views either way.
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
@@ -709,7 +759,11 @@ function DecisionPanel({
           ) : null}
           {!accepted ? (
             <Button type="button" size="sm" disabled={busy} onClick={onQuickApprove}>
-              {rejected ? "Approve" : "Quick approve"}
+              {rejected
+                ? "Approve"
+                : isIndividualEngineRow(entity)
+                  ? "Quick approve"
+                  : "Accept"}
             </Button>
           ) : (
             <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onReject}>
@@ -727,13 +781,13 @@ function DecisionPanel({
             Year: <strong>{kindDecisionLabel(chosenKind, entity)}</strong>
           </p>
         ) : null}
-        {accepted ? (
+        {accepted && isIndividualEngineRow(entity) ? (
           <p className="text-xs text-muted-foreground">
             Taxpayer question: <strong>{prompt || reliefTitle(entity)}</strong>
             {fromPrior ? " (reused from live catalog)" : ""}
           </p>
         ) : null}
-        {!rejected ? (
+        {!rejected && isIndividualEngineRow(entity) ? (
           <details className="rounded-md border bg-background p-3 text-sm">
             <summary className="cursor-pointer font-medium">
               {pending ? "Optional: edit taxpayer wording" : "Edit taxpayer wording"}
@@ -783,6 +837,7 @@ export function RateBandReviewSection({
     rows.some((row) => busyId === String(row.entry_id ?? "")) || busyId === "year-kind";
   const scheduleProse = String(sample?.section_act_prose ?? "").trim();
   const isTerminalSection = rows.some((row) => isTerminalRateRow(row));
+  const entityScopeSection = rows.every((row) => !isIndividualEngineRow(row));
   const qualifyingTypes = Array.isArray(sample?.qualifying_income_types)
     ? (sample?.qualifying_income_types as unknown[])
         .map((item) => String(item).replace(/_/g, " "))
@@ -813,7 +868,13 @@ export function RateBandReviewSection({
           Qualifying types: {qualifyingTypes.join("; ")}.
         </p>
       ) : null}
-      {sample && !readOnlyApproved ? (
+      {entityScopeSection ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950">
+          These rows apply to companies, trusts, NGOs, or other non-individual taxpayers. Accept or
+          Reject each one. They never enter individual year views.
+        </p>
+      ) : null}
+      {sample && !readOnlyApproved && !entityScopeSection ? (
         <div className="rounded-xl border bg-muted/20 p-4">
           <YearKindButtons entity={sample} busy={sectionBusy} onSet={onSetYearKind} />
         </div>
@@ -840,6 +901,7 @@ export function RateBandReviewSection({
           const quoteOk =
             Boolean(entity.quote_ok_full_doc) && Boolean(entity.pass2_verbatim);
           const lockDecided = readOnlyApproved && (accepted || rejected);
+          const entityScope = !isIndividualEngineRow(entity);
           return (
             <article
               key={entryId}
@@ -852,10 +914,15 @@ export function RateBandReviewSection({
                 <div className="min-w-0 flex-1 space-y-1">
                   <h5 className="text-sm font-semibold leading-snug">{band}</h5>
                   <p className="text-sm text-muted-foreground">
-                    Tax payable: {formula || "—"}
+                    {entityScope ? "Rate" : "Tax payable"}: {formula || "—"}
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-end gap-1.5">
+                  {entityScope ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-950">
+                      Entity / business
+                    </span>
+                  ) : null}
                   {gateChip(Boolean(entity.quote_ok_full_doc), "Quote checked", "Quote not found")}
                   {gateChip(Boolean(entity.pass2_verbatim), "Matches Act text", "Wording differs")}
                   {decisionBadge(status)}
@@ -867,6 +934,7 @@ export function RateBandReviewSection({
                 </div>
               </div>
               <ActQuoteBlock entity={entity} />
+              {entityScope && !lockDecided ? entityScopeNotice(accepted, rejected) : null}
               {lockDecided && accepted ? (
                 <p className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-sm text-emerald-950">
                   Already approved in the catalog — Act quote above is what the engine extracted for
@@ -898,7 +966,7 @@ export function RateBandReviewSection({
                       disabled={busy}
                       onClick={() => onApprove(entryId)}
                     >
-                      {rejected ? "Approve" : "Quick approve"}
+                      {rejected ? "Approve" : entityScope ? "Accept" : "Quick approve"}
                     </Button>
                   ) : (
                     <Button
@@ -976,13 +1044,22 @@ export function ReliefReviewCard({
           <div className="flex flex-wrap justify-end gap-1.5">
             {gateChip(Boolean(entity.quote_ok_full_doc), "Quote checked", "Quote not found")}
             {gateChip(Boolean(entity.pass2_verbatim), "Matches Act text", "Wording differs")}
+            {!isIndividualEngineRow(entity) ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-950">
+                Entity / business
+              </span>
+            ) : null}
             {decisionBadge(status)}
           </div>
         </div>
-        <InterviewQuestionPreview
-          entity={entity}
-          lockedInSystem={lockedReadOnly && status === "accepted"}
-        />
+        {!isIndividualEngineRow(entity) ? (
+          entityScopeNotice(status === "accepted", status === "rejected")
+        ) : (
+          <InterviewQuestionPreview
+            entity={entity}
+            lockedInSystem={lockedReadOnly && status === "accepted"}
+          />
+        )}
         <ActQuoteBlock entity={entity} />
       </div>
       {lockedReadOnly && status === "accepted" ? (
@@ -1234,12 +1311,15 @@ export function LiveCatalogPreviewPanel({
     useLive && (preview?.live_reliefs?.length ?? 0) > 0
       ? (preview?.live_reliefs ?? [])
       : (preview?.preview_reliefs ?? preview?.live_reliefs ?? []);
-  const rates =
+  const rawRates =
     useLive && (preview?.live_rates?.length ?? 0) > 0
       ? (preview?.live_rates ?? [])
       : (preview?.preview_rates ?? preview?.live_rates ?? []);
-  const ordinaryRates = rates.filter((row) => !isTerminalRateRow(row));
-  const terminalRates = rates.filter((row) => isTerminalRateRow(row));
+  const rates = Array.isArray(rawRates) ? rawRates : [];
+  const ordinaryRates =
+    preview?.preview_ordinary_rates ?? rates.filter((row) => !isTerminalRateRow(row));
+  const terminalRates =
+    preview?.preview_terminal_rates ?? rates.filter((row) => isTerminalRateRow(row));
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -1412,8 +1492,8 @@ export function AboutUploadCard({
               : "Extract ran as a new draft. Live year views are unchanged until you activate — preview below shows merged results."}
           {outOfScopeCount != null && outOfScopeCount > 0
             ? alreadyInSystem
-              ? ` ${outOfScopeCount} entity/business rows shown as rejected below.`
-              : ` ${outOfScopeCount} entity/other rows hidden from this review.`
+              ? ` ${outOfScopeCount} entity/business rows shown below for Accept or Reject.`
+              : ` ${outOfScopeCount} entity/other row(s) extracted — Accept or Reject each one. They do not enter individual year views.`
             : ""}
         </p>
         <details className="text-xs text-muted-foreground">

@@ -1,17 +1,24 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FileStack, Loader2 } from "lucide-react";
+import { ArrowLeft, EyeOff, FileStack, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
 
+import {
+  DEMO_HIDE_SOURCE_DOC_ID,
+  getActAdminReview,
+  hideActAdminFromViewers,
+} from "../act-admin/api";
 import {
   getDocuments,
   getExtractFixtures,
   getMismatches,
   getReview,
+  getYears,
   patchMismatchStatus,
   postFixtureApply,
   postGuideDisplayUpdate,
@@ -45,6 +52,8 @@ export function PastActsPage() {
           </p>
         </div>
       </section>
+
+      <DemoHideYearCard />
 
       <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Past Acts">
         {(
@@ -83,6 +92,96 @@ export function PastActsPage() {
           <Link to="/optimization-explainable-engine/home">Back to home</Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function DemoHideYearCard() {
+  const queryClient = useQueryClient();
+  const role = useUserSessionStore((s) => s.role);
+  const isAuditor = role === "auditor";
+  const yearsQuery = useQuery({
+    queryKey: ["optimization-explainable-engine", "years"],
+    queryFn: getYears,
+    retry: false,
+  });
+  const reviewQuery = useQuery({
+    queryKey: ["oe-act-admin", "review", DEMO_HIDE_SOURCE_DOC_ID],
+    queryFn: () => getActAdminReview(DEMO_HIDE_SOURCE_DOC_ID),
+    enabled: isAuditor,
+    retry: false,
+  });
+  const hide = useMutation({
+    mutationFn: () => hideActAdminFromViewers(DEMO_HIDE_SOURCE_DOC_ID),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["optimization-explainable-engine"] });
+      await queryClient.invalidateQueries({ queryKey: ["taxwise-oe"] });
+      await queryClient.invalidateQueries({ queryKey: ["oe-act-admin"] });
+      await yearsQuery.refetch();
+      await reviewQuery.refetch();
+    },
+  });
+  if (!isAuditor) return null;
+
+  const years = yearsQuery.data?.assessment_years ?? [];
+  const liveYear =
+    hide.data?.year_2027_28_present === false ? false : years.includes("2027_28");
+  const livePromote = Boolean(reviewQuery.data?.already_in_system);
+  const canHide = liveYear || livePromote;
+
+  return (
+    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-950">
+          <EyeOff className="h-4 w-4" aria-hidden />
+        </span>
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-semibold">Demo — hide YA 2027/28 from viewers</p>
+          <p className="text-sm text-muted-foreground">
+            Act No. 100 of 2026 only. After you Activate that extract, TaxWise and auditor year
+            pickers show 2027/28. This button removes those live rules so viewers no longer see
+            that year. The extract stays — Activate again from review when you need the demo back.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {liveYear
+              ? "YA 2027/28 is currently live in year views."
+              : livePromote
+                ? "This Act is marked live. Hide to drop it from year views."
+                : "YA 2027/28 is not live right now — nothing to hide."}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!canHide || hide.isPending}
+          onClick={() => {
+            const ok = window.confirm(
+              "Hide YA 2027/28 from TaxWise and auditor year pickers?\n\nThis Act's live rules are removed. The extract is kept so you can Activate again.",
+            );
+            if (ok) hide.mutate();
+          }}
+        >
+          {hide.isPending ? "Hiding…" : "Hide YA 2027/28 from viewers"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" asChild>
+          <Link to={`/optimization-explainable-engine/act-admin/review/${DEMO_HIDE_SOURCE_DOC_ID}`}>
+            Open review
+          </Link>
+        </Button>
+      </div>
+      {hide.isSuccess ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {hide.data?.message || "Hidden from year views."}
+        </p>
+      ) : null}
+      {hide.isError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {hide.error instanceof Error ? hide.error.message : "Could not hide this Act."}
+        </p>
+      ) : null}
     </div>
   );
 }

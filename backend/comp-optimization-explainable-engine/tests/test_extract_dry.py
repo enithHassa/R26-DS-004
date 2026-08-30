@@ -394,6 +394,77 @@ def test_act_admin_focus_stops_at_named_schedules() -> None:
     assert any(w.window_id.startswith("w") for w in full)
 
 
+def test_named_window_skips_toc_and_keeps_schedule_body() -> None:
+    from oe_engine_app.services.windows import locate_named_window
+
+    stream = (
+        "ARRANGEMENT OF SECTIONS\nSection Title Page\n"
+        "Sched. First Schedule: Individual & Terminal Benefit Tax Rates 51\n"
+        "Sched. Fifth Schedule: Qualifying Payments and Specific Reliefs 51\n"
+        + "padding " * 400
+        + "\nFIRST SCHEDULE (SECTION 2 & SECTION 4)\nTAX RATES FOR THE YEAR\n"
+        + "Not exceeding Rs. 1,200,000 5% of the amount in excess of Rs. 0\n"
+        + "y" * 2_000
+        + "\nFIFTH SCHEDULE (SECTION 52 & SECTION 5)\nQUALIFYING PAYMENTS AND SPECIFIC RELIEFS\n"
+        + "(b) Childcare Support Relief: maximum limit of Rupees 240,000.\n"
+    )
+    doc = DocText(
+        source_doc_id="oee-act-100-2026",
+        title="Amendment",
+        tier="act",
+        stream=stream,
+        tables_blob="",
+        page_spans=[(1, 0, len(stream))],
+    )
+    first = locate_named_window(doc, "First Schedule")
+    fifth = locate_named_window(doc, "Fifth Schedule")
+    assert first is not None
+    assert fifth is not None
+    assert "TAX RATES FOR THE YEAR" in first.text
+    assert "1,200,000" in first.text
+    assert "ARRANGEMENT OF SECTIONS" not in first.text
+    assert "Childcare Support Relief" in fifth.text
+    assert "Sched. Fifth Schedule" not in fifth.text
+
+
+def test_act_admin_includes_part_vi_a_window() -> None:
+    from oe_engine_app.services.windows import extract_focus_windows
+
+    stream = (
+        "x" * 25_000
+        + "\nPART VI A: SPECIAL INDIVIDUAL RELIEFS FOR 2026/27\n"
+        + "70. Childcare Support Relief. fifty per centum (50%) Rs. 240,000.\n"
+        + "71. Professional Skills Development Relief. Rs. 200,000.\n"
+        + "72. Electric Vehicle Charging Infrastructure Relief. Rs. 250,000.\n"
+        + "73. personal relief of Rupees three million (Rs. 3,000,000).\n"
+        + "\nPART VII: ADMINISTRATION\n"
+        + "withholding procedures " * 200
+        + "\nFIRST SCHEDULE (Section 2)\n TAX RATES\n"
+        + "Not exceeding Rs. 1,200,000 5% of the amount in excess of Rs. 0\n"
+        + "y" * 1_000
+        + "\nFIFTH SCHEDULE\nQUALIFYING PAYMENTS AND RELIEFS\n"
+        + "(b) Childcare Support Relief maximum limit of Rupees 240,000.\n"
+        + "z" * 1_000
+    )
+    doc = DocText(
+        source_doc_id="oee-act-100-2026",
+        title="Amendment",
+        tier="act",
+        stream=stream,
+        tables_blob="",
+        page_spans=[(1, 0, len(stream))],
+    )
+    admin = extract_focus_windows(doc, act_admin=True)
+    ids = {w.window_id for w in admin}
+    assert "part_vi_a" in ids
+    assert "first_schedule" in ids
+    assert "fifth_schedule" in ids
+    part = next(w for w in admin if w.window_id == "part_vi_a")
+    assert "Childcare Support Relief" in part.text
+    assert "Electric Vehicle Charging" in part.text
+    assert "withholding procedures" not in part.text
+
+
 def test_collapse_reprint_reliefs_keeps_dated_variants() -> None:
     from oe_engine_app.services.extract_dedupe import (
         collapse_duplicate_extract_entities,
@@ -557,6 +628,77 @@ def test_collapse_foreign_currency_alias_groups() -> None:
     assert len(listed) == 1
     assert listed[0]["compare_group_id"] == "foreign_currency_income_relief"
     assert "fifth_schedule" in listed[0]["entry_id"]
+
+
+def test_collapse_keeps_new_ordinary_ladder_drops_old_reprint() -> None:
+    from oe_engine_app.services.extract_dedupe import collapse_duplicate_extract_entities
+
+    def _band(
+        entry: str,
+        index: int,
+        lower: str,
+        upper: str,
+        rate: str,
+        *,
+        window: str = "first_schedule",
+    ) -> dict:
+        return {
+            "entity_kind": "rate_band",
+            "entry_id": f"oee-act-100-2027:{window}:band:{entry}",
+            "compare_group_id": "first_schedule_rates",
+            "band_index": index,
+            "lower": lower,
+            "upper": upper,
+            "rate_percent": rate,
+            "applies_to": "resident or non-resident individual",
+            "effective_from": "2027-04-01",
+            "included": True,
+            "review_status": "accepted",
+        }
+
+    new_ladder = [
+        _band("0", 1, "0", "1200000", "5"),
+        _band("1", 2, "1200000", "2000000", "15"),
+        _band("2", 3, "2000000", "3000000", "22"),
+        _band("3", 4, "3000000", "5000000", "30"),
+        _band("4", 5, "5000000", "", "36"),
+    ]
+    old_reprint = [
+        _band("r0", 1, "0", "1000000", "6", window="part_vi_a"),
+        _band("r1", 2, "1000000", "2000000", "12", window="part_vi_a"),
+        _band("r2", 3, "2000000", "3000000", "18", window="part_vi_a"),
+        _band("r3", 4, "3000000", "4000000", "24", window="part_vi_a"),
+        _band("r4", 5, "4000000", "5000000", "30", window="part_vi_a"),
+        _band("r5", 6, "5000000", "", "36", window="part_vi_a"),
+    ]
+    terminal = [
+        {
+            "entity_kind": "rate_band",
+            "entry_id": "oee-act-100-2027:first_schedule:band:t0",
+            "compare_group_id": "terminal_benefit_tax_rate",
+            "band_index": 1,
+            "lower": "0",
+            "upper": "1000000",
+            "rate_percent": "6",
+            "applies_to": "a person",
+            "employment_period_condition": "not_applicable",
+            "effective_from": "2027-04-01",
+            "included": True,
+            "review_status": "accepted",
+        }
+    ]
+    collapsed = collapse_duplicate_extract_entities(new_ladder + old_reprint + terminal)
+    ids = {str(row.get("entry_id")) for row in collapsed}
+    assert "oee-act-100-2027:first_schedule:band:0" in ids
+    assert "oee-act-100-2027:first_schedule:band:4" in ids
+    assert "oee-act-100-2027:first_schedule:band:t0" in ids
+    assert not any("part_vi_a" in item for item in ids)
+    lowers = [
+        str(row.get("lower"))
+        for row in collapsed
+        if row.get("compare_group_id") == "first_schedule_rates"
+    ]
+    assert lowers == ["0", "1200000", "2000000", "3000000", "5000000"]
 
 
 def test_collapse_maps_resident_expenditure_alias() -> None:
