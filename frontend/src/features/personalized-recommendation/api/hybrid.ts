@@ -1,10 +1,24 @@
 import { recommendationApi } from "../api";
 import type { RagDetailedExplanation } from "./rag";
 
+export type HybridRulesSource = "default" | "catalog";
+
 export interface HybridQueryRequest {
   profile_id: string;
   top_k: number;
   lambda_weight?: number;
+  rules_source?: HybridRulesSource;
+  assessment_year?: string;
+}
+
+export interface HybridRulesContext {
+  rules_source: string;
+  rules_version: string;
+  assessment_year: string | null;
+  baseline_tax_lkr: number;
+  catalog_promoted_at: string | null;
+  catalog_act: string | null;
+  mapped_fields: string[];
 }
 
 export interface HybridResultItem {
@@ -33,6 +47,7 @@ export interface HybridQueryResponse {
   query_text: string;
   lambda_weight: number;
   rag_weight: number;
+  rules_context: HybridRulesContext;
   items: HybridResultItem[];
 }
 

@@ -145,6 +145,55 @@ def estimate_first_year_tax_savings(
     return strategy, max(0.0, baseline_tax - strategy_tax)
 
 
+def combine_deduction_profiles(*profiles: DeductionProfile) -> DeductionProfile:
+    """Merge deduction profiles by taking the maximum per field (stackable reliefs)."""
+    if not profiles:
+        return DeductionProfile()
+    return DeductionProfile(
+        rent_paid_annual=max(p.rent_paid_annual for p in profiles),
+        life_insurance_premium_annual=max(p.life_insurance_premium_annual for p in profiles),
+        health_insurance_premium_annual=max(p.health_insurance_premium_annual for p in profiles),
+        home_loan_interest_annual=max(p.home_loan_interest_annual for p in profiles),
+        donations_annual=max(p.donations_annual for p in profiles),
+        retirement_contribution_annual=max(p.retirement_contribution_annual for p in profiles),
+    )
+
+
+def build_combined_strategy_snapshot(
+    *,
+    strategy_specs: list[tuple[str, str]],
+    context: dict[str, Any],
+    rules: TaxRules,
+    snapshot: SimulationSnapshot,
+) -> SimulationSnapshot:
+    """Attach merged ``strategy_deductions`` for multiple catalog strategies."""
+    from impact.types import SimulationSnapshot as Snap
+
+    profiles: list[DeductionProfile] = [snapshot.baseline_deductions]
+    for strategy_id, estimation_type in strategy_specs:
+        strategy_deductions, _ = estimate_first_year_tax_savings(
+            strategy_id=strategy_id,
+            estimation_type=estimation_type,
+            context=context,
+            rules=rules,
+        )
+        if strategy_deductions is not None:
+            profiles.append(strategy_deductions)
+
+    if len(profiles) <= 1:
+        return snapshot
+
+    return Snap(
+        annual_income=snapshot.annual_income,
+        monthly_expenses=snapshot.monthly_expenses,
+        monthly_debt_service=snapshot.monthly_debt_service,
+        liquid_savings=snapshot.liquid_savings,
+        existing_investments=snapshot.existing_investments,
+        baseline_deductions=snapshot.baseline_deductions,
+        strategy_deductions=combine_deduction_profiles(*profiles),
+    )
+
+
 def build_strategy_snapshot(
     *,
     strategy_id: str,
@@ -176,6 +225,8 @@ def build_strategy_snapshot(
 
 
 __all__ = [
+    "build_combined_strategy_snapshot",
     "build_strategy_snapshot",
+    "combine_deduction_profiles",
     "estimate_first_year_tax_savings",
 ]
