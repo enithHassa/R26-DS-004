@@ -1,0 +1,86 @@
+[
+  {
+    "concept_id": "tax_resident",
+    "canonical_name": "Tax Resident",
+    "aliases": ["tax resident", "resident individual", "resident in sri lanka", "resident person", "182 days"],
+    "notes": "An individual who is physically present in Sri Lanka for 183 days or more in a year of assessment.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "gross_income",
+    "canonical_name": "Gross Income",
+    "aliases": ["gross income", "annual gross income", "total income", "gross earnings"],
+    "notes": "Total income before any deductions or reliefs. Sum of all income sources for the year of assessment.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "employment_income",
+    "canonical_name": "Employment Income",
+    "aliases": ["employment income", "income from employment", "salary income", "wages", "emoluments", "remuneration"],
+    "notes": "Income derived from employment — salary, wages, bonuses, allowances, and other emoluments under IRA 2017 Section 10.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "business_income",
+    "canonical_name": "Business Income",
+    "aliases": ["business income", "income from business", "trade income", "self-employed income", "contractor income"],
+    "notes": "Income derived from carrying on a business or profession. Subject to deductible expenses unlike employment income.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "investment_income",
+    "canonical_name": "Investment Income",
+    "aliases": ["investment income", "interest income", "dividend income", "rental income", "passive income"],
+    "notes": "Income from investments: interest, dividends, rent, royalties as defined in IRA 2017.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "taxable_income",
+    "canonical_name": "Taxable Income",
+    "aliases": ["taxable income", "net taxable income", "income after deductions", "taxable after deductions"],
+    "notes": "Gross income minus personal relief, qualifying payments, and approved deductions. The base on which tax is computed.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "year_of_assessment",
+    "canonical_name": "Year of Assessment",
+    "aliases": ["year of assessment", "tax year", "assessment year", "YOA", "financial year", "april to march"],
+    "notes": "The 12-month period from 1 April to 31 March for which income tax is assessed in Sri Lanka.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "withholding_tax",
+    "canonical_name": "Withholding Tax",
+    "aliases": ["withholding tax", "WHT", "APIT", "tax withheld", "PAYE", "advance personal income tax"],
+    "notes": "Tax deducted at source by the employer or payer before remitting income. Covers PAYE and APIT under IRA 2017.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "qualifying_payment",
+    "canonical_name": "Qualifying Payment",
+    "aliases": ["qualifying payment", "qualifying payments", "approved donations", "life insurance premium", "health insurance"],
+    "notes": "Payments that qualify for deduction from assessable income under IRA 2017 Second Schedule.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "non_resident",
+    "canonical_name": "Non-Resident",
+    "aliases": ["non-resident", "non resident", "not resident", "foreign individual", "overseas individual"],
+    "notes": "An individual who is not a tax resident of Sri Lanka. Different tax treatment applies — generally taxed only on Sri Lanka-source income.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "assessable_income",
+    "canonical_name": "Assessable Income",
+    "aliases": ["assessable income", "total assessable income", "net income"],
+    "notes": "The income on which tax assessment is based after statutory exclusions but before reliefs.",
+    "review_status": "curated"
+  },
+  {
+    "concept_id": "exempted_income",
+    "canonical_name": "Exempted Income",
+    "aliases": ["exempted income", "exempt income", "tax exempt", "tax free income", "excluded income"],
+    "notes": "Income categories excluded from tax under IRA 2017 Schedule EXEMPT and Section 9.",
+    "review_status": "curated"
+  }
+]
