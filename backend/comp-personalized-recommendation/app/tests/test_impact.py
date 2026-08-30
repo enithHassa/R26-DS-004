@@ -90,6 +90,40 @@ def test_compare_strategies(client: TestClient) -> None:
     assert len(codes_seen) == 2
 
 
+def test_simulate_combined_strategies(client: TestClient) -> None:
+    profile_id = _create_profile(client)
+    resp = client.post(
+        "/api/v1/impact/simulate",
+        json={
+            "profile_id": profile_id,
+            "strategy_codes": [
+                "S001_health_life_premium_optimisation",
+                "S002_retirement_contribution_topup",
+            ],
+            "horizon_years": 4,
+            "n_paths": 300,
+            "random_seed": 7,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["strategy_id"] is None
+    assert len(body["strategy_path"]) == 4
+    single = client.post(
+        "/api/v1/impact/simulate",
+        json={
+            "profile_id": profile_id,
+            "strategy_code": "S001_health_life_premium_optimisation",
+            "horizon_years": 4,
+            "n_paths": 300,
+            "random_seed": 7,
+        },
+    ).json()
+    combined_tax = float(body["strategy_path"][0]["projected_tax_liability"])
+    single_tax = float(single["strategy_path"][0]["projected_tax_liability"])
+    assert combined_tax <= single_tax
+
+
 def test_simulate_unknown_strategy(client: TestClient) -> None:
     profile_id = _create_profile(client)
     resp = client.post(
