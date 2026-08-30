@@ -783,10 +783,131 @@
   color: var(--trp-muted);
 }
 
-.trp-nav-footer-count {
-  color: var(--trp-muted);
+.trp-topbar-year {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--trp-secondary);
   font-size: 12px;
 }
+
+.trp-topbar-year select {
+  background: var(--trp-card);
+  color: var(--trp-primary);
+  border: 1px solid var(--trp-border-hover);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.trp-evidence-panel {
+  background: var(--trp-card);
+  border: 1px solid var(--trp-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.trp-evidence-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.trp-evidence-kicker {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--trp-primary);
+}
+
+.trp-evidence-copy {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--trp-secondary);
+}
+
+.trp-evidence-year {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--trp-secondary);
+}
+
+.trp-evidence-year select {
+  background: var(--trp-bg);
+  color: var(--trp-primary);
+  border: 1px solid var(--trp-border-hover);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 160px;
+}
+
+.trp-evidence-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trp-evidence-row {
+  border: 1px solid var(--trp-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.trp-evidence-row-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trp-evidence-row-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trp-evidence-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid var(--trp-border-hover);
+  padding: 3px 8px;
+  color: var(--trp-secondary);
+}
+
+.trp-evidence-badge--ready {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.trp-evidence-badge--skip {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+}
+
+.trp-evidence-row-body {
+  padding: 0 12px 12px;
+}
+
 
 .trp-auto-relief-grid {
   display: grid;

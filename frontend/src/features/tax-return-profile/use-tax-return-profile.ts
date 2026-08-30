@@ -5,6 +5,11 @@ import { getProfile, updateProfile } from "@/features/personalized-recommendatio
 
 import { detailFromProfile, detailToUpdatePayload } from "./mappers";
 import type { TaxReturnDetail } from "./types";
+import {
+  exportProfileEvidence,
+  hasPublishedEvidenceSnapshot,
+  importProfileEvidence,
+} from "@/features/optimization-explainable-engine/relief-evidence";
 
 export function useTaxReturnProfile(profileId: string) {
   const queryClient = useQueryClient();
@@ -19,10 +24,18 @@ export function useTaxReturnProfile(profileId: string) {
 
   useEffect(() => {
     if (!profileQuery.data) return;
-    setDetail(detailFromProfile(profileQuery.data));
+    const next = detailFromProfile(profileQuery.data);
+    setDetail(next);
     const stored = profileQuery.data.section_completion;
     setCompleted(new Set(Array.isArray(stored) ? stored : []));
-  }, [profileQuery.data]);
+    const storedDetail = profileQuery.data.tax_return_detail as
+      | { section6?: { reliefEvidenceByYear?: TaxReturnDetail["section6"]["reliefEvidenceByYear"] } }
+      | undefined;
+    const published = storedDetail?.section6?.reliefEvidenceByYear;
+    if (hasPublishedEvidenceSnapshot(published)) {
+      importProfileEvidence(profileId, published);
+    }
+  }, [profileId, profileQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof detailToUpdatePayload>) =>
@@ -34,10 +47,20 @@ export function useTaxReturnProfile(profileId: string) {
 
   const persist = useCallback(
     async (nextDetail: TaxReturnDetail, nextCompleted: Set<number>) => {
-      const payload = detailToUpdatePayload(nextDetail, [...nextCompleted]);
+      const snapshot = exportProfileEvidence(profileId);
+      const withEvidence: TaxReturnDetail = {
+        ...nextDetail,
+        section6: {
+          ...nextDetail.section6,
+          reliefEvidenceByYear: snapshot,
+        },
+      };
+      importProfileEvidence(profileId, snapshot);
+      setDetail(withEvidence);
+      const payload = detailToUpdatePayload(withEvidence, [...nextCompleted]);
       await saveMutation.mutateAsync(payload);
     },
-    [saveMutation],
+    [profileId, saveMutation],
   );
 
   const saveDraft = useCallback(async () => {

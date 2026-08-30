@@ -4,6 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { formatLkr, parseLkr, yaDisplay } from "../../format-lkr";
 import { previewAppliedLkr, type ReliefAnswer, type ReliefEntry } from "../../types";
 import { sortReliefsForInterview } from "../../sort-reliefs";
+import { ReliefEvidenceFromEntry } from "../../relief-evidence";
 import { OeNavChips } from "./oe-nav-chips";
 import { UvPanelShell, YaSelector } from "./uv-chrome";
 import { useTaxpayerOe } from "../taxpayer-oe-context";
@@ -103,6 +104,7 @@ export function ReliefsPanel() {
     selectYear,
     assessmentYear,
     patchClaims,
+    profileId,
   } = useTaxpayerOe();
 
   if (isError) {
@@ -275,6 +277,16 @@ export function ReliefsPanel() {
                         Marked for claim, but amount is 0 — enter an amount or turn claim off.
                       </p>
                     ) : null}
+                  </div>
+                ) : null}
+                {ya ? (
+                  <div className="mt-3">
+                    <ReliefEvidenceFromEntry
+                      profileId={profileId}
+                      assessmentYear={ya}
+                      entry={entry}
+                      mode={locked ? "auditor" : "upload"}
+                    />
                   </div>
                 ) : null}
               </li>

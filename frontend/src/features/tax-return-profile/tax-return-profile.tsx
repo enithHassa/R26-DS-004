@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Briefcase,
   Building2,
@@ -10,6 +11,9 @@ import {
   User,
 } from "lucide-react";
 
+import { useEvidenceYearOptions } from "@/features/optimization-explainable-engine/relief-evidence";
+import { yaDisplay } from "@/features/optimization-explainable-engine/format-lkr";
+import { normalizeTaxYearToOrm } from "@/lib/profile-bridge/tax-year-bridge";
 import { cn } from "@/lib/utils";
 
 import { TRP_COLORS } from "./ui/primitives";
@@ -75,6 +79,10 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
     loadError,
     saveError,
   } = useTaxReturnProfile(profileId);
+  const [evidenceYear, setEvidenceYear] = useState("");
+  const profileTaxYearOrm = normalizeTaxYearToOrm(detail?.section1.taxYear) ?? "";
+  const resolvedEvidenceYear = evidenceYear || profileTaxYearOrm;
+  const evidenceYearOptions = useEvidenceYearOptions(resolvedEvidenceYear);
 
   if (isLoading) {
     return <div className="trp-loading">Loading tax return profile…</div>;
@@ -132,6 +140,26 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
             {taxYear.split("-")[1] ?? "2025"}
             {isSaving ? " · Saving…" : ""}
           </p>
+          <label className="trp-topbar-year">
+            <span>Supporting docs year</span>
+            <select
+              value={resolvedEvidenceYear}
+              onChange={(event) => setEvidenceYear(event.target.value)}
+              aria-label="Year of assessment for supporting documents"
+            >
+              {evidenceYearOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+              {resolvedEvidenceYear &&
+              !evidenceYearOptions.some((opt) => opt.value === resolvedEvidenceYear) ? (
+                <option value={resolvedEvidenceYear}>
+                  YA {yaDisplay(resolvedEvidenceYear)}
+                </option>
+              ) : null}
+            </select>
+          </label>
         </div>
         <div className="trp-progress-wrap">
           <div>
@@ -258,7 +286,15 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
           {activeSection === 3 && <Sec3 {...sectionProps} />}
           {activeSection === 4 && <Sec4 {...sectionProps} />}
           {activeSection === 5 && <Sec5 {...sectionProps} />}
-          {activeSection === 6 && <Sec6 {...sectionProps} />}
+          {activeSection === 6 && (
+            <Sec6
+              {...sectionProps}
+              profileId={profileId}
+              evidenceYear={resolvedEvidenceYear}
+              onEvidenceYearChange={setEvidenceYear}
+              evidenceYearOptions={evidenceYearOptions}
+            />
+          )}
           {activeSection === 7 && <Sec7 {...sectionProps} />}
           {activeSection === 8 && (
             <Sec8 detail={detail} onDetailChange={setDetail} completedSections={completed} />
