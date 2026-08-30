@@ -104,6 +104,8 @@ export function detailFromProfile(profile: FinancialProfile): TaxReturnDetail {
     section6: { ...base.section6, ...stored.section6 },
     section7: { ...base.section7, ...stored.section7 },
     section8: { ...base.section8, ...stored.section8 },
+    incomeDocumentsByYear:
+      (stored as TaxReturnDetail).incomeDocumentsByYear ?? base.incomeDocumentsByYear,
   };
 }
 

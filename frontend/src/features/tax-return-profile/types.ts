@@ -187,6 +187,14 @@ export interface Section5Detail {
   landRevenue: string;
 }
 
+export interface ReliefEvidenceFile {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  uploadedAt: string;
+}
+
 export interface Section6Detail {
   hasLife: boolean;
   lifePremium: string;
@@ -218,6 +226,8 @@ export interface Section6Detail {
   hasDisability: boolean;
   disabilityCategory: string;
   disabilityAmount: string;
+  /** Receipts published with Save Draft / Mark Complete, keyed by YA then relief. */
+  reliefEvidenceByYear?: Record<string, Record<string, ReliefEvidenceFile[]>>;
 }
 
 export interface Section7Detail {
@@ -265,4 +275,15 @@ export interface TaxReturnDetail {
   section6: Section6Detail;
   section7: Section7Detail;
   section8: Section8Detail;
+  /** Published additional income docs (employment / business / investment / other / terminal). */
+  incomeDocumentsByYear?: Record<
+    string,
+    Record<string, Record<string, Array<{
+      id: string;
+      fileName: string;
+      mimeType: string;
+      dataUrl: string;
+      uploadedAt: string;
+    }>>>
+  >;
 }
