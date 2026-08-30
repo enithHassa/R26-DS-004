@@ -1,4 +1,4 @@
-"""POST /calculate — year-view caps and First Schedule slabs + WHT credit."""
+"""POST /calculate — year-view caps and First Schedule slabs + APIT/WHT credits."""
 
 from __future__ import annotations
 
@@ -15,22 +15,23 @@ router = APIRouter(tags=["calculate"])
 
 class TerminalBenefitIn(BaseModel):
     type: str | None = None
-    amount: int = 0
+    amount: float = 0
     employment_period_over_20_years: bool | None = None
     loss_of_office_scheme_approved: bool | None = None
     terminal_benefit_period: str | None = None
 
 
 class IncomeIn(BaseModel):
-    employment: int = 0
-    business: int = 0
-    investment: int = 0
-    other: int = 0
-    interest: int = 0
-    rents: int = 0
-    wht_already_paid: int = 0
+    employment: float = 0
+    business: float = 0
+    investment: float = 0
+    other: float = 0
+    interest: float = 0
+    rents: float = 0
+    wht_already_paid: float = 0
+    apit_already_paid: float = 0
     terminal_benefits: list[TerminalBenefitIn] = Field(default_factory=list)
-    terminal_benefit_amount: int = 0
+    terminal_benefit_amount: float = 0
     terminal_benefit_type: str | None = None
     employment_period_over_20_years: bool | None = None
     loss_of_office_scheme_approved: bool | None = None
@@ -41,12 +42,12 @@ class ComponentClaimIn(BaseModel):
     """One rupee amount against one enumerated recipient of a relief."""
 
     component_id: str
-    amount: int = 0
+    amount: float = 0
 
 
 class ClaimIn(BaseModel):
     entry_id: str
-    amount: int = 0
+    amount: float = 0
     affirmed: bool | None = None
     skipped: bool = False
     components: list[ComponentClaimIn] = Field(default_factory=list)
@@ -57,7 +58,8 @@ class CalculateRequest(BaseModel):
     income: IncomeIn
     claims: list[ClaimIn] = Field(default_factory=list)
     exclude_source_doc_id: str | None = None
-    wht_already_paid: int = 0
+    wht_already_paid: float = 0
+    apit_already_paid: float = 0
 
 
 @router.post("/calculate")
@@ -71,6 +73,7 @@ def post_calculate(body: CalculateRequest) -> dict[str, Any]:
             claims=[c.model_dump() for c in body.claims],
             exclude_source_doc_id=body.exclude_source_doc_id,
             wht_already_paid=body.wht_already_paid or body.income.wht_already_paid,
+            apit_already_paid=body.apit_already_paid or body.income.apit_already_paid,
         )
     except KeyError:
         raise HTTPException(

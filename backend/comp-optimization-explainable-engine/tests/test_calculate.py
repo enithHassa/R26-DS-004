@@ -104,8 +104,49 @@ def test_wht_credit_to_balance_payable(client, db_session: Session) -> None:
     body = response.json()
     assert body["tax_payable"] == 270_000
     assert body["wht_credit"] == 100_000
+    assert body["apit_credit"] == 0
     assert body["balance_payable"] == 170_000
     assert body["slab_lines"][0]["source_doc_id"] == "oee-fixture-act-2025"
+
+
+def test_apit_credit_to_balance_payable(client, db_session: Session) -> None:
+    _promote_2025(db_session)
+    response = client.post(
+        "/calculate",
+        json={
+            "assessment_year": "2025_26",
+            "income": TYPICAL_INCOME,
+            "claims": [],
+            "apit_already_paid": 80_000,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tax_payable"] == 270_000
+    assert body["apit_already_paid"] == 80_000
+    assert body["apit_credit"] == 80_000
+    assert body["wht_credit"] == 0
+    assert body["balance_payable"] == 190_000
+
+
+def test_apit_then_wht_credits_and_refund(client, db_session: Session) -> None:
+    _promote_2025(db_session)
+    response = client.post(
+        "/calculate",
+        json={
+            "assessment_year": "2025_26",
+            "income": {**TYPICAL_INCOME, "apit_already_paid": 200_000},
+            "claims": [],
+            "wht_already_paid": 100_000,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tax_payable"] == 270_000
+    assert body["apit_credit"] == 200_000
+    assert body["wht_credit"] == 70_000
+    assert body["balance_payable"] == 0
+    assert body["tax_refund"] == 30_000
 
 
 def test_explain_includes_trace_and_retrieve(client, db_session: Session) -> None:

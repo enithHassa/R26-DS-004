@@ -9,17 +9,17 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
 
   const msgLower = (error.message ?? "").toLowerCase();
   if (error.code === "ECONNABORTED" || msgLower.includes("timeout")) {
-    if (apiPrefix.includes("optimization")) {
-      return "The tax service did not respond in time. ML ranking can take over a minute ΓÇö try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
-    }
-    if (apiPrefix.includes("adaptive-tax")) {
-      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes ΓÇö wait and click Open review, or retry.";
-    }
     if (apiPrefix.includes("optimization-explainable-engine")) {
-      return "Optimization and Explainable Engine did not respond in time. Confirm the service on port 8009 is running.";
+      return "Optimization and Explainable Engine did not respond in time. Confirm the service on port 8009 is running. Hide / Activate can take about a minute while year views rebuild.";
     }
     if (apiPrefix.includes("optimization-explainable")) {
       return "Optimization and Explainable did not respond in time. Confirm the service on port 8008 is running.";
+    }
+    if (apiPrefix.includes("adaptive-tax")) {
+      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes — wait and click Open review, or retry.";
+    }
+    if (apiPrefix.includes("optimization")) {
+      return "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
     }
     return "Request timed out. Check your connection and try again.";
   }
@@ -83,14 +83,14 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
   }
 
   if (typeof data === "string" && data.length > 0) {
-    const clipped = data.length > 800 ? `${data.slice(0, 800)}ΓÇª` : data;
+    const clipped = data.length > 800 ? `${data.slice(0, 800)}…` : data;
     return status ? `${clipped} (HTTP ${status})` : clipped;
   }
 
   if (data !== undefined && data !== null && typeof data === "object") {
     try {
       const s = JSON.stringify(data);
-      const clipped = s.length > 800 ? `${s.slice(0, 800)}ΓÇª` : s;
+      const clipped = s.length > 800 ? `${s.slice(0, 800)}…` : s;
       return status ? `${clipped} (HTTP ${status})` : clipped;
     } catch {
       /* fall through */

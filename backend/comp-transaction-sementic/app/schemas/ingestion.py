@@ -21,6 +21,24 @@ class UploadedDocumentSummary(BaseModel):
     tax_year: str | None = None
     statement_period_from: date | None = None
     statement_period_to: date | None = None
+    submitted_by: str = "auditor"
+    user_visible: bool = False
+    uploaded_at: datetime | None = None
+
+
+class DocumentSubmitResponse(BaseModel):
+    document: UploadedDocumentSummary
+    message: str = "Statement submitted to your tax adviser for review."
+
+
+class DocumentSaveResponse(BaseModel):
+    document: UploadedDocumentSummary
+    message: str = "Document saved. Select it from the library and click Extract when ready."
+
+
+class DocumentReleaseResponse(BaseModel):
+    document: UploadedDocumentSummary
+    message: str = "Document released to taxpayer portal."
 
 
 class DocumentUploadResponse(BaseModel):

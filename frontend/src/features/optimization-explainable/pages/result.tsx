@@ -130,7 +130,7 @@ export function InterviewResultPage() {
                 {line.formula ? ` · ${line.formula}` : ""}
               </p>
               <div className="rounded-md border bg-muted/30 p-2 text-[11px] text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Provenance</p>
+                <p className="font-medium text-foreground">Legal source</p>
                 <p>
                   {line.act_name} · {line.section_ref} · {line.source_doc_id}
                 </p>

@@ -19,10 +19,14 @@ export function profileToAuditorSummary(profile: FinancialProfile): AuditorProfi
       : typeof section1?.nic === "string"
         ? section1.nic
         : "";
+  const fullName =
+    typeof section1?.fullName === "string" && section1.fullName.trim()
+      ? section1.fullName
+      : profile.full_name;
 
   return {
     id: profile.id,
-    fullName: profile.full_name,
+    fullName,
     occupation: profile.occupation,
     taxYear: profile.tax_year,
     tin,

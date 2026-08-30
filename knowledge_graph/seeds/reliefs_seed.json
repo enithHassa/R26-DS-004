@@ -1,0 +1,74 @@
+[
+  {
+    "relief_id": "relief_personal",
+    "display_name": "Personal Relief",
+    "statutory_label": "Personal Relief (Second Schedule)",
+    "description": "Annual personal relief for resident individuals. Amount varies by year of assessment per the Second Schedule of IRA 2017. For 2023/24 onwards: LKR 3,000,000.",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "donation_relief",
+    "display_name": "Donation Relief",
+    "statutory_label": "Approved Donations Deduction",
+    "description": "Deduction for approved charitable donations made to government-approved organisations. Capped at LKR 75,000 per year of assessment.",
+    "applies_to_profile": ["individual_resident", "company_resident"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "life_insurance_relief",
+    "display_name": "Life Insurance Premium Relief",
+    "statutory_label": "Life Insurance Premium (Qualifying Payment)",
+    "description": "Deduction for life insurance premiums paid to an approved insurer. Capped per the Second Schedule.",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "health_insurance_relief",
+    "display_name": "Health Insurance Premium Relief",
+    "statutory_label": "Health Insurance Premium (Qualifying Payment)",
+    "description": "Deduction for health / medical insurance premiums paid. Capped per year of assessment.",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "rent_relief",
+    "display_name": "Rent Relief",
+    "statutory_label": "Rental Expenditure Qualifying Payment",
+    "description": "Relief for rental payments where individual does not own a residential property in Sri Lanka.",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "home_loan_interest_relief",
+    "display_name": "Home Loan Interest Relief",
+    "statutory_label": "Home Loan Interest (Qualifying Payment)",
+    "description": "Deduction for interest paid on a housing loan for the purchase or construction of a residential property.",
+    "applies_to_profile": ["individual_resident"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "retirement_contribution_relief",
+    "display_name": "Retirement Contribution Relief",
+    "statutory_label": "Approved Retirement Contribution",
+    "description": "Deduction for contributions made to an approved retirement benefit scheme (e.g. EPF, approved pension).",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  },
+  {
+    "relief_id": "employment_expenses_relief",
+    "display_name": "Employment Expenses Relief",
+    "statutory_label": "Deductible Employment Expenses",
+    "description": "Limited deductions for expenses necessarily incurred in earning employment income as allowed by IRA 2017.",
+    "applies_to_profile": ["individual_resident", "paye_employee"],
+    "source_doc_id": "ird-ira-2017",
+    "review_status": "curated"
+  }
+]

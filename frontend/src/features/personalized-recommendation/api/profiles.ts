@@ -90,10 +90,26 @@ export interface ProfileTaxableIncomeMonthlyLine {
   computed_at: string;
 }
 
+export interface ProfileTaxableIncomeMonthCoverage {
+  calendar_month: string;
+  month_label: string;
+  status: "covered" | "missing";
+  extracted_transaction_count: number;
+  classified_transaction_count: number;
+  taxable_credit_count: number;
+  taxable_amount_lkr: string;
+}
+
 export interface ProfileTaxableIncomeMonthlyResponse {
   financial_profile_id: string;
   tax_year: string | null;
+  assessment_year_label: string | null;
+  ya_period_start: string | null;
+  ya_period_end: string | null;
   total_taxable_lkr: string;
+  covered_month_count: number;
+  missing_month_count: number;
+  month_coverage: ProfileTaxableIncomeMonthCoverage[];
   lines: ProfileTaxableIncomeMonthlyLine[];
 }
 
@@ -204,10 +220,33 @@ export async function listTaxComputationSnapshots(
 export async function getLatestTaxComputationSnapshot(
   profileId: string,
   assessmentYear?: string,
+  preferStatus?: TaxComputationSnapshotStatus,
 ): Promise<TaxComputationSnapshotDetail> {
   const { data } = await recommendationApi.get<TaxComputationSnapshotDetail>(
     `/profiles/${profileId}/tax-computations/latest`,
-    { params: assessmentYear ? { assessment_year: assessmentYear } : undefined },
+    {
+      params: {
+        ...(assessmentYear ? { assessment_year: assessmentYear } : {}),
+        ...(preferStatus ? { prefer_status: preferStatus } : {}),
+      },
+    },
   );
   return data;
+}
+
+/** Taxpayer OE view: official auditor-approved result for a YA. */
+export async function getFinalizedTaxComputationSnapshot(
+  profileId: string,
+  assessmentYear: string,
+): Promise<TaxComputationSnapshotDetail | null> {
+  try {
+    const snap = await getLatestTaxComputationSnapshot(
+      profileId,
+      assessmentYear,
+      "finalized",
+    );
+    return snap.status === "finalized" ? snap : null;
+  } catch {
+    return null;
+  }
 }

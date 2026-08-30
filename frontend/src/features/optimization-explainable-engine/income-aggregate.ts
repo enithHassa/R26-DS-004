@@ -121,6 +121,11 @@ export function whtAlreadyPaidLkr(income: InterviewIncomeState): number {
   return interestScheduleTotals(income).wht;
 }
 
+/** APIT deducted from salary — prepaid employment tax credit (not part of assessable income). */
+export function apitAlreadyPaidLkr(income: InterviewIncomeState): number {
+  return parseLkr(income.apitAlreadyPaid ?? "0");
+}
+
 export function rentsIncomeLkr(income: InterviewIncomeState): number {
   if (income.investmentMode === "components") {
     return parseLkr(income.investmentAmounts.inv_rents ?? "0");

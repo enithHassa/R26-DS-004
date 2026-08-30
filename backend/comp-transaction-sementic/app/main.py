@@ -60,7 +60,10 @@ from .schemas import (
     DocumentListResponse,
     DocumentRenameRequest,
     DocumentRenameResponse,
+    DocumentReleaseResponse,
+    DocumentSaveResponse,
     DocumentStatusResponse,
+    DocumentSubmitResponse,
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
@@ -86,7 +89,10 @@ from .services import (
     preview_extracted_transactions_for_export,
     preview_document_extraction,
     re_extract_document,
+    release_document_to_taxpayer,
     rename_document,
+    save_document_for_auditor,
+    submit_document_for_review,
 )
 from .services.analysis_persistence import persist_transaction_analysis
 from .services.classification_persistence import (
@@ -619,6 +625,9 @@ def _uploaded_document_summary(
         tax_year=getattr(document, "tax_year", None),
         statement_period_from=getattr(document, "statement_period_from", None),
         statement_period_to=getattr(document, "statement_period_to", None),
+        submitted_by=getattr(document, "submitted_by", "auditor") or "auditor",
+        user_visible=bool(getattr(document, "user_visible", False)),
+        uploaded_at=getattr(document, "uploaded_at", None),
     )
 
 
@@ -627,6 +636,9 @@ def list_uploaded_documents(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     financial_profile_id: UUID | None = Query(default=None),
+    user_visible: bool | None = Query(default=None),
+    pending_taxpayer_release: bool | None = Query(default=None),
+    submitted_by: str | None = Query(default=None, max_length=16),
     db: Session = Depends(get_db),
 ) -> DocumentListResponse:
     """List persisted uploads (newest first), optionally scoped to a financial profile."""
@@ -635,6 +647,9 @@ def list_uploaded_documents(
         limit=limit,
         offset=offset,
         financial_profile_id=financial_profile_id,
+        user_visible=user_visible,
+        pending_taxpayer_release=pending_taxpayer_release,
+        submitted_by=submitted_by,
     )
     items = [
         _uploaded_document_summary(document, row_count=row_count, selected_parser=selected_parser)
@@ -733,6 +748,105 @@ async def upload_document(
         metadata_extraction_run_id=result.metadata_run.id,
         router_extraction_run_id=result.router_run.id,
     )
+
+
+@app.post("/v1/documents/save", response_model=DocumentSaveResponse)
+async def save_document(
+    file: UploadFile = File(...),
+    financial_profile_id: UUID = Query(...),
+    tax_year: str | None = Query(default=None, max_length=8),
+    db: Session = Depends(get_db),
+) -> DocumentSaveResponse:
+    """Auditor portal: store a statement without extraction."""
+    payload = await file.read()
+    try:
+        document = save_document_for_auditor(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_save_failed")
+        raise HTTPException(status_code=500, detail=f"Save failed: {exc}") from exc
+
+    return DocumentSaveResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=0,
+            selected_parser=None,
+        ),
+    )
+
+
+@app.post("/v1/documents/submit", response_model=DocumentSubmitResponse)
+async def submit_document_to_auditor(
+    file: UploadFile = File(...),
+    financial_profile_id: UUID = Query(...),
+    tax_year: str | None = Query(default=None, max_length=8),
+    db: Session = Depends(get_db),
+) -> DocumentSubmitResponse:
+    """Taxpayer portal: store a statement for auditor review without extraction."""
+    payload = await file.read()
+    try:
+        document = submit_document_for_review(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_submit_failed")
+        raise HTTPException(status_code=500, detail=f"Submit failed: {exc}") from exc
+
+    return DocumentSubmitResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=0,
+            selected_parser=None,
+        ),
+    )
+
+
+@app.post("/v1/documents/{document_id}/release-to-taxpayer", response_model=DocumentReleaseResponse)
+def release_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> DocumentReleaseResponse:
+    """Auditor action: make classified document data visible in the taxpayer portal."""
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    try:
+        document = release_document_to_taxpayer(db, document_id=document_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    row_count = snap.extracted_row_count
+    selected_parser = _latest_selected_parser_from_snap(snap)
+    return DocumentReleaseResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=row_count,
+            selected_parser=selected_parser,
+        ),
+    )
+
+
+def _latest_selected_parser_from_snap(snap: Any) -> str | None:
+    router_run = snap.router_run
+    if router_run is None:
+        return None
+    metrics = router_run.metrics or {}
+    raw_sel = metrics.get("selected_parser")
+    return raw_sel if isinstance(raw_sel, str) else None
 
 
 @app.post("/v1/documents/preview", response_model=DocumentPreviewResponse)

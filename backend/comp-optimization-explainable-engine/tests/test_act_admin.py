@@ -20,8 +20,10 @@ from oe_engine_app.services.act_admin_duplicate import (
 )
 from oe_engine_app.services.act_admin_review import (
     ReviewValidationError,
+    _open_top_accepted_rate_bands,
     activate_draft,
     catalog_preview,
+    hide_demo_act_from_viewers,
     impact_preview,
     patch_row,
     reset_activation,
@@ -321,6 +323,53 @@ def test_rate_band_validation_allows_inclusive_upper_to_next_lower() -> None:
     assert errors == []
 
 
+def test_review_ready_collapses_ordinary_reprint_staircase() -> None:
+    def _band(
+        entry: str,
+        index: int,
+        lower: str,
+        upper: str,
+        rate: str,
+        *,
+        window: str = "first_schedule",
+    ) -> dict:
+        return {
+            "entity_kind": "rate_band",
+            "entry_id": f"doc:{window}:band:{entry}",
+            "compare_group_id": "first_schedule_rates",
+            "band_index": index,
+            "lower": lower,
+            "upper": upper,
+            "rate_percent": rate,
+            "applies_to": "resident or non-resident individual",
+            "effective_from": "2018-04-01",
+            "included": True,
+            "review_status": "accepted",
+            "engine_scope": "individual",
+            "quote_ok_window": True,
+            "quote_ok_full_doc": True,
+        }
+
+    mixed = {
+        "source_doc_id": "doc",
+        "entities": [
+            _band("0", 1, "0", "1200000", "5"),
+            _band("1", 2, "1200000", "2000000", "15"),
+            _band("2", 3, "2000000", "", "22"),
+            _band("r0", 1, "0", "1000000", "6", window="part_vi_a"),
+            _band("r1", 2, "1000000", "2000000", "12", window="part_vi_a"),
+            _band("r2", 3, "2000000", "", "18", window="part_vi_a"),
+        ],
+    }
+    raw_errors = validate_rate_band_set(
+        [e for e in mixed["entities"] if e["entity_kind"] == "rate_band"]
+    )
+    assert any("Duplicate band_index" in err for err in raw_errors)
+    ready = review_ready(mixed)
+    assert ready["activate_allowed"] is True
+    assert not any(issue["code"] == "rate_band_validation" for issue in ready["blocking_issues"])
+
+
 def test_act_admin_extract_bypasses_phase6_guard(
     db_session: Session,
     act_admin_work_dir: Path,
@@ -460,7 +509,54 @@ def test_run_extract_job_reuses_canonical_doc_when_sha_skipped(
     assert draft["entities"][0]["source_doc_id"] == sid
 
 
-def test_review_ready_ignores_out_of_scope_pending(act_admin_work_dir: Path) -> None:
+def test_skipped_sha256_without_promote_is_not_already_in_system(
+    db_session: Session,
+    act_admin_work_dir: Path,
+) -> None:
+    del act_admin_work_dir
+    sid = "oee-act-100-demo"
+    save_job(
+        {
+            "id": "job-skip-live",
+            "status": "extracted",
+            "source_doc_id": sid,
+            "ingest_status": "skipped_sha256",
+            "original_filename": "demo.pdf",
+            "reviewer": "Tester",
+        },
+        act_admin_paths(),
+    )
+    _save_draft(
+        {
+            "source_doc_id": sid,
+            "job_id": "job-skip-live",
+            "tier": "act",
+            "entities": [
+                {
+                    "entity_kind": "relief",
+                    "entry_id": f"{sid}:part_vi_a:relief:0",
+                    "compare_group_id": "personal_relief",
+                    "display_name": "Personal Relief",
+                    "quote": "personal relief of Rupees three million",
+                    "included": True,
+                    "quote_ok_window": True,
+                    "quote_ok_full_doc": True,
+                    "review_status": "pending",
+                    "engine_scope": "individual",
+                    "cap_amount": "3000000",
+                    "effective_from": "2026-04-01",
+                    "input_kind": "notice",
+                }
+            ],
+        },
+        act_admin_paths(),
+    )
+    payload = review_payload(sid, session=db_session)
+    assert payload["already_in_system"] is False
+    assert payload.get("ingest_note")
+
+
+def test_review_ready_counts_out_of_scope_pending(act_admin_work_dir: Path) -> None:
     del act_admin_work_dir
     draft = {
         "source_doc_id": "oee-fixture-scope",
@@ -494,8 +590,60 @@ def test_review_ready_ignores_out_of_scope_pending(act_admin_work_dir: Path) -> 
     }
     ready = review_ready(draft)
     assert ready["out_of_scope_count"] == 1
-    assert ready["pending_count"] == 0
-    assert ready["activate_allowed"] is True
+    assert ready["pending_count"] == 1
+    assert ready["accepted_count"] == 1
+    assert ready["activate_allowed"] is False
+
+
+def test_review_payload_other_scope_needs_auditor_decision(act_admin_work_dir: Path) -> None:
+    del act_admin_work_dir
+    draft = {
+        "source_doc_id": "oee-fixture-ngo",
+        "tier": "act",
+        "entities": [
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "ord-1",
+                "compare_group_id": "first_schedule_individual",
+                "band_label": "First Rs. 500,000",
+                "rate_percent": "6",
+                "applies_to": "a person",
+                "included": True,
+                "review_status": "accepted",
+                "engine_scope": "individual",
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "pass2_verbatim": True,
+                "effective_from": "2027-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "ngo-1",
+                "compare_group_id": "ngo_receipts_tax_rate",
+                "band_label": "NGO grants, donations and contributions",
+                "rate_percent": "3",
+                "applies_to": "non-governmental organizations",
+                "section_ref": "Section 192",
+                "included": True,
+                "review_status": "pending",
+                "engine_scope": "other",
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "pass2_verbatim": True,
+                "effective_from": "2027-04-01",
+            },
+        ],
+    }
+    _save_draft(draft, act_admin_paths())
+    payload = review_payload("oee-fixture-ngo")
+    assert payload["pending_count"] == 1
+    assert payload["activate_allowed"] is False
+    assert payload["rejected_noise"] == []
+    ngo = next(row for row in payload["rates"] if row["entry_id"] == "ngo-1")
+    assert ngo["review_status"] == "pending"
+    assert ngo["in_individual_engine"] is False
+    assert ngo["engine_scope"] == "other"
 
 
 def test_patch_row_http(client, act_admin_work_dir: Path) -> None:
@@ -1113,6 +1261,103 @@ def test_unpromote_drops_new_year_2026(db_session: Session) -> None:
     assert kept.count() >= 1
 
 
+def test_hide_demo_act_from_viewers_drops_2027(
+    db_session: Session,
+    act_admin_work_dir: Path,
+) -> None:
+    del act_admin_work_dir
+    now = datetime.now(timezone.utc)
+    sid = "oee-act-100-2026"
+    db_session.add(
+        OeEnginePromotedEntity(
+            source_doc_id=sid,
+            extraction_run_id="demo",
+            entity_kind="relief",
+            compare_group_id="childcare_support_relief",
+            entry_id=f"{sid}:part_vi_a:relief:childcare",
+            payload_json={
+                "entity_kind": "relief",
+                "compare_group_id": "childcare_support_relief",
+                "display_name": "Childcare Support Relief",
+                "effective_from": "2027-04-01",
+                "engine_scope": "individual",
+                "year_kind": "NEW_YEAR",
+                "cap_amount": "240000",
+                "question_prompt": "Did you incur qualifying childcare support expenditure this year?",
+            },
+            payload_hash="demo-hide",
+            promoted_at=now,
+        )
+    )
+    db_session.add(
+        OeEnginePromotedRun(
+            source_doc_id=sid,
+            extraction_run_id="demo",
+            payload_hash="demo-hide",
+            branch="insert",
+            promoted_at=now,
+        )
+    )
+    other = "oee-act-100-2027"
+    db_session.add(
+        OeEnginePromotedEntity(
+            source_doc_id=other,
+            extraction_run_id="demo-other",
+            entity_kind="relief",
+            compare_group_id="personal_relief",
+            entry_id=f"{other}:part_vi_a:relief:personal",
+            payload_json={
+                "entity_kind": "relief",
+                "compare_group_id": "personal_relief",
+                "display_name": "Personal Relief",
+                "effective_from": "2027-04-01",
+                "engine_scope": "individual",
+                "year_kind": "NEW_YEAR",
+                "cap_amount": "3000000",
+            },
+            payload_hash="demo-hide-other",
+            promoted_at=now,
+        )
+    )
+    db_session.add(
+        OeEnginePromotedRun(
+            source_doc_id=other,
+            extraction_run_id="demo-other",
+            payload_hash="demo-hide-other",
+            branch="insert",
+            promoted_at=now,
+        )
+    )
+    db_session.commit()
+    recompile_year_views(db_session)
+    db_session.commit()
+    assert "2027_28" in {row["assessment_year"] for row in list_years(db_session)}
+    result = hide_demo_act_from_viewers(db_session, sid, reviewer="Tester")
+    db_session.commit()
+    years = {row["assessment_year"] for row in list_years(db_session)}
+    assert result["hidden"] is True
+    assert result["removed_run"] is True
+    assert result["year_2027_28_present"] is False
+    assert "2027_28" not in years
+    assert db_session.get(OeEnginePromotedRun, sid) is None
+    assert db_session.get(OeEnginePromotedRun, other) is None
+
+
+def test_hide_demo_act_from_viewers_rejects_other_source(act_admin_work_dir: Path) -> None:
+    del act_admin_work_dir
+    with pytest.raises(ReviewValidationError, match="only available"):
+        hide_demo_act_from_viewers(None, "oee-act-24-2017", reviewer="Tester")  # type: ignore[arg-type]
+
+
+def test_hide_demo_act_http_rejects_other_source(client, act_admin_work_dir: Path) -> None:
+    del act_admin_work_dir
+    response = client.post(
+        "/act-admin/review/oee-act-24-2017/hide-from-viewers",
+        headers=_admin_headers(),
+    )
+    assert response.status_code == 400
+
+
 def test_reset_activation_returns_draft_to_queue(act_admin_work_dir: Path) -> None:
     del act_admin_work_dir
     draft = _future_draft(year_kind="NEW_YEAR")
@@ -1137,3 +1382,139 @@ def test_reset_activation_returns_draft_to_queue(act_admin_work_dir: Path) -> No
     assert reloaded["entities"][0]["review_status"] == "accepted"
     job = json.loads(job_path("job-99").read_text(encoding="utf-8"))
     assert job["status"] == "extracted"
+
+
+def test_reextract_restores_rejected_decision(act_admin_work_dir: Path) -> None:
+    """Fresh extract drafts are pending; decisions.json must restore prior rejects."""
+    del act_admin_work_dir
+    from oe_engine_app.services.act_admin_review import _apply_persisted_decisions
+    from oe_engine_app.services.act_admin_store import save_decisions
+
+    sid = "oee-act-99-2026"
+    paths = act_admin_paths()
+    save_decisions(
+        {
+            "spec_version": "1.0.0",
+            "rows": {
+                f"{sid}::{sid}:fifth_schedule:relief:1": {
+                    "source_doc_id": sid,
+                    "entry_id": f"{sid}:fifth_schedule:relief:1",
+                    "review_status": "rejected",
+                    "reviewer": "Auditor",
+                    "reviewed_at": "2026-08-29T14:46:55.995797+00:00",
+                },
+                f"{sid}::{sid}:fifth_schedule:relief:0": {
+                    "source_doc_id": sid,
+                    "entry_id": f"{sid}:fifth_schedule:relief:0",
+                    "review_status": "accepted",
+                    "year_kind": "NEW_YEAR",
+                    "reviewer": "Auditor",
+                    "reviewed_at": "2026-08-29T14:34:44.055589+00:00",
+                },
+            },
+        },
+        paths,
+    )
+    draft = {
+        "source_doc_id": sid,
+        "extraction_run_id": "reextract",
+        "tier": "act",
+        "entities": [
+            {
+                "entity_kind": "relief",
+                "entry_id": f"{sid}:fifth_schedule:relief:0",
+                "compare_group_id": "personal_relief",
+                "included": True,
+                "review_status": "pending",
+                "engine_scope": "individual",
+            },
+            {
+                "entity_kind": "relief",
+                "entry_id": f"{sid}:fifth_schedule:relief:1",
+                "compare_group_id": "digital_productivity_equipment_relief",
+                "included": True,
+                "review_status": "pending",
+                "engine_scope": "individual",
+            },
+        ],
+    }
+    assert _apply_persisted_decisions(draft, paths=paths) is True
+    by_id = {e["entry_id"]: e for e in draft["entities"]}
+    assert by_id[f"{sid}:fifth_schedule:relief:0"]["review_status"] == "accepted"
+    assert by_id[f"{sid}:fifth_schedule:relief:0"]["year_kind"] == "NEW_YEAR"
+    assert by_id[f"{sid}:fifth_schedule:relief:1"]["review_status"] == "rejected"
+    assert by_id[f"{sid}:fifth_schedule:relief:1"]["included"] is False
+
+
+def test_reject_top_rate_band_still_allows_activate(act_admin_work_dir: Path) -> None:
+    """Rejecting the open top slab must not block activate on the remaining ladder."""
+    del act_admin_work_dir
+    draft = {
+        "source_doc_id": "oee-fixture-rates-top",
+        "extraction_run_id": "fixture",
+        "tier": "act",
+        "entities": [
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-1",
+                "band_index": 1,
+                "lower": "0",
+                "upper": "1200000",
+                "rate_percent": "6",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "accepted",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-2",
+                "band_index": 2,
+                "lower": "1200000",
+                "upper": "6000000",
+                "rate_percent": "18",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "accepted",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+            {
+                "entity_kind": "rate_band",
+                "entry_id": "band-3",
+                "band_index": 3,
+                "lower": "6000000",
+                "upper": "",
+                "rate_percent": "25",
+                "applies_to": "resident or non-resident individual",
+                "compare_group_id": "first_schedule_rates",
+                "included": True,
+                "quote_ok_window": True,
+                "quote_ok_full_doc": True,
+                "review_status": "rejected",
+                "engine_scope": "individual",
+                "effective_from": "2026-04-01",
+                "year_kind": "NEW_YEAR",
+            },
+        ],
+    }
+    _save_draft(draft, act_admin_paths())
+    ready = review_ready(draft)
+    assert ready["rejected_count"] == 1
+    assert ready["accepted_count"] == 2
+    assert ready["blocking_issue_count"] == 0, ready["blocking_issues"]
+    assert ready["activate_allowed"] is True
+    opened = _open_top_accepted_rate_bands(
+        [e for e in draft["entities"] if e["review_status"] == "accepted"]
+    )
+    top = next(e for e in opened if e["entry_id"] == "band-2")
+    assert str(top.get("upper") or "") == ""

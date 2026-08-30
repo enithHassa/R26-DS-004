@@ -61,6 +61,7 @@ export type ReviewResponse = {
   entities: ReviewEntity[];
   reliefs: ReviewEntity[];
   rates: ReviewEntity[];
+  rejected_noise?: ReviewEntity[];
   entity_count: number;
   included_count: number;
   pending_count: number;
@@ -73,6 +74,7 @@ export type ReviewResponse = {
   activate_allowed: boolean;
   activate_block_reason?: string | null;
   ingest_note?: string | null;
+  already_in_system?: boolean;
 };
 
 export type ImpactPreviewGroup = {
@@ -114,11 +116,14 @@ export type CatalogPreviewResponse = {
   live_years: string[];
   preview_years: string[];
   accepted_count: number;
+  already_in_system?: boolean;
   assessment_year?: string;
   live_reliefs?: ReviewEntity[];
   live_rates?: ReviewEntity[];
   preview_reliefs?: ReviewEntity[];
   preview_rates?: ReviewEntity[];
+  preview_ordinary_rates?: ReviewEntity[];
+  preview_terminal_rates?: ReviewEntity[];
   relief_count?: number;
   band_count?: number;
   reliefs_by_year?: Record<string, ReviewEntity[]>;
@@ -282,7 +287,30 @@ export async function activateActAdminDraft(
   const { data } = await optimizationExplainableApi.post<Record<string, unknown>>(
     `/act-admin/review/${sourceDocId}/activate`,
     { fingerprint },
-    { headers: headers(true) },
+    { headers: headers(true), timeout: 120_000 },
+  );
+  return data;
+}
+
+export type HideFromViewersResponse = {
+  source_doc_id: string;
+  hidden: boolean;
+  removed_entities?: number;
+  removed_run?: boolean;
+  years?: string[];
+  year_2027_28_present?: boolean;
+  message?: string;
+};
+
+export const DEMO_HIDE_SOURCE_DOC_ID = "oee-act-100-2026";
+
+export async function hideActAdminFromViewers(
+  sourceDocId: string,
+): Promise<HideFromViewersResponse> {
+  const { data } = await optimizationExplainableApi.post<HideFromViewersResponse>(
+    `/act-admin/review/${sourceDocId}/hide-from-viewers`,
+    {},
+    { headers: headers(true), timeout: 120_000 },
   );
   return data;
 }

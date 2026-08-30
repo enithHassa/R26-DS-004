@@ -41,7 +41,7 @@ from oe_engine_app.services.extract_dedupe import (
 from oe_engine_app.services.hash_match import canonical_payload_hash
 from oe_engine_app.services.terminus import ChunkCoverageError, promote_act_run
 from oe_engine_app.services.windows import load_doc_text, named_schedule_windows
-from oe_engine_app.services.year_store import present_relief
+from oe_engine_app.services.year_store import present_relief, split_year_rates
 
 ReviewStatus = str
 ChangeAction = str
@@ -50,6 +50,11 @@ RELIEF_KINDS = frozenset({"relief"})
 RATE_KINDS = frozenset({"rate_band"})
 _INTERVIEW_KEYS = ("question_prompt", "help", "input_kind", "display_name")
 YEAR_KIND_VALUES = frozenset({"UPDATE", "NEW_YEAR"})
+# Demo-only hide-from-viewers control on Past Acts (Act No. 100 / YA 2027/28).
+# Re-uploads can mint oee-act-100-2027 while the Past Acts button still posts 2026.
+DEMO_HIDE_YEAR = "2027_28"
+DEMO_HIDE_SOURCE_PREFIX = "oee-act-100-"
+DEMO_HIDE_SOURCE_DOC_IDS = frozenset({"oee-act-100-2026", "oee-act-100-2027"})
 
 
 class ReviewValidationError(ValueError):
@@ -99,6 +104,11 @@ def _in_individual_engine(entity: dict[str, Any]) -> bool:
 def _review_scope_entities(draft: dict[str, Any]) -> list[dict[str, Any]]:
     """Rows the individual income-tax engine can promote."""
     return [e for e in review_entities(draft) if _in_individual_engine(e)]
+
+
+def _decision_entities(draft: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reliefs and rate bands the auditor must accept or reject (including entity/other)."""
+    return [e for e in review_entities(draft) if _is_review_entity(e)]
 
 
 def _accepted_for_promote(
@@ -166,16 +176,21 @@ def _prior_interview_cache(session: Session | None) -> dict[str, dict[str, str]]
 def _fill_interview_fields(
     entity: dict[str, Any],
     prior: dict[str, str] | None,
+    *,
+    prefer_prior: bool = False,
 ) -> dict[str, Any]:
     out = dict(entity)
     prior_prompt = str((prior or {}).get("question_prompt") or "").strip()
     draft_prompt_empty = not str(out.get("question_prompt") or "").strip()
     if prior and prior_prompt:
         for key in _INTERVIEW_KEYS:
-            if not str(out.get(key) or "").strip() and prior.get(key):
-                out[key] = prior[key]
+            prior_val = str((prior or {}).get(key) or "").strip()
+            if not prior_val:
+                continue
+            if prefer_prior or not str(out.get(key) or "").strip():
+                out[key] = prior_val
         if (
-            draft_prompt_empty
+            (prefer_prior or draft_prompt_empty)
             and str(entity.get("input_kind") or "").strip() in {"", "notice"}
             and prior.get("input_kind")
         ):
@@ -194,16 +209,70 @@ def _apply_prior_to_draft(draft: dict[str, Any], session: Session | None) -> Non
         if entity.get("entity_kind") != "relief":
             continue
         group = str(entity.get("compare_group_id") or "")
-        filled = _fill_interview_fields(entity, prior.get(group))
+        prior_row = None if _year_kind(entity) == "NEW_YEAR" else prior.get(group)
+        filled = _fill_interview_fields(entity, prior_row)
         for key in _INTERVIEW_KEYS:
             if filled.get(key):
                 entity[key] = filled[key]
 
 
+def _open_top_accepted_rate_bands(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """After auditors reject a top slab, leave the highest accepted band open-ended.
+
+    Rejected rows are already excluded from `entities`. Without this, validating the
+    remaining ladder fails with "Top band should have blank upper bound" and activate
+    is blocked even though the auditor intentionally dropped the top extract row.
+    """
+    by_ladder: dict[str, list[dict[str, Any]]] = {}
+    for entity in entities:
+        if entity.get("entity_kind") != "rate_band":
+            continue
+        key = validate_rate_ladder_key(entity)
+        by_ladder.setdefault(key, []).append(entity)
+    opened_ids: set[str] = set()
+    for bands in by_ladder.values():
+        if not bands:
+            continue
+        top = max(bands, key=lambda row: int(row.get("band_index") or 0))
+        entry = _entry_id(top)
+        if entry:
+            opened_ids.add(entry)
+    out: list[dict[str, Any]] = []
+    for entity in entities:
+        if (
+            entity.get("entity_kind") == "rate_band"
+            and _entry_id(entity) in opened_ids
+            and str(entity.get("upper") or "").strip()
+        ):
+            patched = dict(entity)
+            patched["upper"] = ""
+            out.append(patched)
+        else:
+            out.append(entity)
+    return out
+
+
+def _sync_rate_uppers_into_draft(
+    draft: dict[str, Any],
+    accepted: list[dict[str, Any]],
+) -> None:
+    """Write normalized rate uppers (open top band) back into the draft entities."""
+    by_id = {
+        _entry_id(entity): entity
+        for entity in accepted
+        if entity.get("entity_kind") == "rate_band" and _entry_id(entity)
+    }
+    for entity in draft_entities(draft):
+        entry = _entry_id(entity)
+        if entry in by_id:
+            entity["upper"] = by_id[entry].get("upper") or ""
+
+
 def blocking_issues(draft: dict[str, Any], session: Session | None = None) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     ctx = _year_context(session)
-    for entity in _accepted_for_promote(draft):
+    accepted = _accepted_for_promote(draft, session)
+    for entity in accepted:
         kind = str(entity.get("entity_kind") or "")
         entry = _entry_id(entity)
         if not entry:
@@ -260,7 +329,11 @@ def blocking_issues(draft: dict[str, Any], session: Session | None = None) -> li
                     }
                 )
     rate_errors = validate_rate_band_set(
-        [e for e in _accepted_for_promote(draft) if e.get("entity_kind") == "rate_band"]
+        [
+            e
+            for e in _open_top_accepted_rate_bands(accepted)
+            if e.get("entity_kind") == "rate_band"
+        ]
     )
     for err in rate_errors:
         issues.append({"entry_id": "", "code": "rate_band_validation", "message": err})
@@ -268,18 +341,17 @@ def blocking_issues(draft: dict[str, Any], session: Session | None = None) -> li
 
 
 def review_ready(draft: dict[str, Any], session: Session | None = None) -> dict[str, Any]:
-    scope_rows = _review_scope_entities(draft)
-    out_of_scope = [
-        e
-        for e in draft_entities(draft)
-        if _is_review_entity(e) and not _in_individual_engine(e)
+    decision_rows = _decision_entities(draft)
+    scope_rows = [e for e in decision_rows if _in_individual_engine(e)]
+    out_of_scope = [e for e in decision_rows if not _in_individual_engine(e)]
+    pending = [
+        e for e in decision_rows if str(e.get("review_status") or "pending") == "pending"
     ]
-    pending = [e for e in scope_rows if str(e.get("review_status") or "pending") == "pending"]
-    rejected = [e for e in scope_rows if str(e.get("review_status") or "") == "rejected"]
+    rejected = [e for e in decision_rows if str(e.get("review_status") or "") == "rejected"]
     accepted = [e for e in scope_rows if str(e.get("review_status") or "") == "accepted"]
     issues = blocking_issues(draft, session=session)
-    reliefs = [e for e in scope_rows if e.get("entity_kind") == "relief"]
-    rates = [e for e in scope_rows if e.get("entity_kind") == "rate_band"]
+    reliefs = [e for e in decision_rows if e.get("entity_kind") == "relief"]
+    rates = [e for e in decision_rows if e.get("entity_kind") == "rate_band"]
     activate_allowed = len(pending) == 0 and len(issues) == 0 and len(accepted) > 0
     activate_block_reason: str | None = None
     if not activate_allowed:
@@ -299,7 +371,7 @@ def review_ready(draft: dict[str, Any], session: Session | None = None) -> dict[
                     "fix quotes/caps."
                 )
     return {
-        "included_count": len(scope_rows),
+        "included_count": len(decision_rows),
         "pending_count": len(pending),
         "accepted_count": len(accepted),
         "rejected_count": len(rejected),
@@ -368,6 +440,8 @@ def section_label_from_entity(entity: dict[str, Any]) -> str:
             return "Fifth Schedule"
         if slug == "first_schedule":
             return "First Schedule"
+        if slug == "part_vi_a":
+            return "Part VI A — special individual reliefs"
     section = str(entity.get("section_ref") or "").strip()
     if section:
         lowered = section.lower()
@@ -404,7 +478,7 @@ def _section_act_prose_cache(session: Session | None, source_doc_id: str) -> dic
         doc = load_doc_text(session, source_doc_id)
     except ValueError:
         return {}
-    return {window.window_id: window.text for window in named_schedule_windows(doc)}
+    return {window.window_id: window.text for window in named_schedule_windows(doc, extra=True)}
 
 
 def _enrich_entity(
@@ -413,6 +487,7 @@ def _enrich_entity(
     section_prose_cache: dict[str, str] | None = None,
     prior_cache: dict[str, dict[str, str]] | None = None,
     year_ctx: dict[str, Any] | None = None,
+    prefer_prior: bool = False,
 ) -> dict[str, Any]:
     enriched = dict(entity)
     derived_ya = derived_assessment_year(entity)
@@ -429,10 +504,17 @@ def _enrich_entity(
         enriched["in_individual_engine"] = scope == "individual"
     if entity.get("entity_kind") == "relief":
         group = str(enriched.get("compare_group_id") or "")
-        prior = (prior_cache or {}).get(group)
-        enriched = _fill_interview_fields(enriched, prior)
+        prior = None if _year_kind(enriched) == "NEW_YEAR" else (prior_cache or {}).get(group)
+        enriched = _fill_interview_fields(enriched, prior, prefer_prior=prefer_prior)
         enriched["interview_preview"] = present_relief(enriched)
     if entity.get("entity_kind") == "rate_band":
+        from oe_engine_app.services.terminal_benefit import (
+            is_terminal_rate_group,
+            stamp_terminal_rate_payload,
+        )
+
+        if is_terminal_rate_group(str(enriched.get("compare_group_id") or "")):
+            enriched = stamp_terminal_rate_payload(enriched)
         window_id = _entry_window_id(entity)
         prose = (section_prose_cache or {}).get(window_id, "")
         if prose:
@@ -440,19 +522,32 @@ def _enrich_entity(
     return enriched
 
 
-def _job_context(draft: dict[str, Any], *, paths: ActAdminPaths) -> dict[str, Any]:
+def _job_context(draft: dict[str, Any], *, paths: ActAdminPaths, session: Session | None = None) -> dict[str, Any]:
     job_id = str(draft.get("job_id") or "").strip()
     job = load_job(job_id, paths) if job_id else None
     identity = (job or {}).get("act_identity") or {}
+    sid = str(draft.get("source_doc_id") or "").strip()
+    reused = ""
     ingest_note: str | None = None
     if job is not None:
         reused = str(job.get("ingest_reused_from") or "").strip()
         if reused or str(job.get("ingest_status") or "") == "skipped_sha256":
-            canonical = reused or "an existing corpus entry"
             ingest_note = (
-                f"This PDF was already ingested in the engine corpus ({canonical}). "
-                "Activate merges your approved rows into year views; rejected rows are ignored."
+                "This PDF was already in the engine corpus (same file hash). "
+                "That does not mean it is live in year views. Review Accept or Reject, "
+                "then Activate to publish."
             )
+    already_in_system = False
+    if session is not None and sid:
+        try:
+            from db.year_views import OeEnginePromotedRun
+
+            if session.get(OeEnginePromotedRun, sid) is not None:
+                already_in_system = True
+            if reused and session.get(OeEnginePromotedRun, reused) is not None:
+                already_in_system = True
+        except Exception:  # noqa: BLE001
+            pass
     return {
         "job_id": job_id or None,
         "act_title": identity.get("label"),
@@ -463,12 +558,140 @@ def _job_context(draft: dict[str, Any], *, paths: ActAdminPaths) -> dict[str, An
         "extraction_usd": draft.get("usd_this_run"),
         "entity_count": len(draft_entities(draft)),
         "ingest_note": ingest_note,
+        "already_in_system": already_in_system,
         "note": (
-            "Extract ran as a new draft. Live year views are unchanged until you activate. "
-            "This engine promotes individual income tax only — entity and other taxpayer rows "
-            "stay in the extract for audit but are not shown in review or RAG preview."
+            "This Act is already in the live engine catalog. Approved rows match prior "
+            "auditor decisions / live promote (read-only). Previously rejected rows stay "
+            "rejected and out of year views."
+            if already_in_system
+            else (
+                "Extract ran as a new draft. Live year views are unchanged until you activate. "
+                "Entity / other taxpayer rows are extracted for you to Accept or Reject; "
+                "they still do not enter individual year views."
+            )
         ),
     }
+
+
+def _apply_persisted_decisions(
+    draft: dict[str, Any],
+    *,
+    paths: ActAdminPaths,
+    session: Session | None = None,
+) -> bool:
+    """Re-apply auditor accept/reject from decisions.json onto a fresh extract draft.
+
+    Re-extract resets rows to pending. Without this, a previously rejected relief
+    looks pending — and the already-in-system UI was painting those as Approved.
+    Rejected decisions always win; live promoted rows without a decision are marked
+    accepted for continuity.
+    """
+    sid = str(draft.get("source_doc_id") or "").strip()
+    if not sid:
+        return False
+    ledger = load_decisions(paths)
+    rows = ledger.get("rows") or {}
+    by_entry: dict[str, dict[str, Any]] = {}
+    for key, row in rows.items():
+        if not isinstance(row, dict):
+            continue
+        entry = str(row.get("entry_id") or "").strip()
+        row_sid = str(row.get("source_doc_id") or "").strip()
+        if not entry:
+            continue
+        if row_sid and row_sid != sid and not str(key).startswith(f"{sid}::"):
+            continue
+        if not row_sid and not str(key).startswith(f"{sid}::"):
+            continue
+        by_entry[entry] = row
+
+    live_entries: set[str] = set()
+    if session is not None:
+        try:
+            for promoted in load_promoted_entities(session):
+                if str(promoted.source_doc_id or "") != sid:
+                    continue
+                eid = str(promoted.entry_id or "").strip()
+                if eid:
+                    live_entries.add(eid)
+        except Exception:  # noqa: BLE001
+            live_entries = set()
+
+    changed = False
+    for entity in draft_entities(draft):
+        if not _is_review_entity(entity):
+            continue
+        entry = _entry_id(entity)
+        if not entry:
+            continue
+        decision = by_entry.get(entry)
+        status = str((decision or {}).get("review_status") or "").strip()
+        if status in {"accepted", "rejected"}:
+            if str(entity.get("review_status") or "") != status:
+                entity["review_status"] = status
+                changed = True
+            if decision.get("year_kind") and not str(entity.get("year_kind") or "").strip():
+                entity["year_kind"] = decision["year_kind"]
+                changed = True
+            if decision.get("reviewer") and not str(entity.get("reviewed_by") or "").strip():
+                entity["reviewed_by"] = decision["reviewer"]
+                changed = True
+            if decision.get("reviewed_at") and not str(entity.get("reviewed_at") or "").strip():
+                entity["reviewed_at"] = decision["reviewed_at"]
+                changed = True
+            if status == "rejected" and entity.get("included") is not False:
+                entity["included"] = False
+                changed = True
+            continue
+        if entry in live_entries and str(entity.get("review_status") or "pending") == "pending":
+            entity["review_status"] = "accepted"
+            changed = True
+    return changed
+
+
+def _reject_collapsed_rate_reprints(draft: dict[str, Any], *, paths: ActAdminPaths) -> bool:
+    """Persist reject on reprint staircases dropped by extract collapse so activate cannot re-promote them."""
+    kept_ids = {
+        str(entity.get("entry_id") or "")
+        for entity in collapse_duplicate_extract_entities(draft_entities(draft))
+        if entity.get("entity_kind") == "rate_band" and str(entity.get("entry_id") or "")
+    }
+    sid = str(draft.get("source_doc_id") or "").strip()
+    changed = False
+    stamped_at = now_iso()
+    ledger = load_decisions(paths)
+    rows = ledger.setdefault("rows", {})
+    for entity in draft_entities(draft):
+        if entity.get("entity_kind") != "rate_band":
+            continue
+        entry = _entry_id(entity)
+        if not entry or entry in kept_ids:
+            continue
+        if str(entity.get("review_status") or "") == "rejected":
+            continue
+        entity["review_status"] = "rejected"
+        entity["included"] = False
+        entity["reject_reason"] = (
+            "Reprint staircase for the same taxpayer class. "
+            "This Act already has a complete First Schedule ladder — "
+            "kept that one so Activate can publish."
+        )
+        entity["reviewed_by"] = "extract-dedupe"
+        entity["reviewed_at"] = stamped_at
+        changed = True
+        if sid:
+            rows[f"{sid}::{entry}"] = {
+                "source_doc_id": sid,
+                "entry_id": entry,
+                "review_status": "rejected",
+                "change_action": entity.get("change_action"),
+                "year_kind": entity.get("year_kind"),
+                "reviewer": "extract-dedupe",
+                "reviewed_at": stamped_at,
+            }
+    if changed:
+        save_decisions(ledger, paths)
+    return changed
 
 
 def review_payload(
@@ -482,24 +705,35 @@ def review_payload(
     draft = load_draft(source_doc_id, root)
     if draft is None:
         raise FileNotFoundError(f"no draft extract for {source_doc_id}")
+    if _apply_persisted_decisions(draft, paths=root, session=session):
+        save_draft(draft, root)
+    if _reject_collapsed_rate_reprints(draft, paths=root):
+        save_draft(draft, root)
     readiness = review_ready(draft, session=session)
     section_prose_cache = (
         _section_act_prose_cache(session, source_doc_id) if enrich_prose else {}
     )
     prior_cache = _prior_interview_cache(session)
     year_ctx = _year_context(session)
+    job_ctx = _job_context(draft, paths=root, session=session)
+    prefer_prior = bool(job_ctx.get("already_in_system"))
     entities = [
         _enrich_entity(
             e,
             section_prose_cache=section_prose_cache,
             prior_cache=prior_cache,
             year_ctx=year_ctx,
+            prefer_prior=prefer_prior,
         )
         for e in review_entities(draft)
     ]
-    in_scope = [e for e in entities if e.get("in_individual_engine")]
-    reliefs = [e for e in in_scope if e.get("entity_kind") == "relief"]
-    rates = [e for e in in_scope if e.get("entity_kind") == "rate_band"]
+    reviewable = [e for e in entities if _is_review_entity(e)]
+    in_scope = [e for e in reviewable if e.get("in_individual_engine")]
+    reliefs = [e for e in reviewable if e.get("entity_kind") == "relief"]
+    rates = [e for e in reviewable if e.get("entity_kind") == "rate_band"]
+    # Entity / other rows stay in reliefs/rates so the auditor can Accept or Reject.
+    # They are never auto-rejected, and activate still skips them from year views.
+    rejected_noise: list[dict[str, Any]] = []
     derived = next(
         (
             str(e.get("derived_assessment_year") or "")
@@ -518,13 +752,14 @@ def review_payload(
         "tier": draft.get("tier") or "act",
         "terminus": draft.get("terminus") or "review_then_promote",
         "extraction_run_id": draft.get("extraction_run_id"),
-        **_job_context(draft, paths=root),
+        **job_ctx,
         "year_context": year_ctx,
         "entities": entities,
         "reliefs": reliefs,
         "rates": rates,
-        "entity_count": len(in_scope),
-        "extracted_entity_count": len([e for e in entities if _is_review_entity(e)]),
+        "rejected_noise": rejected_noise,
+        "entity_count": len(reviewable),
+        "extracted_entity_count": len(reviewable),
         "promote_allowed": True,
         **readiness,
     }
@@ -579,6 +814,11 @@ def patch_row(
         if key not in allowed:
             continue
         entity[key] = value
+    status = str(entity.get("review_status") or "").strip()
+    if status == "rejected":
+        entity["included"] = False
+    elif status == "accepted":
+        entity["included"] = True
     if "year_kind" in patch:
         entity["year_kind_set_by"] = reviewer
         entity["year_kind_set_at"] = now_iso()
@@ -696,7 +936,8 @@ def _merge_promoted_rows(
     draft: dict[str, Any],
 ) -> list[OeEnginePromotedEntity]:
     sid = str(draft.get("source_doc_id") or "")
-    accepted = _accepted_for_promote(draft, session)
+    # Rejected rows are never merged; open the highest accepted band per ladder.
+    accepted = _open_top_accepted_rate_bands(_accepted_for_promote(draft, session))
     repeal_rows = [e for e in accepted if e.get("change_action") == "repeal"]
     promote_rows = [e for e in accepted if e.get("change_action") != "repeal"]
     existing = [
@@ -856,32 +1097,51 @@ def catalog_preview(
     assessment_year: str | None = None,
     paths: ActAdminPaths | None = None,
 ) -> dict[str, Any]:
-    """Compiled year views as they would appear after activation (accepted rows only)."""
+    """Compiled year views as they would appear after activation (accepted rows only).
+
+    When this Act is already live (re-upload / demo), show current year views instead
+    of a draft merge that drops this source's promoted rows while accepted_count is 0.
+    """
     root = paths or act_admin_paths()
     draft = load_draft(source_doc_id, root)
     if draft is None:
         raise FileNotFoundError(f"no draft extract for {source_doc_id}")
+    job_ctx = _job_context(draft, paths=root, session=session)
+    already_in_system = bool(job_ctx.get("already_in_system"))
     live_relief, live_rates = _snapshot_year_views(session)
-    draft_relief, draft_rates = _compile_draft_preview(session, draft)
+    if already_in_system:
+        draft_relief, draft_rates = live_relief, live_rates
+        accepted_count = len(
+            [e for e in review_entities(draft) if resolve_engine_scope(e) == "individual"]
+        )
+    else:
+        draft_relief, draft_rates = _compile_draft_preview(session, draft)
+        accepted_count = len(_accepted_for_promote(draft, session))
     live_years = sorted(set(live_relief) | set(live_rates))
-    preview_years = sorted(set(draft_relief) | set(draft_rates))
+    preview_years = sorted(set(draft_relief) | set(draft_rates) | set(live_years))
     payload: dict[str, Any] = {
         "source_doc_id": source_doc_id,
         "live_years": live_years,
         "preview_years": preview_years,
-        "accepted_count": len(_accepted_for_promote(draft, session)),
+        "accepted_count": accepted_count,
+        "already_in_system": already_in_system,
     }
     if assessment_year:
-        ya = assessment_year.strip()
+        ya = assessment_year.strip().replace("/", "_").replace("-", "_")
+        relief_rows = live_relief.get(ya, []) if already_in_system else draft_relief.get(ya, [])
+        rate_rows = live_rates.get(ya, []) if already_in_system else draft_rates.get(ya, [])
+        ordinary_rates, terminal_rates = split_year_rates(rate_rows)
         payload.update(
             {
                 "assessment_year": ya,
                 "live_reliefs": [present_relief(r) for r in live_relief.get(ya, [])],
                 "live_rates": live_rates.get(ya, []),
-                "preview_reliefs": [present_relief(r) for r in draft_relief.get(ya, [])],
-                "preview_rates": draft_rates.get(ya, []),
-                "relief_count": len(draft_relief.get(ya, [])),
-                "band_count": len(draft_rates.get(ya, [])),
+                "preview_reliefs": [present_relief(r) for r in relief_rows],
+                "preview_rates": rate_rows,
+                "preview_ordinary_rates": ordinary_rates,
+                "preview_terminal_rates": terminal_rates,
+                "relief_count": len(relief_rows),
+                "band_count": len(rate_rows),
             }
         )
         return payload
@@ -896,7 +1156,7 @@ def impact_preview(session: Session, source_doc_id: str, *, paths: ActAdminPaths
     if draft is None:
         raise FileNotFoundError(f"no draft extract for {source_doc_id}")
     readiness = review_ready(draft, session=session)
-    accepted = _accepted_for_promote(draft, session)
+    accepted = _open_top_accepted_rate_bands(_accepted_for_promote(draft, session))
     fingerprint = _entity_fingerprint(accepted)
     before_relief, before_rates = _snapshot_year_views(session)
     after_relief, after_rates = _compile_draft_preview(session, draft)
@@ -963,8 +1223,13 @@ def activate_draft(
             f"issues={readiness['blocking_issue_count']}"
         )
     _apply_prior_to_draft(draft, session)
+    if _reject_collapsed_rate_reprints(draft, paths=root):
+        save_draft(draft, root)
+    # Only accepted rows promote; rejected never enter year views. Open the top
+    # accepted band so rejecting a bad top slab does not leave a closed ladder.
+    accepted = _open_top_accepted_rate_bands(_accepted_for_promote(draft, session))
+    _sync_rate_uppers_into_draft(draft, accepted)
     save_draft(draft, root)
-    accepted = _accepted_for_promote(draft, session)
     current_fp = _entity_fingerprint(accepted)
     if current_fp != fingerprint:
         raise ReviewValidationError("Stale impact preview — re-run preview after edits.")
@@ -1031,4 +1296,86 @@ def reset_activation(
         "job_reset": job is not None,
         "reset_by": reviewer,
         "reset_at": now_iso(),
+    }
+
+
+def _is_demo_hide_source(source_doc_id: str) -> bool:
+    sid = (source_doc_id or "").strip()
+    return sid in DEMO_HIDE_SOURCE_DOC_IDS or sid.startswith(DEMO_HIDE_SOURCE_PREFIX)
+
+
+def _demo_hide_targets(session: Session, requested: str) -> list[str]:
+    """Every Act No. 100 extract that can keep YA 2027/28 live."""
+    from db.year_views import OeEnginePromotedEntity, OeEnginePromotedRun
+
+    found: set[str] = set(DEMO_HIDE_SOURCE_DOC_IDS)
+    requested_sid = (requested or "").strip()
+    if requested_sid:
+        found.add(requested_sid)
+    for (sid,) in session.query(OeEnginePromotedRun.source_doc_id).all():
+        text = str(sid or "").strip()
+        if _is_demo_hide_source(text):
+            found.add(text)
+    for (sid,) in session.query(OeEnginePromotedEntity.source_doc_id).distinct().all():
+        text = str(sid or "").strip()
+        if _is_demo_hide_source(text):
+            found.add(text)
+    return sorted(found)
+
+
+def hide_demo_act_from_viewers(
+    session: Session,
+    source_doc_id: str,
+    *,
+    reviewer: str,
+    paths: ActAdminPaths | None = None,
+) -> dict[str, Any]:
+    """Drop Act No. 100 from live year views so pickers no longer show YA 2027/28.
+
+    Extract drafts stay so the same Act can be Activated again. A re-upload may have
+    promoted oee-act-100-2027 while Past Acts still posts oee-act-100-2026 — hide both.
+    """
+    from oe_engine_app.services.compiler import recompile_year_views
+    from oe_engine_app.services.mismatch_queue import recompare_all_facts
+    from oe_engine_app.services.terminus import unpromote_source_doc
+    from oe_engine_app.services.year_store import list_years
+
+    sid = (source_doc_id or "").strip()
+    if not _is_demo_hide_source(sid):
+        raise ReviewValidationError(
+            "Hide from viewers is only available for the demo Act (Act No. 100)."
+        )
+    targets = _demo_hide_targets(session, sid)
+    removed_entities = 0
+    removed_run = False
+    resets: list[dict[str, Any]] = []
+    for target in targets:
+        unpromoted = unpromote_source_doc(session, target, recompile=False)
+        removed_entities += int(unpromoted.get("removed_entities") or 0)
+        removed_run = removed_run or bool(unpromoted.get("removed_run"))
+        resets.append(reset_activation(target, reviewer=reviewer, paths=paths))
+    if targets:
+        recompile_year_views(session, persist=True)
+        recompare_all_facts(session)
+    years = [str(row["assessment_year"]) for row in list_years(session)]
+    gone = DEMO_HIDE_YEAR not in years
+    return {
+        "source_doc_id": sid,
+        "hidden_source_doc_ids": targets,
+        "hidden": True,
+        "removed_entities": removed_entities,
+        "removed_run": removed_run,
+        "years": years,
+        "year_2027_28_present": not gone,
+        "act_admin": resets[-1] if resets else {},
+        "message": (
+            "YA 2027/28 is no longer in year views. "
+            "TaxWise and auditor year pickers will not show it. "
+            "Activate again from review when you need the demo year back."
+            if gone
+            else (
+                "Promoted rows for Act No. 100 were removed, but YA 2027/28 is still listed. "
+                "Refresh Past Acts. If it stays, another extract is still live."
+            )
+        ),
     }

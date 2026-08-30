@@ -304,6 +304,40 @@ def _clip_named_schedule_end(stream: str, start: int, end: int, heading: str) ->
     return end
 
 
+_TOC_NEIGHBOR_RE = re.compile(
+    r"ARRANGEMENT OF SECTIONS|Section Title Page|\bSched\.\s+(?:First|Fifth)\s+Schedule",
+    re.IGNORECASE,
+)
+_SCHEDULE_BODY_RE = re.compile(
+    r"\(SECTION|\(Section|TAX RATES|QUALIFYING PAYMENTS|SPECIAL INDIVIDUAL RELIEFS",
+    re.IGNORECASE,
+)
+_NEXT_PART_RE = re.compile(r"(?:^|\n)\s*PART\s+(?:[IVX]+|\d+)\b", re.IGNORECASE)
+
+
+def _heading_hit_quality(doc: DocText, start: int, heading: str) -> int:
+    """Prefer the real schedule/part body over a contents-page mention."""
+    before = doc.stream[max(0, start - 240) : start]
+    preview = doc.stream[start : start + 420]
+    if _TOC_NEIGHBOR_RE.search(before) or _TOC_NEIGHBOR_RE.search(preview):
+        return -1
+    if _is_toc_window(preview):
+        return -1
+    if _SCHEDULE_BODY_RE.search(preview):
+        return 1
+    if heading.upper().startswith("PART") and "RELIEF" in preview.upper():
+        return 1
+    return 0
+
+
+def _clip_part_window_end(stream: str, start: int, end: int) -> int:
+    """Stop a Part VI A window at the next Part heading."""
+    for match in _NEXT_PART_RE.finditer(stream, start + 8, end):
+        if match.start() > start:
+            return match.start()
+    return end
+
+
 def locate_named_window(
     doc: DocText,
     heading: str,
@@ -315,17 +349,21 @@ def locate_named_window(
         rf"\b{r'\s+'.join(re.escape(part) for part in heading.split())}\b",
         re.IGNORECASE,
     )
-    ranked: list[tuple[int, int, int]] = []
+    ranked: list[tuple[int, int, int, int]] = []
     for match in pattern.finditer(doc.stream):
         start = match.start()
         end = min(len(doc.stream), start + window_chars)
-        end = _clip_named_schedule_end(doc.stream, start, end, heading)
+        if heading.upper().startswith("PART"):
+            end = _clip_part_window_end(doc.stream, start, end)
+        else:
+            end = _clip_named_schedule_end(doc.stream, start, end, heading)
+        quality = _heading_hit_quality(doc, start, heading)
         score = _content_score(doc.stream[start:end])
-        ranked.append((score, start, end))
+        ranked.append((quality, score, start, end))
     if not ranked:
         return None
     ranked.sort(reverse=True)
-    _score, start, end = ranked[0]
+    _quality, _score, start, end = ranked[0]
     slug = re.sub(r"[^a-z0-9]+", "_", heading.lower()).strip("_")
     return _make_window(doc, start, end, slug)
 
@@ -333,6 +371,10 @@ def locate_named_window(
 SCHEMA_VALIDATE_HEADINGS: tuple[tuple[str, str], ...] = (
     ("Fifth Schedule", "fifth_schedule"),
     ("First Schedule", "first_schedule"),
+)
+
+ACT_ADMIN_EXTRA_HEADINGS: tuple[tuple[str, str], ...] = (
+    ("PART VI A", "part_vi_a"),
 )
 
 
@@ -354,9 +396,12 @@ def _overlap_chars(left: FocusWindow, right: FocusWindow) -> int:
     return max(0, hi - lo)
 
 
-def named_schedule_windows(doc: DocText) -> list[FocusWindow]:
+def named_schedule_windows(doc: DocText, *, extra: bool = False) -> list[FocusWindow]:
     found: list[FocusWindow] = []
-    for heading, slug in SCHEMA_VALIDATE_HEADINGS:
+    headings = SCHEMA_VALIDATE_HEADINGS
+    if extra:
+        headings = headings + ACT_ADMIN_EXTRA_HEADINGS
+    for heading, slug in headings:
         window = locate_named_window(doc, heading)
         if window is None:
             continue
@@ -412,7 +457,7 @@ def extract_focus_windows(
         return focused or sliding
     if len(doc.stream) <= WINDOW_MAX_CHARS * 2:
         return sliding
-    named = named_schedule_windows(doc)
+    named = named_schedule_windows(doc, extra=act_admin)
     if not named:
         return sliding
     kept = [window for window in sliding if all(_overlap_chars(window, nw) <= 500 for nw in named)]

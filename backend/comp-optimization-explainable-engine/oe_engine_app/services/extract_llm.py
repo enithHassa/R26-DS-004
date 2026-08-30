@@ -43,6 +43,18 @@ For `terminal_benefit_tax_rate` rows:
 - Act 10 of 2021 substitution of that table: effective_from=2020-01-01,
   effective_to="" (the stated substitution date, not the enactment date).
 
+When the Target provision is Part VI A (special individual reliefs) or
+numbered sections 70–73:
+- Emit ONE relief row per distinct relief (childcare support, professional
+  skills development, EV charging infrastructure, personal relief).
+- `compare_group_id`: `childcare_support_relief`,
+  `professional_skills_development_relief`,
+  `ev_charging_infrastructure_relief`, `personal_relief`.
+- A "fifty per centum (50%) … shall not exceed Rs. 240,000" rule is still
+  one relief: cap_amount is the rupee ceiling ("240000"), unit `lkr`.
+  Put the 50% in eligibility.text / help — never as a First Schedule rate.
+- Do not skip these rows because they sit outside the Fifth Schedule.
+
 When the Target provision is the Fifth Schedule (or an amendment of it):
 - Paragraph 1 lists QUALIFYING PAYMENTS. Emit ONE relief row per distinct
   category or sub-item, even when the word "relief" is absent.

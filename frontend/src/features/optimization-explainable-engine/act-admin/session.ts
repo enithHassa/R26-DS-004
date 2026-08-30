@@ -1,30 +1,34 @@
-/** Act-admin session: token (gate) + reviewer name (attribution). */
+/** Act-admin API auth: shared engine token + auditor name from global /login. */
+
+import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
 
 export const ACT_ADMIN_SESSION_KEY = "oe-engine.act-admin.v1";
+
+/** Must match backend ``OE_ENGINE_ACT_ADMIN_TOKEN`` (repo-root ``.env``). */
+export function getActAdminToken(): string {
+  const fromEnv = (import.meta.env.VITE_OE_ENGINE_ACT_ADMIN_TOKEN as string | undefined)?.trim();
+  return fromEnv || "local-oe-act-admin";
+}
 
 export type ActAdminSession = {
   token: string;
   reviewer: string;
 };
 
-function readRaw(): ActAdminSession | null {
-  try {
-    const raw = sessionStorage.getItem(ACT_ADMIN_SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ActAdminSession>;
-    const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
-    const reviewer = typeof parsed.reviewer === "string" ? parsed.reviewer.trim() : "";
-    if (!token || !reviewer) return null;
-    return { token, reviewer };
-  } catch {
+/**
+ * Builds the act-admin API session from the global auditor login.
+ * Returns null when the user is not signed in as an auditor (layout redirects to /login).
+ */
+export function loadActAdminSession(): ActAdminSession | null {
+  const user = useUserSessionStore.getState();
+  if (!user.isAuthenticated || user.role !== "auditor") {
     return null;
   }
+  const reviewer = (user.fullName || "Auditor").trim() || "Auditor";
+  return { token: getActAdminToken(), reviewer };
 }
 
-export function loadActAdminSession(): ActAdminSession | null {
-  return readRaw();
-}
-
+/** @deprecated Kept for cleanup of older middle-login sessions. */
 export function saveActAdminSession(session: ActAdminSession): void {
   const token = session.token.trim();
   const reviewer = session.reviewer.trim();

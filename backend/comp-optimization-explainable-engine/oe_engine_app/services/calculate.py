@@ -32,19 +32,20 @@ KNOWN_BINDING_KINDS = {
 }
 
 
-def _as_int(raw: Any) -> int:
+def _as_money(raw: Any) -> float:
+    """Non-negative LKR amount rounded to 2 decimal places (rupees and cents)."""
     if raw is None or raw == "":
-        return 0
+        return 0.0
     try:
-        return max(0, int(round(float(str(raw).replace(",", "").strip()))))
+        return max(0.0, round(float(str(raw).replace(",", "").strip()), 2))
     except (TypeError, ValueError):
-        return 0
+        return 0.0
 
 
-def _cap(raw: Any) -> int | None:
+def _cap(raw: Any) -> float | None:
     if raw is None or raw == "":
         return None
-    return _as_int(raw)
+    return _as_money(raw)
 
 
 def _binding_kind(entry: dict[str, Any]) -> str:
@@ -77,12 +78,18 @@ def binder_for(entry: dict[str, Any]) -> str:
     return BINDER_NOTICE
 
 
-def _income_base(entry: dict[str, Any], income: dict[str, int]) -> int:
+def _income_base(entry: dict[str, Any], income: dict[str, float]) -> float:
     kind = _binding_kind(entry)
     group = str(entry.get("compare_group_id") or "")
+    unit = str(entry.get("unit") or "")
     if kind == "senior_citizen_interest_relief":
         return income["interest"]
-    if kind == "rent_relief" or str(entry.get("unit") or "") == "percent":
+    # Fifth Schedule rental relief is always % of rents — never gross assessable.
+    if (
+        kind == "rent_relief"
+        or group in {"rental_income_relief", "rent_relief"}
+        or unit == "percent"
+    ):
         return income["rents"]
     if group == "employment_income_relief":
         return income["employment"]
@@ -109,15 +116,15 @@ def _component_claims(claim: dict[str, Any] | None) -> list[dict[str, Any]]:
             continue
         component_id = str(item.get("component_id") or "").strip()
         if component_id:
-            out.append({"component_id": component_id, "amount": _as_int(item.get("amount"))})
+            out.append({"component_id": component_id, "amount": _as_money(item.get("amount"))})
     return out
 
 
-def _claimed_amount(claim: dict[str, Any] | None, components: list[dict[str, Any]]) -> int:
+def _claimed_amount(claim: dict[str, Any] | None, components: list[dict[str, Any]]) -> float:
     """A split claim is the sum of its parts; the flat amount is the fallback."""
     if components:
-        return sum(int(c["amount"]) for c in components)
-    return _as_int(claim.get("amount")) if claim else 0
+        return round(sum(float(c["amount"]) for c in components), 2)
+    return _as_money(claim.get("amount")) if claim else 0.0
 
 
 def _claim_active(entry: dict[str, Any], claim: dict[str, Any] | None) -> bool:
@@ -135,7 +142,7 @@ def _claim_active(entry: dict[str, Any], claim: dict[str, Any] | None) -> bool:
 
 def _apply_one(
     entry: dict[str, Any],
-    income: dict[str, int],
+    income: dict[str, float],
     claim: dict[str, Any] | None,
 ) -> dict[str, Any]:
     binder = binder_for(entry)
@@ -144,21 +151,21 @@ def _apply_one(
     components = _component_claims(claim)
     claim_amt = _claimed_amount(claim, components)
     active = _claim_active(entry, claim)
-    applied = 0
+    applied = 0.0
     formula = binder
 
     if binder == BINDER_NOTICE:
-        applied = 0
+        applied = 0.0
         formula = "notice — no rupee amount"
     elif not active:
-        applied = 0
+        applied = 0.0
         formula = f"{binder} (not claimed)"
     elif binder == BINDER_PERCENT:
         pct = cap or 0
-        applied = int(base * pct // 100)
+        applied = round(base * pct / 100.0, 2)
         formula = f"{pct}% of {base}"
     elif binder == BINDER_AUTO_CAP:
-        applied = min(cap, base) if cap is not None else 0
+        applied = min(cap, base) if cap is not None else 0.0
         formula = f"min(cap {cap or 0}, base {base})"
     elif binder == BINDER_MIN_CLAIM_CAP:
         if cap is None:
@@ -180,7 +187,7 @@ def _apply_one(
         "cap": cap,
         "base": base,
         "claim": claim_amt if claim else 0,
-        "applied": applied,
+        "applied": round(applied, 2),
         "formula": formula,
         "components": components,
         "sub_items": entry.get("sub_items") or [],
@@ -192,30 +199,30 @@ def _apply_one(
     }
 
 
-def tax_from_slabs(taxable: int, bands: list[dict[str, Any]]) -> tuple[int, list[dict[str, Any]]]:
+def tax_from_slabs(taxable: float, bands: list[dict[str, Any]]) -> tuple[float, list[dict[str, Any]]]:
     lines: list[dict[str, Any]] = []
-    total = 0
+    total = 0.0
     ordered = sorted(bands, key=lambda b: int(b.get("band_index") or 0))
     for band in ordered:
-        lower = _as_int(band.get("lower"))
+        lower = _as_money(band.get("lower"))
         upper_raw = band.get("upper")
-        upper = None if upper_raw is None or upper_raw == "" else _as_int(upper_raw)
+        upper = None if upper_raw is None or upper_raw == "" else _as_money(upper_raw)
         rate = float(band.get("rate_percent") or 0)
         if taxable <= lower:
-            slice_amt = 0
+            slice_amt = 0.0
         elif upper is None:
-            slice_amt = max(0, taxable - lower)
+            slice_amt = max(0.0, taxable - lower)
         else:
-            slice_amt = max(0, min(taxable, upper) - lower)
-        tax = int(round(slice_amt * rate / 100.0))
-        total += tax
+            slice_amt = max(0.0, min(taxable, upper) - lower)
+        tax = round(slice_amt * rate / 100.0, 2)
+        total = round(total + tax, 2)
         lines.append(
             {
                 "band_index": band.get("band_index"),
                 "lower": lower,
                 "upper": upper,
                 "rate_percent": rate,
-                "slice": slice_amt,
+                "slice": round(slice_amt, 2),
                 "tax": tax,
                 "band_label": band.get("band_label") or "",
                 "quote": band.get("quote") or "",
@@ -228,7 +235,7 @@ def tax_from_slabs(taxable: int, bands: list[dict[str, Any]]) -> tuple[int, list
 
 
 def _legacy_terminal_items(income: dict[str, Any]) -> list[dict[str, Any]]:
-    amount = _as_int(income.get("terminal_benefit_amount"))
+    amount = _as_money(income.get("terminal_benefit_amount"))
     kind = income.get("terminal_benefit_type")
     if amount <= 0 and not str(kind or "").strip():
         return []
@@ -272,7 +279,8 @@ def calculate(
     income: dict[str, Any],
     claims: list[dict[str, Any]] | None = None,
     exclude_source_doc_id: str | None = None,
-    wht_already_paid: int = 0,
+    wht_already_paid: float = 0,
+    apit_already_paid: float = 0,
 ) -> dict[str, Any]:
     reliefs = year_store.reliefs_for_year(session, assessment_year, exclude_source_doc_id)
     rates = year_store.rates_for_year(session, assessment_year, exclude_source_doc_id)
@@ -282,39 +290,39 @@ def calculate(
     if not ordinary_rates:
         raise ValueError("no_rate_bands")
 
-    raw_employment = _as_int(income.get("employment"))
+    raw_employment = _as_money(income.get("employment"))
     terminal_items, subtract_legacy = _terminal_items(income)
     employment = raw_employment
     if subtract_legacy and terminal_items:
         legacy = terminal_items[0]
-        legacy_amount = _as_int(legacy.get("amount"))
+        legacy_amount = _as_money(legacy.get("amount"))
         if qualifying_terminal_claim(
             amount=legacy_amount,
             benefit_type=legacy.get("type"),
             loss_of_office_scheme_approved=legacy.get("loss_of_office_scheme_approved"),
         ) and raw_employment >= legacy_amount:
-            employment = raw_employment - legacy_amount
-    business = _as_int(income.get("business"))
-    investment = _as_int(income.get("investment"))
-    other = _as_int(income.get("other"))
-    ordinary_gross = employment + business + investment + other
-    qualifying_amount = 0
+            employment = round(raw_employment - legacy_amount, 2)
+    business = _as_money(income.get("business"))
+    investment = _as_money(income.get("investment"))
+    other = _as_money(income.get("other"))
+    ordinary_gross = round(employment + business + investment + other, 2)
+    qualifying_amount = 0.0
     for item in terminal_items:
-        amount = _as_int(item.get("amount"))
+        amount = _as_money(item.get("amount"))
         if qualifying_terminal_claim(
             amount=amount,
             benefit_type=item.get("type"),
             loss_of_office_scheme_approved=item.get("loss_of_office_scheme_approved"),
         ):
-            qualifying_amount += amount
-    gross = ordinary_gross + qualifying_amount
+            qualifying_amount = round(qualifying_amount + amount, 2)
+    gross = round(ordinary_gross + qualifying_amount, 2)
     packed = {
         "employment": employment,
         "business": business,
         "investment": investment,
         "other": other,
-        "interest": _as_int(income.get("interest")),
-        "rents": _as_int(income.get("rents")),
+        "interest": _as_money(income.get("interest")),
+        "rents": _as_money(income.get("rents")),
         "gross": ordinary_gross,
     }
 
@@ -327,21 +335,21 @@ def calculate(
     )
     for entry in ordered:
         line = _apply_one(entry, packed, by_id.get(str(entry.get("entry_id") or "")))
-        applied = min(int(line["applied"]), remaining)
-        line["applied"] = applied
-        remaining -= applied
+        applied = min(float(line["applied"]), remaining)
+        line["applied"] = round(applied, 2)
+        remaining = round(remaining - applied, 2)
         relief_lines.append(line)
 
     taxable = remaining
     tax_payable, slab_lines = tax_from_slabs(taxable, ordinary_rates)
-    terminal_tax = 0
+    terminal_tax = 0.0
     terminal_slab_lines: list[dict[str, Any]] = []
     terminal_benefit_lines: list[dict[str, Any]] = []
-    grouped: dict[str, list[tuple[dict[str, Any], int]]] = {}
+    grouped: dict[str, list[tuple[dict[str, Any], float]]] = {}
     group_order: list[str] = []
-    prepared: list[tuple[str, dict[str, Any], int]] = []
+    prepared: list[tuple[str, dict[str, Any], float]] = []
     for item in terminal_items:
-        amount = _as_int(item.get("amount"))
+        amount = _as_money(item.get("amount"))
         if not qualifying_terminal_claim(
             amount=amount,
             benefit_type=item.get("type"),
@@ -368,9 +376,9 @@ def calculate(
         )
         if not chosen:
             continue
-        group_total = sum(amount for _, amount in members)
+        group_total = round(sum(amount for _, amount in members), 2)
         group_tax, group_slabs = tax_from_slabs(group_total, chosen)
-        terminal_tax += group_tax
+        terminal_tax = round(terminal_tax + group_tax, 2)
         terminal_slab_lines.extend(group_slabs)
         taxed_groups.add(key)
     for key, item, amount in prepared:
@@ -384,11 +392,18 @@ def calculate(
                 "slab_lines": [],
             }
         )
-    tax_payable += terminal_tax
-    claimed_wht = _as_int(wht_already_paid if wht_already_paid else income.get("wht_already_paid"))
-    credits_applied = min(claimed_wht, tax_payable)
-    balance_payable = tax_payable - credits_applied
-    tax_refund = max(0, claimed_wht - tax_payable)
+    tax_payable = round(tax_payable + terminal_tax, 2)
+    # Prepaid credits against tax payable (not reductions of employment income):
+    # APIT = Advance Personal Income Tax deducted from salary; WHT = interest WHT.
+    claimed_apit = _as_money(
+        apit_already_paid if apit_already_paid else income.get("apit_already_paid")
+    )
+    claimed_wht = _as_money(wht_already_paid if wht_already_paid else income.get("wht_already_paid"))
+    apit_credit = min(claimed_apit, tax_payable)
+    remaining_after_apit = round(tax_payable - apit_credit, 2)
+    wht_credit = min(claimed_wht, remaining_after_apit)
+    balance_payable = round(tax_payable - apit_credit - wht_credit, 2)
+    tax_refund = max(0.0, round(claimed_apit + claimed_wht - tax_payable, 2))
     return {
         "assessment_year": assessment_year,
         "gross_income": gross,
@@ -396,14 +411,16 @@ def calculate(
         "business_income": business,
         "investment_income": investment,
         "other_income": other,
-        "total_reliefs": ordinary_gross - taxable,
+        "total_reliefs": round(ordinary_gross - taxable, 2),
         "taxable_income": taxable,
         "tax_payable": tax_payable,
         "terminal_benefit_amount": qualifying_amount,
         "terminal_benefit_tax": terminal_tax,
         "terminal_benefit_lines": terminal_benefit_lines,
+        "apit_already_paid": claimed_apit,
+        "apit_credit": apit_credit,
         "wht_already_paid": claimed_wht,
-        "wht_credit": credits_applied,
+        "wht_credit": wht_credit,
         "balance_payable": balance_payable,
         "tax_refund": tax_refund,
         "exclude_source_doc_id": exclude_source_doc_id or None,

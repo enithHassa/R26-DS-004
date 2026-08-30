@@ -10,10 +10,12 @@ from app.config import get_lm_settings
 from app.main import create_app
 
 
-def test_nlu_parse_stub_without_corpus(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("COMP_LLM_CORPUS_JSONL", raising=False)
+def test_nlu_parse_stub_without_corpus(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    missing = tmp_path / "no_corpus.jsonl"
+    monkeypatch.setenv("COMP_LLM_CORPUS_JSONL", str(missing))
     monkeypatch.delenv("COMP_LLM_RETRIEVAL_BACKEND", raising=False)
     monkeypatch.delenv("COMP_LLM_DENSE_MODEL", raising=False)
+    monkeypatch.setenv("COMP_LLM_DOMAIN_GATE_ENABLED", "false")
     get_lm_settings.cache_clear()
     with TestClient(create_app()) as client:
         r = client.post("/api/v1/nlu/parse", json={"utterance": "What is personal relief?"})
@@ -79,9 +81,10 @@ def test_nlu_parse_intent_benchmark_without_corpus(monkeypatch: pytest.MonkeyPat
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.delenv("COMP_LLM_CORPUS_JSONL", raising=False)
+    monkeypatch.setenv("COMP_LLM_CORPUS_JSONL", str(tmp_path / "no_corpus.jsonl"))
     monkeypatch.delenv("COMP_LLM_RETRIEVAL_BACKEND", raising=False)
     monkeypatch.setenv("COMP_LLM_INTENT_BENCHMARK_JSONL", str(bench))
+    monkeypatch.setenv("COMP_LLM_DOMAIN_GATE_ENABLED", "false")
     get_lm_settings.cache_clear()
     with TestClient(create_app()) as client:
         r = client.post("/api/v1/nlu/parse", json={"utterance": "question about personal relief amount"})

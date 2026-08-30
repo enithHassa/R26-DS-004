@@ -13,7 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { KgJoinDetails } from "../components/kg-join-details";
+import { DomainNotice } from "../components/domain-notice";
+import { GraphContextPanel } from "../components/graph-context-panel";
+import { anchorsFromRetrievalHits } from "../components/graph-source-anchor";
+import { intentLabel, retrievalModelLabel } from "../components/language-model-display";
+import { RetrievalResultCard } from "../components/retrieval-result-card";
 import { postNluParse } from "../api";
 
 const textareaClass =
@@ -48,14 +52,16 @@ export function NluParsePage() {
   }
 
   const res = mutation.data;
+  const graphAnchors = res ? anchorsFromRetrievalHits(res.retrieval_hits) : [];
+  const blocked = res?.domain_status != null && res.domain_status !== "in_domain";
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">NLU parse</h1>
         <p className="text-muted-foreground">
-          Calls <code className="rounded bg-muted px-1 text-xs">POST /api/v1/nlu/parse</code> —
-          intent (TF-IDF centroid when configured) and retrieval hits over your corpus.
+          Understand the likely topic behind a question and see which legal sources the system would
+          retrieve before reading full excerpts.
         </p>
       </div>
 
@@ -63,19 +69,17 @@ export function NluParsePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5" />
-            Request
+            Ask a question
           </CardTitle>
           <CardDescription>
-            Set <strong>COMP_LLM_CORPUS_JSONL</strong> and optionally{" "}
-            <strong>COMP_LLM_INTENT_BENCHMARK_JSONL</strong> on the language-model process for full
-            results. For dense retrieval with a precomputed index, the server may use{" "}
-            <strong>COMP_LLM_DENSE_EMBEDDING_BUNDLE_DIR</strong> (optional).
+            Enter a tax question in everyday language. Optional fields let you limit how many sources
+            are returned or provide an intent hint for routing.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor={`${idBase}-utt`}>Utterance</Label>
+              <Label htmlFor={`${idBase}-utt`}>Your question</Label>
               <textarea
                 id={`${idBase}-utt`}
                 className={textareaClass}
@@ -86,7 +90,7 @@ export function NluParsePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor={`${idBase}-k`}>Top-k (optional)</Label>
+                <Label htmlFor={`${idBase}-k`}>Number of sources (optional)</Label>
                 <Input
                   id={`${idBase}-k`}
                   type="number"
@@ -102,7 +106,7 @@ export function NluParsePage() {
                   id={`${idBase}-hint`}
                   value={intentHint}
                   onChange={(e) => setIntentHint(e.target.value)}
-                  placeholder="Echoed as intent when no classifier"
+                  placeholder="Used when no classifier is configured"
                 />
               </div>
             </div>
@@ -113,7 +117,7 @@ export function NluParsePage() {
                   Parsing…
                 </>
               ) : (
-                "Parse"
+                "Parse question"
               )}
             </Button>
           </form>
@@ -127,47 +131,96 @@ export function NluParsePage() {
       </Card>
 
       {res ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Response</CardTitle>
-            <CardDescription>
-              Model: <code className="text-foreground">{res.model}</code> — corpus loaded:{" "}
-              <strong>{res.corpus_loaded ? "yes" : "no"}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <div>
-                <span className="text-muted-foreground">Predicted intent</span>
-                <p className="font-medium">{res.predicted_intent ?? "—"}</p>
+        <>
+          <DomainNotice status={res.domain_status} message={res.domain_message} />
+
+          {blocked ? null : (
+          <Card className="overflow-hidden rounded-xl border border-border/80 shadow-sm">
+            <div className="h-1 w-full bg-gradient-to-r from-primary/70 to-emerald-600/60" aria-hidden />
+            <CardHeader>
+              <CardTitle className="text-lg">What we understood</CardTitle>
+              <CardDescription>
+                Plain-language summary of how the system interpreted your question and which sources
+                it matched.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-xl border border-border/70 bg-muted/15 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Your question
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-foreground">{res.utterance}</p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Intent model</span>
-                <p className="font-medium">{res.intent_model ?? "—"}</p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/70 bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Likely topic
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-foreground">
+                    {intentLabel(res.predicted_intent ?? res.intent)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {res.predicted_intent || res.intent
+                      ? "This is the closest intent label from the configured classifier."
+                      : "No intent classifier result was available for this request."}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Search method
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-foreground">
+                    {retrievalModelLabel(res.model)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Corpus loaded: {res.corpus_loaded ? "yes" : "no"}
+                    {res.intent_model ? ` · Intent model: ${res.intent_model}` : ""}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Retrieval hits</h3>
-              {res.retrieval_hits.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hits (stub or empty query).</p>
-              ) : (
-                <ul className="space-y-3 rounded-md border bg-muted/30 p-3 text-sm">
-                  {res.retrieval_hits.map((h) => (
-                    <li key={h.chunk_id} className="rounded-md bg-background/50 p-2">
-                      <div className="flex justify-between gap-4">
-                        <code className="break-all text-xs">{h.chunk_id}</code>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                          {h.score.toFixed(4)}
-                        </span>
-                      </div>
-                      <KgJoinDetails fields={h} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold">Matched sources</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Ranked document sections that best match your question.
+                  </p>
+                </div>
+                {res.retrieval_hits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No matching sources were returned. The corpus may be empty or the server is
+                    running in stub mode.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {res.retrieval_hits.map((hit, index) => (
+                      <RetrievalResultCard
+                        key={hit.chunk_id}
+                        rank={index + 1}
+                        score={hit.score}
+                        maxScore={res.retrieval_hits[0]?.score ?? hit.score}
+                        fields={hit}
+                        chunkId={hit.chunk_id}
+                        graphEnriched={Boolean(res.graph_context)}
+                        emptyExcerptMessage="This NLU view returns source metadata only. Open Law query to read the excerpted legal text for the same question."
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          )}
+
+          {!blocked && res.graph_context ? (
+            <GraphContextPanel
+              context={res.graph_context}
+              sourceAnchors={graphAnchors}
+              intentLabel={res.predicted_intent ?? res.intent}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );
