@@ -68,6 +68,7 @@ def _month_activity_for_ya(
     profile_id: uuid.UUID,
     ya_start: date,
     ya_end: date,
+    user_visible_only: bool = False,
 ) -> dict[date, dict[str, Decimal | int]]:
     """Per-month counts from all extracted rows on profile-owned documents."""
     _load_db_package()
@@ -98,6 +99,8 @@ def _month_activity_for_ya(
             ExtractedTransaction.tx_date <= ya_end,
         )
     )
+    if user_visible_only:
+        extracted_stmt = extracted_stmt.where(Document.user_visible.is_(True))
     for (tx_date,) in db.execute(extracted_stmt).all():
         bucket_month = month_start(tx_date)
         entry = activity.setdefault(bucket_month, _empty_bucket())
@@ -120,6 +123,8 @@ def _month_activity_for_ya(
             ExtractedTransaction.tx_date <= ya_end,
         )
     )
+    if user_visible_only:
+        classified_stmt = classified_stmt.where(Document.user_visible.is_(True))
     for tx_date, taxable_raw in db.execute(classified_stmt).all():
         bucket_month = month_start(tx_date)
         entry = activity.setdefault(bucket_month, _empty_bucket())
@@ -137,6 +142,7 @@ def _build_month_coverage(
     profile_id: uuid.UUID,
     tax_year: str,
     rollup_lines: list[ProfileTaxableIncomeMonthlyLine],
+    user_visible_only: bool = False,
 ) -> tuple[list[ProfileTaxableIncomeMonthCoverage], date, date]:
     ya_start, ya_end = ya_bounds_from_orm_tax_year(tax_year)
     activity = _month_activity_for_ya(
@@ -144,6 +150,7 @@ def _build_month_coverage(
         profile_id=profile_id,
         ya_start=ya_start,
         ya_end=ya_end,
+        user_visible_only=user_visible_only,
     )
 
     taxable_by_month: dict[date, Decimal] = {}

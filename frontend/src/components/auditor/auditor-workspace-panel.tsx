@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Lock, LockOpen, Search, UserRound } from "lucide-react";
+import { ChevronLeft, Lock, LockOpen, LogOut, Search, ShieldCheck, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listProfiles } from "@/features/personalized-recommendation/api/profiles";
+import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
 import type { FinancialProfile } from "@/features/personalized-recommendation/types";
 import { profileToAuditorSummary } from "@/lib/profile-bridge/profile-summary";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,9 @@ function profileMatchesQuery(profile: FinancialProfile, query: string): boolean 
 }
 
 export function AuditorWorkspacePanel() {
+  const navigate = useNavigate();
+  const fullName = useUserSessionStore((s) => s.fullName);
+  const logout = useUserSessionStore((s) => s.logout);
   const activeProfileId = useAuditorWorkspaceStore((s) => s.activeProfileId);
   const isLocked = useAuditorWorkspaceStore((s) => s.isLocked);
   const isPanelCollapsed = useAuditorWorkspaceStore((s) => s.isPanelCollapsed);
@@ -77,6 +82,11 @@ export function AuditorWorkspacePanel() {
       setPanelCollapsed(true);
       setHoverOpen(false);
     }
+  }
+
+  function handleSignOut(): void {
+    logout();
+    navigate("/login", { replace: true });
   }
 
   const panelBody = (
@@ -235,6 +245,17 @@ export function AuditorWorkspacePanel() {
           )}
         </div>
       </div>
+
+      <div className="shrink-0 border-t px-4 py-3">
+        <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{fullName ?? "Auditor"}</span>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleSignOut}>
+          <LogOut className="mr-2 h-3.5 w-3.5" aria-hidden />
+          Sign out
+        </Button>
+      </div>
     </>
   );
 
@@ -242,36 +263,51 @@ export function AuditorWorkspacePanel() {
     <>
       {/* Collapsed rail — only when collapsed and not hover-flyout */}
       {isPanelCollapsed && !hoverOpen ? (
-        <button
-          type="button"
+        <div
           className={cn(
-            "sticky top-0 hidden h-screen w-11 shrink-0 flex flex-col items-center gap-2 border-l bg-card py-5 transition-colors lg:flex",
-            "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "sticky top-0 hidden h-screen w-11 shrink-0 flex-col border-l bg-card lg:flex",
           )}
-          aria-label={
-            profileSummary
-              ? `Expand taxpayer panel — ${profileSummary.fullName}${isLocked ? ", locked" : ""}`
-              : "Expand active taxpayer panel"
-          }
-          title="Hover or click to expand"
-          onMouseEnter={() => setHoverOpen(true)}
-          onFocus={() => setHoverOpen(true)}
-          onClick={() => {
-            setPanelCollapsed(false);
-            setHoverOpen(false);
-          }}
         >
-          <UserRound className="h-5 w-5 text-muted-foreground" aria-hidden />
-          {isLocked ? <Lock className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
-          {profileSummary ? (
-            <span
-              className="max-h-[40vh] truncate text-[10px] font-medium text-muted-foreground [writing-mode:vertical-rl] rotate-180"
-              aria-hidden
-            >
-              {profileSummary.fullName}
-            </span>
-          ) : null}
-        </button>
+          <button
+            type="button"
+            className={cn(
+              "flex min-h-0 flex-1 flex-col items-center gap-2 py-5 transition-colors",
+              "hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+            aria-label={
+              profileSummary
+                ? `Expand taxpayer panel — ${profileSummary.fullName}${isLocked ? ", locked" : ""}`
+                : "Expand active taxpayer panel"
+            }
+            title="Hover or click to expand"
+            onMouseEnter={() => setHoverOpen(true)}
+            onFocus={() => setHoverOpen(true)}
+            onClick={() => {
+              setPanelCollapsed(false);
+              setHoverOpen(false);
+            }}
+          >
+            <UserRound className="h-5 w-5 text-muted-foreground" aria-hidden />
+            {isLocked ? <Lock className="h-3.5 w-3.5 text-primary" aria-hidden /> : null}
+            {profileSummary ? (
+              <span
+                className="max-h-[40vh] truncate text-[10px] font-medium text-muted-foreground [writing-mode:vertical-rl] rotate-180"
+                aria-hidden
+              >
+                {profileSummary.fullName}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            className="mb-3 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       ) : null}
 
       {/* Docked panel */}

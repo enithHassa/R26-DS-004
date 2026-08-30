@@ -27,9 +27,15 @@ class ReviewStatus(str, enum.Enum):
 
 class DocumentStatus(str, enum.Enum):
     UPLOADED = "uploaded"
+    SUBMITTED = "submitted"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class DocumentSubmittedBy(str, enum.Enum):
+    AUDITOR = "auditor"
+    TAXPAYER = "taxpayer"
 
 
 class ExtractionRunStatus(str, enum.Enum):

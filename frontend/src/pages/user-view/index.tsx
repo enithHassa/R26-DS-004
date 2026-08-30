@@ -12,6 +12,8 @@ import { UserOeReliefsPage } from "@/pages/user-view/pages/oe-reliefs";
 import { UserOeResultPage } from "@/pages/user-view/pages/oe-result";
 import { UserProfilePage } from "@/pages/user-view/pages/profile";
 import { UserRecommendationsPage } from "@/pages/user-view/pages/recommendations";
+import { UserTransactionsPage } from "@/pages/user-view/pages/transactions";
+import { UserTransactionReasoningPage } from "@/pages/user-view/pages/transaction-reasoning";
 import { PortalSummaryRedirect } from "@/pages/user-view/portal-summary-redirect";
 import {
   TAXWISE_ABOUT_YOU,
@@ -20,6 +22,7 @@ import {
   TAXWISE_OE,
   TAXWISE_PROFILE,
   TAXWISE_RECOMMENDATIONS,
+  TAXWISE_TRANSACTIONS,
 } from "@/pages/user-view/paths";
 
 export {
@@ -33,6 +36,7 @@ export {
   TAXWISE_OE_RESULT,
   TAXWISE_PROFILE,
   TAXWISE_RECOMMENDATIONS,
+  TAXWISE_TRANSACTIONS,
 } from "@/pages/user-view/paths";
 
 /**
@@ -48,6 +52,8 @@ export const userViewRoutes: RouteObject[] = [
   { path: TAXWISE_BASE, element: <UserDashboardPage /> },
   { path: TAXWISE_ABOUT_YOU, element: <UserAboutYouPage /> },
   { path: TAXWISE_PROFILE, element: <UserProfilePage /> },
+  { path: TAXWISE_TRANSACTIONS, element: <UserTransactionsPage /> },
+  { path: `${TAXWISE_TRANSACTIONS}/:extractedTransactionId`, element: <UserTransactionReasoningPage /> },
   { path: TAXWISE_RECOMMENDATIONS, element: <UserRecommendationsPage /> },
   { path: TAXWISE_FINANCIAL_IMPACT, element: <UserFinancialImpactPage /> },
   {

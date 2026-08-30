@@ -154,6 +154,8 @@ def ingest_document_metadata(
         storage_path=str(storage_path),
         financial_profile_id=financial_profile_id,
         tax_year=tax_year,
+        submitted_by="auditor",
+        user_visible=False,
     )
     db.add(document)
     db.flush()
@@ -292,6 +294,96 @@ def preview_document_extraction(
         period_start=(ctx.period_start if ctx else None),
         period_end=(ctx.period_end if ctx else None),
     )
+
+
+def save_document_for_auditor(
+    *,
+    db: Session,
+    upload: UploadFile,
+    content: bytes,
+    financial_profile_id: uuid.UUID,
+    tax_year: str | None = None,
+) -> Document:
+    """Store an auditor-uploaded statement without running extraction."""
+    if not content:
+        raise ValueError("Uploaded file is empty.")
+
+    doc_id = uuid.uuid4()
+    safe_name = _sanitize_filename(upload.filename or "uploaded_file.bin")
+    storage_dir = UPLOAD_ROOT / datetime.now(timezone.utc).strftime("%Y/%m/%d")
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    storage_path = storage_dir / f"{doc_id}_{safe_name}"
+    storage_path.write_bytes(content)
+
+    document = Document(
+        id=doc_id,
+        filename=upload.filename or safe_name,
+        content_type=upload.content_type,
+        size_bytes=len(content),
+        bank_detected=None,
+        status=DocumentStatus.UPLOADED,
+        storage_path=str(storage_path),
+        financial_profile_id=financial_profile_id,
+        tax_year=tax_year,
+        submitted_by="auditor",
+        user_visible=False,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
+def submit_document_for_review(
+    *,
+    db: Session,
+    upload: UploadFile,
+    content: bytes,
+    financial_profile_id: uuid.UUID,
+    tax_year: str | None = None,
+) -> Document:
+    """Store a taxpayer-uploaded statement for auditor review (no extraction)."""
+    if not content:
+        raise ValueError("Uploaded file is empty.")
+
+    doc_id = uuid.uuid4()
+    safe_name = _sanitize_filename(upload.filename or "uploaded_file.bin")
+    storage_dir = UPLOAD_ROOT / datetime.now(timezone.utc).strftime("%Y/%m/%d")
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    storage_path = storage_dir / f"{doc_id}_{safe_name}"
+    storage_path.write_bytes(content)
+
+    document = Document(
+        id=doc_id,
+        filename=upload.filename or safe_name,
+        content_type=upload.content_type,
+        size_bytes=len(content),
+        bank_detected=None,
+        status=DocumentStatus.SUBMITTED,
+        storage_path=str(storage_path),
+        financial_profile_id=financial_profile_id,
+        tax_year=tax_year,
+        submitted_by="taxpayer",
+        user_visible=False,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
+def release_document_to_taxpayer(db: Session, *, document_id: uuid.UUID) -> Document | None:
+    """Mark a processed document as visible in the taxpayer portal."""
+    document = db.get(Document, document_id)
+    if document is None:
+        return None
+    if document.status != DocumentStatus.COMPLETED:
+        raise ValueError("Only extracted (completed) documents can be released to the taxpayer.")
+    document.user_visible = True
+    document.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(document)
+    return document
 
 
 def list_statement_totals_for_document(
@@ -546,14 +638,35 @@ def list_documents(
     limit: int = 50,
     offset: int = 0,
     financial_profile_id: uuid.UUID | None = None,
+    user_visible: bool | None = None,
+    pending_taxpayer_release: bool | None = None,
+    submitted_by: str | None = None,
 ) -> tuple[list[tuple[Document, int, str | None]], int]:
     base = select(Document)
     if financial_profile_id is not None:
         base = base.where(Document.financial_profile_id == financial_profile_id)
+    if user_visible is not None:
+        base = base.where(Document.user_visible.is_(user_visible))
+    if submitted_by is not None:
+        base = base.where(Document.submitted_by == submitted_by)
+    if pending_taxpayer_release:
+        base = base.where(
+            Document.user_visible.is_(False),
+            Document.status.in_([DocumentStatus.COMPLETED, DocumentStatus.SUBMITTED]),
+        )
 
     count_stmt = select(func.count()).select_from(Document)
     if financial_profile_id is not None:
         count_stmt = count_stmt.where(Document.financial_profile_id == financial_profile_id)
+    if user_visible is not None:
+        count_stmt = count_stmt.where(Document.user_visible.is_(user_visible))
+    if submitted_by is not None:
+        count_stmt = count_stmt.where(Document.submitted_by == submitted_by)
+    if pending_taxpayer_release:
+        count_stmt = count_stmt.where(
+            Document.user_visible.is_(False),
+            Document.status.in_([DocumentStatus.COMPLETED, DocumentStatus.SUBMITTED]),
+        )
     total = int(db.scalar(count_stmt) or 0)
     documents = list(
         db.scalars(
