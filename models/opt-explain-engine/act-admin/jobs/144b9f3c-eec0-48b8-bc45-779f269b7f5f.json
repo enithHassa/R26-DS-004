@@ -25,5 +25,7 @@
   "included_count": 4,
   "usd_this_run": 0.118582,
   "model": "gpt-4o",
-  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-100-2026"
+  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-100-2026",
+  "activation_reset_by": "Auditor",
+  "activation_reset_at": "2026-08-30T04:01:52.277557+00:00"
 }

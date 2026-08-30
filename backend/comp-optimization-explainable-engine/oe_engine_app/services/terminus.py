@@ -171,8 +171,17 @@ def promote_act_run(
     }
 
 
-def unpromote_source_doc(session: Session, source_doc_id: str) -> dict[str, Any]:
-    """Drop one Act's promoted rows and recompile. Ingest, extract, and drafts stay."""
+def unpromote_source_doc(
+    session: Session,
+    source_doc_id: str,
+    *,
+    recompile: bool = True,
+) -> dict[str, Any]:
+    """Drop one Act's promoted rows. Ingest, extract, and drafts stay.
+
+    Set ``recompile=False`` when unpromoting several sources in a batch, then
+    call ``recompile_year_views`` once after the last delete.
+    """
     sid = (source_doc_id or "").strip()
     if not sid:
         raise ValueError("source_doc_id is required")
@@ -186,8 +195,10 @@ def unpromote_source_doc(session: Session, source_doc_id: str) -> dict[str, Any]
     if run is not None:
         session.delete(run)
     session.flush()
-    recompile_year_views(session, persist=True)
-    flags = recompare_all_facts(session)
+    flags = 0
+    if recompile:
+        recompile_year_views(session, persist=True)
+        flags = recompare_all_facts(session)
     return {
         "source_doc_id": sid,
         "removed_entities": int(removed_entities or 0),

@@ -9,9 +9,10 @@ from oe_engine_app.services.quote_gate import normalize_for_match
 from oe_engine_app.services.terminal_benefit import (
     TERMINAL_RATE_ALIASES,
     infer_employment_period_condition,
+    is_terminal_rate_group,
 )
 
-_NAMED_WINDOWS = frozenset({"first_schedule", "fifth_schedule"})
+_NAMED_WINDOWS = frozenset({"first_schedule", "fifth_schedule", "part_vi_a"})
 
 _RELIEF_GROUP_ALIASES = {
     "personal": "personal_relief",
@@ -27,6 +28,14 @@ _RELIEF_GROUP_ALIASES = {
     "contribution_to_samurdhi_shop": "qp_samurdhi_shop",
     "contribution_shop_samurdhi": "qp_samurdhi_shop",
     "samurdhi_shop_contribution": "qp_samurdhi_shop",
+    "childcare": "childcare_support_relief",
+    "childcare_support": "childcare_support_relief",
+    "childcare_relief": "childcare_support_relief",
+    "professional_skills": "professional_skills_development_relief",
+    "professional_skills_development": "professional_skills_development_relief",
+    "ev_charging": "ev_charging_infrastructure_relief",
+    "electric_vehicle_charging": "ev_charging_infrastructure_relief",
+    "ev_charging_infrastructure": "ev_charging_infrastructure_relief",
 }
 
 _RATE_GROUP_ALIASES = {
@@ -222,7 +231,166 @@ def collapse_duplicate_extract_entities(entities: list[dict[str, Any]]) -> list[
         if parent and parent in present_groups and parent != group:
             continue
         trimmed.append(row)
-    return trimmed
+    return collapse_competing_rate_ladders(trimmed)
+
+
+def _rate_applies_key(entity: dict[str, Any]) -> str:
+    text = re.sub(r"\s+", " ", str(entity.get("applies_to") or "").strip().lower())
+    text = text.replace(" and ", " or ")
+    if text.endswith("individuals"):
+        text = text[: -len("s")]
+    return text
+
+
+def _ladder_class(entity: dict[str, Any]) -> str:
+    applies = _rate_applies_key(entity)
+    group = canonical_compare_group_id(
+        str(entity.get("compare_group_id") or ""),
+        entity_kind="rate_band",
+    )
+    if is_terminal_rate_group(group) or is_terminal_rate_group(
+        str(entity.get("compare_group_id") or "")
+    ):
+        return f"terminal|{applies}|{infer_employment_period_condition(entity)}"
+    return f"ordinary|{applies}"
+
+
+def _band_float(value: object) -> float | None:
+    text = str(value or "").replace(",", "").strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _ladder_contiguous(bands: list[dict[str, Any]]) -> bool:
+    if not bands:
+        return False
+    ordered = sorted(bands, key=lambda row: int(row.get("band_index") or 0))
+    indices = [int(row.get("band_index") or 0) for row in ordered]
+    if len(indices) != len(set(indices)):
+        return False
+    prev_upper: float | None = None
+    for index, row in enumerate(ordered):
+        lower = _band_float(row.get("lower"))
+        upper = _band_float(row.get("upper"))
+        if lower is None:
+            return False
+        if index == 0 and lower != 0:
+            return False
+        if prev_upper is not None and lower not in (prev_upper, prev_upper + 1):
+            return False
+        if upper is not None and upper <= lower:
+            return False
+        prev_upper = upper
+    return True
+
+
+def _rate_window_rank(entity: dict[str, Any]) -> int:
+    window = _window_id(entity)
+    if window == "first_schedule":
+        return 0
+    if window in _NAMED_WINDOWS:
+        return 1
+    return 2
+
+
+def _chain_sort_key(bands: list[dict[str, Any]]) -> tuple:
+    window = min((_rate_window_rank(row) for row in bands), default=9)
+    latest = max((str(row.get("effective_from") or "") for row in bands), default="")
+    first_id = min((str(row.get("entry_id") or "") for row in bands), default="")
+    return (1 if _ladder_contiguous(bands) else 0, -window, latest, first_id)
+
+
+def _entry_token(entity: dict[str, Any]) -> str:
+    return str(entity.get("entry_id") or "") or str(id(entity))
+
+
+def _split_by_window(bands: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    by_window: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for band in bands:
+        key = _window_id(band) or "_"
+        if key not in by_window:
+            order.append(key)
+            by_window[key] = []
+        by_window[key].append(band)
+    return [by_window[key] for key in order]
+
+
+def _split_lower_zero_chains(bands: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    starts = [band for band in bands if _band_float(band.get("lower")) == 0]
+    if len(starts) <= 1:
+        return [bands]
+    assigned: set[str] = set()
+    chains: list[list[dict[str, Any]]] = []
+    for start in starts:
+        token = _entry_token(start)
+        if token in assigned:
+            continue
+        chain = [start]
+        assigned.add(token)
+        prev = start
+        while True:
+            prev_upper = _band_float(prev.get("upper"))
+            if prev_upper is None:
+                break
+            nxt = next(
+                (
+                    band
+                    for band in bands
+                    if _entry_token(band) not in assigned
+                    and _band_float(band.get("lower")) in (prev_upper, prev_upper + 1)
+                ),
+                None,
+            )
+            if nxt is None:
+                break
+            chain.append(nxt)
+            assigned.add(_entry_token(nxt))
+            prev = nxt
+        chains.append(chain)
+    leftover = [band for band in bands if _entry_token(band) not in assigned]
+    if leftover:
+        chains.append(leftover)
+    return chains
+
+
+def collapse_competing_rate_ladders(entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One ordinary / terminal staircase per taxpayer class when an Act reprints an old table.
+
+    A new First Schedule (e.g. 0–1.2M at 5%) plus a consolidated reprint (0–1M at 6%)
+    otherwise fails activate with duplicate band_index / gap-or-overlap errors.
+    """
+    by_class: dict[str, list[dict[str, Any]]] = {}
+    for entity in entities:
+        if entity.get("entity_kind") != "rate_band":
+            continue
+        by_class.setdefault(_ladder_class(entity), []).append(entity)
+    keep_ids: set[str] = set()
+    for bands in by_class.values():
+        if _ladder_contiguous(bands):
+            keep_ids.update(_entry_token(band) for band in bands)
+            continue
+        candidates: list[list[dict[str, Any]]] = []
+        for window_bands in _split_by_window(bands):
+            if _ladder_contiguous(window_bands):
+                candidates.append(window_bands)
+            else:
+                candidates.extend(_split_lower_zero_chains(window_bands))
+        valid = [chain for chain in candidates if _ladder_contiguous(chain)]
+        winner = max(valid, key=_chain_sort_key) if valid else bands
+        keep_ids.update(_entry_token(band) for band in winner)
+    out: list[dict[str, Any]] = []
+    for entity in entities:
+        if entity.get("entity_kind") != "rate_band":
+            out.append(entity)
+            continue
+        if _entry_token(entity) in keep_ids:
+            out.append(entity)
+    return out
 
 
 def _tidy_sentence(text: str, *, question: bool) -> str:

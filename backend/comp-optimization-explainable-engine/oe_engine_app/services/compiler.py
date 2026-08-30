@@ -19,7 +19,11 @@ from oe_engine_app.services.definitions import (
     interpretation_section_ref,
 )
 from oe_engine_app.services.engine_scope import is_promotable_scope
-from oe_engine_app.services.extract_dedupe import canonical_compare_group_id, named_window_rank
+from oe_engine_app.services.extract_dedupe import (
+    canonical_compare_group_id,
+    collapse_competing_rate_ladders,
+    named_window_rank,
+)
 from oe_engine_app.services.sub_items import sub_items_for
 from oe_engine_app.services.terminal_benefit import (
     TERMINAL_BENEFIT_GROUP,
@@ -692,12 +696,18 @@ def compile_maps(
                 rate_winners[key] = row
         bands: list[dict[str, Any]] = []
         for key, winner in rate_winners.items():
+            same: list[dict[str, Any]] = []
             for row, payload in prepared:
                 if row.source_doc_id != winner.source_doc_id:
                     continue
                 if str(payload.get("ladder_key") or compile_rate_key(payload)) != key:
                     continue
-                bands.append(dict(payload))
+                tagged = dict(payload)
+                tagged.setdefault("entity_kind", "rate_band")
+                same.append(tagged)
+            # One Act PDF often reprints an old 10M terminal table next to the new
+            # 1M table under the same last-wins key. Keep one contiguous staircase.
+            bands.extend(collapse_competing_rate_ladders(same))
         bands.sort(
             key=lambda b: (
                 str(b.get("compare_group_id") or ""),

@@ -18,6 +18,7 @@ import {
   countReviewRows,
   groupReliefsBySection,
   groupRatesBySection,
+  isIndividualEngineRow,
   RateBandReviewSection,
   LiveCatalogPreviewPanel,
   RejectedNoiseSection,
@@ -41,8 +42,9 @@ export function ActAdminReviewPage() {
   });
 
   const review = reviewQuery.data;
-  const alreadyInSystem =
-    Boolean(review?.already_in_system) || Boolean(review?.ingest_note);
+  // Corpus skip (same PDF hash) is not a live year-view promote. Only a promoted
+  // run locks review as already-in-system.
+  const alreadyInSystem = Boolean(review?.already_in_system);
   const yearKindStamp = useMemo(() => {
     const rows = [...(review?.reliefs ?? []), ...(review?.rates ?? [])];
     return rows.map((row) => `${row.entry_id}:${row.year_kind ?? ""}`).join("|");
@@ -69,11 +71,8 @@ export function ActAdminReviewPage() {
       "",
   ).trim();
   const preferredPreviewYear = (() => {
-    if (alreadyInSystem && actTargetYear && previewYears.includes(actTargetYear)) {
+    if (actTargetYear && previewYears.includes(actTargetYear)) {
       return actTargetYear;
-    }
-    if (alreadyInSystem && previewYears.includes("2018_19")) {
-      return "2018_19";
     }
     return previewYears[previewYears.length - 1] || "";
   })();
@@ -92,6 +91,7 @@ export function ActAdminReviewPage() {
     queryFn: () => getActAdminCatalogPreview(sourceDocId, effectivePreviewYear),
     enabled: Boolean(sourceDocId) && Boolean(effectivePreviewYear),
     retry: false,
+    staleTime: 0,
   });
 
   const activate = useMutation({
@@ -121,9 +121,13 @@ export function ActAdminReviewPage() {
   const rejectedNoise = useMemo(() => review?.rejected_noise ?? [], [review]);
   const needsNewYearChoice =
     !alreadyInSystem &&
-    [...reliefs, ...rates].some((row) => String(row.year_kind_suggested ?? "") === "NEW_YEAR");
+    [...reliefs, ...rates].some(
+      (row) =>
+        isIndividualEngineRow(row) && String(row.year_kind_suggested ?? "") === "NEW_YEAR",
+    );
   const yearKindSample = [...reliefs, ...rates].find(
-    (row) => String(row.year_kind_suggested ?? "") === "NEW_YEAR",
+    (row) =>
+      isIndividualEngineRow(row) && String(row.year_kind_suggested ?? "") === "NEW_YEAR",
   );
 
   function applyReview(updated: typeof review, resetYear = false): void {
@@ -177,11 +181,15 @@ export function ActAdminReviewPage() {
 
   function handleActivateClick(): void {
     if (alreadyInSystem) {
-      setAlreadyInSystemNotice(
-        "This document is already extracted and in the system.",
+      window.alert(
+        "This Act is already live in year views.",
       );
       return;
     }
+    const ok = window.confirm(
+      "Publish YA 2027/28 into live year views?\n\nTaxWise and auditor year pickers will show 2027/28 with the approved slabs and reliefs. Rejected rows stay out.",
+    );
+    if (!ok) return;
     setAlreadyInSystemNotice(null);
     activate.mutate();
   }
@@ -192,8 +200,8 @@ export function ActAdminReviewPage() {
         <h2 className="text-lg font-semibold">{review?.act_title ?? "Review extract"}</h2>
         <p className="text-sm text-muted-foreground">
           {alreadyInSystem
-            ? `${review?.entity_count ?? 0} individual income tax rules already live in the catalog (read-only demo).`
-            : `${review?.entity_count ?? 0} individual income tax rows to review before activate.`}
+            ? `${review?.entity_count ?? 0} rules already live in the catalog (read-only demo).`
+            : `${review?.entity_count ?? 0} rows to review before activate — including entity/other rules you must Accept or Reject.`}
         </p>
       </div>
 
@@ -223,9 +231,7 @@ export function ActAdminReviewPage() {
             extractedAt={review.extracted_at}
             entityCount={review.entity_count}
             extractedEntityCount={review.extracted_entity_count}
-            outOfScopeCount={
-              alreadyInSystem ? rejectedNoise.length : review.out_of_scope_count
-            }
+            outOfScopeCount={review.out_of_scope_count}
             note={review.note}
             alreadyInSystem={alreadyInSystem}
           />
@@ -281,7 +287,7 @@ export function ActAdminReviewPage() {
             <p className="text-sm text-muted-foreground">
               {alreadyInSystem
                 ? "Approved bands are read-only. Rejected bands stay out of year views."
-                : "Review the exact Act quote on each band, then Quick approve or Reject. Auditors with legal knowledge should check the quote against the PDF."}
+                : "Review the exact Act quote on each band, then Quick approve or Reject. Entity / other taxpayer rates also need Accept or Reject — they stay out of year views."}
             </p>
           </div>
           {rateSections.map(([section, rows]) => (
@@ -300,7 +306,9 @@ export function ActAdminReviewPage() {
               onReject={(entryId) => void patchRow(entryId, { review_status: "rejected" })}
               onSetYearKind={(kind) =>
                 void patchYearKindRows(
-                  rows.map((row) => String(row.entry_id ?? "")),
+                  rows
+                    .filter((row) => isIndividualEngineRow(row))
+                    .map((row) => String(row.entry_id ?? "")),
                   kind,
                 )
               }
@@ -318,6 +326,29 @@ export function ActAdminReviewPage() {
         alreadyInSystem={alreadyInSystem}
       />
 
+      {activate.isPending ? (
+        <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm" role="status">
+          Publishing YA 2027/28 into year views…
+        </p>
+      ) : null}
+      {activate.isSuccess ? (
+        <p
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950"
+          role="status"
+        >
+          Done. YA 2027/28 is live for auditor OE Engine and TaxWise. Open Interview or TaxWise and
+          pick 2027/28 — or use Past Acts to hide it after the demo.
+        </p>
+      ) : null}
+      {activate.isError ? (
+        <p
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
+          {activate.error instanceof Error ? activate.error.message : "Activation failed"}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -330,7 +361,11 @@ export function ActAdminReviewPage() {
           }
           onClick={handleActivateClick}
         >
-          Activate into year views
+          {activate.isPending
+            ? "Activating…"
+            : activate.isSuccess || alreadyInSystem
+              ? "Activated"
+              : "Activate into year views"}
         </Button>
         <Button type="button" variant="outline" asChild>
           <Link to="/optimization-explainable-engine/act-admin">Back to queue</Link>
@@ -369,18 +404,6 @@ export function ActAdminReviewPage() {
             </ul>
           ) : null}
         </div>
-      ) : null}
-
-      {activate.isSuccess ? (
-        <p className="text-sm text-muted-foreground">
-          Activated. Rejected rows were not promoted. New years and approved reliefs are live for
-          auditor OE Engine and TaxWise — refresh year pickers if a tab was already open.
-        </p>
-      ) : null}
-      {activate.isError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {activate.error instanceof Error ? activate.error.message : "Activation failed"}
-        </p>
       ) : null}
     </div>
   );
