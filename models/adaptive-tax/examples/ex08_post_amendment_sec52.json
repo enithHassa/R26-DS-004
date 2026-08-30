@@ -1,0 +1,83 @@
+{
+  "id": "ex08",
+  "scenario": "Dual YA personal relief adaptivity (Act 02/2025)",
+  "key_assertion": "Same inputs: YA 2024/25 personal relief 1.2M vs YA 2025/26 personal relief 1.8M → different tax (no fictional aggregate QP cap)",
+  "assert_variants_differ": true,
+  "variants": [
+    {
+      "id": "ex08_ya_2024_25",
+      "label": "YA 2024/25 personal relief 1_200_000",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "3000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "1500000",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "18000",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "deduct_qualifying_payment",
+        "apply_personal_relief",
+        "slab_band_1",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "ird-ira-2017-base",
+        "bootstrap:sec52_deduct_qp_2024_25",
+        "bootstrap:personal_relief",
+        "bootstrap:personal_relief_2024_25",
+        "personal_relief",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:first_schedule_rates_2024_25",
+        "fs_2024_25_band_1"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "1500000"
+      }
+    },
+    {
+      "id": "ex08_ya_2025_26",
+      "label": "YA 2025/26 personal relief 1_800_000 (Act 02/2025)",
+      "inputs": {
+        "assessment_year": "2025_26",
+        "resident_status": "resident",
+        "employment_income": "3000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "1500000",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current"
+      },
+      "expected_final_tax_lkr": "0",
+      "expected_rules_applied": [
+        "sum_assessable",
+        "deduct_qualifying_payment",
+        "apply_personal_relief",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:sum_assessable",
+        "bootstrap:employment_income",
+        "ird-ira-2017-base",
+        "bootstrap:sec52_deduct_qp_2025_26",
+        "bootstrap:personal_relief",
+        "bootstrap:personal_relief_2025_26",
+        "personal_relief",
+        "ird-amend-2025-02",
+        "bootstrap:first_schedule_rates",
+        "bootstrap:first_schedule_rates_2025_26"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "1500000"
+      }
+    }
+  ]
+}

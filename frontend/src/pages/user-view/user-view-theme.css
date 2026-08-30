@@ -1,0 +1,27 @@
+/* Scoped dark theme for taxpayer User View — does not affect AppShell or auditor pages. */
+.user-view {
+  --uv-bg: #0b1120;
+  --uv-bg-elevated: #111827;
+  --uv-bg-card: #151c2e;
+  --uv-border: rgba(148, 163, 184, 0.12);
+  --uv-text: #f8fafc;
+  --uv-text-muted: #94a3b8;
+  --uv-accent: #2dd4bf;
+  --uv-accent-hover: #14b8a6;
+  --uv-accent-foreground: #0b1120;
+
+  min-height: 100vh;
+  background: var(--uv-bg);
+  color: var(--uv-text);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* shadcn Card defaults use light-theme foreground — override inside TaxWise shell */
+.user-view [data-slot="card"],
+.user-view .rounded-lg.border {
+  --tw-text-opacity: 1;
+}
+
+.user-view .text-card-foreground {
+  color: var(--uv-text);
+}

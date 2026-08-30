@@ -2,6 +2,10 @@ import { Navigate, useRoutes, type RouteObject } from "react-router-dom";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { features } from "@/features";
+import { FinancialIntakePage } from "@/features/personalized-recommendation/pages/financial-intake";
+import { UserLoginPage } from "@/features/personalized-recommendation/pages/user-login";
+import { demoRoutes } from "@/pages/demo";
+import { userViewRoutes } from "@/pages/user-view";
 
 function buildOutletChildren(): RouteObject[] {
   return features.flatMap((feature) => {
@@ -22,6 +26,16 @@ export default function App() {
     { path: "/tax-optimization/compliance", element: <Navigate to="/tax/compliance" replace /> },
     { path: "/tax-optimization/compare", element: <Navigate to="/tax/compare" replace /> },
     { path: "/tax-optimization/explorer", element: <Navigate to="/tax/explorer" replace /> },
+    { path: "/tax-optimization/filing", element: <Navigate to="/tax/filing" replace /> },
+    { path: "/login", element: <UserLoginPage /> },
+    // Comp 3 taxpayer onboarding / hub (not TaxWise shell)
+    { path: "/portal/financial-intake", element: <FinancialIntakePage /> },
+    { path: "/portal/about-you", element: <Navigate to="/taxwise?habits=open" replace /> },
+    // TaxWise user-view (`/taxwise/*`) + legacy `/portal` redirects
+    ...userViewRoutes,
+    ...demoRoutes,
   ];
-  return useRoutes(routes);
+  return useRoutes(routes) ?? (
+    <div className="p-6 text-sm text-muted-foreground">No page matched this URL.</div>
+  );
 }

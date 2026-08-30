@@ -31,7 +31,13 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 from pypdf import PdfReader
 
-from ird_corpus_lib import CORPUS_VERSION, emit_pages_to_jsonl, normalize_doc_meta
+from ird_corpus_lib import (
+    CORPUS_VERSION,
+    DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_MAX_CHUNK_CHARS,
+    emit_pages_to_jsonl,
+    normalize_doc_meta,
+)
 from ird_pdf_outline import flatten_pdf_outline, outline_breadcrumb_map
 
 
@@ -96,9 +102,16 @@ def _load_doc_meta(path: Path | None, overrides: dict[str, str]) -> dict[str, ob
             raise SystemExit("--doc-meta-json must contain a JSON object")
         base.update(raw)
     base.update({k: v for k, v in overrides.items() if v})
-    # normalize_doc_meta expects str values
-    str_row = {k: str(v) if v is not None else "" for k, v in base.items()}
-    return normalize_doc_meta(str_row)
+    # Preserve lists/bools for YA and flags; stringify only scalar fields.
+    row: dict[str, object] = {}
+    for k, v in base.items():
+        if v is None:
+            row[k] = ""
+        elif isinstance(v, (list, bool, int, float)):
+            row[k] = v
+        else:
+            row[k] = str(v)
+    return normalize_doc_meta(row)  # type: ignore[arg-type]
 
 
 def _resolve_source_doc_ids(
@@ -127,6 +140,7 @@ def emit_corpus_jsonl_for_pdf(
     doc_meta: dict[str, object],
     extract_tables: bool,
     use_pdf_outline: bool = True,
+    section_aware: bool = False,
 ) -> tuple[int, int]:
     pages = extract_pdf_pages(pdf_path)
     corpus_jsonl.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +174,7 @@ def emit_corpus_jsonl_for_pdf(
             tables_by_page=tables_by_page,
             table_method=table_method,
             outline_breadcrumb_by_page=outline_map,
+            section_aware=section_aware,
         )
 
 
@@ -196,8 +211,13 @@ def main() -> None:
     parser.add_argument("--doc-type", type=str, default="", dest="doc_type")
     parser.add_argument("--source-url", type=str, default="", dest="source_url")
     parser.add_argument("--title", type=str, default="", help="Document title for metadata")
-    parser.add_argument("--chunk-chars", type=int, default=1200, help="Max characters per chunk")
-    parser.add_argument("--chunk-overlap", type=int, default=150, help="Overlap between chunks")
+    parser.add_argument("--chunk-chars", type=int, default=DEFAULT_MAX_CHUNK_CHARS, help="Max characters per chunk")
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=DEFAULT_CHUNK_OVERLAP,
+        help="Overlap between chunks (used when a provision exceeds max size)",
+    )
     parser.add_argument(
         "--corpus-append",
         action="store_true",
@@ -213,7 +233,19 @@ def main() -> None:
         action="store_true",
         help="Do not attach pdf_outline_breadcrumb from PDF bookmarks",
     )
+    parser.add_argument(
+        "--section-aware",
+        action="store_true",
+        help="Provision-preserving section/paragraph chunking (section_aware_v1)",
+    )
+    parser.add_argument(
+        "--no-section-aware",
+        action="store_true",
+        help="Force legacy page-window chunking",
+    )
     args = parser.parse_args()
+
+    section_aware = bool(args.section_aware) and not bool(args.no_section_aware)
 
     doc_ids: list[str] | None = None
     if args.corpus_jsonl:
@@ -255,6 +287,7 @@ def main() -> None:
                 doc_meta=doc_meta,
                 extract_tables=args.extract_tables,
                 use_pdf_outline=not args.no_pdf_outline,
+                section_aware=section_aware,
             )
             print(
                 f"corpus chunks for {pdf.name}: text={tn} tables={tabn} -> {args.corpus_jsonl}"

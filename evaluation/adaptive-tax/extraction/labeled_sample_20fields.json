@@ -1,0 +1,31 @@
+{
+  "sample_id": "act_02_2025_personal_relief_10fields",
+  "source_amendment": "IR Act No. 02/2025 (Fifth Schedule para 2(a) personal relief)",
+  "source_doc_id": "ird-amend-2025-02",
+  "gold_source": "models/adaptive-tax/fixtures/section52_extract_sample.json",
+  "notes": "Ten labeled scalar fields for personal relief limit (Path B: Act 02/2025 does not amend a fictional Sec 52 aggregate QP cap).",
+  "field_schema": [
+    "section",
+    "paragraph",
+    "rule_type",
+    "concept_id",
+    "condition",
+    "formula",
+    "threshold",
+    "maximum",
+    "effective_date",
+    "amends_section"
+  ],
+  "fields": [
+    {"field_id": "r0.section", "rule_index": 0, "path": "section", "gold": "Fifth Schedule"},
+    {"field_id": "r0.paragraph", "rule_index": 0, "path": "paragraph", "gold": "2(a)"},
+    {"field_id": "r0.rule_type", "rule_index": 0, "path": "rule_type", "gold": "limit"},
+    {"field_id": "r0.concept_id", "rule_index": 0, "path": "concept_id", "gold": "personal_relief"},
+    {"field_id": "r0.condition", "rule_index": 0, "path": "condition", "gold": "Resident individual personal relief (Act 02/2025)"},
+    {"field_id": "r0.formula", "rule_index": 0, "path": "formula", "gold": null},
+    {"field_id": "r0.threshold", "rule_index": 0, "path": "threshold", "gold": null},
+    {"field_id": "r0.maximum", "rule_index": 0, "path": "maximum", "gold": 1800000.0},
+    {"field_id": "r0.effective_date", "rule_index": 0, "path": "effective_date", "gold": "2025-04-01"},
+    {"field_id": "r0.amends_section", "rule_index": 0, "path": "amends_section", "gold": "Fifth Schedule"}
+  ]
+}

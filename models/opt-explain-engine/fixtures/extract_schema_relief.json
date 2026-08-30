@@ -1,0 +1,31 @@
+{
+  "entity_kind": "relief",
+  "entry_id": "oee-act-24-2017:fifth_schedule:relief:0",
+  "source_doc_id": "oee-act-24-2017",
+  "compare_group_id": "fifth_schedule_1a_iia",
+  "display_name": "Approved charity donation by individual",
+  "paragraph_ref": "1(a)(iia)",
+  "section_ref": "Fifth Schedule",
+  "act_name": "Inland Revenue Act, No. 24 of 2017",
+  "cap_amount": "75000",
+  "unit": "lkr",
+  "quote": "(iia) in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less",
+  "eligibility": {
+    "text": "An individual who donates to an approved charitable institution",
+    "review_status": "pending",
+    "quote": "in the case of an individual, one-third of the taxable income of the individual or Rupees seventy five thousand, whichever is less"
+  },
+  "required_evidence": [],
+  "filing_line": "",
+  "stacking": "",
+  "effective_from": "",
+  "effective_to": "",
+  "review_status": "pending",
+  "quote_ok_window": true,
+  "quote_ok_full_doc": true,
+  "quote_source": "text_stream",
+  "pass2_verbatim": true,
+  "pass2_note": "The candidate quote appears verbatim in the source text, ignoring whitespace differences.",
+    "included": true,
+    "engine_scope": "individual"
+}

@@ -11,9 +11,14 @@ from .document_ingestion import (
     list_extracted_transactions_for_export,
     list_document_extracted_transactions,
     list_statement_totals_for_document,
+    list_documents,
     preview_extracted_transactions_for_export,
     preview_document_extraction,
     re_extract_document,
+    release_document_to_taxpayer,
+    rename_document,
+    save_document_for_auditor,
+    submit_document_for_review,
 )
 
 __all__ = [
@@ -27,7 +32,12 @@ __all__ = [
     "list_extracted_transactions_for_export",
     "list_document_extracted_transactions",
     "list_statement_totals_for_document",
+    "list_documents",
     "preview_extracted_transactions_for_export",
     "preview_document_extraction",
     "re_extract_document",
+    "release_document_to_taxpayer",
+    "rename_document",
+    "save_document_for_auditor",
+    "submit_document_for_review",
 ]

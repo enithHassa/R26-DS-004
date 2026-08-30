@@ -1,0 +1,324 @@
+[
+  {
+    "row": 2,
+    "cells": [
+      {
+        "col": "B",
+        "val": "MR. G D S U CHANDRASENA"
+      }
+    ]
+  },
+  {
+    "row": 3,
+    "cells": [
+      {
+        "col": "B",
+        "val": "TIN Number"
+      },
+      {
+        "col": "C",
+        "val": "106279837"
+      },
+      {
+        "col": "F",
+        "val": "Suc62oCt"
+      }
+    ]
+  },
+  {
+    "row": 4,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Tax Computation for the Y/A 2023/2024"
+      }
+    ]
+  },
+  {
+    "row": 7,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Employeement Income"
+      },
+      {
+        "col": "F",
+        "val": "0"
+      }
+    ]
+  },
+  {
+    "row": 8,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Interest Income"
+      },
+      {
+        "col": "F",
+        "val": "=+'UPLOAD FILE'!J71"
+      }
+    ]
+  },
+  {
+    "row": 9,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Assesable Income"
+      },
+      {
+        "col": "F",
+        "val": "=SUM(F7:F8)"
+      }
+    ]
+  },
+  {
+    "row": 11,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Less- Sec -52"
+      },
+      {
+        "col": "F",
+        "val": "-"
+      }
+    ]
+  },
+  {
+    "row": 13,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Tax Free Allowance"
+      },
+      {
+        "col": "F",
+        "val": "-1200000"
+      }
+    ]
+  },
+  {
+    "row": 14,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Solar Releif"
+      },
+      {
+        "col": "F",
+        "val": "-600000"
+      }
+    ]
+  },
+  {
+    "row": 15,
+    "cells": [
+      {
+        "col": "F",
+        "val": "-"
+      }
+    ]
+  },
+  {
+    "row": 17,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Taxable Income"
+      },
+      {
+        "col": "F",
+        "val": "=F9+F13+F14"
+      }
+    ]
+  },
+  {
+    "row": 19,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Gross Tax Liability"
+      }
+    ]
+  },
+  {
+    "row": 20,
+    "cells": [
+      {
+        "col": "B",
+        "val": "First"
+      },
+      {
+        "col": "C",
+        "val": "500000"
+      },
+      {
+        "col": "D",
+        "val": "0.06"
+      },
+      {
+        "col": "E",
+        "val": "=C20*D20"
+      }
+    ]
+  },
+  {
+    "row": 21,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Next"
+      },
+      {
+        "col": "C",
+        "val": "500000"
+      },
+      {
+        "col": "D",
+        "val": "0.12"
+      },
+      {
+        "col": "E",
+        "val": "=C21*D21"
+      }
+    ]
+  },
+  {
+    "row": 22,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Next"
+      },
+      {
+        "col": "C",
+        "val": "500000"
+      },
+      {
+        "col": "D",
+        "val": "0.18"
+      },
+      {
+        "col": "E",
+        "val": "=C22*D22"
+      }
+    ]
+  },
+  {
+    "row": 23,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Next"
+      },
+      {
+        "col": "C",
+        "val": "500000"
+      },
+      {
+        "col": "D",
+        "val": "0.24"
+      },
+      {
+        "col": "E",
+        "val": "=C23*D23"
+      }
+    ]
+  },
+  {
+    "row": 24,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Next"
+      },
+      {
+        "col": "C",
+        "val": "500000"
+      },
+      {
+        "col": "D",
+        "val": "0.3"
+      },
+      {
+        "col": "E",
+        "val": "=C24*D24"
+      }
+    ]
+  },
+  {
+    "row": 25,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Balance"
+      },
+      {
+        "col": "C",
+        "val": "=C26-C20-C21-C22-C23-C24"
+      },
+      {
+        "col": "D",
+        "val": "0.36"
+      },
+      {
+        "col": "E",
+        "val": "=C25*D25"
+      },
+      {
+        "col": "F",
+        "val": "=SUM(E20:E25)"
+      }
+    ]
+  },
+  {
+    "row": 26,
+    "cells": [
+      {
+        "col": "C",
+        "val": "=+F17"
+      },
+      {
+        "col": "F",
+        "val": "=SUM(F25)"
+      }
+    ]
+  },
+  {
+    "row": 29,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Less - Tax Credits"
+      }
+    ]
+  },
+  {
+    "row": 30,
+    "cells": [
+      {
+        "col": "B",
+        "val": "WHT"
+      },
+      {
+        "col": "F",
+        "val": "=-'UPLOAD FILE'!L71"
+      }
+    ]
+  },
+  {
+    "row": 32,
+    "cells": [
+      {
+        "col": "B",
+        "val": "Balance Tax Payable/( Refund)"
+      },
+      {
+        "col": "F",
+        "val": "=F26+F30"
+      }
+    ]
+  }
+]

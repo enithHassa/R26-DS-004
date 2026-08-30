@@ -9,13 +9,42 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
 
   const msgLower = (error.message ?? "").toLowerCase();
   if (error.code === "ECONNABORTED" || msgLower.includes("timeout")) {
-    return apiPrefix.includes("optimization")
-      ? "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running."
-      : "Request timed out. Check your connection and try again.";
+    if (apiPrefix.includes("optimization-explainable-engine")) {
+      return "Optimization and Explainable Engine did not respond in time. Confirm the service on port 8009 is running. Hide / Activate can take about a minute while year views rebuild.";
+    }
+    if (apiPrefix.includes("optimization-explainable")) {
+      return "Optimization and Explainable did not respond in time. Confirm the service on port 8008 is running.";
+    }
+    if (apiPrefix.includes("adaptive-tax")) {
+      return "Adaptive Tax did not respond in time. Confirm the service on port 8005 is running. Extract/approve with GPT-5 can take several minutes — wait and click Open review, or retry.";
+    }
+    if (apiPrefix.includes("optimization")) {
+      return "The tax service did not respond in time. ML ranking can take over a minute — try again, or use Rule-based ranking for a quicker result. If it keeps failing, confirm the API on port 8002 is running.";
+    }
+    return "Request timed out. Check your connection and try again.";
   }
 
   const status = error.response?.status;
   const data = error.response?.data as unknown;
+  const hasFastApiDetail = Boolean(
+    data && typeof data === "object" && data !== null && "detail" in data,
+  );
+  const proxyDown =
+    error.code === "ECONNREFUSED" ||
+    error.code === "ERR_NETWORK" ||
+    msgLower.includes("econnrefused") ||
+    ((status === 500 || status === 502 || status === 503 || status === 504) &&
+      !hasFastApiDetail);
+
+  if (proxyDown && apiPrefix.includes("adaptive-tax")) {
+    return "Cannot reach Adaptive Tax on port 8005. Start that service, then click Continue again. Catalog Admin does not need the API gateway on 8000. After a vite.config.ts change, restart npm run dev.";
+  }
+  if (proxyDown && apiPrefix.includes("optimization-explainable-engine")) {
+    return "Cannot reach Optimization and Explainable Engine on port 8009. Start that service and retry.";
+  }
+  if (proxyDown && apiPrefix.includes("optimization-explainable")) {
+    return "Cannot reach Optimization and Explainable on port 8008. Start that service and retry.";
+  }
 
   if (data && typeof data === "object" && "detail" in data) {
     const raw = (data as { detail: unknown }).detail;
@@ -37,7 +66,17 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
         message = String(raw);
       }
     }
-    if (status === 404 && apiPrefix.includes("optimization")) {
+    if (
+      status === 404 &&
+      apiPrefix.includes("optimization-explainable-engine")
+    ) {
+      return `${message} — Act admin route missing on port 8009. Restart the Optimization and Explainable Engine with the latest code and set OE_ENGINE_ACT_ADMIN_TOKEN in .env.`;
+    }
+    if (
+      status === 404 &&
+      apiPrefix.includes("optimization") &&
+      !apiPrefix.includes("optimization-explainable")
+    ) {
       return `${message} — Tax API route missing. Restart comp-tax-optimization (port 8002) with the latest code. In Vite dev, leave VITE_API_BASE_URL unset so requests proxy to 8002, or ensure the gateway forwards to an updated optimization build.`;
     }
     return status ? `${message} (HTTP ${status})` : message;
@@ -70,11 +109,14 @@ function formatAxiosError(error: unknown, apiPrefix: string): string {
  *
  *   export const api = createApiClient("/api/v1/recommendation");
  */
-export function createApiClient(prefix: string): AxiosInstance {
+export function createApiClient(
+  prefix: string,
+  options?: { timeoutMs?: number },
+): AxiosInstance {
   const baseURL = `${GATEWAY_BASE_URL}${prefix}`;
   const client = axios.create({
     baseURL,
-    timeout: 30_000,
+    timeout: options?.timeoutMs ?? 30_000,
     headers: { "Content-Type": "application/json" },
   });
 

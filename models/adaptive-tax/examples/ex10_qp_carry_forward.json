@@ -1,0 +1,46 @@
+{
+  "id": "ex10",
+  "scenario": "Sec 52(4) CF from undeducted 1(b)(i) when assessable income insufficient (YA 2025/26)",
+  "key_assertion": "Insufficient assessable income (Act 11/2026): Gov QP claim exceeds income room → carry_forward_out = eligible undeducted amount only (not fictional aggregate cap room).",
+  "inputs": {
+    "assessment_year": "2025_26",
+    "resident_status": "resident",
+    "employment_income": "1500000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "qualifying_payment_brought_forward": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current",
+    "filing_lines": [
+      {"component_id": "qp_government_sri_lanka", "amount": "2000000"}
+    ]
+  },
+  "expected_final_tax_lkr": "0",
+  "expected_qualifying_payment_carry_forward_out": "500000",
+  "expected_rules_applied": [
+    "aggregate_qualifying_payment_components",
+    "sum_assessable",
+    "evaluate_qualifying_payment_categories",
+    "deduct_qualifying_payment",
+    "carry_forward_qualifying_payment_out",
+    "apply_personal_relief",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:aggregate_qualifying_payment_components",
+    "bootstrap:employment_income",
+    "bootstrap:qp_government_sri_lanka",
+    "bootstrap:sec52_carry_forward_2025_26",
+    "bootstrap:sec52_deduct_qp_2025_26",
+    "bootstrap:sum_assessable",
+    "ird-amend-2026-11",
+    "ird-amend-2025-02",
+    "ird-ira-2017-base",
+    "personal_relief"
+  ],
+  "expected_deduction_allowed": {
+    "deduct_qualifying_payment": "1500000"
+  }
+}

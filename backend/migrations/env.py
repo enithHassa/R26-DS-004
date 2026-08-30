@@ -15,7 +15,6 @@ from backend.shared.config.settings import settings
 # inside hyphenated directories (e.g. ``comp-transaction-sementic``) which
 # cannot be regular Python packages, so we load them via importlib.
 import backend.shared.db  # noqa: F401  -- registers shared models
-import backend.shared.db  # noqa: F401
 
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -66,6 +65,10 @@ def _register_component_db(component_dir: str, alias: str) -> None:
 
 _register_component_models()
 _register_component_db("comp-transaction-sementic", "comp_transaction_sementic_db")
+_register_component_db("comp-adaptive-tax", "comp_adaptive_tax_db")
+_register_component_db(
+    "comp-optimization-explainable-engine", "comp_optimization_explainable_engine_db"
+)
 
 
 config = context.config

@@ -1,0 +1,19 @@
+taxpayer_id: taxpayer_00001
+display_name: AMUWALA DEWAGE SANJAYA KUMARA CHATHURANGA
+linked_account_numbers:
+  - "200280055988"
+  - "205001778985"
+  - "001020023544"
+  - "001030099637"
+  - "200180108310"
+linked_wallet_ids:
+  - FRIMI
+linked_topup_bank_phrases:
+  - Hatton National
+  - Nations Trust
+  - NTB
+  - HNB
+employers: []
+notes:
+  - "Demo linked numbers: NTB/FriMi plus Dialog Finance savings/FD and HNB seen on wallet top-ups."
+  - "Do not match the rail code DFP as an own wallet; only full account digits."

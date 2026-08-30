@@ -27,8 +27,18 @@ def _financial_body(**overrides):
         "dependents": 0,
         "annual_salary_income": "2400000",
         "annual_business_income": "0",
+        "annual_rental_income": "0",
         "annual_other_income": "0",
-        "deductions": [],
+        "apit_tax_paid_by_employer": "0",
+        "deductions": [
+            # Actual spending at or above statutory caps so all 6 relief codes are in grid (2^6 = 64).
+            {"relief_code": "life_insurance_premium", "amount_annual": "100000", "description": "test"},
+            {"relief_code": "health_insurance_premium", "amount_annual": "75000", "description": "test"},
+            {"relief_code": "home_loan_interest", "amount_annual": "600000", "description": "test"},
+            {"relief_code": "rent_relief", "amount_annual": "300000", "description": "test"},
+            {"relief_code": "charitable_donations", "amount_annual": "800000", "description": "test"},
+            {"relief_code": "retirement_contribution", "amount_annual": "400000", "description": "test"},
+        ],
         "investments": [],
         "top_k": 5,
         "rank_by": "total_tax",
@@ -38,6 +48,36 @@ def _financial_body(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def test_ml_rank_shap_explanation_present(client: TestClient) -> None:
+    """Each ML-ranked row must include a SHAP explanation with correct structure."""
+    r = client.post("/api/v1/strategies/ml-rank", json=_financial_body())
+    assert r.status_code == 200, r.text
+    data = r.json()
+
+    mm = data["ml_meta"]
+    assert mm["shap_base_value"] is not None
+    assert mm["shap_explainer_type"] == "TreeExplainer"
+
+    for row in data["rows"]:
+        shap_exp = row.get("ml_shap_explanation")
+        assert shap_exp is not None, f"row {row['candidate_id']} missing ml_shap_explanation"
+        assert "base_value" in shap_exp
+        assert "predicted_value" in shap_exp
+        assert shap_exp["explainer_type"] == "TreeExplainer"
+        contributions = shap_exp["feature_contributions"]
+        assert len(contributions) in (11, 14), f"expected 11 or 14 features, got {len(contributions)}"
+        for c in contributions:
+            assert "feature_name" in c
+            assert "shap_value" in c
+            assert "feature_value" in c
+        # SHAP identity: base_value + sum(shap_values) ≈ predicted_value
+        reconstructed = shap_exp["base_value"] + sum(c["shap_value"] for c in contributions)
+        assert abs(reconstructed - shap_exp["predicted_value"]) < 1e-4, (
+            f"SHAP identity failed: base + sum(shap) = {reconstructed:.6f}, "
+            f"predicted = {shap_exp['predicted_value']:.6f}"
+        )
 
 
 def test_ml_rank_returns_meta_and_row_fields(client: TestClient) -> None:

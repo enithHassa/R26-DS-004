@@ -1,0 +1,17 @@
+{
+  "rules": [
+    {
+      "section": "Fifth Schedule",
+      "paragraph": "2(a)",
+      "rule_type": "limit",
+      "concept_id": "personal_relief",
+      "condition": "Resident individual personal relief (Act 02/2025)",
+      "formula": null,
+      "threshold": null,
+      "maximum": 1800000.0,
+      "effective_date": "2025-04-01",
+      "amends_section": "Fifth Schedule",
+      "source_quote": "In paragraph 2 of the Fifth Schedule to the principal enactment, in sub-paragraph (a), after item (iv), the following item shall be inserted: \"(v) one million eight hundred thousand rupees.\""
+    }
+  ]
+}

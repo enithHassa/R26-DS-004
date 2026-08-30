@@ -1,0 +1,51 @@
+{
+  "id": "ex06",
+  "scenario": "Salary + QP + relief combined",
+  "key_assertion": "Full deduction ordering in trace",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "4000000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "500000",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "390000",
+  "expected_rules_applied": [
+    "sum_assessable",
+    "deduct_qualifying_payment",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "slab_band_3",
+    "slab_band_4",
+    "slab_band_5",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "ird-ira-2017-base",
+    "bootstrap:sec52_deduct_qp_2024_25",
+    "bootstrap:personal_relief",
+    "bootstrap:personal_relief_2024_25",
+    "personal_relief",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:first_schedule_rates_2024_25",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "fs_2024_25_band_3",
+    "fs_2024_25_band_4",
+    "fs_2024_25_band_5"
+  ],
+  "expected_rule_order": [
+    "sum_assessable",
+    "deduct_qualifying_payment",
+    "apply_personal_relief",
+    "slab_band_1",
+    "final_tax"
+  ]
+}

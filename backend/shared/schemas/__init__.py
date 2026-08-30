@@ -5,7 +5,11 @@ canonical JSON shapes for cross-component data exchange. Component-specific
 request/response models should stay under ``backend/<component>/app/schemas/``.
 """
 
-from backend.shared.schemas.analyze import AnalyzeTransactionRequest, AnalyzeTransactionResponse
+from backend.shared.schemas.analyze import (
+    AnalyzeTransactionRequest,
+    AnalyzeTransactionResponse,
+    NarrativeContextHit,
+)
 from backend.shared.schemas.common import (
     Currency,
     ErrorDetail,
@@ -30,6 +34,7 @@ from backend.shared.schemas.transaction import NormalizedTransaction, Transactio
 __all__ = [
     "AnalyzeTransactionRequest",
     "AnalyzeTransactionResponse",
+    "NarrativeContextHit",
     "ConfidenceReport",
     "Currency",
     "ErrorDetail",

@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Database, FileUp, RefreshCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DocumentListPanel } from "@/features/transaction-semantic/components/document-list-panel";
+import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useActiveAuditorProfile } from "@/hooks/use-active-auditor-profile";
+import { useActiveProfileId } from "@/features/personalized-recommendation/store/dashboard-store";
 import {
   exportFilteredDocumentsCsv,
   exportSingleDocumentCsv,
@@ -14,7 +19,7 @@ import {
   previewFilteredDocuments,
   previewDocument,
   reExtractDocument,
-  uploadDocument,
+  saveDocument,
   type DocumentStatusResponse,
   type DocumentPreviewResponse,
   type ExportPreviewRow,
@@ -34,13 +39,17 @@ function formatMoney(value: string | null): string {
 }
 
 export function TransactionDocumentExtractionPage() {
+  const activeProfileId = useActiveProfileId();
+  const profileQuery = useActiveAuditorProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
-  const [documentId, setDocumentId] = useState("");
+  const [documentId, setDocumentId] = useState(searchParams.get("document") ?? "");
+  const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
   const [bankCodeOverride, setBankCodeOverride] = useState("");
   const [status, setStatus] = useState<DocumentStatusResponse | null>(null);
   const [transactions, setTransactions] = useState<ExtractedTransactionItem[]>([]);
   const [statementTotals, setStatementTotals] = useState<StatementTotalItem[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReExtracting, setIsReExtracting] = useState(false);
@@ -62,8 +71,17 @@ export function TransactionDocumentExtractionPage() {
 
   const hasLoadedDocument = documentId.trim().length > 0;
 
+  useEffect(() => {
+    const selected = searchParams.get("document") ?? "";
+    setDocumentId(selected);
+    if (selected) {
+      void refreshAll(selected);
+    }
+  }, [searchParams]);
+
   const summaryCards = useMemo(
     () => [
+      { label: "Document name", value: status?.filename ?? previewMeta?.filename ?? "-" },
       { label: "Document ID", value: status?.document_id ?? "-" },
       { label: "Status", value: status?.status ?? (previewMeta ? "preview_only" : "-") },
       {
@@ -104,25 +122,30 @@ export function TransactionDocumentExtractionPage() {
     }
   }
 
-  async function handleUpload(): Promise<void> {
+  async function handleSave(): Promise<void> {
     if (!file) {
       setError("Choose a file first.");
       return;
     }
-    setIsUploading(true);
+    if (!activeProfileId) {
+      setError("Select a taxpayer profile in the right panel before uploading.");
+      return;
+    }
+    setIsSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      const resp = await uploadDocument(file);
-      setDocumentId(resp.document.document_id);
+      const resp = await saveDocument(file, activeProfileId, profileQuery.data?.tax_year ?? null);
+      setSearchParams({ document: resp.document.document_id });
       setSuccess(resp.message);
       setPreviewMeta(null);
+      setLibraryRefreshKey((value) => value + 1);
       await refreshAll(resp.document.document_id);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed.";
+      const msg = err instanceof Error ? err.message : "Save failed.";
       setError(msg);
     } finally {
-      setIsUploading(false);
+      setIsSaving(false);
     }
   }
 
@@ -169,7 +192,7 @@ export function TransactionDocumentExtractionPage() {
           period_end: row.period_end,
         })),
       );
-      setSuccess("Preview generated. Click 'Save Extracted Data' to persist.");
+      setSuccess("Preview generated. Save the document, then click Extract in the library.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Preview failed.";
       setError(msg);
@@ -184,7 +207,11 @@ export function TransactionDocumentExtractionPage() {
       return;
     }
     setSuccess(null);
-    await refreshAll(documentId.trim());
+    setSearchParams({ document: documentId.trim() });
+  }
+
+  function handleSelectDocument(nextId: string): void {
+    setSearchParams({ document: nextId });
   }
 
   async function handleReExtract(): Promise<void> {
@@ -198,6 +225,7 @@ export function TransactionDocumentExtractionPage() {
     try {
       const resp = await reExtractDocument(documentId.trim(), bankCodeOverride);
       setSuccess(resp.message);
+      setLibraryRefreshKey((value) => value + 1);
       await refreshAll(resp.document_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Re-extract failed.";
@@ -305,24 +333,48 @@ export function TransactionDocumentExtractionPage() {
     setSuccess("Preview hidden.");
   }
 
+  const selectedNeedsExtraction =
+    (status?.status === "uploaded" || status?.status === "submitted" || status?.extracted_row_count === 0) &&
+    !previewMeta;
+
   return (
     <div className="space-y-6">
+      <ActiveProfileBanner moduleLabel="Document extraction" />
+
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Transaction Document Extractor</h1>
+        <h1 className="text-2xl font-semibold">Transaction documents</h1>
         <p className="text-sm text-muted-foreground">
-          Upload a bank statement (PDF, CSV, Excel, text, or PNG/JPG via OCR), extract rows, review
-          statement totals, and re-process if needed.
+          Upload bank statements, keep them in the document library, and review extracted rows for the
+          selected document.
         </p>
       </div>
+
+      <DocumentListPanel
+        selectedDocumentId={hasLoadedDocument ? documentId : null}
+        onSelect={handleSelectDocument}
+        onRenamed={(id) => {
+          if (id === documentId.trim()) {
+            void refreshAll(id);
+          }
+        }}
+        onExtracted={(id) => {
+          setLibraryRefreshKey((value) => value + 1);
+          if (id === documentId.trim()) {
+            void refreshAll(id);
+          }
+        }}
+        refreshKey={libraryRefreshKey}
+        financialProfileId={activeProfileId}
+      />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileUp className="h-4 w-4" /> Upload & Process
+            <FileUp className="h-4 w-4" /> Upload & Save
           </CardTitle>
           <CardDescription>
-            Uses backend routes: upload, status, extracted-transactions, statement-totals, and
-            re-extract.
+            Store bank statements in the library. Extraction runs separately when you select a document
+            and click Extract.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -340,8 +392,8 @@ export function TransactionDocumentExtractionPage() {
               <Button variant="outline" onClick={() => void handlePreview()} disabled={isPreviewing || !file}>
                 {isPreviewing ? "Previewing..." : "Preview Extract"}
               </Button>
-              <Button onClick={() => void handleUpload()} disabled={isUploading || !file}>
-                {isUploading ? "Saving..." : "Save Extracted Data"}
+              <Button onClick={() => void handleSave()} disabled={isSaving || !file}>
+                {isSaving ? "Saving..." : "Save Document"}
               </Button>
             </div>
           </div>
@@ -477,10 +529,11 @@ export function TransactionDocumentExtractionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Re-extract</CardTitle>
+          <CardTitle>{selectedNeedsExtraction ? "Extract" : "Re-extract"}</CardTitle>
           <CardDescription>
-            Reprocess the already uploaded file (no need to upload again). You can force a bank code
-            when routing is wrong.
+            {selectedNeedsExtraction
+              ? "Run bank routing and row extraction on the selected saved document."
+              : "Reprocess the already extracted file. You can force a bank code when routing is wrong."}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-[240px_auto]">
@@ -498,7 +551,11 @@ export function TransactionDocumentExtractionPage() {
               onClick={() => void handleReExtract()}
               disabled={!hasLoadedDocument || isReExtracting}
             >
-              {isReExtracting ? "Re-processing..." : "Re-extract Document"}
+              {isReExtracting
+                ? "Processing..."
+                : selectedNeedsExtraction
+                  ? "Extract Document"
+                  : "Re-extract Document"}
             </Button>
           </div>
         </CardContent>

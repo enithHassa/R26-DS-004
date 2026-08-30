@@ -1,4 +1,4 @@
-"""Ranked recommendation endpoints (FR5, FR6, FR9, FR10). Implemented in Phase 4 (WP6)."""
+"""Ranked recommendation endpoints (FR5, FR6, FR9, FR10)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import DBSession
 from app.schemas import (
+    ExplainRequest,
     FeedbackCreate,
     RecommendationExplanation,
     RecommendationRequest,
@@ -16,9 +17,14 @@ from app.schemas import (
 )
 from app.services import (
     ArtifactLoadError,
+    ExplanationError,
     ProfileNotFoundError,
     RecommendationGenerationError,
+    RecommendationItemNotFoundError,
+    StrategyNotFoundError,
+    explain_strategy_for_profile,
     generate_recommendations,
+    submit_feedback,
 )
 
 router = APIRouter()
@@ -41,19 +47,43 @@ def rank(payload: RecommendationRequest, db: Session = DBSession) -> Recommendat
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
+@router.post("/explain", response_model=RecommendationExplanation)
+def explain(payload: ExplainRequest, db: Session = DBSession) -> RecommendationExplanation:
+    """SHAP-based explanation for a profile×strategy pair (Phase 6 / FR10)."""
+    try:
+        return explain_strategy_for_profile(
+            db,
+            profile_id=payload.profile_id,
+            strategy_code=payload.strategy_code,
+            top_k=payload.top_k,
+        )
+    except ProfileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StrategyNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ExplanationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except ArtifactLoadError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
 @router.get("/{recommendation_item_id}/explain", response_model=RecommendationExplanation)
-def explain(recommendation_item_id: UUID) -> RecommendationExplanation:
-    """SHAP-based explanation for a single recommendation item (FR10, NFR3)."""
+def explain_by_item_id(recommendation_item_id: UUID) -> RecommendationExplanation:
+    """Legacy path — recommendation items are not persisted; use POST /explain."""
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Explanations are implemented in Phase 6 (WP8).",
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Recommendation items are not persisted. "
+            "Use POST /api/v1/recommendations/explain with profile_id and strategy_code."
+        ),
     )
 
 
 @router.post("/feedback", status_code=status.HTTP_202_ACCEPTED)
-def submit_feedback(payload: FeedbackCreate) -> dict[str, str]:
+def feedback(payload: FeedbackCreate, db: Session = DBSession) -> dict[str, str]:
     """Persist user feedback (accepted / dismissed / rating) for continual learning."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Feedback persistence is implemented in Phase 4 (WP6).",
-    )
+    try:
+        submit_feedback(db, payload)
+    except RecommendationItemNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"status": "accepted"}

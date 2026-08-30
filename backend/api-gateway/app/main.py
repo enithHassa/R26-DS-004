@@ -2,10 +2,14 @@
 
 Routing map (representative):
 
+    /api/v1/auth/**            ->  shared auth (login / signup; local to gateway)
     /api/v1/recommendation/**  ->  COMP_RECOMMENDATION_URL
     /api/v1/optimization/**    ->  COMP_OPTIMIZATION_URL
     /api/v1/transaction/**     ->  COMP_TRANSACTION_URL
     /api/v1/llm/**             ->  COMP_LLM_URL (Component 4; strips ``llm`` segment)
+    /api/v1/adaptive-tax/**    ->  COMP_ADAPTIVE_TAX_URL (Component 5)
+    /api/v1/optimization-explainable-engine/** ->  COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL
+    /api/v1/optimization-explainable/** ->  COMP_OPTIMIZATION_EXPLAINABLE_URL
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from backend.shared.auth.router import router as auth_router
 from backend.shared.config.settings import settings
 from backend.shared.utils.logging import configure_logging, logger
 
@@ -40,7 +45,8 @@ _HOP_BY_HOP = {
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(service_name="api-gateway")
     logger.info("API gateway starting (version={})", __version__)
-    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+    # Adaptive-tax explain / extract and optimization ML can exceed 30s.
+    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=5.0))
     try:
         yield
     finally:
@@ -63,10 +69,24 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(_system_router())
+    # Account login / signup — no Comp 3 required for create + sign-in.
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
     _register_proxy(app, prefix="/api/v1/recommendation", upstream=settings.COMP_RECOMMENDATION_URL)
     _register_proxy(app, prefix="/api/v1/optimization", upstream=settings.COMP_OPTIMIZATION_URL)
     _register_proxy(app, prefix="/api/v1/transaction", upstream=settings.COMP_TRANSACTION_URL)
     _register_proxy(app, prefix="/api/v1/llm", upstream=settings.COMP_LLM_URL)
+    _register_proxy(app, prefix="/api/v1/adaptive-tax", upstream=settings.COMP_ADAPTIVE_TAX_URL)
+    _register_proxy(
+        app,
+        prefix="/api/v1/optimization-explainable-engine",
+        upstream=settings.COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL,
+    )
+    _register_proxy(
+        app,
+        prefix="/api/v1/optimization-explainable",
+        upstream=settings.COMP_OPTIMIZATION_EXPLAINABLE_URL,
+    )
+    _register_rag_relief_proxy(app, upstream=settings.COMP_RAG_RELIEF_URL)
     return app
 
 
@@ -101,9 +121,75 @@ def _system_router() -> APIRouter:
             checks["language_model"] = r.status_code == 200
         except Exception:
             checks["language_model"] = False
+        try:
+            r = await client.get(f"{settings.COMP_ADAPTIVE_TAX_URL}/health", timeout=5.0)
+            checks["adaptive_tax"] = r.status_code == 200
+        except Exception:
+            checks["adaptive_tax"] = False
+        try:
+            r = await client.get(f"{settings.COMP_RAG_RELIEF_URL}/health", timeout=5.0)
+            checks["rag_relief"] = r.status_code == 200
+        except Exception:
+            checks["rag_relief"] = False
+        try:
+            r = await client.get(
+                f"{settings.COMP_OPTIMIZATION_EXPLAINABLE_URL}/health", timeout=5.0
+            )
+            checks["optimization_explainable"] = r.status_code == 200
+        except Exception:
+            checks["optimization_explainable"] = False
+        try:
+            r = await client.get(
+                f"{settings.COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL}/health", timeout=5.0
+            )
+            checks["optimization_explainable_engine"] = r.status_code == 200
+        except Exception:
+            checks["optimization_explainable_engine"] = False
         return {"status": "ok" if all(checks.values()) else "degraded", "checks": checks}
 
     return router
+
+
+def _register_rag_relief_proxy(app: FastAPI, upstream: str) -> None:
+    """Mount RAG relief component proxy at /api/v1/rag-relief/{path}."""
+
+    async def proxy(request: Request, path: str) -> Response:
+        client: httpx.AsyncClient = request.app.state.http
+        # RAG routes are at /{ingest,retrieve,extract}/* (no /api/v1/ prefix)
+        upstream_path = f"{upstream.rstrip('/')}/{path}"
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP}
+        body = await request.body()
+        try:
+            upstream_resp = await client.request(
+                request.method,
+                upstream_path,
+                params=request.query_params,
+                headers=headers,
+                content=body,
+            )
+        except httpx.RequestError as exc:
+            logger.warning("Upstream {} unreachable: {}", upstream_path, exc)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Upstream service unavailable: {exc}",
+            ) from exc
+        resp_headers = {
+            k: v for k, v in upstream_resp.headers.items() if k.lower() not in _HOP_BY_HOP
+        }
+        return Response(
+            content=upstream_resp.content,
+            status_code=upstream_resp.status_code,
+            headers=resp_headers,
+            media_type=upstream_resp.headers.get("content-type"),
+        )
+
+    app.add_api_route(
+        "/api/v1/rag-relief/{path:path}",
+        proxy,
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        include_in_schema=False,
+        name="proxy_rag_relief",
+    )
 
 
 def _register_proxy(app: FastAPI, *, prefix: str, upstream: str) -> None:

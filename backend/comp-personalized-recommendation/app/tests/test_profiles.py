@@ -116,6 +116,36 @@ def test_features_endpoint_computes_tax_and_disposable_income(client: TestClient
     assert feats["eligibility_flags"]["has_health_insurance"] is True
 
 
+def test_taxable_income_adds_side_sources_when_they_do_not_cover_salary(
+    client: TestClient,
+) -> None:
+    """User-intake style: salary in gross_monthly_income, extras in income_sources.
+
+    Using only the extras (rental + interest) kept annual income under the
+    tax-free relief and flattened the impact tax chart to LKR 0.
+    """
+    payload = _payload(
+        gross_monthly_income="100000.00",
+        annual_bonus_lkr="30000.00",
+        monthly_expenses="60000.00",
+        monthly_debt_service="0",
+        life_insurance_premium_annual="0",
+        home_loan_interest_annual="0",
+        donations_annual="0",
+        health_insurance=False,
+        income_sources=[
+            {"kind": "rental", "monthly_amount": "40000.00", "is_taxable": True},
+            {"kind": "interest", "monthly_amount": "20000.00", "is_taxable": True},
+        ],
+    )
+    created = client.post("/api/v1/profiles", json=payload).json()
+    feats = client.get(f"/api/v1/profiles/{created['id']}/features").json()
+    # (100k + 40k + 20k) * 12 + 30k bonus = 1,950,000
+    assert Decimal(feats["gross_annual_taxable_income"]) == Decimal("1950000.00")
+    assert Decimal(feats["baseline_tax_liability_annual"]) > 0
+    assert feats["eligibility_flags"]["above_tax_threshold"] is True
+
+
 def test_zero_tax_for_low_income(client: TestClient) -> None:
     payload = _payload(
         gross_monthly_income="80000.00",
@@ -147,3 +177,154 @@ def test_404_on_missing_profile(client: TestClient) -> None:
 def test_validation_rejects_bad_input(client: TestClient, field: str, value: object) -> None:
     resp = client.post("/api/v1/profiles", json=_payload(**{field: value}))
     assert resp.status_code == 422
+
+
+def test_patch_tax_return_detail_persists_and_syncs_scalars(client: TestClient) -> None:
+    created = client.post("/api/v1/profiles", json=_payload()).json()
+    pid = created["id"]
+
+    detail = {
+        "section1": {
+            "fullName": "Kasun Perera",
+            "dob": "1992-08-14",
+            "gender": "male",
+            "district": "Colombo",
+            "marital": "single",
+            "residency": "resident",
+            "nationality": "lk",
+            "dependants": "1",
+            "taxYear": "2024-2025",
+        },
+        "section2": {
+            "employers": [
+                {
+                    "name": "ABC Pvt Ltd",
+                    "gross": "1800000",
+                    "bonus": "150000",
+                    "epf": "162000",
+                    "apit": "108000",
+                }
+            ],
+        },
+    }
+
+    resp = client.patch(
+        f"/api/v1/profiles/{pid}",
+        json={
+            "tax_return_detail": detail,
+            "section_completion": [1, 2],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["full_name"] == "Kasun Perera"
+    assert body["dependents"] == 1
+    assert body["tax_year"] == "2024_25"
+    assert body["tax_return_detail"]["section1"]["fullName"] == "Kasun Perera"
+    assert body["section_completion"] == [1, 2]
+    assert Decimal(body["gross_monthly_income"]) == Decimal("150000.00")
+
+
+def test_tax_return_detail_round_trips_pension_and_gifts(client: TestClient) -> None:
+    created = client.post("/api/v1/profiles", json=_payload()).json()
+    pid = created["id"]
+
+    detail = {
+        "section1": {"fullName": "Test User", "taxYear": "2024-2025"},
+        "section2": {
+            "employers": [],
+            "hasPension": True,
+            "pensionAmount": "240000",
+            "pensionPayer": "ABC Pension Fund",
+            "pensionType": "employer",
+            "hasGifts": True,
+            "giftAmount": "50000",
+            "giftDescription": "Long-service award",
+        },
+    }
+
+    resp = client.patch(
+        f"/api/v1/profiles/{pid}",
+        json={"tax_return_detail": detail, "section_completion": [2]},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    s2 = body["tax_return_detail"]["section2"]
+    assert s2["pensionAmount"] == "240000"
+    assert s2["giftAmount"] == "50000"
+    assert body["section_completion"] == [2]
+
+    fetched = client.get(f"/api/v1/profiles/{pid}").json()
+    assert fetched["tax_return_detail"]["section2"]["giftDescription"] == "Long-service award"
+
+
+def test_patch_tax_return_preserves_recommendation_only_scalars(client: TestClient) -> None:
+    """Auditor-filled feasibility / preference scalars must survive TRP save."""
+    created = client.post(
+        "/api/v1/profiles",
+        json=_payload(
+            monthly_expenses="200000.00",
+            monthly_debt_service="55000.00",
+            total_debt="3000000.00",
+            liquid_savings="900000.00",
+            risk_tolerance="high",
+            years_employed=12,
+            income_sources=[
+                {"kind": "employment", "monthly_amount": "320000.00", "is_taxable": True},
+                {"kind": "dividend", "monthly_amount": "15000.00", "is_taxable": True},
+            ],
+        ),
+    ).json()
+    pid = created["id"]
+
+    detail = {
+        "section1": {
+            "fullName": "Updated Name",
+            "dob": "1991-03-20",
+            "gender": "female",
+            "district": "Kandy",
+            "marital": "married",
+            "residency": "resident",
+            "nationality": "lk",
+            "dependants": "2",
+            "taxYear": "2024-2025",
+        },
+        "section2": {
+            "employers": [{"name": "Co", "gross": "2400000", "bonus": "0", "epf": "0", "etf": "0"}],
+        },
+        "section5": {
+            "properties": [{"gross": "600000", "maintenance": "120000"}],
+        },
+        "section6": {
+            "hasMedical": True,
+            "medicalPremium": "25000",
+            "lifePremium": "80000",
+            "mortgageInterest": "0",
+            "charitableApproved": "10000",
+            "charitablePresident": "5000",
+        },
+    }
+
+    resp = client.patch(
+        f"/api/v1/profiles/{pid}",
+        json={"tax_return_detail": detail, "section_completion": [1, 2, 5, 6]},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert body["full_name"] == "Updated Name"
+    assert body["district"] == "Kandy"
+    assert body["dependents"] == 2
+    assert body["health_insurance"] is True
+    assert Decimal(body["gross_monthly_income"]) == Decimal("200000.00")
+    assert Decimal(body["donations_annual"]) == Decimal("15000.00")
+
+    # Bucket B — unchanged despite section5 maintenance / no TRP inputs.
+    assert Decimal(body["monthly_expenses"]) == Decimal("200000.00")
+    assert Decimal(body["monthly_debt_service"]) == Decimal("55000.00")
+    assert Decimal(body["total_debt"]) == Decimal("3000000.00")
+    assert Decimal(body["liquid_savings"]) == Decimal("900000.00")
+    assert body["risk_tolerance"] == "high"
+    assert body["years_employed"] == 12
+    assert len(body["income_sources"]) == 2
+    assert body["income_sources"][1]["kind"] == "dividend"

@@ -1,0 +1,195 @@
+{
+  "source_doc_id": "oee-guide-ira",
+  "extraction_run_id": "20260826T181745Z-9d1243",
+  "review_status": "accepted",
+  "entities": [
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w003:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "personal_relief",
+      "display_name": "Personal Relief",
+      "help": "A resident individual in Sri Lanka is entitled to an aggregate relief of Rs 500,000 when calculating their taxable income for a year of assessment. This relief is described in the Guide and is not the current legal cap.",
+      "eligibility": {
+        "text": "An individual who is resident in Sri Lanka for a year of assessment qualifies for the relief.",
+        "review_status": "pending",
+        "quote": "an individual who is resident in Sri Lanka for a year of assessment: the aggregate relief of Rs 500,000 which is referred to in the paragraph 2(a) of Fifth Schedule."
+      },
+      "required_evidence": [],
+      "section_ref": "2.1",
+      "quote": "an individual who is resident in Sri Lanka for a year of assessment: the aggregate relief of Rs 500,000 which is referred to in the paragraph 2(a) of Fifth Schedule.",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source text, ignoring whitespace differences.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w007:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "employment_income_relief",
+      "display_name": "Employment Income Relief",
+      "help": "A resident individual with income from employment is eligible for a relief of Rs. 700,000 for each year of assessment. This relief is described in the Guide and is applicable to resident individuals with employment income.",
+      "eligibility": {
+        "text": "Resident individuals with income from employment qualify for this relief.",
+        "review_status": "pending",
+        "quote": "This relief is available for resident individual with income from employment"
+      },
+      "required_evidence": [],
+      "section_ref": "section 27",
+      "quote": "Relief of Rs. 700,000 for each year of assessment This relief is available for resident individual with income from employment",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source text, ignoring whitespace differences.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w018:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "rental_income_relief",
+      "display_name": "Rental Income Relief",
+      "help": "Individuals receiving rental income from an investment asset can claim a relief equal to 25% of the total rental income for the year. This relief is for repair, maintenance, and depreciation of the investment asset, provided no other deductions or costs are claimed for these expenses.",
+      "eligibility": {
+        "text": "Individuals with rental income from an investment asset qualify for this relief.",
+        "review_status": "pending",
+        "quote": "in the case of an individual with rental income from an investment asset, an amount equal to 25 percent of the total rental income for the year of assessment, being a relief for the repair, maintenance, and depreciation relating to the investment asset, but shall only be allowed to the extent no deduction or cost is claimed for any actual expenditures incurred by the taxpayer for the repair, maintenance, and depreciation of the investment asset;"
+      },
+      "required_evidence": [],
+      "section_ref": "6.2.1",
+      "quote": "in the case of an individual with rental income from an investment asset, an amount equal to 25 percent of the total rental income for the year of assessment, being a relief for the repair, maintenance, and depreciation relating to the investment asset, but shall only be allowed to the extent no deduction or cost is claimed for any actual expenditures incurred by the taxpayer for the repair, maintenance, and depreciation of the investment asset;",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w028:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "employment_income_relief",
+      "display_name": "Employment Income Relief",
+      "help": "A resident individual can apply employment income relief against their employment income. For example, Mr. Basil can claim employment income relief of Rs 700,000 against his employment income of Rs 800,000, resulting in a taxable income of Rs 100,000 from employment. The Guide describes Rs 700,000 as the relief amount for the year of assessment 2018/19.",
+      "eligibility": {
+        "text": "Resident individuals with employment income are eligible for employment income relief.",
+        "review_status": "pending",
+        "quote": "He is entitled to apply the basic relief against his employment income of Rs 800,000, business income of Rs 200,000 and dividends of Rs 300,000 and also entitled to apply the employment income relief against his employment income of Rs 800,000."
+      },
+      "required_evidence": [],
+      "section_ref": "11.1.1.4",
+      "quote": "He is entitled to apply the basic relief against his employment income of Rs 800,000, business income of Rs 200,000 and dividends of Rs 300,000 and also entitled to apply the employment income relief against his employment income of Rs 800,000.",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w028:guide:2",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "senior_citizen_interest_income_relief",
+      "display_name": "Senior Citizen Interest Income Relief",
+      "help": "Senior citizens are entitled to a relief up to Rs 1.5 million for each year of assessment on interest income derived from a financial institution. Banks should not withhold tax on interest paid to senior citizens within this relief threshold, based on a declaration provided by the account holder.",
+      "eligibility": {
+        "text": "Senior citizens with interest income from financial institutions are eligible for interest income relief up to Rs 1.5 million.",
+        "review_status": "pending",
+        "quote": "senior citizens (defined in S. 195) are entitled to a relief up to Rs 1.5 million for each year of assessment in respect of interest income derived from a financial institution."
+      },
+      "required_evidence": [
+        "declaration"
+      ],
+      "section_ref": "11.1.6",
+      "quote": "senior citizens (defined in S. 195) are entitled to a relief up to Rs 1.5 million for each year of assessment in respect of interest income derived from a financial institution.",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w029:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "senior_citizen_interest_income_relief",
+      "display_name": "Senior Citizen Interest Income Relief",
+      "help": "Senior citizens can receive interest income relief up to a certain amount. If a senior citizen receives more than the relief amount from all accounts, they must provide a correct declaration to the financial institution to deduct withholding tax. The Guide mentions Rs 1.5 million as the relief amount for the year of assessment 2018/19.",
+      "eligibility": {
+        "text": "Senior citizens who receive interest income from financial institutions.",
+        "review_status": "pending",
+        "quote": "If, after providing a declaration to a financial institution as not to deduct withholding tax for a year of assessment, a senior citizen discovers that he or she has received or will be receiving total interest of more than Rs 1.5 million from all the accounts holding in financial institutions, the senior citizen should immediately provide correct declaration to the financial institution."
+      },
+      "required_evidence": [
+        "declaration"
+      ],
+      "section_ref": "oee-guide-ira",
+      "quote": "If, after providing a declaration to a financial institution as not to deduct withholding tax for a year of assessment, a senior citizen discovers that he or she has received or will be receiving total interest of more than Rs 1.5 million from all the accounts holding in financial institutions, the senior citizen should immediately provide correct declaration to the financial institution.",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w048:guide:0",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "donation_to_charitable_institution",
+      "display_name": "Donation to Charitable Institution",
+      "help": "Individuals can claim a relief for donations made in money to approved charitable institutions. The relief is limited to one-third of the individual's taxable income or Rs. 75,000, whichever is less, as described in the Guide.",
+      "eligibility": {
+        "text": "Individuals who make donations in money to approved charitable institutions qualify for this relief.",
+        "review_status": "pending",
+        "quote": "a donation made by an individual or entity in money to an approved charitable institution that is: (i) a charitable institution established for the provision of institutionalized care for the sick or the needy; and (ii) declared by the Minister as an approved charitable institution for the purposes of this sub-paragraph"
+      },
+      "required_evidence": [],
+      "section_ref": "6.5 Fifth Schedule",
+      "quote": "in the case of an individual, one-third of the taxable income of the individual or Rupees seventy-five thousand, whichever is less",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source text.",
+      "included": true
+    },
+    {
+      "entity_kind": "guide_help",
+      "entry_id": "oee-guide-ira:w048:guide:1",
+      "source_doc_id": "oee-guide-ira",
+      "compare_group_id": "donation_to_government_or_approved_fund",
+      "display_name": "Donation to Government or Approved Fund",
+      "help": "Individuals can claim relief for donations made in money or otherwise to the Government of Sri Lanka, local authorities, or approved funds. This relief is available for donations to specific institutions and funds as described in the Guide.",
+      "eligibility": {
+        "text": "Individuals who make donations in money or otherwise to the Government of Sri Lanka, local authorities, or approved funds qualify for this relief.",
+        "review_status": "pending",
+        "quote": "a donation made by an individual or entity in money or otherwise to the following: (i) the Government of Sri Lanka; (ii) a local authority; (iii) any Higher Education Institution established or deemed to be established under the Universities Act, No. 16 of 1978; (iv) the Buddhist and Pali University or any Higher Educational Institution established by or under the Buddhist and Pali University Act, No. 74 of 1981; (v) a fund established by the Government of Sri Lanka;"
+      },
+      "required_evidence": [],
+      "section_ref": "6.5 Fifth Schedule",
+      "quote": "a donation made by an individual or entity in money or otherwise to the following: (i) the Government of Sri Lanka; (ii) a local authority; (iii) any Higher Education Institution established or deemed to be established under the Universities Act, No. 16 of 1978; (iv) the Buddhist and Pali University or any Higher Educational Institution established by or under the Buddhist and Pali University Act, No. 74 of 1981; (v) a fund established by the Government of Sri Lanka;",
+      "review_status": "pending",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true,
+      "quote_source": "text_stream",
+      "pass2_verbatim": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window, ignoring whitespace differences.",
+      "included": true
+    }
+  ]
+}

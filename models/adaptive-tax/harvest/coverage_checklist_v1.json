@@ -1,0 +1,129 @@
+{
+  "spec_version": "1.0.0",
+  "component": "adaptive-tax",
+  "taxpayer_scope": "resident_individual",
+  "definition": "Coverage = N_covered / N_planned. An area is covered only when harvested (or bootstrap Act quote), approved in rule_source, wired into the rule engine for target YA(s), and provenance-complete (section + source_quote + source_doc_id).",
+  "n_planned_core": 8,
+  "areas": [
+    {
+      "area_id": "employment_income",
+      "meaning": "Sec 5 path → assessable",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.1: Sec 5 include + Sec 5(3)(a) final-WHT exclusion; bootstrap Act quotes + GOVERNED_BY edges."
+    },
+    {
+      "area_id": "first_schedule_rates",
+      "meaning": "Progressive bands",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.2: Act-verified packs (YA24 includes 12%; YA25 1M@6% no 12%); bootstrap + rate approve writer."
+    },
+    {
+      "area_id": "personal_relief",
+      "meaning": "Resident personal relief",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.3: YA 2024/25 = 1.2M; YA 2025/26 = 1.8M (Act 02/2025); resident-only; bootstrap + approve writer."
+    },
+    {
+      "area_id": "sec52_qualifying_payments",
+      "meaning": "Sec 52 QP deduct (Fifth Sch para 1 per-category limits; Sec 52(4) CF)",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Path B: no fictional aggregate pool; category limits + insufficient-assessable CF (Act 11/2026)."
+    },
+    {
+      "area_id": "donations",
+      "meaning": "Charitable donation cap",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.5: live path is Fifth Sch 1(a) qp_approved_charitable (75k / one-third of assessable). donation/donation_cap are aliases, not a 33% deduct."
+    },
+    {
+      "area_id": "business_income",
+      "meaning": "Business → assessable (net input path)",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.6a: net business_income input; Sec 6 DEFINES + GOVERNED_BY; ex02 golden. Phase 5.6b: optional business_gross/deductions/capital allowances (Sec 11/16); ex13/ex14."
+    },
+    {
+      "area_id": "investment_income",
+      "meaning": "Investment → assessable (+ gated exemptions)",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.7: Sec 7 DEFINES/GOVERNED_BY; optional Sec 7(3)(a) final-WHT exclusion when provenance resolves; ex15/ex16."
+    },
+    {
+      "area_id": "other_income",
+      "meaning": "Other sources → assessable (Sec 8 residual)",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 6.5: Sec 8 DEFINES/GOVERNED_BY; residual/custom catalog at Medium confidence; optional Sec 8(2)(a) exclusion; ex25."
+    },
+    {
+      "area_id": "tax_credits",
+      "meaning": "Credits / tax payable",
+      "optional": false,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2024_25", "2025_26"],
+      "notes": "Phase 5.8: Sec 89 APIT/non-final WHT credit; final_tax_lkr = gross liability; tax_payable_lkr = max(0, liability − credits); ex17."
+    },
+    {
+      "area_id": "sec52_carry_forward",
+      "meaning": "Sec 52(4) stretch (optional; counts when enabled)",
+      "optional": true,
+      "status": "covered",
+      "harvested": true,
+      "approved": true,
+      "engine_wired": true,
+      "provenance_complete": true,
+      "assessment_years": ["2025_26"],
+      "notes": "Phase 5.4b: carry_forward_qp when provenance resolves; ex10 golden; distinct bootstrap from cap row."
+    }
+  ]
+}

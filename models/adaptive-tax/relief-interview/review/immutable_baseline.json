@@ -1,0 +1,24 @@
+{
+  "spec_version": "1.0.0",
+  "phase": 6,
+  "captured_at": "2026-08-21T07:11:12.605155+00:00",
+  "note": "Core-year hashes only; 2026_27 catalog-admin act removed.",
+  "files": {
+    "approved/2018_19.json": "eddee0b57746998d540fbb07abb7e82c18480362d44a7317fd7ba486b0487201",
+    "approved/2019_20.json": "be7826aaa6debaa7851a3e846cd9b90faa55d17658e2cb81874fac616b39abe9",
+    "approved/2020_21.json": "57fc716ea42a0dae461a28250a674ad7e3625db4e3c015cd0c2d00a94c4a742f",
+    "approved/2021_22.json": "f6ade71f351f57e35c554e64839d7e7dfa44942402687d0e1f2db535e712aa9c",
+    "approved/2022_23.json": "4721fa183ed499f6e4ec7e0508d7800bcb3bd2a75ed9d1f100fda919a017b405",
+    "approved/2023_24.json": "15c196471f3b0ef1f2ca6ac686379264b8a3e79ef037804686190064353cf73e",
+    "approved/2024_25.json": "318c849dc3da4e1527789e80110e964167719f35b6d14a7631c60b5882ac24d5",
+    "approved/2025_26.json": "d623f5ab01839f10d5a9c6046fc3ba0353fdacc6ab4329af1235286c5677f034",
+    "rates/2018_19.json": "71f65ec4256ff3b33e457a918025098d40a9ba5beb690dde9ccb98e5a11c4e1c",
+    "rates/2019_20.json": "059d877cdfbae454e9aacf9befc34c80b50de7fe19d730cf03b503ef9bf7f815",
+    "rates/2020_21.json": "ac54cce91a212b48ab94a5059577ccc37bd3bc5d1d79f0397fc83da966345817",
+    "rates/2021_22.json": "cc2079800cc17148b18349fb58073a28afb2b6abf3520caf72450edc53729de7",
+    "rates/2022_23.json": "b9496497ffcdc43c8c943e0a6f1d4383dc3b0d5cb618e9076a97b8a215c08932",
+    "rates/2023_24.json": "2d3f32e361d0d6d52925d48354f2d58409928e0ff93d08a3695129a067e3b358",
+    "rates/2024_25.json": "e16a6c717e5a5166c28a6b9c6a580b5887d6eb08266cd4a5fcb68b86e45be098",
+    "rates/2025_26.json": "dcb7133b515177466169ecd6b8671702fc606379ccb9f94f19b30675fcd4bac3"
+  }
+}

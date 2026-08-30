@@ -6,6 +6,13 @@ primitives (``RiskTolerance``, ``Currency``, ``PaginatedResponse``,
 ``backend.shared.schemas``.
 """
 
+from app.schemas.auth import LoginRequest, LoginResponse, SignupRequest, SignupResponse
+from app.schemas.behavioural_answer import (
+    BehaviouralAnswer,
+    BehaviouralAnswerBatchCreate,
+    BehaviouralAnswerCreate,
+)
+from app.schemas.history import ProfileHistorySnapshot
 from app.schemas.impact import (
     ImpactSimulationRequest,
     ImpactSimulationResponse,
@@ -17,6 +24,7 @@ from app.schemas.impact import (
 )
 from app.schemas.profile import (
     DerivedFeatures,
+    EligibilityOverrideUpdate,
     FinancialProfile,
     FinancialProfileBase,
     FinancialProfileCreate,
@@ -27,6 +35,7 @@ from app.schemas.profile import (
     Occupation,
 )
 from app.schemas.recommendation import (
+    ExplainRequest,
     FeatureAttribution,
     FeedbackCreate,
     RecommendationExplanation,
@@ -47,8 +56,13 @@ from app.schemas.strategy import (
 )
 
 __all__ = [
+    "BehaviouralAnswer",
+    "BehaviouralAnswerBatchCreate",
+    "BehaviouralAnswerCreate",
     "DerivedFeatures",
     "EligibilityCheck",
+    "EligibilityOverrideUpdate",
+    "ExplainRequest",
     "FeatureAttribution",
     "FeedbackCreate",
     "FinancialProfile",
@@ -60,8 +74,11 @@ __all__ = [
     "ImpactSimulationResponse",
     "ImpactSummary",
     "IncomeSource",
+    "LoginRequest",
+    "LoginResponse",
     "MaritalStatus",
     "Occupation",
+    "ProfileHistorySnapshot",
     "ProjectionBand",
     "RecommendationExplanation",
     "RecommendationItem",
@@ -69,6 +86,8 @@ __all__ = [
     "RecommendationResponse",
     "Scenario",
     "ScoreBreakdown",
+    "SignupRequest",
+    "SignupResponse",
     "Strategy",
     "StrategyBase",
     "StrategyCandidate",

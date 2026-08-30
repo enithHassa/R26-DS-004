@@ -10,7 +10,8 @@ from datetime import date
 import csv
 import io
 from decimal import Decimal
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,20 +28,42 @@ from backend.shared.db.transaction import Transaction as TransactionModel
 from backend.shared.schemas import (
     AnalyzeTransactionRequest,
     AnalyzeTransactionResponse,
-    ConfidenceReport,
-    EvidenceChain,
-    EvidenceStep,
     IncomeSnapshotV1,
+    NarrativeContextHit,
     TaxabilityOutput,
-    TaxabilityStatus,
     Transaction,
 )
 from backend.shared.schemas.enums import TxnDirection as SchemaTxnDirection
 from .schemas import DocumentExtractResponse
+from .schemas.tax_reasoning import (
+    ActivitySummaryGroup,
+    ActivitySummaryMember,
+    ActivitySummaryRequest,
+    ActivitySummaryResponse,
+    AnalyzeBatchItemResponse,
+    AnalyzeBatchRequest,
+    AnalyzeBatchResponse,
+    ApplyClassBatchRequest,
+    ApplyClassBatchResponse,
+    DocumentClassificationItem,
+    DocumentClassificationsResponse,
+    InflowSummaryResponse,
+    IncomeTypeCatalogItem,
+    IncomeTypeCatalogResponse,
+    TaxableIncomeLineItem,
+    TaxableIncomeSummaryRequest,
+    TaxableIncomeSummaryResponse,
+)
 from .schemas import (
     DocumentPreviewResponse,
     DocumentBatchUploadResponse,
+    DocumentListResponse,
+    DocumentRenameRequest,
+    DocumentRenameResponse,
+    DocumentReleaseResponse,
+    DocumentSaveResponse,
     DocumentStatusResponse,
+    DocumentSubmitResponse,
     DocumentUploadResponse,
     ExtractedTransactionItem,
     ExtractedTransactionsPageResponse,
@@ -61,10 +84,38 @@ from .services import (
     ingest_document_metadata,
     list_extracted_transactions_for_export,
     list_document_extracted_transactions,
+    list_documents,
     list_statement_totals_for_document,
     preview_extracted_transactions_for_export,
     preview_document_extraction,
     re_extract_document,
+    release_document_to_taxpayer,
+    rename_document,
+    save_document_for_auditor,
+    submit_document_for_review,
+)
+from .services.analysis_persistence import persist_transaction_analysis
+from .services.classification_persistence import (
+    load_current_classifications,
+    persist_extracted_classifications,
+)
+from .services.rule_engine_service import get_rule_executor
+from .services.taxable_income_summary import build_taxable_income_summary
+from .services.inflow_summary import (
+    PERSONAL_RELIEF_ANNUAL_LKR,
+    PERSONAL_RELIEF_MONTHLY_EQUIVALENT_LKR,
+    summarize_inflows,
+)
+from .services.activity_summary import build_activity_summary
+from .services.taxonomy_catalog_service import get_income_type_catalog
+from .services.narrative_context import get_narrative_context_index
+from .services.semantic_classifier import preload_semantic_classifier
+from .services.transaction_analyzer import (
+    TransactionAnalysisResult,
+    TransactionAnalyzeInput,
+    analyze_transaction_fields,
+    analyze_transactions_batch,
+    apply_transactions_class_batch,
 )
 
 configure_logging(settings)
@@ -84,6 +135,101 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def warm_semantic_classifier() -> None:
+    try:
+        preload_semantic_classifier()
+        get_narrative_context_index()
+        logger.info("semantic_classifier_preloaded")
+    except FileNotFoundError as exc:
+        logger.warning("semantic_classifier_not_preloaded: {}", exc)
+
+
+def _with_taxpayer_id(
+    facts: dict[str, Any] | None,
+    taxpayer_id: str | None,
+) -> dict[str, Any]:
+    merged = dict(facts or {})
+    if taxpayer_id and "taxpayer_id" not in merged:
+        merged["taxpayer_id"] = taxpayer_id
+    if "taxpayer_id" not in merged:
+        merged["taxpayer_id"] = "taxpayer_00001"
+    return merged
+
+
+def _resolve_classification_profile_id(
+    db: Session,
+    *,
+    document_id: UUID | None,
+    financial_profile_id: UUID | None,
+) -> UUID:
+    if document_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="document_id is required to save classifications.",
+        )
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    profile_id = financial_profile_id or snap.document.financial_profile_id
+    if profile_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Document is not linked to a financial profile.",
+        )
+    if financial_profile_id and snap.document.financial_profile_id != financial_profile_id:
+        raise HTTPException(
+            status_code=400,
+            detail="financial_profile_id does not match the document owner.",
+        )
+    return profile_id
+
+
+def _to_analyze_response(analysis: TransactionAnalysisResult) -> AnalyzeTransactionResponse:
+    return AnalyzeTransactionResponse(
+        transaction_id=analysis.transaction_id,
+        semantic_category=analysis.semantic_category,
+        economic_event=analysis.economic_event,
+        tax_rule_code=analysis.tax_rule_code,
+        taxability=TaxabilityOutput(
+            tx_id=analysis.transaction_id,
+            taxability_status=analysis.taxability_status,
+            taxable_amount=analysis.taxable_amount_lkr,
+            confidence=analysis.confidence_report.top_probability,
+            evidence=analysis.evidence,
+            model_version=analysis.model_version,
+            model_run_id=None,
+            treatment=analysis.treatment,
+            taxable_fraction=analysis.taxable_fraction,
+        ),
+        confidence_report=analysis.confidence_report,
+        taxonomy_version=analysis.taxonomy_version,
+        rulebook_version=analysis.rulebook_version,
+        decision_mode=analysis.decision_mode,
+        rule_reference=analysis.rule_reference,
+        explanation=analysis.explanation,
+        review_reason=analysis.review_reason,
+        condition_id_matched=analysis.condition_id_matched,
+        model_semantic_category=analysis.model_semantic_category,
+        class_source=analysis.class_source,
+        narrative_interpretation=analysis.narrative_interpretation,
+        narrative_hits=[
+            NarrativeContextHit(
+                class_key=hit.class_key,
+                score=hit.score,
+                description=hit.description,
+                default_taxability_status=hit.default_taxability_status,
+            )
+            for hit in analysis.narrative_hits
+        ],
+        certainty_tier=analysis.certainty_tier,
+        intent_tag=analysis.intent_tag,
+        channel=analysis.channel,
+        evidence_needed=analysis.evidence_needed,
+        layer1_note=analysis.layer1_note,
+    )
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     logger.debug("health_check_ok")
@@ -91,50 +237,277 @@ def health() -> dict[str, str]:
 
 
 @app.post("/v1/transactions/analyze", response_model=AnalyzeTransactionResponse)
-def analyze_transaction(payload: AnalyzeTransactionRequest) -> AnalyzeTransactionResponse:
-    """Stub analysis — replace with preprocessor + classifier + rule map (WP4–WP7)."""
-    _ = payload  # unused until pipeline exists
-    tid = uuid4()
-    logger.bind(transaction_id=str(tid)).info(
-        "analyze_transaction_stub_completed semantic_category=salary",
+def analyze_transaction(
+    payload: AnalyzeTransactionRequest,
+    db: Session = Depends(get_db),
+) -> AnalyzeTransactionResponse:
+    """Normalize, classify, and apply deterministic IRA tax rules."""
+    facts = _with_taxpayer_id(
+        payload.facts.model_dump(exclude_none=True) if payload.facts else None,
+        payload.facts.taxpayer_id if payload.facts else None,
     )
-    return AnalyzeTransactionResponse(
-        transaction_id=tid,
-        semantic_category="salary",
-        economic_event="recurring_income",
-        tax_rule_code="IRD_SEC_123_STUB",
-        taxability=TaxabilityOutput(
-            tx_id=tid,
-            taxability_status=TaxabilityStatus.TAXABLE,
-            taxable_amount=Decimal("45000.00"),
-            confidence=0.87,
-            evidence=EvidenceChain(
-                steps=[
-                    EvidenceStep(
-                        step="normalize",
-                        detail="Whitespace stripped; bank ref masked (stub).",
-                    ),
-                    EvidenceStep(
-                        step="semantic_classifier",
-                        detail="Predicted category=salary with softmax prob 0.87 (stub).",
-                    ),
-                    EvidenceStep(
-                        step="tax_rule_mapping",
-                        detail="Mapped to stub IRD clause placeholder (stub).",
-                    ),
-                ],
+    analysis = analyze_transaction_fields(
+        raw_desc=payload.raw_desc,
+        amount_lkr=payload.amount_lkr,
+        direction=payload.direction,
+        bank_code=payload.bank_code,
+        document_type=payload.document_type,
+        facts=facts,
+    )
+    if payload.persist:
+        persist_transaction_analysis(
+            db,
+            raw_desc=payload.raw_desc,
+            amount_lkr=payload.amount_lkr,
+            tx_date=payload.tx_date,
+            direction=payload.direction.value,
+            bank_code=payload.bank_code,
+            source_type="api_analyze",
+            analysis=analysis,
+            raw_payload={"facts": facts, "document_type": payload.document_type},
+        )
+
+    logger.bind(
+        transaction_id=str(analysis.transaction_id),
+        semantic_category=analysis.semantic_category,
+        tax_rule_code=analysis.tax_rule_code,
+        taxability_status=analysis.taxability_status.value,
+    ).info("analyze_transaction_completed")
+
+    return _to_analyze_response(analysis)
+
+
+@app.post("/v1/transactions/analyze-batch", response_model=AnalyzeBatchResponse)
+def analyze_transactions_batch_endpoint(
+    payload: AnalyzeBatchRequest,
+    db: Session = Depends(get_db),
+) -> AnalyzeBatchResponse:
+    """Classify many rows in one request (shared model load + batched inference)."""
+    inputs = [
+        TransactionAnalyzeInput(
+            raw_desc=item.raw_desc,
+            amount_lkr=item.amount_lkr,
+            tx_date=item.tx_date,
+            direction=item.direction,
+            facts=_with_taxpayer_id(
+                item.facts.model_dump(exclude_none=True) if item.facts else None,
+                payload.taxpayer_id,
             ),
-            model_version="stub-0.1.0",
-            model_run_id=None,
+            row_id=item.row_id,
+        )
+        for item in payload.items
+    ]
+    analyses = analyze_transactions_batch(
+        inputs,
+        bank_code=payload.bank_code,
+        document_type=payload.document_type,
+    )
+    document_filename: str | None = None
+    if payload.document_id is not None:
+        snap = get_document_status_snapshot(db, payload.document_id)
+        if snap is not None:
+            document_filename = snap.document.filename
+
+    results: list[AnalyzeBatchItemResponse] = []
+    classification_rows: list[
+        tuple[str | None, TransactionAnalysisResult, AnalyzeTransactionResponse, Decimal]
+    ] = []
+    for item, analysis in zip(payload.items, analyses, strict=True):
+        facts = item.facts.model_dump(exclude_none=True) if item.facts else None
+        response = _to_analyze_response(analysis)
+        if payload.persist:
+            raw_payload: dict[str, object] = {
+                "facts": facts,
+                "document_type": payload.document_type,
+                "row_id": item.row_id,
+            }
+            if payload.document_id is not None:
+                raw_payload["document_id"] = str(payload.document_id)
+            if document_filename is not None:
+                raw_payload["document_filename"] = document_filename
+                raw_payload["source_filename"] = document_filename
+            persist_transaction_analysis(
+                db,
+                raw_desc=item.raw_desc,
+                amount_lkr=item.amount_lkr,
+                tx_date=item.tx_date,
+                direction=item.direction.value,
+                bank_code=payload.bank_code,
+                source_type="api_analyze_batch",
+                analysis=analysis,
+                raw_payload=raw_payload,
+            )
+        results.append(
+            AnalyzeBatchItemResponse(
+                row_id=item.row_id,
+                result=response,
+            ),
+        )
+        classification_rows.append((item.row_id, analysis, response, item.amount_lkr))
+
+    if payload.persist_classifications and classification_rows:
+        profile_id = _resolve_classification_profile_id(
+            db,
+            document_id=payload.document_id,
+            financial_profile_id=payload.financial_profile_id,
+        )
+        persist_extracted_classifications(
+            db,
+            financial_profile_id=profile_id,
+            document_id=payload.document_id,  # type: ignore[arg-type]
+            rows=classification_rows,
+        )
+
+    logger.bind(processed_count=len(results)).info("analyze_transactions_batch_completed")
+    rollup = summarize_inflows(inputs, analyses)
+    return AnalyzeBatchResponse(
+        results=results,
+        processed_count=len(results),
+        inflow_summary=InflowSummaryResponse(
+            guaranteed_taxable_inflows_lkr=rollup.guaranteed_taxable_inflows_lkr,
+            guaranteed_non_taxable_inflows_lkr=rollup.guaranteed_non_taxable_inflows_lkr,
+            indeterminate_inflows_lkr=rollup.indeterminate_inflows_lkr,
+            outflow_lkr=rollup.outflow_lkr,
+            credit_count=rollup.credit_count,
+            debit_count=rollup.debit_count,
+            indeterminate_credit_count=rollup.indeterminate_credit_count,
+            potential_assessable_if_indet_is_income_lkr=rollup.potential_assessable_if_indet_is_income_lkr,
+            exceeds_annual_personal_relief_if_indet_is_income=(
+                rollup.exceeds_annual_personal_relief_if_indet_is_income
+            ),
+            exceeds_monthly_relief_equivalent_if_indet_is_income=(
+                rollup.exceeds_monthly_relief_equivalent_if_indet_is_income
+            ),
+            personal_relief_annual_lkr=PERSONAL_RELIEF_ANNUAL_LKR,
+            personal_relief_monthly_equivalent_lkr=PERSONAL_RELIEF_MONTHLY_EQUIVALENT_LKR,
+            relief_hint=rollup.relief_hint,
         ),
-        confidence_report=ConfidenceReport(
-            top_label="salary",
-            top_probability=0.87,
-            calibrated_probability=0.87,
-            entropy=None,
-            mc_dropout_variance=None,
-            is_ood=False,
-        ),
+    )
+
+
+@app.post("/v1/transactions/apply-class-batch", response_model=ApplyClassBatchResponse)
+def apply_transactions_class_batch_endpoint(
+    payload: ApplyClassBatchRequest,
+    db: Session = Depends(get_db),
+) -> ApplyClassBatchResponse:
+    """Re-run IRA rules for manually selected taxonomy classes."""
+    inputs = [
+        TransactionAnalyzeInput(
+            raw_desc=item.raw_desc,
+            amount_lkr=item.amount_lkr,
+            tx_date=item.tx_date,
+            direction=item.direction,
+            facts=item.facts.model_dump(exclude_none=True) if item.facts else None,
+            row_id=item.row_id,
+        )
+        for item in payload.items
+    ]
+    analyses = apply_transactions_class_batch(
+        inputs,
+        class_keys=[item.class_key for item in payload.items],
+        bank_code=payload.bank_code,
+        document_type=payload.document_type,
+        model_semantic_categories=[item.model_semantic_category for item in payload.items],
+    )
+    results: list[AnalyzeBatchItemResponse] = []
+    classification_rows: list[
+        tuple[str | None, TransactionAnalysisResult, AnalyzeTransactionResponse, Decimal]
+    ] = []
+    for item, analysis in zip(payload.items, analyses, strict=True):
+        response = _to_analyze_response(analysis)
+        results.append(
+            AnalyzeBatchItemResponse(
+                row_id=item.row_id,
+                result=response,
+            ),
+        )
+        classification_rows.append((item.row_id, analysis, response, item.amount_lkr))
+
+    if payload.persist_classifications and classification_rows:
+        profile_id = _resolve_classification_profile_id(
+            db,
+            document_id=payload.document_id,
+            financial_profile_id=payload.financial_profile_id,
+        )
+        persist_extracted_classifications(
+            db,
+            financial_profile_id=profile_id,
+            document_id=payload.document_id,  # type: ignore[arg-type]
+            rows=classification_rows,
+        )
+    logger.bind(processed_count=len(results)).info("apply_transactions_class_batch_completed")
+    return ApplyClassBatchResponse(results=results, processed_count=len(results))
+
+
+@app.get("/v1/taxonomy/income-types", response_model=IncomeTypeCatalogResponse)
+def list_income_types() -> IncomeTypeCatalogResponse:
+    """Reference catalog of semantic classes and default IRA taxability."""
+    executor = get_rule_executor()
+    entries = get_income_type_catalog()
+    items = [
+        IncomeTypeCatalogItem(
+            class_key=entry.class_key,
+            group=entry.group,
+            description=entry.description,
+            tax_rule_code=entry.tax_rule_code,
+            default_taxability_status=entry.default_taxability_status,
+            default_taxable_fraction=entry.default_taxable_fraction,
+            treatment=entry.treatment,
+            rule_reference=entry.rule_reference,
+            explanation=entry.explanation,
+            is_conditional=entry.is_conditional,
+        )
+        for entry in entries
+    ]
+    grouped: dict[str, list[IncomeTypeCatalogItem]] = {}
+    for item in items:
+        grouped.setdefault(item.default_taxability_status, []).append(item)
+    return IncomeTypeCatalogResponse(
+        taxonomy_version=executor.taxonomy_version,
+        rulebook_version=executor.rulebook_version,
+        items=items,
+        by_taxability_status=grouped,
+    )
+
+
+@app.post("/v1/taxable-income/summary", response_model=TaxableIncomeSummaryResponse)
+def summarize_taxable_income(
+    payload: TaxableIncomeSummaryRequest,
+    db: Session = Depends(get_db),
+) -> TaxableIncomeSummaryResponse:
+    """Aggregate persisted taxability outputs into taxable / non-taxable / review lines."""
+    if payload.date_from > payload.date_to:
+        raise HTTPException(status_code=400, detail="date_from must be <= date_to")
+    summary = build_taxable_income_summary(
+        db,
+        date_from=payload.date_from,
+        date_to=payload.date_to,
+        bank_code=payload.bank_code,
+    )
+
+    def _map_lines(lines):
+        return [
+            TaxableIncomeLineItem(
+                class_key=line.class_key,
+                tax_rule_code=line.tax_rule_code,
+                taxability_status=line.taxability_status,
+                transaction_count=line.transaction_count,
+                gross_amount_lkr=line.gross_amount_lkr,
+                taxable_amount_lkr=line.taxable_amount_lkr,
+            )
+            for line in lines
+        ]
+
+    return TaxableIncomeSummaryResponse(
+        date_from=summary.date_from,
+        date_to=summary.date_to,
+        total_taxable_lkr=summary.total_taxable_lkr,
+        total_excluded_lkr=summary.total_excluded_lkr,
+        review_count=summary.review_count,
+        transaction_count=summary.transaction_count,
+        taxable_lines=_map_lines(summary.taxable_lines),
+        non_taxable_lines=_map_lines(summary.non_taxable_lines),
+        review_lines=_map_lines(summary.review_lines),
     )
 
 
@@ -234,14 +607,130 @@ async def extract_document_transactions(
     )
 
 
+def _uploaded_document_summary(
+    document: Any,
+    *,
+    row_count: int,
+    selected_parser: str | None,
+) -> UploadedDocumentSummary:
+    return UploadedDocumentSummary(
+        document_id=document.id,
+        filename=document.filename,
+        status=document.status.value,
+        size_bytes=document.size_bytes,
+        bank_detected=document.bank_detected,
+        selected_parser=selected_parser,
+        extracted_row_count=row_count,
+        financial_profile_id=getattr(document, "financial_profile_id", None),
+        tax_year=getattr(document, "tax_year", None),
+        statement_period_from=getattr(document, "statement_period_from", None),
+        statement_period_to=getattr(document, "statement_period_to", None),
+        submitted_by=getattr(document, "submitted_by", "auditor") or "auditor",
+        user_visible=bool(getattr(document, "user_visible", False)),
+        uploaded_at=getattr(document, "uploaded_at", None),
+    )
+
+
+@app.get("/v1/documents", response_model=DocumentListResponse)
+def list_uploaded_documents(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    financial_profile_id: UUID | None = Query(default=None),
+    user_visible: bool | None = Query(default=None),
+    pending_taxpayer_release: bool | None = Query(default=None),
+    submitted_by: str | None = Query(default=None, max_length=16),
+    db: Session = Depends(get_db),
+) -> DocumentListResponse:
+    """List persisted uploads (newest first), optionally scoped to a financial profile."""
+    rows, total = list_documents(
+        db,
+        limit=limit,
+        offset=offset,
+        financial_profile_id=financial_profile_id,
+        user_visible=user_visible,
+        pending_taxpayer_release=pending_taxpayer_release,
+        submitted_by=submitted_by,
+    )
+    items = [
+        _uploaded_document_summary(document, row_count=row_count, selected_parser=selected_parser)
+        for document, row_count, selected_parser in rows
+    ]
+    return DocumentListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@app.get("/v1/documents/{document_id}/classifications", response_model=DocumentClassificationsResponse)
+def get_document_classifications(
+    document_id: UUID,
+    financial_profile_id: UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> DocumentClassificationsResponse:
+    """Return saved tax classifications for extracted rows on a document."""
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    profile_id = financial_profile_id or snap.document.financial_profile_id
+    loaded = load_current_classifications(
+        db,
+        document_id=document_id,
+        financial_profile_id=profile_id,
+    )
+    items = [
+        DocumentClassificationItem(
+            extracted_transaction_id=extracted_id,
+            result=result,
+        )
+        for extracted_id, result in loaded
+    ]
+    return DocumentClassificationsResponse(
+        document_id=document_id,
+        financial_profile_id=profile_id,
+        items=items,
+        total=len(items),
+    )
+
+
+@app.patch("/v1/documents/{document_id}", response_model=DocumentRenameResponse)
+def rename_uploaded_document(
+    document_id: UUID,
+    payload: DocumentRenameRequest,
+    db: Session = Depends(get_db),
+) -> DocumentRenameResponse:
+    """Rename a stored document and sync linked persisted transaction metadata."""
+    try:
+        result = rename_document(db, document_id=document_id, filename=payload.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    document, row_count, updated_related, selected_parser = result
+    return DocumentRenameResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=row_count,
+            selected_parser=selected_parser,
+        ),
+        updated_related_transaction_count=updated_related,
+    )
+
+
 @app.post("/v1/documents/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
+    financial_profile_id: UUID | None = Query(default=None),
+    tax_year: str | None = Query(default=None, max_length=8),
     db: Session = Depends(get_db),
 ) -> DocumentUploadResponse:
     payload = await file.read()
     try:
-        result = ingest_document_metadata(db=db, upload=file, content=payload)
+        result = ingest_document_metadata(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -250,19 +739,114 @@ async def upload_document(
 
     document = result.document
     return DocumentUploadResponse(
-        document=UploadedDocumentSummary(
-            document_id=document.id,
-            filename=document.filename,
-            status=document.status.value,
-            size_bytes=document.size_bytes,
-            bank_detected=document.bank_detected,
+        document=_uploaded_document_summary(
+            document,
+            row_count=result.extracted_count,
             selected_parser=result.selected_parser,
-            extracted_row_count=result.extracted_count,
         ),
         extraction_run_id=result.extract_run.id,
         metadata_extraction_run_id=result.metadata_run.id,
         router_extraction_run_id=result.router_run.id,
     )
+
+
+@app.post("/v1/documents/save", response_model=DocumentSaveResponse)
+async def save_document(
+    file: UploadFile = File(...),
+    financial_profile_id: UUID = Query(...),
+    tax_year: str | None = Query(default=None, max_length=8),
+    db: Session = Depends(get_db),
+) -> DocumentSaveResponse:
+    """Auditor portal: store a statement without extraction."""
+    payload = await file.read()
+    try:
+        document = save_document_for_auditor(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_save_failed")
+        raise HTTPException(status_code=500, detail=f"Save failed: {exc}") from exc
+
+    return DocumentSaveResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=0,
+            selected_parser=None,
+        ),
+    )
+
+
+@app.post("/v1/documents/submit", response_model=DocumentSubmitResponse)
+async def submit_document_to_auditor(
+    file: UploadFile = File(...),
+    financial_profile_id: UUID = Query(...),
+    tax_year: str | None = Query(default=None, max_length=8),
+    db: Session = Depends(get_db),
+) -> DocumentSubmitResponse:
+    """Taxpayer portal: store a statement for auditor review without extraction."""
+    payload = await file.read()
+    try:
+        document = submit_document_for_review(
+            db=db,
+            upload=file,
+            content=payload,
+            financial_profile_id=financial_profile_id,
+            tax_year=tax_year,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("document_submit_failed")
+        raise HTTPException(status_code=500, detail=f"Submit failed: {exc}") from exc
+
+    return DocumentSubmitResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=0,
+            selected_parser=None,
+        ),
+    )
+
+
+@app.post("/v1/documents/{document_id}/release-to-taxpayer", response_model=DocumentReleaseResponse)
+def release_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> DocumentReleaseResponse:
+    """Auditor action: make classified document data visible in the taxpayer portal."""
+    snap = get_document_status_snapshot(db, document_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    try:
+        document = release_document_to_taxpayer(db, document_id=document_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    row_count = snap.extracted_row_count
+    selected_parser = _latest_selected_parser_from_snap(snap)
+    return DocumentReleaseResponse(
+        document=_uploaded_document_summary(
+            document,
+            row_count=row_count,
+            selected_parser=selected_parser,
+        ),
+    )
+
+
+def _latest_selected_parser_from_snap(snap: Any) -> str | None:
+    router_run = snap.router_run
+    if router_run is None:
+        return None
+    metrics = router_run.metrics or {}
+    raw_sel = metrics.get("selected_parser")
+    return raw_sel if isinstance(raw_sel, str) else None
 
 
 @app.post("/v1/documents/preview", response_model=DocumentPreviewResponse)
@@ -337,6 +921,8 @@ async def preview_document(
 @app.post("/v1/documents/upload-batch", response_model=DocumentBatchUploadResponse)
 async def upload_document_batch(
     files: list[UploadFile] = File(...),
+    financial_profile_id: UUID | None = Query(default=None),
+    tax_year: str | None = Query(default=None, max_length=8),
     db: Session = Depends(get_db),
 ) -> DocumentBatchUploadResponse:
     if not files:
@@ -347,20 +933,22 @@ async def upload_document_batch(
     for file in files:
         payload = await file.read()
         try:
-            result = ingest_document_metadata(db=db, upload=file, content=payload)
+            result = ingest_document_metadata(
+                db=db,
+                upload=file,
+                content=payload,
+                financial_profile_id=financial_profile_id,
+                tax_year=tax_year,
+            )
         except ValueError as exc:
             logger.warning(f"batch_upload_skipped filename={file.filename} reason={exc}")
             continue
         document = result.document
         docs.append(
-            UploadedDocumentSummary(
-                document_id=document.id,
-                filename=document.filename,
-                status=document.status.value,
-                size_bytes=document.size_bytes,
-                bank_detected=document.bank_detected,
+            _uploaded_document_summary(
+                document,
+                row_count=result.extracted_count,
                 selected_parser=result.selected_parser,
-                extracted_row_count=result.extracted_count,
             ),
         )
         run_ids.append(result.extract_run.id)
@@ -431,6 +1019,50 @@ def _build_export_csv_response(
         iter([buff.getvalue().encode("utf-8")]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/v1/transactions/activity-summary", response_model=ActivitySummaryResponse)
+def activity_summary_for_rows(payload: ActivitySummaryRequest) -> ActivitySummaryResponse:
+    """Group extracted (or preview) rows by bank intent + merchant family for auditors."""
+    groups = build_activity_summary(
+        [
+            {
+                "row_id": item.row_id,
+                "raw_desc": item.raw_desc,
+                "amount_lkr": item.amount_lkr,
+                "tx_date": item.tx_date.isoformat() if item.tx_date else None,
+                "direction": item.direction.value,
+            }
+            for item in payload.items
+        ],
+    )
+    return ActivitySummaryResponse(
+        group_count=len(groups),
+        transaction_count=sum(g.count for g in groups),
+        groups=[
+            ActivitySummaryGroup(
+                group_key=g.group_key,
+                label=g.label,
+                hint=g.hint,
+                direction=SchemaTxnDirection(g.direction),
+                intent_tag=g.intent_tag,
+                merchant_family=g.merchant_family,
+                count=g.count,
+                total_lkr=g.total_lkr,
+                members=[
+                    ActivitySummaryMember(
+                        row_id=m.row_id,
+                        tx_date=date.fromisoformat(m.tx_date) if m.tx_date else None,
+                        description=m.description,
+                        direction=SchemaTxnDirection(m.direction),
+                        amount_lkr=m.amount_lkr,
+                    )
+                    for m in g.members
+                ],
+            )
+            for g in groups
+        ],
     )
 
 

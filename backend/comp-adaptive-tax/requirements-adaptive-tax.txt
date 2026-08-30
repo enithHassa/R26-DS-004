@@ -1,0 +1,10 @@
+# Phase 1+ extras for Adaptive Tax (install on top of backend/requirements.txt).
+#   pip install -r backend/comp-adaptive-tax/requirements-adaptive-tax.txt
+pymupdf>=1.24.0
+openai>=1.40.0
+
+# Phase 2 — Neo4j graph + Chroma RAG (Week 2)
+neo4j>=5.14.0,<6
+chromadb>=0.5.0,<1.1
+# Dense embeddings for Chroma (same stack as Comp 4 dense retrieval)
+sentence-transformers>=3.3.0,<4.0.0

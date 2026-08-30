@@ -41,8 +41,21 @@ def _financial_body(**overrides):
         "dependents": 0,
         "annual_salary_income": "2400000",
         "annual_business_income": "0",
+        "annual_rental_income": "0",
         "annual_other_income": "0",
-        "deductions": [],
+        "apit_tax_paid_by_employer": "0",
+        "deductions": [
+            # Actual spending at or above statutory caps so actual_claimable == max_cap for all codes.
+            # Fixed-cap reliefs: amount == statutory cap.
+            {"relief_code": "life_insurance_premium", "amount_annual": "100000", "description": "test"},
+            {"relief_code": "health_insurance_premium", "amount_annual": "75000", "description": "test"},
+            {"relief_code": "home_loan_interest", "amount_annual": "600000", "description": "test"},
+            {"relief_code": "rent_relief", "amount_annual": "300000", "description": "test"},
+            # 33% of 2400000 = 792000; claim above so capped amount == max_cap.
+            {"relief_code": "charitable_donations", "amount_annual": "800000", "description": "test"},
+            # min(15% of 2400000, 600000) = 360000; claim above so capped amount == max_cap.
+            {"relief_code": "retirement_contribution", "amount_annual": "400000", "description": "test"},
+        ],
         "investments": [],
         "top_k": 64,
         "rank_by": "total_tax",

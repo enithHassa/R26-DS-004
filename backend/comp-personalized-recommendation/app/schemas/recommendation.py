@@ -60,6 +60,17 @@ class RecommendationResponse(BaseModel):
     items: list[RecommendationItem]
 
 
+class ExplainRequest(BaseModel):
+    """On-demand SHAP explanation (items are not persisted yet)."""
+
+    profile_id: UUID
+    strategy_code: str = Field(
+        min_length=2,
+        description="Catalog strategy key, e.g. S001_health_life_premium_optimisation",
+    )
+    top_k: int = Field(default=5, ge=1, le=15)
+
+
 class FeedbackCreate(BaseModel):
     recommendation_item_id: UUID
     accepted: bool
@@ -68,6 +79,7 @@ class FeedbackCreate(BaseModel):
 
 
 __all__ = [
+    "ExplainRequest",
     "FeatureAttribution",
     "FeedbackCreate",
     "RecommendationExplanation",

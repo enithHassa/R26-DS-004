@@ -11,6 +11,7 @@ features computed at request time agree with the synthetic training set.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -30,6 +31,13 @@ from app.schemas.profile import (
     FinancialProfileBase,
     FinancialProfileCreate,
     FinancialProfileUpdate,
+)
+from app.services.tax_return_sync import sync_scalars_from_tax_return
+from backend.shared.auth.service import (
+    EmailTakenError,
+    InvalidCredentialsError,
+    authenticate_user,
+    create_account,
 )
 
 
@@ -81,6 +89,22 @@ def _load_rules(rules_path: Path) -> Any:
 # ---------------------------------------------------------------------------
 
 
+_TAXPAYER_RE = re.compile(r"Taxpayer_0*(\d+)")
+
+
+def _derive_login_password(full_name: str) -> str:
+    """Login password for the User View portal (username = full_name).
+
+    Mirrors the dataset convention used for seeded synthetic profiles
+    (Taxpayer_NNNNN -> "N@Tax") so newly created profiles can log in the
+    same way as pre-seeded ones.
+    """
+    match = _TAXPAYER_RE.fullmatch(full_name)
+    if match:
+        return f"{int(match.group(1))}@Tax"
+    return f"{uuid4().hex[:8]}@Tax"
+
+
 def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
     """Find/create the owning user. Phase 2 doesn't have auth wired yet so we
     materialise a placeholder user when ``user_id`` is omitted."""
@@ -90,8 +114,25 @@ def _ensure_user(db: Session, user_id: UUID | None, full_name: str) -> UserORM:
             raise ProfileNotFoundError(f"User {user_id} does not exist")
         return user
 
+    # Reuse an existing row with this display name so creating another
+    # profile for the same Taxpayer_NNNNN does not leave duplicate logins
+    # (which used to 500 ``scalar_one_or_none`` on User View sign-in).
+    existing = db.execute(
+        select(UserORM)
+        .where(UserORM.full_name == full_name)
+        .order_by(UserORM.created_at.desc())
+    ).scalars().first()
+    if existing is not None:
+        if not existing.password:
+            existing.password = _derive_login_password(full_name)
+        return existing
+
     placeholder_email = f"profile-{uuid4().hex[:12]}@synthetic.local"
-    user = UserORM(email=placeholder_email, full_name=full_name)
+    user = UserORM(
+        email=placeholder_email,
+        full_name=full_name,
+        password=_derive_login_password(full_name),
+    )
     db.add(user)
     db.flush()
     return user
@@ -108,6 +149,7 @@ def _payload_to_columns(payload: FinancialProfileBase | FinancialProfileUpdate) 
     raw = payload.model_dump(exclude_unset=True, mode="json")
     decimal_fields = {
         "gross_monthly_income",
+        "annual_bonus_lkr",
         "monthly_expenses",
         "monthly_debt_service",
         "liquid_savings",
@@ -115,6 +157,8 @@ def _payload_to_columns(payload: FinancialProfileBase | FinancialProfileUpdate) 
         "total_debt",
         "epf_balance",
         "etf_balance",
+        "vehicle_value",
+        "property_value",
         "life_insurance_premium_annual",
         "home_loan_interest_annual",
         "donations_annual",
@@ -164,6 +208,35 @@ def update_profile(
 ) -> FinancialProfileORM:
     profile = get_profile(db, profile_id)
     columns = _payload_to_columns(payload)
+
+    detail = columns.get("tax_return_detail")
+    if isinstance(detail, dict):
+        synced = sync_scalars_from_tax_return(detail)
+        for key, value in synced.items():
+            if key not in columns or columns[key] is None:
+                columns[key] = value
+
+    for key, value in list(columns.items()):
+        if key == "date_of_birth" and isinstance(value, str):
+            columns[key] = date.fromisoformat(value)
+        elif key in {
+            "gross_monthly_income",
+            "annual_bonus_lkr",
+            "monthly_expenses",
+            "monthly_debt_service",
+            "liquid_savings",
+            "existing_investments",
+            "total_debt",
+            "epf_balance",
+            "etf_balance",
+            "vehicle_value",
+            "property_value",
+            "life_insurance_premium_annual",
+            "home_loan_interest_annual",
+            "donations_annual",
+        } and value is not None and not isinstance(value, Decimal):
+            columns[key] = Decimal(str(value))
+
     for key, value in columns.items():
         setattr(profile, key, value)
     db.commit()
@@ -175,6 +248,26 @@ def delete_profile(db: Session, profile_id: UUID) -> None:
     profile = get_profile(db, profile_id)
     db.delete(profile)
     db.commit()
+
+
+def set_eligibility_override(
+    db: Session,
+    profile_id: UUID,
+    *,
+    flag: str,
+    value: bool | None,
+) -> FinancialProfileORM:
+    """Pin (``value`` is a bool) or clear (``value`` is ``None``) a manual override."""
+    profile = get_profile(db, profile_id)
+    overrides = dict(profile.eligibility_overrides or {})
+    if value is None:
+        overrides.pop(flag, None)
+    else:
+        overrides[flag] = value
+    profile.eligibility_overrides = overrides
+    db.commit()
+    db.refresh(profile)
+    return profile
 
 
 def list_profiles(
@@ -203,6 +296,13 @@ def list_profiles(
 
 
 # ---------------------------------------------------------------------------
+# Account auth — owned by backend.shared.auth (gateway + Comp 3 re-export)
+# ---------------------------------------------------------------------------
+# create_account / authenticate_user / EmailTakenError / InvalidCredentialsError
+# are imported from backend.shared.auth.service at module top.
+
+
+# ---------------------------------------------------------------------------
 # Derived features
 # ---------------------------------------------------------------------------
 
@@ -213,13 +313,26 @@ def _age_years(dob: date, snapshot: date | None = None) -> int:
 
 
 def _annual_taxable_income(profile: FinancialProfileORM) -> Decimal:
+    """Annual taxable income used by the ranker and the impact engine.
+
+    Seeded/synthetic profiles decompose ``gross_monthly_income`` into
+    ``income_sources`` (the two totals match). User-intake profiles often list
+    extra sources (rent, interest) *on top of* salary without repeating it —
+    using only those extras undercounted income and projected a LKR 0 tax bill.
+    """
+    bonus = profile.annual_bonus_lkr or Decimal("0")
+    gross_annual = profile.gross_monthly_income * Decimal("12")
     sources = profile.income_sources or []
-    if sources:
-        annual = sum(
-            Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)
-        ) * Decimal("12")
-        return annual
-    return profile.gross_monthly_income * Decimal("12")
+    sources_annual = sum(
+        (Decimal(str(s.get("monthly_amount", 0))) for s in sources if s.get("is_taxable", True)),
+        start=Decimal("0"),
+    ) * Decimal("12")
+    if not sources:
+        return gross_annual + bonus
+    # Sources already explain primary income (breakdown, or a fuller listing).
+    if sources_annual >= gross_annual * Decimal("0.90"):
+        return sources_annual + bonus
+    return gross_annual + sources_annual + bonus
 
 
 def _eligibility_flags(
@@ -228,8 +341,9 @@ def _eligibility_flags(
     profile: FinancialProfileORM,
     annual_income: Decimal,
     disposable_monthly: Decimal,
+    debt_to_income: float,
 ) -> dict[str, bool]:
-    return {
+    computed = {
         "above_tax_threshold": annual_income > Decimal("1200000"),
         "has_disposable_income": disposable_monthly > Decimal("0"),
         "has_employer_provident": profile.epf_balance > 0 or profile.occupation == "employee",
@@ -238,7 +352,17 @@ def _eligibility_flags(
         "is_retirement_eligible": age >= 50,
         "has_dependents": profile.dependents > 0,
         "has_liquidity_buffer": profile.liquid_savings >= profile.monthly_expenses * 3,
+        "has_life_insurance": profile.life_insurance_premium_annual > 0,
+        "has_donations": profile.donations_annual > 0,
+        "has_etf_investment": profile.etf_balance > 0,
+        "has_existing_investments": profile.existing_investments > 0,
+        "has_long_investment_horizon": profile.investment_horizon_years >= 10,
+        "high_debt_to_income": debt_to_income > 0.4,
+        "has_vehicle": profile.vehicle_value > 0,
+        "has_property": profile.property_value > 0,
     }
+    overrides = profile.eligibility_overrides or {}
+    return {**computed, **{k: v for k, v in overrides.items() if k in computed}}
 
 
 def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
@@ -264,12 +388,14 @@ def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
     monthly_tax = baseline_tax / Decimal("12")
     monthly_disposable = (
         profile.gross_monthly_income
+        + profile.annual_bonus_lkr / Decimal("12")
         - profile.monthly_expenses
         - profile.monthly_debt_service
         - monthly_tax
     )
     annual_disposable = monthly_disposable * Decimal("12")
-    savings_rate = float(monthly_disposable / profile.gross_monthly_income) if profile.gross_monthly_income > 0 else 0.0
+    monthly_gross_with_bonus = profile.gross_monthly_income + profile.annual_bonus_lkr / Decimal("12")
+    savings_rate = float(monthly_disposable / monthly_gross_with_bonus) if monthly_gross_with_bonus > 0 else 0.0
     savings_rate = max(0.0, min(1.0, savings_rate))
 
     debt_to_income = float(profile.total_debt / annual_income) if annual_income > 0 else 0.0
@@ -291,16 +417,23 @@ def compute_derived_features(profile: FinancialProfileORM) -> DerivedFeatures:
             profile=profile,
             annual_income=annual_income,
             disposable_monthly=monthly_disposable,
+            debt_to_income=debt_to_income,
         ),
+        eligibility_overrides=dict(profile.eligibility_overrides or {}),
     )
 
 
 __all__ = [
+    "EmailTakenError",
+    "InvalidCredentialsError",
     "ProfileNotFoundError",
+    "authenticate_user",
     "compute_derived_features",
+    "create_account",
     "create_profile",
     "delete_profile",
     "get_profile",
     "list_profiles",
+    "set_eligibility_override",
     "update_profile",
 ]

@@ -1,0 +1,31 @@
+{
+  "id": "ee94d3fc-9d9b-462c-98b3-4d038dff1e62",
+  "status": "activated",
+  "source_doc_id": "oee-act-99-2026",
+  "original_filename": "IR_Demo_Amendment_Act_2026_27_48_pages.pdf",
+  "storage_path": "D:/R26-DS-004/R26-DS-004/models/opt-explain-engine/act-admin/uploads/ee94d3fc-9d9b-462c-98b3-4d038dff1e62__IR_Demo_Amendment_Act_2026_27_48_pages.pdf",
+  "pdf_sha256": "503058ad9074e541637dbf7891bcf11d8bb8b277266dddc6ddc5393f32966297",
+  "act_identity": {
+    "act_no": "99",
+    "act_year": "2026",
+    "label": "Act No. 99 of 2026",
+    "source": "short_title",
+    "quote": "This Act may be cited as the INLAND REVENUE (AMENDMENT) ACT, No. 99 OF 2026"
+  },
+  "reviewer": "Auditor",
+  "uploaded_at": "2026-08-29T14:32:34.705552+00:00",
+  "error": null,
+  "extract_started_at": "2026-08-29T14:32:34.853006+00:00",
+  "ingest_status": "ingested",
+  "chunk_count": 226,
+  "embedding_usd": 0.00045251,
+  "extract_finished_at": "2026-08-29T14:33:28.568943+00:00",
+  "extraction_run_id": "20260829T143328Z-bd9ea4",
+  "entity_count": 11,
+  "included_count": 11,
+  "usd_this_run": 0.093817,
+  "model": "gpt-4o",
+  "review_path": "/optimization-explainable-engine/act-admin/review/oee-act-99-2026",
+  "activated_at": "2026-08-29T14:48:01.380933+00:00",
+  "activated_by": "Auditor"
+}

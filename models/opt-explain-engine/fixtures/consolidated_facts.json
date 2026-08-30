@@ -1,0 +1,31 @@
+{
+  "spec_version": "1.0.0",
+  "extraction_run_id": "fixture-consolidated",
+  "source_doc_id": "oee-fixture-consolidated",
+  "tier": "consolidated",
+  "terminus": "facts_and_mismatch_no_promote",
+  "model": "fixture",
+  "dry_run": false,
+  "entities": [
+    {
+      "entity_kind": "consolidated_fact",
+      "entry_id": "oee-fixture-consolidated:personal:2024_25",
+      "source_doc_id": "oee-fixture-consolidated",
+      "compare_group_id": "personal_relief",
+      "year": "2024_25",
+      "value": "1200000",
+      "quote": "personal relief Rs. 1,200,000 for 2024/25",
+      "included": true
+    },
+    {
+      "entity_kind": "consolidated_fact",
+      "entry_id": "oee-fixture-consolidated:personal:2025_26",
+      "source_doc_id": "oee-fixture-consolidated",
+      "compare_group_id": "personal_relief",
+      "year": "2025_26",
+      "value": "1800000",
+      "quote": "personal relief Rs. 1,800,000 for 2025/26",
+      "included": true
+    }
+  ]
+}

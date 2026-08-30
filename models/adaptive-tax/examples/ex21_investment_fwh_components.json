@@ -1,0 +1,98 @@
+{
+
+  "id": "ex21",
+
+  "scenario": "Investment components + Sec 7(3)(a) final-WHT exclusion",
+
+  "key_assertion": "Phase 6.2: dividends+interest aggregate then FWH line excludes 200k — same tax path as ex16.",
+
+  "inputs": {
+
+    "assessment_year": "2024_25",
+
+    "resident_status": "resident",
+
+    "employment_income": "0",
+
+    "business_income": "0",
+
+    "investment_income": "0",
+
+    "investment_final_withholding": "0",
+
+    "qualifying_payments": "0",
+
+    "donations": "0",
+
+    "other_reliefs": {},
+
+    "param_set": "current",
+
+    "filing_lines": [
+
+      {"component_id": "inv_dividends", "amount": "1000000"},
+
+      {"component_id": "inv_interest", "amount": "800000"},
+
+      {"component_id": "inv_final_withholding", "amount": "200000"}
+
+    ]
+
+  },
+
+  "expected_final_tax_lkr": "24000",
+
+  "expected_rules_applied": [
+
+    "aggregate_investment_components",
+
+    "exclude_investment_final_withholding",
+
+    "sum_assessable",
+
+    "apply_personal_relief",
+
+    "slab_band_1",
+
+    "final_tax"
+
+  ],
+
+  "expected_rule_source_ids": [
+
+    "bootstrap:aggregate_investment_components",
+
+    "bootstrap:exclude_investment_final_wht",
+
+    "bootstrap:investment_income",
+
+    "ird-ira-2017-base",
+
+    "personal_relief",
+
+    "fs_2024_25_band_1",
+
+    "bootstrap:first_schedule_rates",
+
+    "bootstrap:sum_assessable",
+
+    "bootstrap:first_schedule_rates_2024_25",
+
+    "bootstrap:personal_relief_2024_25",
+
+    "bootstrap:personal_relief"
+
+  ],
+
+  "expected_assessable_concepts": [
+
+    "investment_income"
+
+  ],
+
+  "expected_personal_relief": "1200000",
+
+  "expected_taxable_after_relief": "400000"
+
+}
+
