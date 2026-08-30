@@ -73,12 +73,51 @@ class LanguageModelSettings(BaseSettings):
         default=False,
         description="Enable optional plain-language answers on POST /api/v1/query.",
     )
+
+    # ------------------------------------------------------------------
+    # Taxpayer data grounding — chat answers about a specific taxpayer are
+    # backed by the shared Azure DB (never guessed). Access is limited to
+    # the caller's own financial profile.
+    # ------------------------------------------------------------------
+    COMP_LLM_TAXPAYER_DATA_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Enable taxpayer-specific grounding on POST /api/v1/chat. When on, a chat "
+            "request carrying profile_id may ask about that taxpayer's own details and "
+            "the answer is grounded on shared-DB rows + IRD citations + knowledge graph."
+        ),
+    )
+    COMP_LLM_TAXPAYER_MONTHLY_LOOKBACK: int = Field(
+        default=12,
+        ge=1,
+        le=36,
+        description="How many recent monthly taxable-income rollup rows to include in the fact block.",
+    )
+
+    # ------------------------------------------------------------------
+    # Persistent per-user chat history (FR9)
+    # ------------------------------------------------------------------
+    COMP_LLM_CHAT_HISTORY_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Persist chat sessions + messages to the shared DB, scoped per user. "
+            "When a chat request carries user_id, history is stored and can be "
+            "listed / resumed. Falls back to in-memory sessions when off or when "
+            "no user_id is supplied."
+        ),
+    )
+    COMP_LLM_CHAT_HISTORY_MAX_SESSIONS: int = Field(
+        default=100,
+        ge=1,
+        le=500,
+        description="Max sessions returned by GET /api/v1/chat/sessions.",
+    )
     COMP_LLM_ANSWER_PROVIDER: Literal["gemini", "none"] = Field(default="gemini")
     COMP_LLM_GEMINI_API_KEY: str = Field(default="")
     COMP_LLM_GEMINI_MODEL: str = Field(default="gemini-2.0-flash")
     COMP_LLM_ANSWER_MAX_CITATIONS: int = Field(default=4, ge=1, le=8)
     COMP_LLM_ANSWER_MAX_CHARS_PER_CITATION: int = Field(default=1200, ge=200, le=8000)
-    COMP_LLM_ANSWER_MAX_OUTPUT_TOKENS: int = Field(default=900, ge=128, le=4096)
+    COMP_LLM_ANSWER_MAX_OUTPUT_TOKENS: int = Field(default=1500, ge=128, le=16000)
     COMP_LLM_ANSWER_TIMEOUT_SECONDS: float = Field(default=25.0, ge=5.0, le=120.0)
 
     COMP_LLM_DOMAIN_GATE_ENABLED: bool = Field(
