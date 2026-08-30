@@ -39,7 +39,10 @@
       },
       "sort_order": 0,
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "relief",
@@ -72,7 +75,10 @@
       },
       "sort_order": 10,
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "rate_band",
@@ -90,7 +96,10 @@
       "effective_from": "2025-04-01",
       "quote": "Not exceeding Rs. 1,000,000 | 6% of the amount in excess of Rs.0",
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "rate_band",
@@ -108,7 +117,10 @@
       "effective_from": "2025-04-01",
       "quote": "Exceeding Rs. 1,000,000 but not exceeding Rs. 1,500,000 | Rs. 60,000 plus 18%",
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "rate_band",
@@ -126,7 +138,10 @@
       "effective_from": "2025-04-01",
       "quote": "Exceeding Rs. 1,500,000 but not exceeding Rs. 2,000,000 | Rs. 150,000 plus 24%",
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "rate_band",
@@ -144,7 +159,10 @@
       "effective_from": "2025-04-01",
       "quote": "Exceeding Rs. 2,000,000 but not exceeding Rs. 2,500,000 | Rs. 270,000 plus 30%",
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     },
     {
       "entity_kind": "rate_band",
@@ -154,7 +172,7 @@
       "band_index": 5,
       "band_label": "Exceeding Rs. 2,500,000",
       "lower": "2500000",
-      "upper": null,
+      "upper": "",
       "rate_percent": "36",
       "applies_to": "resident or non-resident individual",
       "section_ref": "First Schedule",
@@ -162,7 +180,10 @@
       "effective_from": "2025-04-01",
       "quote": "Exceeding Rs. 2,500,000 | Rs. 420,000 plus 36%",
       "included": true,
-      "engine_scope": "individual"
+      "engine_scope": "individual",
+      "review_status": "accepted",
+      "quote_ok_window": true,
+      "quote_ok_full_doc": true
     }
   ],
   "notes": []

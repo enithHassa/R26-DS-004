@@ -27,6 +27,12 @@ class ComponentSettings(BaseSettings):
     COMP_RECOMMENDATION_RULES_PATH: Path = (
         PROJECT_ROOT / "models" / "personalized-recommendation" / "rules" / "sl_tax_2024_25.yaml"
     )
+    COMP_RECOMMENDATION_CATALOG_APPROVED_DIR: Path = (
+        PROJECT_ROOT / "models" / "adaptive-tax" / "relief-interview" / "approved"
+    )
+    COMP_RECOMMENDATION_CATALOG_RATES_DIR: Path = (
+        PROJECT_ROOT / "models" / "adaptive-tax" / "relief-interview" / "rates"
+    )
     COMP_RECOMMENDATION_ARTIFACTS_DIR: Path = (
         PROJECT_ROOT / "models" / "personalized-recommendation" / "artifacts"
     )

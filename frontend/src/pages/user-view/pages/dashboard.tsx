@@ -3,8 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ClipboardList, MessageSquare, Send } from "lucide-react";
 
+import { formatLkr as formatOeLkr } from "@/features/optimization-explainable-engine/format-lkr";
+import { useTaxpayerOeScenario } from "@/features/optimization-explainable-engine/user/use-taxpayer-oe-scenario";
 import { getBehaviouralAnswers } from "@/features/personalized-recommendation/api/behavioural-answers";
-import { getProfile, getProfileFeatures } from "@/features/personalized-recommendation/api/profiles";
+import { getProfile } from "@/features/personalized-recommendation/api/profiles";
 import { TaxpayerTopRecommendationsSection } from "@/features/personalized-recommendation/components/taxpayer-top-recommendations-section";
 import { useTaxpayerRecommendations } from "@/features/personalized-recommendation/hooks/use-taxpayer-recommendations";
 import { formatLkr } from "@/features/personalized-recommendation/utils/format-lkr";
@@ -69,11 +71,7 @@ export function UserDashboardPage() {
     enabled: !!profileId,
   });
 
-  const featuresQuery = useQuery({
-    queryKey: ["user-dashboard-features", profileId],
-    queryFn: () => getProfileFeatures(profileId),
-    enabled: !!profileId,
-  });
+  const oeScenario = useTaxpayerOeScenario(profileId);
 
   const behaviouralQuery = useQuery({
     queryKey: ["portal-behavioural-answers", profileId],
@@ -82,9 +80,6 @@ export function UserDashboardPage() {
   });
 
   const recommendationsQuery = useTaxpayerRecommendations(profileId);
-  const recommendationItems = recommendationsQuery.data?.items ?? [];
-  const topSavings = recommendationItems[0]?.estimated_annual_savings;
-  const strategyCount = recommendationItems.length;
 
   const taxYear = profileQuery.data?.tax_year ?? null;
 
@@ -105,8 +100,9 @@ export function UserDashboardPage() {
   });
 
   const profile = profileQuery.data;
-  const features = featuresQuery.data;
   const taxYearLabel = formatTaxYear(profile?.tax_year);
+  const oeYearLabel = formatTaxYear(oeScenario.assessmentYear ?? profile?.tax_year);
+  const oeResult = oeScenario.explore?.optimized;
   const behaviouralComplete = isBehaviouralQuestionnaireComplete(behaviouralQuery.data);
   const behaviouralProgress = behaviouralCompletionProgress(behaviouralQuery.data);
 
@@ -134,17 +130,22 @@ export function UserDashboardPage() {
     }
   }, [behaviouralQuery.isLoading, behaviouralComplete, searchParams]);
 
-  const taxLiability = features
-    ? formatLkr(features.baseline_tax_liability_annual)
-    : "LKR 285,000";
-
-  const potentialSavings = topSavings ? formatLkr(topSavings) : "—";
-  const potentialSavingsSubtext =
-    strategyCount > 0
-      ? `${strategyCount} strateg${strategyCount === 1 ? "y" : "ies"} available`
-      : recommendationsQuery.isLoading
-        ? "Loading strategies…"
-        : "Complete your profile for tips";
+  const oeLoading = oeScenario.isLoading || oeScenario.exploreLoading;
+  const taxPayable = oeResult
+    ? formatOeLkr(oeResult.tax_payable)
+    : oeLoading
+      ? "…"
+      : "—";
+  const reliefsApplied = oeResult
+    ? formatOeLkr(oeResult.total_reliefs)
+    : oeLoading
+      ? "…"
+      : "—";
+  const oeSubtext = oeResult
+    ? oeYearLabel
+    : oeLoading
+      ? "Loading Optimization and Explainable…"
+      : "Open Optimization and Explainable (engine on port 8009)";
 
   const transactionsCount = transactionSummaryQuery.data?.analyzed_transaction_count ?? 0;
   const complianceScore =
@@ -194,15 +195,15 @@ export function UserDashboardPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Estimated Tax Liability"
-            value={taxLiability}
-            subtext={taxYearLabel}
+            label="Tax payable"
+            value={taxPayable}
+            subtext={oeSubtext}
             valueClassName="text-red-400"
           />
           <MetricCard
-            label="Potential Savings"
-            value={potentialSavings}
-            subtext={potentialSavingsSubtext}
+            label="Reliefs applied"
+            value={reliefsApplied}
+            subtext={oeSubtext}
             valueClassName="text-emerald-400"
           />
           <MetricCard
