@@ -41,7 +41,10 @@ def _import_impact_engine() -> Any:
     if str(ml_root) not in sys.path:
         sys.path.insert(0, str(ml_root))
     from impact.monte_carlo import median_projection, projection_bands, run_monte_carlo  # noqa: E402
-    from impact.strategy_effects import build_strategy_snapshot  # noqa: E402
+    from impact.strategy_effects import (  # noqa: E402
+        build_combined_strategy_snapshot,
+        build_strategy_snapshot,
+    )
     from impact.types import DeductionProfile, ScenarioParams, SimulationSnapshot  # noqa: E402
     from rules.engine import apply_deductions, compute_annual_tax, load_tax_rules  # noqa: E402
     from strategy_gen.catalog import load_strategy_catalog  # noqa: E402
@@ -50,6 +53,7 @@ def _import_impact_engine() -> Any:
         run_monte_carlo,
         median_projection,
         projection_bands,
+        build_combined_strategy_snapshot,
         build_strategy_snapshot,
         DeductionProfile,
         ScenarioParams,
@@ -82,6 +86,7 @@ def _resolve_catalog_strategy(
         _run,
         _med,
         _bands,
+        _build_combined,
         _build_snap,
         _DeductionProfile,
         _ScenarioParams,
@@ -129,6 +134,7 @@ def _snapshot_from_profile(profile: FinancialProfileORM, ctx: dict[str, Any]) ->
         _run,
         _med,
         _bands,
+        _build_combined,
         _build_snap,
         DeductionProfile,
         _ScenarioParams,
@@ -164,6 +170,7 @@ def _scenario_params(scenario: Scenario) -> Any:
         _run,
         _med,
         _bands,
+        _build_combined,
         _build_snap,
         _DeductionProfile,
         ScenarioParams,
@@ -223,6 +230,7 @@ def _response_from_result(
         _run,
         median_projection,
         projection_bands,
+        _build_combined,
         _build_snap,
         _DeductionProfile,
         _ScenarioParams,
@@ -264,6 +272,14 @@ def _response_from_result(
 
 def simulate_impact(db: Session, payload: ImpactSimulationRequest) -> ImpactSimulationResponse:
     """Run Monte Carlo impact simulation for a profile and optional strategy."""
+    if payload.strategy_codes:
+        if len(payload.strategy_codes) == 1:
+            payload = payload.model_copy(
+                update={"strategy_code": payload.strategy_codes[0], "strategy_codes": []},
+            )
+        else:
+            return _simulate_combined_impact(db, payload)
+
     try:
         profile = get_profile(db, payload.profile_id)
     except ProfileNotFoundError as exc:
@@ -278,6 +294,7 @@ def simulate_impact(db: Session, payload: ImpactSimulationRequest) -> ImpactSimu
         run_monte_carlo,
         _median_projection,
         _projection_bands,
+        _build_combined,
         build_strategy_snapshot,
         _DeductionProfile,
         _ScenarioParams,
@@ -321,6 +338,77 @@ def simulate_impact(db: Session, payload: ImpactSimulationRequest) -> ImpactSimu
     return _response_from_result(
         profile_id=payload.profile_id,
         catalog_strategy_id=catalog_id,
+        request=payload,
+        result=result,
+    )
+
+
+def _simulate_combined_impact(
+    db: Session,
+    payload: ImpactSimulationRequest,
+) -> ImpactSimulationResponse:
+    """Simulate merged deduction impact when multiple strategies are adopted together."""
+    try:
+        profile = get_profile(db, payload.profile_id)
+    except ProfileNotFoundError as exc:
+        raise exc
+
+    strategies = [
+        _resolve_catalog_strategy(strategy_code=code, strategy_id=None)
+        for code in payload.strategy_codes
+    ]
+
+    (
+        run_monte_carlo,
+        _median_projection,
+        _projection_bands,
+        build_combined_strategy_snapshot,
+        _build_strategy_snapshot,
+        _DeductionProfile,
+        _ScenarioParams,
+        _SimulationSnapshot,
+        load_tax_rules,
+        apply_deductions,
+        compute_annual_tax,
+        _load_catalog,
+    ) = _import_impact_engine()
+
+    ctx = _build_context(profile)
+    snapshot = _snapshot_from_profile(profile, ctx)
+    rules = load_tax_rules(component_settings.COMP_RECOMMENDATION_RULES_PATH)
+
+    strategy_specs = [(s.strategy_id, s.estimation_method.type) for s in strategies]
+    snapshot = build_combined_strategy_snapshot(
+        strategy_specs=strategy_specs,
+        context=ctx,
+        rules=rules,
+        snapshot=snapshot,
+    )
+
+    if snapshot.strategy_deductions is None:
+        raise ImpactSimulationError(
+            "Selected strategies do not produce a combinable deduction profile. "
+            "Try a different combination."
+        )
+
+    try:
+        result = run_monte_carlo(
+            snapshot,
+            horizon_years=payload.horizon_years,
+            n_paths=payload.n_paths,
+            scenario=_scenario_params(payload.scenario),
+            rules=rules,
+            apply_deductions=apply_deductions,
+            compute_annual_tax=compute_annual_tax,
+            random_seed=payload.random_seed,
+            include_strategy_paths=True,
+        )
+    except Exception as exc:
+        raise ImpactSimulationError(f"Simulation failed: {exc}") from exc
+
+    return _response_from_result(
+        profile_id=payload.profile_id,
+        catalog_strategy_id=None,
         request=payload,
         result=result,
     )

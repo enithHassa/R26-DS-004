@@ -19,7 +19,7 @@ export function UserRecommendationsPage() {
       title="Recommendations"
       subtitle={`Personalized strategies for ${firstName}`}
     >
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-7xl">
         <TaxpayerRecommendationsPanel profileId={profileId} />
       </div>
     </UserViewShell>

@@ -274,6 +274,7 @@ export interface ImpactSimulationRequest {
   profile_id: string;
   strategy_id?: string | null;
   strategy_code?: string | null;
+  strategy_codes?: string[];
   horizon_years?: number;
   n_paths?: number;
   random_seed?: number | null;
