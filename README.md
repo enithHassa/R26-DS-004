@@ -211,10 +211,10 @@ Open **http://127.0.0.1:5173/login** (Vite may auto-open the tax explorer; just 
 1. Log in as **Auditor** → sidebar **Profile** (`/profile`) → create a profile (wizard). Confirm it appears under Recent profiles (Azure = teammates see it too).
 2. Sign out.
 3. Log in as that taxpayer → you should land on **http://127.0.0.1:5173/taxwise** (TaxWise dark dashboard).
-4. Sidebar **Profile** → `/taxwise/profile` (user info only).
-5. Hover sidebar **Recommendations** → **Recommendations** or **Financial Impact** (`/taxwise/recommendations`, `/taxwise/financial-impact`).
+4. Click **Your profile** or sidebar **Profile** → `/taxwise/profile` (bridges to Comp 3 **My Profile** at `/portal/summary?tab=profile` until a TaxWise profile page exists).
+5. **← Back to dashboard** returns to `/taxwise`.
 
-**Do not confuse:** auditor Comp 3 **`/profile`** (create/manage profiles) vs TaxWise **`/taxwise/profile`** (taxpayer view).
+**Do not confuse:** auditor Comp 3 **`/profile`** (create/manage profiles) vs TaxWise **`/taxwise/profile`** (taxpayer) vs Comp 3 hub **`/portal/summary`**.
 
 Marketing landing (no login): **http://127.0.0.1:5173/demo**
 
@@ -331,7 +331,7 @@ UI: http://127.0.0.1:5173/tax-optimization/explorer (Vite may open this by defau
 See **Minimum for taxpayer dashboard** above.
 
 Auditor UI: `/profile`, `/hybrid`, `/impact`, `/compare` (cream AppShell).
-Taxpayer TaxWise UI: `/login` → `/taxwise` (new user-view). Comp 3 onboarding: `/portal/financial-intake`, `/portal/about-you`. Recommendations live under `/taxwise/recommendations` and `/taxwise/financial-impact`.
+Taxpayer TaxWise UI: `/login` → `/taxwise` (new user-view). Comp 3 onboarding/hub: `/portal/financial-intake`, `/portal/about-you`, `/portal/summary`.
 
 OpenAPI: http://127.0.0.1:8003/docs
 
