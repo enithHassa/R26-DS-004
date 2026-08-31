@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Filter, Loader2, Merge, SlidersHorizontal } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,16 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import { hybridQuery } from "../api/hybrid";
-import type { HybridResultItem, HybridRulesContext } from "../api/hybrid";
-import { getProfileHistory } from "../api/profiles";
-import { AdoptionEvidenceModal } from "../components/adoption-evidence-panel";
+import type { HybridResultItem, HybridRulesContext, RiskToleranceLevel } from "../api/hybrid";
 import { AuditorHybridRecommendationCard } from "../components/auditor-recommendations/recommendation-card";
 import { StrategyExplanationModal } from "../components/auditor-recommendations/strategy-explanation-modal";
 import { CatalogRulesSyncPanel } from "../components/catalog-rules-sync-panel";
 import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { useActiveProfileId } from "../store/dashboard-store";
-import { computeAdoptionEvidence } from "../utils/adoption-evidence";
 
 export function HybridRecommendationsPage() {
   const activeProfileId = useActiveProfileId();
@@ -24,8 +21,8 @@ export function HybridRecommendationsPage() {
   const [topK, setTopK] = useState<number>(5);
   const [useCatalogRules, setUseCatalogRules] = useState(false);
   const [assessmentYear, setAssessmentYear] = useState("2024_25");
+  const [riskOverride, setRiskOverride] = useState<"" | RiskToleranceLevel>("");
   const [rulesContext, setRulesContext] = useState<HybridRulesContext | null>(null);
-  const [evidenceItem, setEvidenceItem] = useState<HybridResultItem | null>(null);
   const [explainItem, setExplainItem] = useState<HybridResultItem | null>(null);
 
   useEffect(() => {
@@ -39,6 +36,7 @@ export function HybridRecommendationsPage() {
         top_k: topK,
         rules_source: useCatalogRules ? "catalog" : "default",
         assessment_year: useCatalogRules ? assessmentYear : undefined,
+        risk_tolerance_override: riskOverride || undefined,
       }),
     onSuccess: (data) => setRulesContext(data.rules_context),
   });
@@ -46,23 +44,20 @@ export function HybridRecommendationsPage() {
   useEffect(() => {
     if (profileId) hybridMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when profile, top_k, or catalog toggle changes
-  }, [profileId, topK, useCatalogRules, assessmentYear]);
-
-  const historyQuery = useQuery({
-    queryKey: ["profile-history", profileId],
-    queryFn: () => getProfileHistory(profileId, 36),
-    enabled: profileId.length > 0,
-  });
+  }, [profileId, topK, useCatalogRules, assessmentYear, riskOverride]);
 
   const items = hybridMutation.data?.items ?? [];
-  const evidence =
-    evidenceItem && historyQuery.data
-      ? computeAdoptionEvidence(
-          historyQuery.data,
-          evidenceItem.adoption_probability,
-          evidenceItem.estimated_annual_savings,
-        )
-      : null;
+  const appliedRisk = hybridMutation.data?.risk_tolerance_applied;
+  const isOverrideActive = Boolean(hybridMutation.data?.risk_tolerance_override ?? riskOverride);
+
+  const riskViewLabel =
+    riskOverride === "low"
+      ? "Conservative"
+      : riskOverride === "medium"
+        ? "Balanced"
+        : riskOverride === "high"
+          ? "Aggressive"
+          : null;
 
   return (
     <div className="space-y-6">
@@ -87,6 +82,21 @@ export function HybridRecommendationsPage() {
               ))}
             </Select>
           </div>
+          <div className="w-full max-w-[220px] space-y-1.5">
+            <Label>Taxpayer risk view (auditor)</Label>
+            <Select
+              value={riskOverride || "profile"}
+              onChange={(e) => {
+                const v = e.target.value;
+                setRiskOverride(v === "profile" ? "" : (v as RiskToleranceLevel));
+              }}
+            >
+              <option value="profile">Use profile setting</option>
+              <option value="low">Conservative (low)</option>
+              <option value="medium">Balanced (medium)</option>
+              <option value="high">Aggressive (high)</option>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -108,6 +118,15 @@ export function HybridRecommendationsPage() {
         </Card>
       )}
 
+      {profileId && isOverrideActive && riskViewLabel && (
+        <div className="rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span className="font-semibold">Auditor risk view active:</span> rankings recalculated for a{" "}
+          <span className="font-medium">{riskViewLabel}</span> taxpayer (
+          {appliedRisk ?? riskOverride}). Low audit-risk strategies rank higher; medium/high strategies
+          receive larger penalties.
+        </div>
+      )}
+
       {profileId && (
         <>
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -115,6 +134,25 @@ export function HybridRecommendationsPage() {
               <h2 className="text-2xl font-bold tracking-tight">Tax Recommendations</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Ranked by AI · {items.length} active recommendation{items.length === 1 ? "" : "s"}
+                {isOverrideActive ? (
+                  <>
+                    {" "}
+                    · Risk view:{" "}
+                    <span className="font-medium capitalize text-foreground">
+                      {appliedRisk ?? riskOverride}
+                    </span>{" "}
+                    (auditor override)
+                  </>
+                ) : (
+                  appliedRisk && (
+                    <>
+                      {" "}
+                      · Risk view:{" "}
+                      <span className="font-medium capitalize text-foreground">{appliedRisk}</span>{" "}
+                      (from profile)
+                    </>
+                  )
+                )}
                 {rulesContext && (
                   <>
                     {" "}
@@ -172,30 +210,21 @@ export function HybridRecommendationsPage() {
             </div>
           )}
 
-          {!hybridMutation.isPending && items.length > 0 && (
-            <div className="mx-auto max-w-4xl space-y-4">
+          {items.length > 0 && (
+            <div
+              className={`mx-auto max-w-4xl space-y-4 transition-opacity ${hybridMutation.isPending ? "pointer-events-none opacity-60" : ""}`}
+            >
               {items.map((item) => (
                 <AuditorHybridRecommendationCard
-                  key={item.strategy_id}
+                  key={`${item.strategy_id}-${appliedRisk}-${item.fusion_score}`}
                   item={item}
                   profileId={profileId}
                   onExplain={() => setExplainItem(item)}
-                  onAdoptionEvidence={
-                    historyQuery.data ? () => setEvidenceItem(item) : undefined
-                  }
                 />
               ))}
             </div>
           )}
         </>
-      )}
-
-      {evidence && evidenceItem && (
-        <AdoptionEvidenceModal
-          evidence={evidence}
-          strategyName={evidenceItem.name}
-          onClose={() => setEvidenceItem(null)}
-        />
       )}
 
       {explainItem && (
