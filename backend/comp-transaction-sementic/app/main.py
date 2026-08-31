@@ -58,6 +58,7 @@ from .schemas import (
     DocumentPreviewResponse,
     DocumentBatchUploadResponse,
     DocumentListResponse,
+    DocumentDeleteResponse,
     DocumentRenameRequest,
     DocumentRenameResponse,
     DocumentReleaseResponse,
@@ -80,6 +81,7 @@ from .services import (
     ExportFilter,
     UnsupportedDocumentTypeError,
     extract_transactions_from_document,
+    delete_document,
     get_document_status_snapshot,
     ingest_document_metadata,
     list_extracted_transactions_for_export,
@@ -712,6 +714,24 @@ def rename_uploaded_document(
             selected_parser=selected_parser,
         ),
         updated_related_transaction_count=updated_related,
+    )
+
+
+@app.delete("/v1/documents/{document_id}", response_model=DocumentDeleteResponse)
+def delete_uploaded_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> DocumentDeleteResponse:
+    """Remove a stored document, its parsed rows, and the file on disk."""
+    result = delete_document(db, document_id=document_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    logger.bind(document_id=str(result.document_id), filename=result.filename).info(
+        "document_deleted",
+    )
+    return DocumentDeleteResponse(
+        document_id=result.document_id,
+        filename=result.filename,
     )
 
 

@@ -106,6 +106,7 @@ export type ReliefLine = {
   binder: string;
   engine_binding_kind?: string;
   cap: number | null;
+  min_qualifying?: number | null;
   base: number;
   claim: number;
   applied: number;

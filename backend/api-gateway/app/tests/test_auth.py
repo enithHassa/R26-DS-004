@@ -22,6 +22,14 @@ def test_auth_auditor_login(auth_client: TestClient) -> None:
     body = resp.json()
     assert body["role"] == "auditor"
     assert body["full_name"] == "Auditor"
+    # Auditor now resolves to a real users.id so per-user data (LLM chat
+    # history) can be persisted and resumed across logins.
+    assert body["user_id"]
+    again = auth_client.post(
+        "/api/v1/auth/login",
+        json={"username": "Auditor", "password": "auditor@123"},
+    ).json()
+    assert again["user_id"] == body["user_id"]  # stable across logins
 
 
 def test_auth_signup_and_login(auth_client: TestClient) -> None:

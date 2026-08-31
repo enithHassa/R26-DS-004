@@ -386,6 +386,32 @@ def release_document_to_taxpayer(db: Session, *, document_id: uuid.UUID) -> Docu
     return document
 
 
+@dataclass
+class DocumentDeleteResult:
+    document_id: uuid.UUID
+    filename: str
+
+
+def delete_document(db: Session, *, document_id: uuid.UUID) -> DocumentDeleteResult | None:
+    """Remove a document record, parsed artifacts (DB cascade), and stored file."""
+    document = db.get(Document, document_id)
+    if document is None:
+        return None
+
+    result = DocumentDeleteResult(document_id=document.id, filename=document.filename)
+    storage_path = Path(document.storage_path)
+    db.delete(document)
+    db.commit()
+
+    if storage_path.is_file():
+        try:
+            storage_path.unlink()
+        except OSError:
+            pass
+
+    return result
+
+
 def list_statement_totals_for_document(
     db: Session,
     document_id: uuid.UUID,

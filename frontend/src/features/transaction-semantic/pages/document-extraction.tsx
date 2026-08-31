@@ -363,6 +363,16 @@ export function TransactionDocumentExtractionPage() {
             void refreshAll(id);
           }
         }}
+        onDeleted={(id) => {
+          setLibraryRefreshKey((value) => value + 1);
+          if (id === documentId.trim()) {
+            setDocumentId("");
+            setSearchParams({});
+            setStatus(null);
+            setTransactions([]);
+            setStatementTotals([]);
+          }
+        }}
         refreshKey={libraryRefreshKey}
         financialProfileId={activeProfileId}
       />
