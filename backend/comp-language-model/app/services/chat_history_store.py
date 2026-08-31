@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.chat_history import LlmChatMessage, LlmChatSession
@@ -40,9 +40,38 @@ def ensure_tables() -> None:
             tables=[LlmChatSession.__table__, LlmChatMessage.__table__],
             checkfirst=True,
         )
+        _heal_missing_columns()
         _TABLES_READY = True
     except Exception as exc:  # pragma: no cover - depends on DB perms
         logger.warning("Could not ensure llm_chat_* tables exist: {}", exc)
+
+
+def _heal_missing_columns() -> None:
+    """Add columns introduced after a table was first auto-created.
+
+    Some databases have ``llm_chat_messages`` from an earlier build of this
+    self-heal that predates the ``ordinal`` column. ``create_all(checkfirst)``
+    skips existing tables, so patch the gap here. Postgres only; no-op elsewhere.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    existing = {c["name"] for c in inspect(engine).get_columns("llm_chat_messages")}
+    if "ordinal" in existing:
+        return
+    logger.warning("Healing llm_chat_messages: adding missing 'ordinal' column")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE llm_chat_messages "
+                "ADD COLUMN IF NOT EXISTS ordinal INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_llm_chat_messages_session_ordinal "
+                "ON llm_chat_messages (session_id, ordinal)"
+            )
+        )
 
 
 def _valid_uuid(value: str | None) -> uuid.UUID | None:
