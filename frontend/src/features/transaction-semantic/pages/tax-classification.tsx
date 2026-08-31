@@ -82,6 +82,14 @@ export function TransactionTaxClassificationPage() {
             void loadDocument(id);
           }
         }}
+        onDeleted={(id) => {
+          if (id === documentId) {
+            setDocumentId("");
+            setSearchParams({});
+            setStatus(null);
+            setTransactions([]);
+          }
+        }}
         financialProfileId={activeProfileId}
       />
 

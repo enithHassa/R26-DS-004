@@ -188,6 +188,12 @@ export interface DocumentRenameResponse {
   updated_related_transaction_count: number;
 }
 
+export interface DocumentDeleteResponse {
+  document_id: string;
+  filename: string;
+  message: string;
+}
+
 export async function listDocuments(
   limit = 50,
   offset = 0,
@@ -286,6 +292,13 @@ export async function renameDocument(
   const { data } = await transactionSemanticApi.patch<DocumentRenameResponse>(
     `/documents/${documentId}`,
     { filename },
+  );
+  return data;
+}
+
+export async function deleteDocument(documentId: string): Promise<DocumentDeleteResponse> {
+  const { data } = await transactionSemanticApi.delete<DocumentDeleteResponse>(
+    `/documents/${documentId}`,
   );
   return data;
 }
