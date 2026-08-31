@@ -48,41 +48,25 @@ export function AuditorImpactProjectionView({ profileId }: Props) {
 
   const items = hybridQueryResult.data?.items ?? [];
   const selectedItem = resolveHybridItem(items, strategyParam);
-  const strategy1Code = selectedItem?.strategy_id ?? strategyParam ?? null;
-  const strategy2Item = items.find((i) => i.strategy_id !== strategy1Code);
-  const strategy2Code = strategy2Item?.strategy_id ?? null;
+  const strategyCode = selectedItem?.strategy_id ?? strategyParam ?? null;
 
   const primarySim = useQuery({
-    queryKey: ["auditor-impact-primary", profileId, strategy1Code],
+    queryKey: ["auditor-impact-primary", profileId, strategyCode],
     queryFn: () =>
       simulateImpact({
         profile_id: profileId,
-        strategy_code: strategy1Code,
+        strategy_code: strategyCode,
         horizon_years: AUDITOR_IMPACT_HORIZON_YEARS,
         n_paths: AUDITOR_IMPACT_N_PATHS,
         random_seed: 42,
       }),
-    enabled: !!profileId && !!strategy1Code,
-  });
-
-  const secondarySim = useQuery({
-    queryKey: ["auditor-impact-secondary", profileId, strategy2Code],
-    queryFn: () =>
-      simulateImpact({
-        profile_id: profileId,
-        strategy_code: strategy2Code,
-        horizon_years: AUDITOR_IMPACT_HORIZON_YEARS,
-        n_paths: AUDITOR_IMPACT_N_PATHS,
-        random_seed: 42,
-      }),
-    enabled: !!profileId && !!strategy2Code,
+    enabled: !!profileId && !!strategyCode,
   });
 
   const strategyName = nameParam ?? selectedItem?.name ?? "Selected strategy";
-  const loading =
-    hybridQueryResult.isLoading || primarySim.isLoading || secondarySim.isLoading;
+  const loading = hybridQueryResult.isLoading || primarySim.isLoading;
 
-  if (!strategy1Code) {
+  if (!strategyCode) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -114,7 +98,6 @@ export function AuditorImpactProjectionView({ profileId }: Props) {
 
       <AuditorImpactDetailSections
         primaryResult={primarySim.data}
-        secondaryResult={secondarySim.data ?? null}
         selectedItem={selectedItem}
         strategyName={strategyName}
         rank={selectedItem?.rank ?? rankParam}

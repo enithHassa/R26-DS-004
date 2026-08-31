@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.deps import DBSession
+from backend.shared.schemas.common import RiskTolerance
 from app.services.hybrid_service import HybridResult, hybrid_query
 from app.services.profile_service import ProfileNotFoundError
 
@@ -21,6 +22,10 @@ class HybridQueryRequest(BaseModel):
     lambda_weight: float = Field(default=0.7, ge=0.0, le=1.0)
     rules_source: Literal["default", "catalog"] = "default"
     assessment_year: str | None = Field(default=None, pattern=r"^\d{4}_\d{2}$")
+    risk_tolerance_override: RiskTolerance | None = Field(
+        default=None,
+        description="Auditor override for taxpayer risk comfort when computing rank penalties.",
+    )
 
 
 class HybridRulesContext(BaseModel):
@@ -48,6 +53,9 @@ class HybridResultItem(BaseModel):
     estimated_annual_savings: float
     confidence: float
     risk_score: float
+    strategy_audit_risk: str
+    risk_tolerance_applied: str
+    risk_alignment: float
     ird_reference: str
     required_docs: list[str]
     why_relevant: str
@@ -59,6 +67,8 @@ class HybridQueryResponse(BaseModel):
     query_text: str
     lambda_weight: float
     rag_weight: float
+    risk_tolerance_applied: str
+    risk_tolerance_override: bool = False
     rules_context: HybridRulesContext
     items: list[HybridResultItem]
 
@@ -81,6 +91,11 @@ def hybrid_recommend(
             lambda_weight=payload.lambda_weight,
             rules_source=payload.rules_source,
             assessment_year=payload.assessment_year,
+            risk_tolerance_override=(
+                str(payload.risk_tolerance_override.value)
+                if payload.risk_tolerance_override is not None
+                else None
+            ),
         )
     except ProfileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -96,6 +111,8 @@ def hybrid_recommend(
         query_text=query_text,
         lambda_weight=payload.lambda_weight,
         rag_weight=round(1.0 - payload.lambda_weight, 2),
+        risk_tolerance_applied=str(rules_context.get("risk_tolerance_applied", "medium")),
+        risk_tolerance_override=bool(rules_context.get("risk_tolerance_override")),
         rules_context=HybridRulesContext(**rules_context),
         items=[
             HybridResultItem(
@@ -113,6 +130,9 @@ def hybrid_recommend(
                 estimated_annual_savings=r.estimated_annual_savings,
                 confidence=r.confidence,
                 risk_score=r.risk_score,
+                strategy_audit_risk=r.strategy_audit_risk,
+                risk_tolerance_applied=r.risk_tolerance_applied,
+                risk_alignment=r.risk_alignment,
                 ird_reference=r.ird_reference,
                 required_docs=r.required_docs,
                 why_relevant=r.why_relevant,

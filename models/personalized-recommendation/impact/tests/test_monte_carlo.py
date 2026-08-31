@@ -141,7 +141,80 @@ def test_projection_bands_ordered(rules_engine) -> None:
         assert row["p10"] <= row["p50"] <= row["p90"]
 
 
-def test_projection_bands_percentile_is_per_year() -> None:
+def test_withholding_strategy_reduces_median_tax(rules_engine) -> None:
+    rules, apply_deductions, compute_annual_tax = rules_engine
+    ctx = {
+        "annual_income": 4_800_000.0,
+        "life_insurance_premium_annual_lkr": 0.0,
+        "health_insurance_premium_annual_lkr": 0.0,
+        "rent_paid_annual_lkr": 0.0,
+        "donations_annual_lkr": 0.0,
+        "home_loan_interest_annual_lkr": 0.0,
+        "retirement_contribution_annual_lkr": 0.0,
+    }
+    from impact.strategy_effects import build_strategy_snapshot
+
+    base_snapshot = SimulationSnapshot(
+        annual_income=4_800_000.0,
+        monthly_expenses=150_000.0,
+        monthly_debt_service=40_000.0,
+        liquid_savings=800_000.0,
+        existing_investments=300_000.0,
+        baseline_deductions=DeductionProfile(),
+    )
+    snapshot = build_strategy_snapshot(
+        strategy_id="S007_employment_withholding_reconciliation",
+        estimation_type="withholding_gap_estimate",
+        context=ctx,
+        rules=rules,
+        snapshot=base_snapshot,
+    )
+    assert snapshot.strategy_tax_savings_rate > 0.0
+
+    result = run_monte_carlo(
+        snapshot,
+        horizon_years=2,
+        n_paths=500,
+        scenario=ScenarioParams(adoption_success_prob=1.0),
+        rules=rules,
+        apply_deductions=apply_deductions,
+        compute_annual_tax=compute_annual_tax,
+        random_seed=42,
+    )
+    assert result.strategy_paths is not None
+    baseline_med = median_projection(result.baseline_paths)
+    strategy_med = median_projection(result.strategy_paths)
+    for base_row, strat_row in zip(baseline_med, strategy_med, strict=True):
+        assert strat_row["projected_tax_liability"] < base_row["projected_tax_liability"]
+    assert result.summary["expected_total_savings"] > 0.0
+
+
+def test_strategy_paths_use_same_income_as_baseline(rules_engine) -> None:
+    rules, apply_deductions, compute_annual_tax = rules_engine
+    snapshot = SimulationSnapshot(
+        annual_income=3_600_000.0,
+        monthly_expenses=120_000.0,
+        monthly_debt_service=30_000.0,
+        liquid_savings=500_000.0,
+        existing_investments=200_000.0,
+        baseline_deductions=DeductionProfile(),
+        strategy_deductions=DeductionProfile(),
+    )
+    result = run_monte_carlo(
+        snapshot,
+        horizon_years=2,
+        n_paths=100,
+        scenario=ScenarioParams(adoption_success_prob=1.0),
+        rules=rules,
+        apply_deductions=apply_deductions,
+        compute_annual_tax=compute_annual_tax,
+        random_seed=42,
+    )
+    assert result.strategy_paths is not None
+    for year_idx in range(2):
+        assert result.baseline_paths.salary[year_idx] == result.strategy_paths.salary[year_idx]
+
+
     """Bands must percentile across paths for each year, not across years."""
     paths = PathMatrices(
         years=[1, 2],

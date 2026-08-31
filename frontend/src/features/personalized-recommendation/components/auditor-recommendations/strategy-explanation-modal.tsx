@@ -1,16 +1,14 @@
 import { useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Microscope, X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 import type { HybridResultItem } from "../../api/hybrid";
 import type { RagDetailedExplanation } from "../../api/rag";
 import { explainRecommendation } from "../../api/explain";
 import { recommendationCodeToCatalog } from "../../constants/strategies";
-import type { RecommendationExplanation } from "../../types";
-import { friendlyShapFeature } from "../../utils/shap-labels";
+import { ShapExplanationSection } from "../shap-explanation-section";
 
 type Props = {
   item: HybridResultItem;
@@ -24,62 +22,6 @@ function PlainSection({ title, body }: { title: string; body: string }) {
     <div className="rounded-lg border bg-muted/30 p-3">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
       <p className="mt-2 whitespace-pre-line text-sm leading-relaxed">{body}</p>
-    </div>
-  );
-}
-
-function ShapSection({ data }: { data: RecommendationExplanation }) {
-  return (
-    <div className="space-y-3">
-      {data.narrative && (
-        <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-relaxed">
-          {data.narrative}
-        </p>
-      )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <ShapList title="Top positive drivers (SHAP)" items={data.top_reasons} />
-        <ShapList title="Negative drivers (SHAP)" items={data.bottom_reasons} />
-      </div>
-    </div>
-  );
-}
-
-function ShapList({
-  title,
-  items,
-}: {
-  title: string;
-  items: RecommendationExplanation["top_reasons"];
-}) {
-  if (items.length === 0) return null;
-  const max = Math.max(...items.map((i) => Math.abs(i.shap_value)), 0.001);
-  return (
-    <div>
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h4>
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item.feature} className="text-sm">
-            <div className="flex justify-between gap-2">
-              <span className="truncate font-medium">{friendlyShapFeature(item.feature)}</span>
-              <span className={item.direction === "positive" ? "text-emerald-700" : "text-rose-700"}>
-                {item.shap_value > 0 ? "+" : ""}
-                {item.shap_value.toFixed(4)}
-              </span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn(
-                  "h-full",
-                  item.direction === "positive" ? "bg-emerald-500" : "bg-rose-400",
-                )}
-                style={{ width: `${(Math.abs(item.shap_value) / max) * 100}%` }}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -109,7 +51,7 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
 
   useEffect(() => {
     explainMutation.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load SHAP once when modal opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load ranking explanation once when modal opens
   }, [profileId, strategyCode]);
 
   return (
@@ -136,7 +78,7 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
           <p className="text-sm text-muted-foreground">{item.why_relevant || item.description}</p>
 
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Plain-language guidance</h3>
+            <h3 className="text-sm font-semibold">Guidance</h3>
             {buildPlainSections(detail).map((s) => (
               <PlainSection key={s.title} title={s.title} body={s.body} />
             ))}
@@ -145,8 +87,8 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
           <div className="space-y-3 border-t pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <Microscope className="h-4 w-4 text-primary" />
-                SHAP ranking drivers (LambdaMART)
+                <Sparkles className="h-4 w-4 text-primary" />
+                Why the AI ranked this strategy
               </h3>
               <Button
                 type="button"
@@ -158,12 +100,12 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
                 {explainMutation.isPending ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Computing…
+                    Analysing…
                   </>
                 ) : explainMutation.data ? (
-                  "Refresh SHAP"
+                  "Refresh analysis"
                 ) : (
-                  "Load SHAP explanation"
+                  "Load analysis"
                 )}
               </Button>
             </div>
@@ -172,7 +114,20 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
               <p className="text-sm text-destructive">{(explainMutation.error as Error).message}</p>
             )}
 
-            {explainMutation.data && <ShapSection data={explainMutation.data} />}
+            {explainMutation.isPending && !explainMutation.data && (
+              <div className="flex items-center gap-2 rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Identifying the profile factors that influenced this rank…
+              </div>
+            )}
+
+            {explainMutation.data && (
+              <ShapExplanationSection
+                data={explainMutation.data}
+                strategyCode={strategyCode}
+                strategyLabel={item.name}
+              />
+            )}
           </div>
         </div>
       </div>
