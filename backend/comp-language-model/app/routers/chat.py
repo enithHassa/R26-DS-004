@@ -405,7 +405,7 @@ async def suggest_questions(body: SuggestRequest) -> SuggestResponse:
     try:
         async with httpx.AsyncClient(timeout=12.0) as client:
             resp = await client.post(
-                _GEMINI_URL.format(model=settings.COMP_LLM_GEMINI_MODEL),
+                _GEMINI_URL.format(model=settings.COMP_LLM_GEMINI_LIGHT_MODEL),
                 params={"key": settings.COMP_LLM_GEMINI_API_KEY},
                 json=payload,
             )

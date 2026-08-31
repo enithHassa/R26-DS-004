@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
 import {
+  TAXWISE_AI_ADVISOR,
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
   TAXWISE_OE,
@@ -46,8 +47,8 @@ const NAV_ITEMS = [
     key: "ai-advisor",
     label: "AI Advisor",
     icon: MessageSquare,
-    to: `${TAXWISE_BASE}/ai-advisor`,
-    enabled: false,
+    to: TAXWISE_AI_ADVISOR,
+    enabled: true,
   },
   {
     key: "profile",
@@ -229,16 +230,21 @@ export function UserViewShell({ children, title, subtitle, embedded, actions }: 
           {NAV_ITEMS.slice(2, 3).map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <NavLink
                 key={item.key}
-                type="button"
-                disabled
-                title="Coming soon"
-                className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[var(--uv-text-muted)] opacity-60"
+                to={item.to}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-[var(--uv-accent)] text-[var(--uv-accent-foreground)]"
+                      : "text-[var(--uv-text-muted)] hover:bg-white/5 hover:text-[var(--uv-text)]",
+                  )
+                }
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
-              </button>
+              </NavLink>
             );
           })}
 

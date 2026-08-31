@@ -55,3 +55,45 @@ def test_format_taxpayer_block_uses_only_supplied_figures():
     assert "Test Taxpayer" in block
     assert "450000" in block
     assert "not on file rather than estimating" in block
+
+
+def test_format_taxpayer_block_renders_system_context_sections():
+    facts = TaxpayerFacts(
+        profile_id="00000000-0000-0000-0000-000000000000",
+        full_name="Test Taxpayer",
+        profile={"full_name": "Test Taxpayer"},
+        transactions=[
+            {
+                "semantic_category": "employment_income",
+                "taxability_status": "taxable",
+                "gross_amount_lkr": 300000.0,
+                "taxable_amount_lkr": 300000.0,
+                "tax_rule_code": "APIT-1",
+                "certainty_tier": "high",
+                "class_source": "model",
+                "analysis_payload": {"reasoning": "Monthly salary credit from employer."},
+            }
+        ],
+        recommendations=[
+            {
+                "strategy_name": "EPF top-up",
+                "category": "retirement",
+                "legal_reference": "s.52",
+                "rank": 1,
+                "estimated_annual_savings": 48000.0,
+                "adoption_probability": 0.7,
+                "confidence": 0.8,
+                "explanation_json": {"rationale": "High marginal rate, stable income."},
+                "accepted": None,
+            }
+        ],
+        behavioural=[{"question_key": "risk_tolerance", "answer_value": "medium"}],
+        fields_used=["classified_extracted_transactions", "recommendations"],
+    )
+    block = format_taxpayer_block(facts)
+    assert "CLASSIFIED TRANSACTIONS" in block
+    assert "Monthly salary credit" in block
+    assert "PERSONALIZED RECOMMENDATIONS" in block
+    assert "EPF top-up" in block
+    assert "High marginal rate" in block
+    assert "BEHAVIOURAL / RISK PROFILE ANSWERS" in block

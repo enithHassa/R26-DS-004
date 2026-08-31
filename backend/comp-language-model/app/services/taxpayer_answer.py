@@ -32,6 +32,7 @@ from app.services.taxpayer_data import (
     load_taxpayer_facts,
     resolve_taxpayer,
 )
+from app.services.taxpayer_intent import select_context_sources
 from app.services.think_twice import apply_think_twice
 from backend.shared.utils.logging import logger
 
@@ -50,9 +51,20 @@ class TaxpayerAnswer:
 async def _call_gemini(settings: LanguageModelSettings, prompt: str, max_tokens: int) -> str | None:
     if not settings.COMP_LLM_GEMINI_API_KEY:
         return None
+    model = settings.COMP_LLM_GEMINI_MODEL
+    # Keep reasoning models from spending the whole token budget on hidden
+    # thinking (empty answer, finishReason=MAX_TOKENS). Gemini 3.x rejects
+    # thinkingBudget and uses thinkingLevel instead.
+    thinking_config = (
+        {"thinkingLevel": "low"} if model.startswith("gemini-3") else {"thinkingBudget": 0}
+    )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": max_tokens},
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": max_tokens,
+            "thinkingConfig": thinking_config,
+        },
     }
     try:
         async with httpx.AsyncClient(timeout=settings.COMP_LLM_ANSWER_TIMEOUT_SECONDS) as client:
@@ -95,16 +107,25 @@ def _build_prompt(
     return "\n".join(
         [
             "You are a Sri Lankan income-tax advisor answering about ONE specific taxpayer.",
-            "You are given: (a) that taxpayer's record from the tax-advisory database, ",
-            "(b) relevant passages from the Inland Revenue Act / IRD rules, and ",
-            "(c) knowledge-graph context (rate bands, reliefs, overrides).",
+            "You are given: (a) that taxpayer's record and related system context from the ",
+            "tax-advisory database — which may include classified transactions (with the ",
+            "reasoning behind each classification), personalized recommendations and their ",
+            "rationale, behavioural/risk answers, financial history, filed return detail, and ",
+            "active adaptive-tax rule amendments; (b) relevant passages from the Inland ",
+            "Revenue Act / IRD rules; and (c) knowledge-graph context (rate bands, reliefs, overrides).",
             "",
             "Rules:",
             "- Use the taxpayer record for every taxpayer-specific number. Never invent figures.",
             "- Apply the law from the passages and the KG rate bands/reliefs to those numbers.",
-            "- If a figure needed for an accurate answer is not in the record, say exactly what is missing.",
+            "- When the question is about a transaction, a recommendation, or a config change, "
+            "explain the recorded reasoning for it — do not just restate the label or amount.",
+            "- If a figure needed for an accurate answer is not in the context, say exactly what is missing.",
             "- Show the calculation steps when you compute tax, assessable income, or a relief.",
             "- Cite legal passages as [Match 1], [Match 2].",
+            "- Formatting: plain Markdown for a chat UI — short paragraphs, '-' bullets, "
+            "'1.' numbering for calculation steps, bold only for key terms. Do NOT use "
+            "LaTeX or $ / $$ math delimiters; write formulas inline in plain text, e.g. "
+            "'min(cap 1,800,000, income 3,800,000) = 1,800,000'.",
             "- End with a one-line 'Confidence:' note (high / medium / low) and why.",
             "",
             f"QUESTION: {question.strip()}",
@@ -166,9 +187,17 @@ async def answer_taxpayer_turn(
             context=ctx,
         )
 
+    sources = select_context_sources(
+        message,
+        routing_enabled=settings.COMP_LLM_TAXPAYER_CONTEXT_INTENT_ROUTING,
+    )
     facts = load_taxpayer_facts(
         resolution.profile_id,  # type: ignore[arg-type]
         monthly_lookback=settings.COMP_LLM_TAXPAYER_MONTHLY_LOOKBACK,
+        sources=sources,
+        max_transactions=settings.COMP_LLM_TAXPAYER_MAX_TRANSACTIONS,
+        max_recommendations=settings.COMP_LLM_TAXPAYER_MAX_RECOMMENDATIONS,
+        history_lookback=settings.COMP_LLM_TAXPAYER_HISTORY_LOOKBACK,
     )
     if facts is None:
         ctx.note = "Your taxpayer profile exists but has no readable detail rows yet."
@@ -209,6 +238,7 @@ async def answer_taxpayer_turn(
         ctx.taxpayer_name = facts.full_name
         ctx.tax_year = facts.tax_year
         ctx.fields_used = facts.fields_used
+        ctx.context_sources = facts.sources_requested
         ctx.note = "Answer synthesis was unavailable; returning retrieved legal passages only."
         return TaxpayerAnswer(
             handled=True,
@@ -235,6 +265,7 @@ async def answer_taxpayer_turn(
     ctx.taxpayer_name = facts.full_name
     ctx.tax_year = facts.tax_year
     ctx.fields_used = facts.fields_used
+    ctx.context_sources = facts.sources_requested
     ctx.kg_consistency = kg_verdict
     if think.validation_status == "corrected":
         ctx.note = "Draft answer failed symbolic validation and was replaced with a safe fallback."

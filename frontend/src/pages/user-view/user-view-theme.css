@@ -25,3 +25,44 @@
 .user-view .text-card-foreground {
   color: var(--uv-text);
 }
+
+/*
+ * AI Advisor reuses the Component 4 chat, which is built with the light-theme
+ * shadcn tokens. Tailwind v4 `@theme inline` (index.css) inlines the underlying
+ * `--color-*` values, so retint those under `.uv-chat` to the TaxWise palette.
+ */
+.user-view .uv-chat {
+  --color-bg-canvas: var(--uv-bg);
+  --color-surface-panel: var(--uv-bg-card);
+  --color-surface-muted: var(--uv-bg-elevated);
+  --color-text-primary: var(--uv-text);
+  --color-text-secondary: var(--uv-text-muted);
+  --color-text-muted: var(--uv-text-muted);
+  --color-border-soft: var(--uv-border);
+  --color-border-accent: var(--uv-border);
+  --color-brand-maroon: var(--uv-accent);
+  --primary: var(--uv-accent);
+
+  /* Also set the mapped shadcn tokens directly, in case `@theme inline`
+     resolution changes and utilities emit `var(--color-card)` etc. */
+  --color-background: var(--uv-bg);
+  --color-foreground: var(--uv-text);
+  --color-card: var(--uv-bg-card);
+  --color-card-foreground: var(--uv-text);
+  --color-popover: var(--uv-bg-card);
+  --color-popover-foreground: var(--uv-text);
+  --color-primary: var(--uv-accent);
+  --color-primary-foreground: var(--uv-accent-foreground);
+  --color-secondary: var(--uv-bg-elevated);
+  --color-secondary-foreground: var(--uv-text);
+  --color-muted: var(--uv-bg-elevated);
+  --color-muted-foreground: var(--uv-text-muted);
+  --color-accent: var(--uv-bg-elevated);
+  --color-accent-foreground: var(--uv-text);
+  --color-border: var(--uv-border);
+  --color-input: var(--uv-border);
+}
+
+.user-view .uv-chat .bg-primary {
+  color: var(--uv-accent-foreground);
+}
