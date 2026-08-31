@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from app.schemas.graph_v1 import GraphContext
+
 
 class RetrievalHit(BaseModel):
     chunk_id: str
@@ -46,6 +48,10 @@ class NLUParseRequest(BaseModel):
 
 class NLUParseResponse(BaseModel):
     utterance: str
+    normalized_utterance: str | None = Field(
+        default=None,
+        description="Utterance after Singlish/informal normalization.",
+    )
     intent: str | None = Field(
         default=None,
         description="Echo of request intent_hint when provided (upstream routing label).",
@@ -64,3 +70,15 @@ class NLUParseResponse(BaseModel):
         description="Retrieval mode: tfidf-baseline, dense-baseline, or stub-no-corpus.",
     )
     corpus_loaded: bool
+    graph_context: GraphContext | None = Field(
+        default=None,
+        description="Phase 4: Knowledge graph enrichment (concepts, reliefs, rate bands, milestones). Null when Neo4j disabled.",
+    )
+    domain_status: str | None = Field(
+        default=None,
+        description="in_domain, off_topic, or weak_match when domain gating is active.",
+    )
+    domain_message: str | None = Field(
+        default=None,
+        description="User-facing explanation when the utterance is blocked or weakly matched.",
+    )

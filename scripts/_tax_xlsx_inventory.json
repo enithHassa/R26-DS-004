@@ -1,0 +1,1277 @@
+{
+  "file": "c:\\Users\\H P\\Downloads\\Tax Computation-FINAL_6847.xlsx",
+  "sheet_names": [
+    "TAX CALCULATION ",
+    "SAVINGS",
+    "FD",
+    "UPLOAD FILE",
+    "IN In - Mr Sarooj Wo",
+    "Pension Sche."
+  ],
+  "sheets": {
+    "TAX CALCULATION ": {
+      "dimensions": "1000 rows x 9 cols",
+      "merged_ranges_count": 1,
+      "merged_ranges_sample": [
+        "C3:D3"
+      ],
+      "non_empty_cell_count": 53,
+      "likely_headers": [
+        {
+          "addr": "B2",
+          "value": "MR. G D S U CHANDRASENA"
+        },
+        {
+          "addr": "B3",
+          "value": "TIN Number"
+        },
+        {
+          "addr": "B4",
+          "value": "Tax Computation for the Y/A 2023/2024"
+        },
+        {
+          "addr": "B7",
+          "value": "Employeement Income"
+        },
+        {
+          "addr": "B8",
+          "value": "Interest Income"
+        },
+        {
+          "addr": "F8",
+          "value": "=+'UPLOAD FILE'!J71"
+        },
+        {
+          "addr": "B9",
+          "value": "Assesable Income"
+        },
+        {
+          "addr": "F9",
+          "value": "=SUM(F7:F8)"
+        },
+        {
+          "addr": "B13",
+          "value": "Tax Free Allowance"
+        },
+        {
+          "addr": "B17",
+          "value": "Taxable Income"
+        },
+        {
+          "addr": "F17",
+          "value": "=F9+F13+F14"
+        },
+        {
+          "addr": "B19",
+          "value": "Gross Tax Liability"
+        },
+        {
+          "addr": "E20",
+          "value": "=C20*D20"
+        },
+        {
+          "addr": "E21",
+          "value": "=C21*D21"
+        },
+        {
+          "addr": "E22",
+          "value": "=C22*D22"
+        },
+        {
+          "addr": "E23",
+          "value": "=C23*D23"
+        },
+        {
+          "addr": "E24",
+          "value": "=C24*D24"
+        },
+        {
+          "addr": "C25",
+          "value": "=C26-C20-C21-C22-C23-C24"
+        },
+        {
+          "addr": "E25",
+          "value": "=C25*D25"
+        },
+        {
+          "addr": "F25",
+          "value": "=SUM(E20:E25)"
+        },
+        {
+          "addr": "C26",
+          "value": "=+F17"
+        },
+        {
+          "addr": "F26",
+          "value": "=SUM(F25)"
+        },
+        {
+          "addr": "B29",
+          "value": "Less - Tax Credits"
+        },
+        {
+          "addr": "F30",
+          "value": "=-'UPLOAD FILE'!L71"
+        },
+        {
+          "addr": "B32",
+          "value": "Balance Tax Payable/( Refund)"
+        },
+        {
+          "addr": "F32",
+          "value": "=F26+F30"
+        }
+      ]
+    },
+    "SAVINGS": {
+      "dimensions": "823 rows x 13 cols",
+      "merged_ranges_count": 2,
+      "merged_ranges_sample": [
+        "L2:M2",
+        "J2:K2"
+      ],
+      "non_empty_cell_count": 462,
+      "likely_headers": [
+        {
+          "addr": "D2",
+          "value": "Withholding Agent TIN"
+        },
+        {
+          "addr": "E2",
+          "value": "WHT Certificate No."
+        },
+        {
+          "addr": "H2",
+          "value": "TYPE"
+        },
+        {
+          "addr": "J2",
+          "value": "Gross Interest"
+        },
+        {
+          "addr": "C3",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H3",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K3",
+          "value": "=+J3"
+        },
+        {
+          "addr": "M3",
+          "value": "=+L3"
+        },
+        {
+          "addr": "C5",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H5",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K5",
+          "value": "=+J5"
+        },
+        {
+          "addr": "M5",
+          "value": "=+L5"
+        },
+        {
+          "addr": "B7",
+          "value": "Nations Trust Bank"
+        },
+        {
+          "addr": "C7",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H7",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K7",
+          "value": "=+J7"
+        },
+        {
+          "addr": "M7",
+          "value": "=+L7"
+        },
+        {
+          "addr": "C9",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H9",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K9",
+          "value": "=+J9"
+        },
+        {
+          "addr": "C10",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H10",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K10",
+          "value": "=+J10"
+        },
+        {
+          "addr": "C11",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H11",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K11",
+          "value": "=+J11"
+        },
+        {
+          "addr": "C12",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H12",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K12",
+          "value": "=+J12"
+        },
+        {
+          "addr": "C13",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H13",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K13",
+          "value": "=+J13"
+        },
+        {
+          "addr": "C14",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H14",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K14",
+          "value": "=+J14"
+        },
+        {
+          "addr": "C15",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H15",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K15",
+          "value": "=+J15"
+        },
+        {
+          "addr": "C16",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H16",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K16",
+          "value": "=+J16"
+        },
+        {
+          "addr": "C17",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H17",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K17",
+          "value": "=+J17"
+        },
+        {
+          "addr": "C18",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H18",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K18",
+          "value": "=+J18"
+        },
+        {
+          "addr": "C19",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H19",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K19",
+          "value": "=+J19"
+        },
+        {
+          "addr": "C20",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H20",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K20",
+          "value": "=+J20"
+        },
+        {
+          "addr": "C22",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H22",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K22",
+          "value": "=+J22"
+        },
+        {
+          "addr": "C23",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H23",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K23",
+          "value": "=+J23"
+        },
+        {
+          "addr": "C24",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H24",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K24",
+          "value": "=+J24"
+        },
+        {
+          "addr": "C25",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H25",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K25",
+          "value": "=+J25"
+        },
+        {
+          "addr": "C26",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H26",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K26",
+          "value": "=+J26"
+        },
+        {
+          "addr": "C27",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H27",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K27",
+          "value": "=+J27"
+        },
+        {
+          "addr": "C28",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H28",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K28",
+          "value": "=+J28"
+        },
+        {
+          "addr": "C29",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H29",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K29",
+          "value": "=+J29"
+        },
+        {
+          "addr": "C30",
+          "value": "SAVINGS INTEREST"
+        },
+        {
+          "addr": "H30",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K30",
+          "value": "=+J30"
+        }
+      ]
+    },
+    "FD": {
+      "dimensions": "73 rows x 13 cols",
+      "merged_ranges_count": 7,
+      "merged_ranges_sample": [
+        "L2:M2",
+        "J2:K2",
+        "B6:B11",
+        "B14:B16",
+        "E6:E11",
+        "D6:D11",
+        "F6:F11"
+      ],
+      "non_empty_cell_count": 507,
+      "likely_headers": [
+        {
+          "addr": "D2",
+          "value": "Withholding Agent TIN"
+        },
+        {
+          "addr": "E2",
+          "value": "WHT Certificate No."
+        },
+        {
+          "addr": "H2",
+          "value": "TYPE"
+        },
+        {
+          "addr": "J2",
+          "value": "Gross Interest"
+        },
+        {
+          "addr": "H3",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K3",
+          "value": "=+J3"
+        },
+        {
+          "addr": "M3",
+          "value": "=+L3"
+        },
+        {
+          "addr": "C4",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K4",
+          "value": "=+J4"
+        },
+        {
+          "addr": "M4",
+          "value": "=+L4"
+        },
+        {
+          "addr": "E6",
+          "value": "R330285/ 08102024"
+        },
+        {
+          "addr": "C11",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K11",
+          "value": "=SUM(J6:J10)"
+        },
+        {
+          "addr": "M11",
+          "value": "=SUM(L6:L10)"
+        },
+        {
+          "addr": "H12",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K12",
+          "value": "=+J12"
+        },
+        {
+          "addr": "M12",
+          "value": "=+L12"
+        },
+        {
+          "addr": "B14",
+          "value": "Nations Trust Bank"
+        },
+        {
+          "addr": "C16",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K16",
+          "value": "=SUM(J14:J15)"
+        },
+        {
+          "addr": "M16",
+          "value": "=SUM(L14:L15)"
+        },
+        {
+          "addr": "B17",
+          "value": "Nations Trust Bank"
+        },
+        {
+          "addr": "H17",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K17",
+          "value": "=+J17"
+        },
+        {
+          "addr": "M17",
+          "value": "=+L17"
+        },
+        {
+          "addr": "C19",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K19",
+          "value": "=+J19"
+        },
+        {
+          "addr": "C20",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K20",
+          "value": "=+J20"
+        },
+        {
+          "addr": "C21",
+          "value": "FD INTEREST"
+        },
+        {
+          "addr": "K21",
+          "value": "=+J21"
+        },
+        {
+          "addr": "H22",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K22",
+          "value": "=+J22"
+        },
+        {
+          "addr": "H23",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K23",
+          "value": "=+J23"
+        },
+        {
+          "addr": "H24",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K24",
+          "value": "=+J24"
+        },
+        {
+          "addr": "H25",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K25",
+          "value": "=+J25"
+        },
+        {
+          "addr": "H26",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K26",
+          "value": "=+J26"
+        },
+        {
+          "addr": "H27",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K27",
+          "value": "=+J27"
+        },
+        {
+          "addr": "H28",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K28",
+          "value": "=+J28"
+        },
+        {
+          "addr": "H29",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K29",
+          "value": "=+J29"
+        },
+        {
+          "addr": "H30",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K30",
+          "value": "=+J30"
+        },
+        {
+          "addr": "H31",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K31",
+          "value": "=+J31"
+        },
+        {
+          "addr": "H32",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K32",
+          "value": "=+J32"
+        },
+        {
+          "addr": "H33",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K33",
+          "value": "=+J33"
+        },
+        {
+          "addr": "H35",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K35",
+          "value": "=+J35"
+        },
+        {
+          "addr": "H36",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K36",
+          "value": "=+J36"
+        },
+        {
+          "addr": "H37",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K37",
+          "value": "=+J37"
+        },
+        {
+          "addr": "H38",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K38",
+          "value": "=+J38"
+        },
+        {
+          "addr": "H39",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K39",
+          "value": "=+J39"
+        },
+        {
+          "addr": "H40",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K40",
+          "value": "=+J40"
+        },
+        {
+          "addr": "H41",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K41",
+          "value": "=+J41"
+        },
+        {
+          "addr": "H42",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K42",
+          "value": "=+J42"
+        },
+        {
+          "addr": "H43",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K43",
+          "value": "=+J43"
+        },
+        {
+          "addr": "H44",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K44",
+          "value": "=+J44"
+        },
+        {
+          "addr": "H45",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K45",
+          "value": "=+J45"
+        },
+        {
+          "addr": "H46",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "K46",
+          "value": "=+J46"
+        },
+        {
+          "addr": "H48",
+          "value": "SAVINGS"
+        }
+      ]
+    },
+    "UPLOAD FILE": {
+      "dimensions": "845 rows x 13 cols",
+      "merged_ranges_count": 6,
+      "merged_ranges_sample": [
+        "K2:L2",
+        "I2:J2",
+        "B6:B11",
+        "B14:B16",
+        "C6:C11",
+        "D6:D11"
+      ],
+      "non_empty_cell_count": 634,
+      "likely_headers": [
+        {
+          "addr": "C2",
+          "value": "Withholding Agent TIN"
+        },
+        {
+          "addr": "D2",
+          "value": "WHT Certificate No."
+        },
+        {
+          "addr": "G2",
+          "value": "TYPE"
+        },
+        {
+          "addr": "I2",
+          "value": "Gross Interest"
+        },
+        {
+          "addr": "G3",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J3",
+          "value": "=+I3"
+        },
+        {
+          "addr": "L3",
+          "value": "=+K3"
+        },
+        {
+          "addr": "J4",
+          "value": "=+I4"
+        },
+        {
+          "addr": "L4",
+          "value": "=+K4"
+        },
+        {
+          "addr": "D6",
+          "value": "R330285/ 08102024"
+        },
+        {
+          "addr": "M6",
+          "value": "=K6/I6"
+        },
+        {
+          "addr": "M7",
+          "value": "=K7/I7"
+        },
+        {
+          "addr": "M8",
+          "value": "=K8/I8"
+        },
+        {
+          "addr": "M9",
+          "value": "=K9/I9"
+        },
+        {
+          "addr": "M10",
+          "value": "=K10/I10"
+        },
+        {
+          "addr": "J11",
+          "value": "=SUM(I6:I10)"
+        },
+        {
+          "addr": "L11",
+          "value": "=SUM(K6:K10)"
+        },
+        {
+          "addr": "G12",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J12",
+          "value": "=+I12"
+        },
+        {
+          "addr": "L12",
+          "value": "=+K12"
+        },
+        {
+          "addr": "M12",
+          "value": "=K12/I12"
+        },
+        {
+          "addr": "B14",
+          "value": "Nations Trust Bank"
+        },
+        {
+          "addr": "M14",
+          "value": "=L14/J14"
+        },
+        {
+          "addr": "M15",
+          "value": "=L15/J15"
+        },
+        {
+          "addr": "J16",
+          "value": "=SUM(I14:I15)"
+        },
+        {
+          "addr": "L16",
+          "value": "=SUM(K14:K15)"
+        },
+        {
+          "addr": "M16",
+          "value": "=L16/J16"
+        },
+        {
+          "addr": "B17",
+          "value": "Nations Trust Bank"
+        },
+        {
+          "addr": "G17",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J17",
+          "value": "=+I17"
+        },
+        {
+          "addr": "L17",
+          "value": "=+K17"
+        },
+        {
+          "addr": "M17",
+          "value": "=L17/J17"
+        },
+        {
+          "addr": "J19",
+          "value": "=+I19"
+        },
+        {
+          "addr": "M19",
+          "value": "=L19/J19"
+        },
+        {
+          "addr": "J20",
+          "value": "=+I20"
+        },
+        {
+          "addr": "M20",
+          "value": "=L20/J20"
+        },
+        {
+          "addr": "J21",
+          "value": "=+I21"
+        },
+        {
+          "addr": "M21",
+          "value": "=L21/J21"
+        },
+        {
+          "addr": "G22",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J22",
+          "value": "=+I22"
+        },
+        {
+          "addr": "M22",
+          "value": "=L22/J22"
+        },
+        {
+          "addr": "G23",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J23",
+          "value": "=+I23"
+        },
+        {
+          "addr": "M23",
+          "value": "=L23/J23"
+        },
+        {
+          "addr": "G24",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J24",
+          "value": "=+I24"
+        },
+        {
+          "addr": "M24",
+          "value": "=L24/J24"
+        },
+        {
+          "addr": "G25",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J25",
+          "value": "=+I25"
+        },
+        {
+          "addr": "M25",
+          "value": "=L25/J25"
+        },
+        {
+          "addr": "G26",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J26",
+          "value": "=+I26"
+        },
+        {
+          "addr": "M26",
+          "value": "=L26/J26"
+        },
+        {
+          "addr": "G27",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J27",
+          "value": "=+I27"
+        },
+        {
+          "addr": "M27",
+          "value": "=L27/J27"
+        },
+        {
+          "addr": "G28",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J28",
+          "value": "=+I28"
+        },
+        {
+          "addr": "M28",
+          "value": "=L28/J28"
+        },
+        {
+          "addr": "G29",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J29",
+          "value": "=+I29"
+        },
+        {
+          "addr": "M29",
+          "value": "=L29/J29"
+        },
+        {
+          "addr": "G30",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J30",
+          "value": "=+I30"
+        },
+        {
+          "addr": "M30",
+          "value": "=L30/J30"
+        },
+        {
+          "addr": "G31",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J31",
+          "value": "=+I31"
+        },
+        {
+          "addr": "M31",
+          "value": "=L31/J31"
+        },
+        {
+          "addr": "G32",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J32",
+          "value": "=+I32"
+        },
+        {
+          "addr": "M32",
+          "value": "=L32/J32"
+        },
+        {
+          "addr": "G33",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J33",
+          "value": "=+I33"
+        },
+        {
+          "addr": "M33",
+          "value": "=L33/J33"
+        },
+        {
+          "addr": "G35",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J35",
+          "value": "=+I35"
+        },
+        {
+          "addr": "M35",
+          "value": "=L35/J35"
+        },
+        {
+          "addr": "G36",
+          "value": "SAVINGS"
+        },
+        {
+          "addr": "J36",
+          "value": "=+I36"
+        },
+        {
+          "addr": "M36",
+          "value": "=L36/J36"
+        }
+      ]
+    },
+    "IN In - Mr Sarooj Wo": {
+      "dimensions": "982 rows x 28 cols",
+      "merged_ranges_count": 0,
+      "merged_ranges_sample": [],
+      "non_empty_cell_count": 115,
+      "likely_headers": [
+        {
+          "addr": "A2",
+          "value": "MR. G D S U CHANDRASENA"
+        },
+        {
+          "addr": "A3",
+          "value": "TIN Number"
+        },
+        {
+          "addr": "A4",
+          "value": "Tax Computation for the Y/A 2023/2024"
+        },
+        {
+          "addr": "C7",
+          "value": "TIN NO"
+        },
+        {
+          "addr": "D7",
+          "value": "WHT CET NO"
+        },
+        {
+          "addr": "G7",
+          "value": "Interest Date"
+        },
+        {
+          "addr": "H7",
+          "value": "Interest"
+        },
+        {
+          "addr": "J9",
+          "value": "=SUM(I8:I9)"
+        },
+        {
+          "addr": "B10",
+          "value": "DFCC"
+        },
+        {
+          "addr": "B11",
+          "value": "DFCC"
+        },
+        {
+          "addr": "B12",
+          "value": "DFCC"
+        },
+        {
+          "addr": "J12",
+          "value": "=SUM(I10:I12)"
+        },
+        {
+          "addr": "J15",
+          "value": "=SUM(I13:I15)"
+        },
+        {
+          "addr": "B16",
+          "value": "PABC"
+        },
+        {
+          "addr": "B17",
+          "value": "PABC"
+        },
+        {
+          "addr": "B18",
+          "value": "PABC"
+        },
+        {
+          "addr": "B19",
+          "value": "PABC"
+        },
+        {
+          "addr": "B20",
+          "value": "PABC"
+        },
+        {
+          "addr": "J20",
+          "value": "=SUM(I16:I20)"
+        },
+        {
+          "addr": "F21",
+          "value": "=SUM(F8:F20)"
+        },
+        {
+          "addr": "H21",
+          "value": "=SUM(H8:H20)"
+        },
+        {
+          "addr": "I21",
+          "value": "=SUM(I8:I20)"
+        },
+        {
+          "addr": "J21",
+          "value": "=SUM(J8:J20)"
+        },
+        {
+          "addr": "H26",
+          "value": "=H21+H25"
+        },
+        {
+          "addr": "I26",
+          "value": "=I21+I25"
+        }
+      ]
+    },
+    "Pension Sche.": {
+      "dimensions": "20 rows x 12 cols",
+      "merged_ranges_count": 0,
+      "merged_ranges_sample": [],
+      "non_empty_cell_count": 152,
+      "likely_headers": [
+        {
+          "addr": "B2",
+          "value": "Pensioner"
+        },
+        {
+          "addr": "B5",
+          "value": "Pension No:"
+        },
+        {
+          "addr": "J7",
+          "value": "TDED"
+        },
+        {
+          "addr": "K7",
+          "value": "TPEN"
+        },
+        {
+          "addr": "L7",
+          "value": "PNET"
+        },
+        {
+          "addr": "J20",
+          "value": "=SUM(J8:J19)"
+        },
+        {
+          "addr": "K20",
+          "value": "=SUM(K8:K19)"
+        },
+        {
+          "addr": "L20",
+          "value": "=SUM(L8:L19)"
+        }
+      ]
+    }
+  }
+}

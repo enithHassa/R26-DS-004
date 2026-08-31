@@ -21,6 +21,7 @@ from backend.shared.config.database import Base
 
 class FinancialProfile(TimestampMixin, Base):
     __tablename__ = "financial_profiles"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -32,11 +33,18 @@ class FinancialProfile(TimestampMixin, Base):
     gender: Mapped[str] = mapped_column(String(16), default="other", nullable=False)
     district: Mapped[str] = mapped_column(String(64), default="Colombo", nullable=False, index=True)
     marital_status: Mapped[str] = mapped_column(String(16), default="single", nullable=False)
+    residency_status: Mapped[str] = mapped_column(String(16), default="resident", nullable=False)
+    nationality: Mapped[str | None] = mapped_column(String(64), nullable=True)
     occupation: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    employment_type: Mapped[str] = mapped_column(String(16), default="permanent", nullable=False)
+    employer_sector: Mapped[str] = mapped_column(String(16), default="private", nullable=False)
     dependents: Mapped[int] = mapped_column(default=0, nullable=False)
     years_employed: Mapped[int] = mapped_column(default=0, nullable=False)
 
     gross_monthly_income: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    annual_bonus_lkr: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), default=Decimal("0"), nullable=False
+    )
     monthly_expenses: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     monthly_debt_service: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), default=Decimal("0"), nullable=False
@@ -56,6 +64,12 @@ class FinancialProfile(TimestampMixin, Base):
     etf_balance: Mapped[Decimal] = mapped_column(
         Numeric(14, 2), default=Decimal("0"), nullable=False
     )
+    vehicle_value: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), default=Decimal("0"), nullable=False
+    )
+    property_value: Mapped[Decimal] = mapped_column(
+        Numeric(14, 2), default=Decimal("0"), nullable=False
+    )
 
     health_insurance: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     life_insurance_premium_annual: Mapped[Decimal] = mapped_column(
@@ -70,6 +84,18 @@ class FinancialProfile(TimestampMixin, Base):
 
     risk_tolerance: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
     investment_horizon_years: Mapped[int] = mapped_column(default=10, nullable=False)
+    retirement_age_target: Mapped[int] = mapped_column(default=60, nullable=False)
     income_sources: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
-    tax_year: Mapped[str] = mapped_column(String(8), default="2024_25", nullable=False, index=True)
+    tax_year: Mapped[str] = mapped_column(String(8), default="2026_27", nullable=False, index=True)
+
+    eligibility_overrides: Mapped[dict[str, bool]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+
+    # Multi-section TaxWise tax return wizard (sections 1–8).
+    tax_return_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    section_completion: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+
+    # Transaction semantic rule-engine alias (e.g. taxpayer_00001 YAML profile).
+    transaction_taxpayer_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)

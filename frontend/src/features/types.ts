@@ -20,6 +20,11 @@ export interface FeatureModule {
   title: string;
   routes: RouteObject[];
   nav: NavItem[];
+  /**
+   * When set, the section title in the sidebar links here (module landing page)
+   * so a separate "Home" nav row is optional.
+   */
+  navRoot?: string;
   /** When set, routes render inside this layout (e.g. scoped CSS variables for the module). */
   layout?: FeatureLayout;
 }

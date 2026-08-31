@@ -16,6 +16,26 @@ export default defineConfig(({ mode }) => {
   /** Personalized recommendation service (Component 3). Direct proxy avoids needing the gateway running. */
   const recommendationUrl =
     env.VITE_DEV_RECOMMENDATION_URL?.trim() || "http://127.0.0.1:8003";
+  /** Adaptive Tax service (Component 5). Direct proxy avoids needing the gateway running. */
+  const adaptiveTaxUrl =
+    env.VITE_DEV_ADAPTIVE_TAX_URL?.trim() || "http://127.0.0.1:8005";
+  /** Optimization and Explainable. Direct proxy avoids needing the gateway running. */
+  const optimizationExplainableUrl =
+    env.VITE_DEV_OPTIMIZATION_EXPLAINABLE_URL?.trim() || "http://127.0.0.1:8008";
+  /** Optimization and Explainable Engine (Phase 1+). Longer prefix than OE. */
+  const optimizationExplainableEngineUrl =
+    env.VITE_DEV_OPTIMIZATION_EXPLAINABLE_ENGINE_URL?.trim() ||
+    "http://127.0.0.1:8009";
+  /** Transaction semantic service (Component 1). Rewrites /api/v1 → /v1 on the service. */
+  const transactionSemanticUrl =
+    env.VITE_DEV_TRANSACTION_SEMANTIC_URL?.trim() || "http://127.0.0.1:8001";
+  const transactionSemanticProxy = {
+    target: transactionSemanticUrl,
+    changeOrigin: true,
+    timeout: 300_000,
+    proxyTimeout: 300_000,
+    rewrite: (p: string) => p.replace(/^\/api\/v1/, "/v1"),
+  };
 
   return {
     plugins: [react(), tailwindcss()],
@@ -25,6 +45,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // Windows often binds Vite to IPv6 ::1 only; the runbook URL is 127.0.0.1.
+      host: "127.0.0.1",
       port: 5173,
       /** Strategy explorer (Component B) — primary dissertation UI for this module. */
       open: "/tax-optimization/explorer",
@@ -37,6 +59,36 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api\/v1\/recommendation/, "/api/v1"),
         },
+        // Account auth on the gateway (shared users table) — do not route via Comp 3.
+        "/api/v1/auth": {
+          target: gatewayUrl,
+          changeOrigin: true,
+        },
+        // Hit Adaptive Tax directly — Catalog Admin must not depend on the gateway (:8000).
+        "/api/v1/adaptive-tax": {
+          target: adaptiveTaxUrl,
+          changeOrigin: true,
+          /** GPT-5 extract/approve can take several minutes; keep in sync with axios timeouts. */
+          timeout: 300_000,
+          proxyTimeout: 300_000,
+          rewrite: (p) => p.replace(/^\/api\/v1\/adaptive-tax/, "/api/v1"),
+        },
+        // Regex: Vite first-match uses startsWith, so "/optimization-explainable"
+        // would steal "/optimization-explainable-engine" and send Engine UI to :8008.
+        "^/api/v1/optimization-explainable-engine": {
+          target: optimizationExplainableEngineUrl,
+          changeOrigin: true,
+          timeout: 180_000,
+          proxyTimeout: 180_000,
+          rewrite: (p) =>
+            p.replace(/^\/api\/v1\/optimization-explainable-engine/, "/api/v1"),
+        },
+        // Negative lookahead so this never matches Engine routes.
+        "^/api/v1/optimization-explainable(?!-engine)": {
+          target: optimizationExplainableUrl,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api\/v1\/optimization-explainable/, "/api/v1"),
+        },
         "/api/v1/optimization": {
           target: optimizationUrl,
           changeOrigin: true,
@@ -45,6 +97,10 @@ export default defineConfig(({ mode }) => {
           proxyTimeout: 180_000,
           rewrite: (p) => p.replace(/^\/api\/v1\/optimization/, "/api/v1"),
         },
+        "/api/v1/documents": transactionSemanticProxy,
+        "/api/v1/transactions": transactionSemanticProxy,
+        "/api/v1/taxonomy": transactionSemanticProxy,
+        "/api/v1/taxable-income": transactionSemanticProxy,
         "/api": {
           target: gatewayUrl,
           changeOrigin: true,

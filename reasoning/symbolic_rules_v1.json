@@ -1,0 +1,57 @@
+{
+  "version": "1.1.0",
+  "description": "Symbolic validation rules for Component C Think Twice loop (Sri Lankan individual income tax).",
+  "rule_engine_version": "symbolic_rules_v1",
+  "personal_relief_lkr_by_assessment_year_start": {
+    "2018": 500000,
+    "2019": 500000,
+    "2020": 3000000,
+    "2021": 3000000,
+    "2022": 3000000,
+    "2023": 1200000,
+    "2024": 1200000,
+    "2025": 1800000
+  },
+  "income_tax_slabs_by_assessment_year_start": {
+    "2025": [
+      { "lower": 0,       "upper": 1800000, "rate_percent": 6  },
+      { "lower": 1800001, "upper": 3000000, "rate_percent": 12 },
+      { "lower": 3000001, "upper": 4200000, "rate_percent": 18 },
+      { "lower": 4200001, "upper": 5400000, "rate_percent": 24 },
+      { "lower": 5400001, "upper": 6600000, "rate_percent": 30 },
+      { "lower": 6600001, "upper": null,    "rate_percent": 36 }
+    ],
+    "2024": [
+      { "lower": 0,       "upper": 1200000, "rate_percent": 6  },
+      { "lower": 1200001, "upper": 2400000, "rate_percent": 12 },
+      { "lower": 2400001, "upper": 3600000, "rate_percent": 18 },
+      { "lower": 3600001, "upper": 4800000, "rate_percent": 24 },
+      { "lower": 4800001, "upper": 6000000, "rate_percent": 30 },
+      { "lower": 6000001, "upper": null,    "rate_percent": 36 }
+    ]
+  },
+  "wht_rates_percent": {
+    "dividends_resident":     14,
+    "dividends_non_resident": 14,
+    "interest_resident":      5,
+    "interest_non_resident":  15,
+    "royalties_resident":     14,
+    "royalties_non_resident": 14,
+    "service_fees":           14,
+    "rent_land_buildings":    10
+  },
+  "filing_deadlines": {
+    "return_submission_months_after_year_end": 3,
+    "balance_tax_payment_months_after_year_end": 3,
+    "quarterly_installment_due_months": [3, 6, 9, 12],
+    "amendment_period_years": 4
+  },
+  "max_marginal_rate_percent": 36,
+  "forbidden_phrases": [
+    "no tax ever",
+    "zero tax guaranteed",
+    "legal advice from a lawyer",
+    "guaranteed audit exemption"
+  ],
+  "advisory_disclaimer": "This response is decision-support guidance grounded in retrieved Sri Lankan income-tax sources. It is not legally binding advice."
+}

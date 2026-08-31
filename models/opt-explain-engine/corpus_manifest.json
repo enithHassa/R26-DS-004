@@ -1,0 +1,89 @@
+{
+  "spec_version": "1.0.0",
+  "component": "optimization-explainable-engine",
+  "corpus_version": "oee_corpus_v1",
+  "pdf_root": "data/raw/opt-explain-engine",
+  "notes": [
+    "Postgres oe_engine_documents.sha256 is the source of truth.",
+    "This manifest is the git-tracked mirror (file names, tiers, hashes after ingest).",
+    "Acts are the only cap/slab/formula source. Guide never supplies cap_amount.",
+    "Consolidated is cross-check only; never year tables, never promote."
+  ],
+  "documents": [
+    {
+      "file_name": "IR_Act_No._24_2017_E.pdf",
+      "source_doc_id": "oee-act-24-2017",
+      "title": "Inland Revenue Act No. 24 of 2017 (English)",
+      "tier": "act",
+      "instrument_type": "base_act",
+      "publication_date": "2017-10-24",
+      "sha256": "e857f11ec026b424c4c8a5bc458f3fdd9cf1cca96e667b9a9bb80d8ccd972d77"
+    },
+    {
+      "file_name": "IR_Act_No._10_2021_E.pdf",
+      "source_doc_id": "oee-act-10-2021",
+      "title": "Inland Revenue Amendment Act No. 10 of 2021 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "publication_date": "2021-05-13",
+      "sha256": "47d16ccba8e0c17df9164828cddf28541500edd469b5d2a02bc864c8d1d05cc0"
+    },
+    {
+      "file_name": "IR_Act_No._45_2022_E.pdf",
+      "source_doc_id": "oee-act-45-2022",
+      "title": "Inland Revenue Amendment Act No. 45 of 2022 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "publication_date": "2022-12-19",
+      "sha256": "23b1485cbf651508fd7ed93b3e80a61fb3e8816225b49abb75fc3caaa28a2a27"
+    },
+    {
+      "file_name": "IR_Act_No._04_2023_E.pdf",
+      "source_doc_id": "oee-act-04-2023",
+      "title": "Inland Revenue Amendment Act No. 04 of 2023 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "sha256": "66e2bef45624e3c5f50b8ca449ba61a99b8c93873c5bdac5fcd746beb744c8c0"
+    },
+    {
+      "file_name": "IR_Act_No14_2023_E.pdf",
+      "source_doc_id": "oee-act-14-2023",
+      "title": "Inland Revenue Amendment Act No. 14 of 2023 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "sha256": "2a086eb2ab9b222f2f707486ef32436fe5a500ccd4e84530e38cb7aacdd476e2"
+    },
+    {
+      "file_name": "IR_Act_No_02-2025_E.pdf",
+      "source_doc_id": "oee-act-02-2025",
+      "title": "Inland Revenue Amendment Act No. 02 of 2025 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "sha256": "0dff13924d408a621ce6dd01c2069c652c6a55be5740b897d145589454e5f7f8"
+    },
+    {
+      "file_name": "IR_Act_No_11-2026_E.pdf",
+      "source_doc_id": "oee-act-11-2026",
+      "title": "Inland Revenue Amendment Act No. 11 of 2026 (English)",
+      "tier": "act",
+      "instrument_type": "amendment_act",
+      "sha256": "25c44cdd1e93e39e62ad254d1c32624b6a4f99d4d119bd98bb81930db6d5270e"
+    },
+    {
+      "file_name": "IRA_Cons_Act_-_2025_Changes.pdf",
+      "source_doc_id": "oee-consolidated-2025",
+      "title": "Inland Revenue Act consolidated changes 2025 (English)",
+      "tier": "consolidated",
+      "instrument_type": "consolidated",
+      "sha256": "1f0c6f5844a53e4f87d5e69837c51d204a3a37b0659facc92cab7ab7bf67f46c"
+    },
+    {
+      "file_name": "Guide to Inland Revenue Act.pdf",
+      "source_doc_id": "oee-guide-ira",
+      "title": "Guide to Inland Revenue Act (English)",
+      "tier": "guide",
+      "instrument_type": "guide",
+      "sha256": "5f6022f204af19ecdbce3007a13dbcba172882b51e6434f4bf9cee2909442046"
+    }
+  ]
+}

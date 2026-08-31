@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "extraction_run_id": "20260826T151524Z-556090",
+  "source_doc_id": "oee-act-04-2023",
+  "tier": "act",
+  "terminus": "review_then_promote",
+  "model": "gpt-4o",
+  "dry_run": false,
+  "usd_this_run": 0.028492,
+  "usd_running_total": 0.057947,
+  "windows": [
+    {
+      "window_id": "w000",
+      "heading": "PARLIAMENT OF THE DEMOCRATIC SOCIALIST REPUBLIC OF SRI LANKA INLAND REVENUE (AME",
+      "char_count": 9047,
+      "page_start": 1,
+      "page_end": 7,
+      "channel_hint": "table_render"
+    },
+    {
+      "window_id": "w001",
+      "heading": "Section 113",
+      "char_count": 8000,
+      "page_start": 7,
+      "page_end": 12,
+      "channel_hint": "text_stream"
+    },
+    {
+      "window_id": "w002",
+      "heading": "First Schedule",
+      "char_count": 10720,
+      "page_start": 12,
+      "page_end": 21,
+      "channel_hint": "table_render"
+    }
+  ],
+  "entities": [],
+  "notes": [
+    "Phase 6 seed. Soft $15 / hard $40. Prior spend $0.0295."
+  ]
+}

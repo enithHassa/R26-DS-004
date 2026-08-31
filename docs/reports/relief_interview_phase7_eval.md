@@ -1,0 +1,164 @@
+# Relief Interview — Phase 7 evaluation (viva checklist)
+
+**Generated:** 2026-08-21T07:22:37.754432+00:00
+**Overall:** **PASS_WITH_GAPS**
+**Canonical plan:** [relief_interview_plan.md](relief_interview_plan.md)
+
+Automated checks against live `approved/` / `rates/`, Phase 1–6 artifacts, and the Relief Interview UI provenance surfaces.
+
+---
+
+## Summary
+
+| # | Check | Status |
+|---|---|---|
+| 1 | Phase 1 YA mapping reported (stop honored if remapped) | **PASS** |
+| 2 | Extractor-only origin (no ontology/hand-typed rows) | **PASS** |
+| 3 | Quote match and correct act_name / section_ref / source_doc_id | **PASS** |
+| 4 | Viva pairwise: personal relief 1.2M vs 1.8M; Sec 52(4); solar unchanged; tax delta | **PARTIAL** |
+| 5 | Compare table across confirmed YAs | **PASS** |
+| 6 | Expandable badge shows real provenance | **PASS** |
+| 7 | Rate accuracy gate documented | **PASS** |
+| 8 | Watcher does not rewrite past approved/*.json | **PASS** |
+
+---
+
+## 1. Phase 1 YA mapping reported (stop honored if remapped)
+
+**Status:** PASS
+
+Path check passed; confirmed range matches hypothesis; stop cleared
+
+Details:
+
+- report: docs/reports/relief_interview_phase1_ya_mapping.md
+- path check PASS documented: True
+- YA-mapping stop cleared: True
+- confirmed range 2018/19-2025/26 present: True
+- commencement harvest JSON present: True
+
+## 2. Extractor-only origin (no ontology/hand-typed rows)
+
+**Status:** PASS
+
+Every core-year entry/band carries Act quote + non-forbidden source_doc_id
+
+Details:
+
+- live catalog rows/bands checked: 108
+- staging included quotes indexed: 76
+
+## 3. Quote match and correct act_name / section_ref / source_doc_id
+
+**Status:** PASS
+
+Sample of 35 live quotes still match their Act PDFs with attributions filled
+
+Details:
+
+- manifest path check: 7 ok
+- quotes re-checked against PDF: 35
+
+## 4. Viva pairwise: personal relief 1.2M vs 1.8M; Sec 52(4); solar unchanged; tax delta
+
+**Status:** PARTIAL
+
+Personal relief 1.2M vs 1.8M and solar-unchanged PASS; Sec 52(4) CF absent from catalogs (extractor gap); engine tax delta demonstrated (-246000 LKR)
+
+Details:
+
+- personal_relief 2024/25=1200000  2025/26=1800000
+- sources: ird-amend-2022-45 vs ird-amend-2025-02
+- solar_panel_relief: 2020_21=600000, 2021_22=600000, 2022_23=600000, 2023_24=600000, 2024_25=600000, 2025_26=600000
+- solar unchanged at 600000 wherever present (incl. engine years)
+- Sec 52(4) carry-forward: NOT in live catalogs (Phase 4 staging for ird-amend-2026-11__52 was gate-blocked; known gap documented in Phase 5 report)
+- engine 2024_25: tax_payable=918000 on employment=5000000
+- engine 2025_26: tax_payable=672000 on employment=5000000
+- tax delta 2025/26 - 2024/25 = -246000
+
+## 5. Compare table across confirmed YAs
+
+**Status:** PASS
+
+UI loads all-year catalogs; personal_relief varies across 8 confirmed YAs
+
+Details:
+
+- compare.tsx loads all years API: True
+- compare.tsx renders a table: True
+- personal_relief series: 2018_19=500000, 2019_20=500000, 2020_21=3000000, 2021_22=3000000, 2022_23=2250000, 2023_24=1200000, 2024_25=1200000, 2025_26=1800000
+
+## 6. Expandable badge shows real provenance
+
+**Status:** PASS
+
+Interview provenance panel + year-diff quotes wired to live Act fields
+
+Details:
+
+- reliefs provenance block (act/section/source): True
+- reliefs shows quote: True
+- year-diff panel shows both years' quotes: True
+- empty provenance fields on engine-year entries: 0
+- 2024/25 receipt: Inland Revenue Amendment Act No. 45 of 2022 | Fifth Schedule | (a) (i) Rs. 500,000, for each year of assessment prior to January 1, 2020; (ii) ...
+- 2025/26 receipt: Inland Revenue Amendment Act No. 02 of 2025 | Fifth Schedule | by the addition immediately after item (iv) of that subparagraph, of the followi...
+
+## 7. Rate accuracy gate documented
+
+**Status:** PASS
+
+2024/25 and 2025/26 match ontology packs; Phase 8 gate cleared
+
+Details:
+
+- accuracy_result.gate_pass = True
+- 2024_25: ontology match=True ladder=ird-amend-2022-45
+- 2025_26: ontology match=True ladder=ird-amend-2025-02
+- markdown report present: True
+
+## 8. Watcher does not rewrite past approved/*.json
+
+**Status:** PASS
+
+Core-year hashes intact; watcher only added 2026_27
+
+Details:
+
+- baseline files: 18 (captured 2026-08-21T07:11:12.605155+00:00)
+- approved/2018_19.json: sealed ok
+- rates/2018_19.json: sealed ok
+- approved/2019_20.json: sealed ok
+- rates/2019_20.json: sealed ok
+- approved/2020_21.json: sealed ok
+- rates/2020_21.json: sealed ok
+- approved/2021_22.json: sealed ok
+- rates/2021_22.json: sealed ok
+- approved/2022_23.json: sealed ok
+- rates/2022_23.json: sealed ok
+- approved/2023_24.json: sealed ok
+- rates/2023_24.json: sealed ok
+- approved/2024_25.json: sealed ok
+- rates/2024_25.json: sealed ok
+- approved/2025_26.json: sealed ok
+- rates/2025_26.json: sealed ok
+- watcher demo proposal present: True
+- watcher new year 2026_27 present: True
+- watcher refuses in-corpus Acts (incl. 04/2023): True
+
+---
+
+## Viva script (suggested)
+
+1. Open Relief Interview → pick **2024/25** as-of and **2025/26** compare.
+2. On personal relief: show **1,200,000 → 1,800,000** with Act quotes.
+3. Open Compare → personal relief across **2018/19–2025/26** (500k → 3M → 2.25M → 1.2M → 1.8M).
+4. Show solar at **600,000** unchanged on both engine years.
+5. Same employment income through Result for both engine years → tax delta.
+6. Expand provenance: `act_name` / `section_ref` / `quote` / `source_doc_id`.
+7. Note Phase 4 accuracy gate PASS; Phase 6 watcher added `2026_27` only.
+
+## Known gaps called in this eval
+
+- **Sec 52(4) carry-forward** is not in live catalogs (Phase 4 quote-gate blocked `ird-amend-2026-11` §52). Re-extract before claiming that viva beat.
+- Watcher demo year `2026_27` is on disk but not in the UI YA list yet.
+

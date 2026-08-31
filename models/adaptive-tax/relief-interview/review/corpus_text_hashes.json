@@ -1,0 +1,69 @@
+{
+  "spec_version": "1.0.0",
+  "phase": "catalog-admin-step2",
+  "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+  "note": "SHA-256 of Phase 4 normalize_for_match(linear stream). Never rewrite corpus_manifest.json.",
+  "path_errors": [],
+  "documents": [
+    {
+      "source_doc_id": "ird-ira-2017-base",
+      "file_name": "IR_Act_No._24_2017_E.pdf",
+      "text_sha256": "ecdb9ce44d09b27c15f6a008181f93bdb989b20b929fc7e6ec05a8c9b68a9729",
+      "tables_sha256": "6b3741e2603288ce06947a6e8d19dd5049975fab06c1a348784936610992bfbc",
+      "act_no": "24",
+      "act_year": "2017",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Act No. 24 of 2017 (English)"
+    },
+    {
+      "source_doc_id": "ird-amend-2021-10",
+      "file_name": "IR_Act_No._10_2021_E.pdf",
+      "text_sha256": "7ad8810bd7c84251934a45c1f4f2117dcce78a3651e66e46f77c58d610b35034",
+      "tables_sha256": "9a3e0e277b99566a0f6ae44ec7069fc711948be4668db2dd0dd23bce4a2a0ef7",
+      "act_no": "10",
+      "act_year": "2021",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Amendment Act No. 10 of 2021 (English)"
+    },
+    {
+      "source_doc_id": "ird-amend-2022-45",
+      "file_name": "IR_Act_No._45_2022_E.pdf",
+      "text_sha256": "c117ae3de2776a972a8038df5c84ca823dc3b9c5dd7328ece544299eebac555f",
+      "tables_sha256": "313e93d0505efba2747d6d131a861456d9349599f37ca7815bc8071f74008307",
+      "act_no": "45",
+      "act_year": "2022",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Amendment Act No. 45 of 2022 (English)"
+    },
+    {
+      "source_doc_id": "ird-amend-2023-04",
+      "file_name": "IR_Act_No._04_2023_E.pdf",
+      "text_sha256": "490cedb95023d29440bd6c8876ea2367daaee9f8aaa794fb9cc48fa92eb5cf5d",
+      "tables_sha256": "b24a2fbc093fd17e30e575aa80ae5cffd4bfffc8adf61fc7e9591ba644a7213d",
+      "act_no": "04",
+      "act_year": "2023",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Amendment Act No. 04 of 2023 (English)"
+    },
+    {
+      "source_doc_id": "ird-amend-2023-14",
+      "file_name": "IR_Act_No14_2023_E.pdf",
+      "text_sha256": "b70ce8a5d0955ba7841fbe0ff7292eb5367c20274ffc26c93a80b499835b9c9e",
+      "tables_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "act_no": "14",
+      "act_year": "2023",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Amendment Act No. 14 of 2023 (English)"
+    },
+    {
+      "source_doc_id": "ird-amend-2025-02",
+      "file_name": "IR_Act_No_02-2025_E.pdf",
+      "text_sha256": "8f62fcd1ac4aa9ee54c2cd0b4ce3b842e2d6e85a26f41674335f9138b1648829",
+      "tables_sha256": "05ece8c1483a12aafa8a0974064f5cbe4e9a892b46000d3e5543db4196dee855",
+      "act_no": "02",
+      "act_year": "2025",
+      "indexed_at": "2026-08-24T19:49:41.306621+00:00",
+      "act_title": "Inland Revenue Amendment Act No. 02 of 2025 (English)"
+    }
+  ]
+}

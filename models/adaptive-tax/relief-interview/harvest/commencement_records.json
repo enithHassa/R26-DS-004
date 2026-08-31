@@ -1,0 +1,487 @@
+{
+  "spec_version": "1.0.0",
+  "phase": 1,
+  "extract_source_doc_ids": [
+    "ird-ira-2017-base",
+    "ird-amend-2021-10",
+    "ird-amend-2022-45",
+    "ird-amend-2023-04",
+    "ird-amend-2023-14",
+    "ird-amend-2025-02",
+    "ird-amend-2026-11"
+  ],
+  "hypothesis_yas": [
+    "2018_19",
+    "2019_20",
+    "2020_21",
+    "2021_22",
+    "2022_23",
+    "2023_24",
+    "2024_25",
+    "2025_26"
+  ],
+  "confirmed_yas": [
+    "2018_19",
+    "2019_20",
+    "2020_21",
+    "2021_22",
+    "2022_23",
+    "2023_24",
+    "2024_25",
+    "2025_26"
+  ],
+  "remapped_vs_hypothesis": false,
+  "path_check": [
+    {
+      "source_doc_id": "ird-ira-2017-base",
+      "file_name": "IR_Act_No._24_2017_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No._24_2017_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2021-10",
+      "file_name": "IR_Act_No._10_2021_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No._10_2021_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2022-45",
+      "file_name": "IR_Act_No._45_2022_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No._45_2022_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2023-04",
+      "file_name": "IR_Act_No._04_2023_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No._04_2023_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2023-14",
+      "file_name": "IR_Act_No14_2023_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No14_2023_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2025-02",
+      "file_name": "IR_Act_No_02-2025_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No_02-2025_E.pdf",
+      "exists": true
+    },
+    {
+      "source_doc_id": "ird-amend-2026-11",
+      "file_name": "IR_Act_No_11-2026_E.pdf",
+      "resolved_path": "data/raw/adaptive-tax/IR_Act_No_11-2026_E.pdf",
+      "exists": true
+    }
+  ],
+  "acts": [
+    {
+      "source_doc_id": "ird-ira-2017-base",
+      "file_name": "IR_Act_No._24_2017_E.pdf",
+      "pages_scanned": 16,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-ira-2017-base",
+          "act_title_hint": "IR_Act_No._24_2017_E",
+          "section_ref": "s.1",
+          "operation_date": "2018-04-01",
+          "derived_assessment_year": "2018_19",
+          "quote": "comes into operaton on April 1, 2018",
+          "parse_kind": "short_title_clause"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2021-10",
+      "file_name": "IR_Act_No._10_2021_E.pdf",
+      "pages_scanned": 16,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2021-10",
+          "act_title_hint": "IR_Act_No._10_2021_E",
+          "section_ref": "s.1 (deemed operation)",
+          "operation_date": "2021-04-01",
+          "derived_assessment_year": "2021_22",
+          "quote": "shall be deemed to have come into operation on April 1, 2021",
+          "parse_kind": "table_blanket"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2022-45",
+      "file_name": "IR_Act_No._45_2022_E.pdf",
+      "pages_scanned": 16,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2022-45",
+          "act_title_hint": "IR_Act_No._45_2022_E",
+          "section_ref": "s.1 (deemed operation)",
+          "operation_date": "2022-04-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "shall be deemed to have come into operation on April 1, 2022",
+          "parse_kind": "table_blanket"
+        },
+        {
+          "source_doc_id": "ird-amend-2022-45",
+          "act_title_hint": "IR_Act_No._45_2022_E",
+          "section_ref": "s.1 (deemed operation)",
+          "operation_date": "2022-10-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "shall be deemed to have come into operation on October 1, 2022",
+          "parse_kind": "table_blanket"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2023-04",
+      "file_name": "IR_Act_No._04_2023_E.pdf",
+      "pages_scanned": 16,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.3 amending 37(1)( b)",
+          "operation_date": "2021-04-01",
+          "derived_assessment_year": "2021_22",
+          "quote": "3 37(1)( b) 01.04.2021",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.58 amending 4 A(1B)",
+          "operation_date": "2023-01-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "58 4 A(1B) 01.01.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.6 amending 85(4)",
+          "operation_date": "2023-01-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "6 85(4) 01.01.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.10 amending 113(1)( b), 113(1)( bb), 113(1A),",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "10 113(1)( b), 113(1)( bb), 113(1A), 01.04.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.12 amending 135(3), 135(3A) and 135(4)",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "12 135(3), 135(3A) and 135(4) 01.04.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.14 amending 150(1)( a), 150(1)( b), 150(1)( c)",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "14 150(1)( a), 150(1)( b), 150(1)( c) 01.04.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.17 amending 195",
+          "operation_date": "2018-04-01",
+          "derived_assessment_year": "2018_19",
+          "quote": "17 195 01.04.2018",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.18 amending subparagraph (1) of paragraph 4,",
+          "operation_date": "2022-10-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "18 subparagraph (1) of paragraph 4, 01.10.2022",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.20 amending paragraph ( gg) of the Third",
+          "operation_date": "2022-04-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "20 paragraph ( gg) of the Third 01.04.2022",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.20 amending subparagraphs (ii) and (iii) of",
+          "operation_date": "2022-10-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "20 subparagraphs (ii) and (iii) of 01.10.2022",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.20 amending paragraph ( tt) and subparagraphs",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "20 paragraph ( tt) and subparagraphs 01.04.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-04",
+          "act_title_hint": "IR_Act_No._04_2023_E",
+          "section_ref": "s.20 amending paragraph ( x) of the",
+          "operation_date": "2021-05-27",
+          "derived_assessment_year": "2021_22",
+          "quote": "20 paragraph ( x) of the 27.05.2021",
+          "parse_kind": "column_iii_row"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2023-14",
+      "file_name": "IR_Act_No14_2023_E.pdf",
+      "pages_scanned": 6,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2023-14",
+          "act_title_hint": "IR_Act_No14_2023_E",
+          "section_ref": "s.1 (whole Act)",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "The provisions of this Act shall be deemed to have come into operation on April 1, 2023",
+          "parse_kind": "whole_act"
+        },
+        {
+          "source_doc_id": "ird-amend-2023-14",
+          "act_title_hint": "IR_Act_No14_2023_E",
+          "section_ref": "s.1 (deemed operation)",
+          "operation_date": "2023-04-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "shall be deemed to have come into operation on April 1, 2023",
+          "parse_kind": "table_blanket"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2025-02",
+      "file_name": "IR_Act_No_02-2025_E.pdf",
+      "pages_scanned": 10,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2025-02",
+          "act_title_hint": "IR_Act_No_02-2025_E",
+          "section_ref": "s.1 (whole Act)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "The provisions of this Act shall come into operation on April 1, 2025",
+          "parse_kind": "whole_act"
+        },
+        {
+          "source_doc_id": "ird-amend-2025-02",
+          "act_title_hint": "IR_Act_No_02-2025_E",
+          "section_ref": "s.1",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "this Act shall come into operation on April 1, 2025",
+          "parse_kind": "short_title_clause"
+        }
+      ]
+    },
+    {
+      "source_doc_id": "ird-amend-2026-11",
+      "file_name": "IR_Act_No_11-2026_E.pdf",
+      "pages_scanned": 16,
+      "notes": [],
+      "records": [
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.2 amending 8",
+          "operation_date": "2024-04-01",
+          "derived_assessment_year": "2024_25",
+          "quote": "2 8 01.04.2024",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.3 amending 10(2A)",
+          "operation_date": "2023-05-08",
+          "derived_assessment_year": "2023_24",
+          "quote": "3 10(2A) 08.05.2023",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.5 amending 52",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "5 52 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.6 amending 52A",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "6 52A 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.7 amending 59(1A) and (2)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "7 59(1A) and (2) 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.8 amending 68(3)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "8 68(3) 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.9 amending 69(1)(d), (1A) and (2A)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "9 69(1)(d), (1A) and (2A) 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.10 amending 72(3)",
+          "operation_date": "2018-04-01",
+          "derived_assessment_year": "2018_19",
+          "quote": "10 72(3) 01.04.2018",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.11 amending 79(1), (2) and (3)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "11 79(1), (2) and (3) 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.16 amending 90(3) and (6)",
+          "operation_date": "2026-04-01",
+          "derived_assessment_year": "2026_27",
+          "quote": "16 90(3) and (6) 01.04.2026",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.17 amending 91(1), (3), (4), (5) and (6)",
+          "operation_date": "2026-04-01",
+          "derived_assessment_year": "2026_27",
+          "quote": "17 91(1), (3), (4), (5) and (6) 01.04.2026",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.18 amending 92(1)",
+          "operation_date": "2026-04-01",
+          "derived_assessment_year": "2026_27",
+          "quote": "18 92(1) 01.04.2026",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.19 amending 94(1)",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "19 94(1) 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.21 amending 96A",
+          "operation_date": "2024-01-01",
+          "derived_assessment_year": "2023_24",
+          "quote": "21 96A 01.01.2024",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.35 amending 203(6)",
+          "operation_date": "2025-03-31",
+          "derived_assessment_year": "2024_25",
+          "quote": "35 203(6) 31.03.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.4 amending of the First Schedule",
+          "operation_date": "2022-04-01",
+          "derived_assessment_year": "2022_23",
+          "quote": "4 of the First Schedule 01.04.2022",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.38 amending Paragraph (a)(iv) of the Third Schedule",
+          "operation_date": "2018-04-01",
+          "derived_assessment_year": "2018_19",
+          "quote": "38 Paragraph (a)(iv) of the Third Schedule 01.04.2018",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.40 amending Fifth Schedule",
+          "operation_date": "2025-04-01",
+          "derived_assessment_year": "2025_26",
+          "quote": "40 Fifth Schedule 01.04.2025",
+          "parse_kind": "column_iii_row"
+        },
+        {
+          "source_doc_id": "ird-amend-2026-11",
+          "act_title_hint": "IR_Act_No_11-2026_E",
+          "section_ref": "s.41 amending Sixth Schedule",
+          "operation_date": "2024-04-01",
+          "derived_assessment_year": "2024_25",
+          "quote": "41 Sixth Schedule 01.04.2024",
+          "parse_kind": "column_iii_row"
+        }
+      ]
+    }
+  ]
+}

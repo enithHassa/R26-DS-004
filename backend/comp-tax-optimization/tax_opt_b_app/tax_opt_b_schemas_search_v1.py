@@ -210,6 +210,26 @@ class TaxOptBRuleTraceEntryV1(BaseModel):
     reference: str = Field(default="", max_length=2_000)
 
 
+class TaxOptBShapFeatureContributionV1(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    feature_name: str = Field(description="ML feature name (e.g. 'total_tax_lkr')")
+    shap_value: float = Field(description="SHAP contribution to ML score (positive = increases score, negative = decreases)")
+    feature_value: float = Field(description="Actual value of this feature for this strategy")
+
+
+class TaxOptBShapExplanationV1(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    base_value: float = Field(description="Expected model output averaged over training data (SHAP baseline)")
+    predicted_value: float = Field(description="Model output = base_value + sum(shap_values)")
+    feature_contributions: list[TaxOptBShapFeatureContributionV1] = Field(
+        description="Per-feature SHAP contributions sorted by absolute impact descending."
+    )
+    explainer_type: str = Field(default="TreeExplainer", description="SHAP explainer class used")
+    shap_version: str = Field(description="shap library version used for computation")
+
+
 class TaxOptBSearchStrategyRowV1(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -225,6 +245,30 @@ class TaxOptBSearchStrategyRowV1(BaseModel):
     delta_total_tax_vs_baseline: str | None = Field(
         default=None,
         description="LKR vs baseline when baseline passed; else null.",
+    )
+    tax_status: str | None = Field(
+        default=None,
+        description="'tax_due' if user owes additional tax, 'refund_due' if overpaid via APIT, null if not calculated.",
+    )
+    apit_already_paid: str | None = Field(
+        default=None,
+        description="APIT tax already paid by employer (from T10 certificate), LKR string decimal.",
+    )
+    net_tax_payable: str | None = Field(
+        default=None,
+        description="Net tax position: negative = refund due, positive = tax owed, LKR string decimal.",
+    )
+    rental_income_gross: str | None = Field(
+        default=None,
+        description="Gross rental income before 25% deemed repair deduction (LKR string decimal).",
+    )
+    rental_income_deduction: str | None = Field(
+        default=None,
+        description="Automatic 25% deemed repair allowance on rental income (LKR string decimal).",
+    )
+    rental_income_net: str | None = Field(
+        default=None,
+        description="Net rental income after deduction, included in taxable (LKR string decimal).",
     )
     metrics: TaxOptBSearchStrategyMetricsV1 | None = Field(
         default=None,
@@ -269,6 +313,10 @@ class TaxOptBSearchStrategyRowV1(BaseModel):
         ge=1,
         description="Echo of rule_only_rank for permutation-safe auditing (Function 3).",
     )
+    ml_shap_explanation: TaxOptBShapExplanationV1 | None = Field(
+        default=None,
+        description="SHAP feature contributions explaining the ML score (Function 3 only).",
+    )
 
 
 class TaxOptBSearchMlMetaV1(BaseModel):
@@ -293,6 +341,11 @@ class TaxOptBSearchMlMetaV1(BaseModel):
     inference_latency_ms: float = Field(ge=0.0)
     utility_alpha: float | None = Field(default=None, description="Alpha used for Pareto utility (v2 only).")
     optimization_objective_label: str | None = Field(default=None, description="Human-readable label for UI display.")
+    shap_base_value: float | None = Field(
+        default=None,
+        description="Expected model output (SHAP base value) averaged over training background.",
+    )
+    shap_explainer_type: str | None = Field(default=None, description="SHAP explainer class used (e.g. TreeExplainer).")
 
 
 class TaxOptBSearchTraceabilityV1(BaseModel):

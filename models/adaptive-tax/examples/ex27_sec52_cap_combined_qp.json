@@ -1,0 +1,99 @@
+{
+  "id": "ex27",
+  "scenario": "Per-category Fifth Sch para 1 limits across 1(a)+1(b)(i)+1(d) — no aggregate pool",
+  "key_assertion": "1(a) hits 75k first; 1(b)(i) and 1(d) have no category ceiling; full allowables deducted subject to assessable income only.",
+  "assert_variants_differ": true,
+  "variants": [
+    {
+      "id": "ex27_ya24",
+      "inputs": {
+        "assessment_year": "2024_25",
+        "resident_status": "resident",
+        "employment_income": "5000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current",
+        "filing_lines": [
+          {"component_id": "qp_approved_charitable", "amount": "100000"},
+          {"component_id": "qp_government_sri_lanka", "amount": "1200000"},
+          {"component_id": "qp_samurdhi_shop", "amount": "800000"}
+        ]
+      },
+      "expected_final_tax_lkr": "234000",
+      "expected_rules_applied": [
+        "aggregate_qualifying_payment_components",
+        "sum_assessable",
+        "evaluate_qualifying_payment_categories",
+        "deduct_qualifying_payment",
+        "apply_personal_relief",
+        "slab_band_1",
+        "slab_band_2",
+        "slab_band_3",
+        "slab_band_4",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:qp_approved_charitable",
+        "bootstrap:qp_government_sri_lanka",
+        "bootstrap:qp_samurdhi_shop"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "2075000"
+      },
+      "expected_qp_summary_before_sec52": "2075000",
+      "expected_qp_summary_final_allowable": "2075000",
+      "expected_qp_category_allowable": {
+        "qp_approved_charitable": "75000",
+        "qp_government_sri_lanka": "1200000",
+        "qp_samurdhi_shop": "800000"
+      }
+    },
+    {
+      "id": "ex27_ya25",
+      "inputs": {
+        "assessment_year": "2025_26",
+        "resident_status": "resident",
+        "employment_income": "5000000",
+        "business_income": "0",
+        "investment_income": "0",
+        "qualifying_payments": "0",
+        "donations": "0",
+        "other_reliefs": {},
+        "param_set": "current",
+        "filing_lines": [
+          {"component_id": "qp_approved_charitable", "amount": "100000"},
+          {"component_id": "qp_government_sri_lanka", "amount": "1200000"},
+          {"component_id": "qp_samurdhi_shop", "amount": "800000"}
+        ]
+      },
+      "expected_final_tax_lkr": "82500",
+      "expected_rules_applied": [
+        "aggregate_qualifying_payment_components",
+        "sum_assessable",
+        "evaluate_qualifying_payment_categories",
+        "deduct_qualifying_payment",
+        "carry_forward_qualifying_payment_out",
+        "apply_personal_relief",
+        "slab_band_1",
+        "slab_band_2",
+        "final_tax"
+      ],
+      "expected_rule_source_ids": [
+        "bootstrap:qp_approved_charitable"
+      ],
+      "expected_deduction_allowed": {
+        "deduct_qualifying_payment": "2075000"
+      },
+      "expected_qp_summary_before_sec52": "2075000",
+      "expected_qp_summary_final_allowable": "2075000",
+      "expected_qp_category_allowable": {
+        "qp_approved_charitable": "75000",
+        "qp_government_sri_lanka": "1200000",
+        "qp_samurdhi_shop": "800000"
+      }
+    }
+  ]
+}

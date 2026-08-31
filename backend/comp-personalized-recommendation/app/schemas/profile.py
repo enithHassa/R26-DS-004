@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.shared.schemas.common import Currency, ORMBase, RiskTolerance, TimestampedSchema
 
@@ -49,7 +49,7 @@ def _normalize_profile_payload(data: object) -> object:
     if not d.get("date_of_birth"):
         if d.get("age_band"):
             age_mid = _age_band_midpoint(str(d["age_band"]))
-            snapshot_year = int(str(d.get("tax_year", "2024_25")).split("_", 1)[0]) + 1
+            snapshot_year = int(str(d.get("tax_year", "2026_27")).split("_", 1)[0]) + 1
             d["date_of_birth"] = date(snapshot_year - age_mid, 6, 30).isoformat()
 
     # Accept income_sources_json string and map to income_sources list.
@@ -84,6 +84,27 @@ class MaritalStatus(StrEnum):
     WIDOWED = "widowed"
 
 
+class ResidencyStatus(StrEnum):
+    RESIDENT = "resident"
+    NON_RESIDENT = "non_resident"
+    DUAL = "dual"
+
+
+class EmploymentType(StrEnum):
+    PERMANENT = "permanent"
+    CONTRACT = "contract"
+    PART_TIME = "part_time"
+    FREELANCE = "freelance"
+    UNEMPLOYED = "unemployed"
+
+
+class EmployerSector(StrEnum):
+    PRIVATE = "private"
+    PUBLIC = "public"
+    NGO = "ngo"
+    SELF_EMPLOYED = "self_employed"
+
+
 class IncomeSource(BaseModel):
     kind: str = Field(description="employment|business|rental|interest|dividend|capital_gain|other")
     monthly_amount: Decimal = Field(ge=0)
@@ -97,11 +118,16 @@ class FinancialProfileBase(BaseModel):
     gender: Gender = Gender.OTHER
     district: str = Field(default="Colombo", max_length=64)
     marital_status: MaritalStatus = MaritalStatus.SINGLE
+    residency_status: ResidencyStatus = ResidencyStatus.RESIDENT
+    nationality: str | None = Field(default=None, max_length=64)
     occupation: Occupation
+    employment_type: EmploymentType = EmploymentType.PERMANENT
+    employer_sector: EmployerSector = EmployerSector.PRIVATE
     dependents: int = Field(ge=0, le=20, default=0)
     years_employed: int = Field(ge=0, le=60, default=0)
 
     gross_monthly_income: Decimal = Field(ge=0)
+    annual_bonus_lkr: Decimal = Field(ge=0, default=Decimal("0"))
     monthly_expenses: Decimal = Field(ge=0)
     monthly_debt_service: Decimal = Field(ge=0, default=Decimal("0"))
     liquid_savings: Decimal = Field(ge=0, default=Decimal("0"))
@@ -109,6 +135,8 @@ class FinancialProfileBase(BaseModel):
     total_debt: Decimal = Field(ge=0, default=Decimal("0"))
     epf_balance: Decimal = Field(ge=0, default=Decimal("0"))
     etf_balance: Decimal = Field(ge=0, default=Decimal("0"))
+    vehicle_value: Decimal = Field(ge=0, default=Decimal("0"))
+    property_value: Decimal = Field(ge=0, default=Decimal("0"))
 
     health_insurance: bool = False
     life_insurance_premium_annual: Decimal = Field(ge=0, default=Decimal("0"))
@@ -117,14 +145,36 @@ class FinancialProfileBase(BaseModel):
 
     risk_tolerance: RiskTolerance = RiskTolerance.MEDIUM
     investment_horizon_years: int = Field(ge=0, le=50, default=10)
+    retirement_age_target: int = Field(ge=40, le=75, default=60)
     income_sources: list[IncomeSource] = Field(default_factory=list)
 
-    tax_year: str = Field(default="2024_25", pattern=r"^\d{4}_\d{2}$")
+    tax_year: str = Field(default="2026_27", pattern=r"^\d{4}_\d{2}$")
+
+    tax_return_detail: dict | None = Field(
+        default=None,
+        description="Full TaxWise 8-section wizard payload (JSON blob).",
+    )
+    section_completion: list[int] | None = Field(
+        default=None,
+        description="Completed section numbers (1–7) for the tax return wizard.",
+    )
+    transaction_taxpayer_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Transaction semantic YAML profile id (e.g. taxpayer_00001).",
+    )
 
     @model_validator(mode="before")
     @classmethod
     def _normalize_input(cls, data: object) -> object:
         return _normalize_profile_payload(data)
+
+    @field_validator("income_sources", mode="before")
+    @classmethod
+    def _default_income_sources(cls, value: object) -> object:
+        # The ORM column is nullable, so rows persisted before/without income
+        # sources hydrate as None rather than a missing field.
+        return [] if value is None else value
 
 
 class FinancialProfileCreate(FinancialProfileBase):
@@ -133,13 +183,19 @@ class FinancialProfileCreate(FinancialProfileBase):
 
 class FinancialProfileUpdate(BaseModel):
     full_name: str | None = None
+    date_of_birth: date | None = None
     gender: Gender | None = None
     district: str | None = Field(default=None, max_length=64)
     marital_status: MaritalStatus | None = None
+    residency_status: ResidencyStatus | None = None
+    nationality: str | None = Field(default=None, max_length=64)
     occupation: Occupation | None = None
+    employment_type: EmploymentType | None = None
+    employer_sector: EmployerSector | None = None
     dependents: int | None = Field(default=None, ge=0, le=20)
     years_employed: int | None = Field(default=None, ge=0, le=60)
     gross_monthly_income: Decimal | None = Field(default=None, ge=0)
+    annual_bonus_lkr: Decimal | None = Field(default=None, ge=0)
     monthly_expenses: Decimal | None = Field(default=None, ge=0)
     monthly_debt_service: Decimal | None = Field(default=None, ge=0)
     liquid_savings: Decimal | None = Field(default=None, ge=0)
@@ -147,14 +203,19 @@ class FinancialProfileUpdate(BaseModel):
     total_debt: Decimal | None = Field(default=None, ge=0)
     epf_balance: Decimal | None = Field(default=None, ge=0)
     etf_balance: Decimal | None = Field(default=None, ge=0)
+    vehicle_value: Decimal | None = Field(default=None, ge=0)
+    property_value: Decimal | None = Field(default=None, ge=0)
     health_insurance: bool | None = None
     life_insurance_premium_annual: Decimal | None = Field(default=None, ge=0)
     home_loan_interest_annual: Decimal | None = Field(default=None, ge=0)
     donations_annual: Decimal | None = Field(default=None, ge=0)
     risk_tolerance: RiskTolerance | None = None
     investment_horizon_years: int | None = Field(default=None, ge=0, le=50)
+    retirement_age_target: int | None = Field(default=None, ge=40, le=75)
     income_sources: list[IncomeSource] | None = None
     tax_year: str | None = Field(default=None, pattern=r"^\d{4}_\d{2}$")
+    tax_return_detail: dict | None = None
+    section_completion: list[int] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -164,6 +225,17 @@ class FinancialProfileUpdate(BaseModel):
 
 class FinancialProfile(TimestampedSchema, FinancialProfileBase):
     """Full profile response."""
+
+    eligibility_overrides: dict[str, bool] = Field(default_factory=dict)
+
+
+class EligibilityOverrideUpdate(BaseModel):
+    """Manually pin (or clear) a single eligibility flag for a profile."""
+
+    flag: str = Field(min_length=1, max_length=64)
+    value: bool | None = Field(
+        default=None, description="True/false pins the flag; null clears the override."
+    )
 
 
 class DerivedFeatures(ORMBase):
@@ -180,10 +252,14 @@ class DerivedFeatures(ORMBase):
     baseline_tax_liability_annual: Decimal
     effective_tax_rate: float = Field(ge=0, le=1)
     eligibility_flags: dict[str, bool] = Field(default_factory=dict)
+    eligibility_overrides: dict[str, bool] = Field(default_factory=dict)
 
 
 __all__ = [
     "DerivedFeatures",
+    "EligibilityOverrideUpdate",
+    "EmployerSector",
+    "EmploymentType",
     "FinancialProfile",
     "FinancialProfileBase",
     "FinancialProfileCreate",
@@ -192,4 +268,5 @@ __all__ = [
     "IncomeSource",
     "MaritalStatus",
     "Occupation",
+    "ResidencyStatus",
 ]

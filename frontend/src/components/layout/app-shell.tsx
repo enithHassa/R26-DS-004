@@ -1,14 +1,59 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Wallet } from "lucide-react";
 
+import { AuditorWorkspacePanel } from "@/components/auditor/auditor-workspace-panel";
+import { AuditorWorkspaceMobileBar } from "@/components/auditor/auditor-workspace-mobile-bar";
 import { features } from "@/features";
 import { cn } from "@/lib/utils";
 
-export function AppShell() {
+class RouteErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("Route render failed", error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div className="space-y-2" role="alert">
+          <p className="font-medium">This page failed to render.</p>
+          <p className="text-sm text-muted-foreground">{this.state.error.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/** Reset the boundary when the URL changes so a prior route error does not stick. */
+function RouteErrorOutlet() {
+  const location = useLocation();
   return (
-    <div className="flex h-full">
-      <aside className="hidden w-64 flex-col border-r bg-card/50 p-4 md:flex">
-        <div className="mb-8 flex items-center gap-2 px-2">
+    <RouteErrorBoundary key={location.pathname}>
+      <Outlet />
+    </RouteErrorBoundary>
+  );
+}
+
+export function AppShell() {
+  const location = useLocation();
+  // The auditor's "Active taxpayer" side panel pre-fills other modules; the
+  // language-model views don't consume it, so hide it (and its mobile bar) there.
+  const hideAuditorWorkspace = location.pathname.startsWith("/language-model");
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r bg-card/50 p-4 md:flex">
+        <div className="mb-8 flex shrink-0 items-center gap-2 px-2">
           <Wallet className="h-6 w-6" />
           <div>
             <div className="font-semibold">AI Tax Advisory</div>
@@ -16,41 +61,63 @@ export function AppShell() {
           </div>
         </div>
 
-        {features.map((feature) => (
-          <div key={feature.id} className="mb-6">
-            <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {feature.title}
-            </div>
-            <nav className="flex flex-col gap-1">
-              {feature.nav.map((item) => (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {features.map((feature) => (
+            <div key={feature.id} className="mb-6">
+              {feature.navRoot ? (
                 <NavLink
-                  key={item.to}
-                  to={item.to}
+                  to={feature.navRoot}
+                  end
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                      "mb-1 block rounded-md px-3 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
                       isActive
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                     )
                   }
                 >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
+                  {feature.title}
                 </NavLink>
-              ))}
-            </nav>
-          </div>
-        ))}
+              ) : (
+                <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {feature.title}
+                </div>
+              )}
+              <nav className="flex flex-col gap-1">
+                {feature.nav.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                        isActive
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                      )
+                    }
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          ))}
+        </div>
 
-        <div className="mt-auto px-2 text-xs text-muted-foreground">R26-DS-004</div>
+        <div className="mt-auto shrink-0 px-2 pt-4 text-xs text-muted-foreground">R26-DS-004</div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6 md:p-10">
-          <Outlet />
+          {!hideAuditorWorkspace && <AuditorWorkspaceMobileBar />}
+          <RouteErrorOutlet />
         </div>
       </main>
+
+      {!hideAuditorWorkspace && <AuditorWorkspacePanel />}
     </div>
   );
 }

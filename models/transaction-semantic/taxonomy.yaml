@@ -140,9 +140,30 @@ labels:
     expected_doc_types: ["bank_statement"]
     tax_rule_code: "INTERNAL_TRANSFER_NON_TAX"
 
+  - key: "personal_spend"
+    group: "non_income"
+    description: "Personal merchant spend or outbound third-party payments (not income)."
+    default_direction: "DR"
+    expected_doc_types: ["bank_statement"]
+    tax_rule_code: "PERSONAL_OUTFLOW_NON_INCOME"
+
+  - key: "bank_charge"
+    group: "non_income"
+    description: "Bank fees, CEFTS charges, and similar non-income postings."
+    default_direction: "DR"
+    expected_doc_types: ["bank_statement"]
+    tax_rule_code: "BANK_FEE_NON_INCOME"
+
+  - key: "withholding_tax"
+    group: "non_income"
+    description: "Withholding/AIT deducted at source; not additional assessable income."
+    default_direction: "DR"
+    expected_doc_types: ["bank_statement"]
+    tax_rule_code: "WHT_NON_INCOME"
+
   - key: "unknown"
     group: "unresolved"
-    description: "Unable to classify reliably; requires review."
+    description: "Unproven credit; presumptively assessable until auditor evidence excludes it."
     default_direction: "CR"
     expected_doc_types: ["bank_statement", "payslip", "invoice", "other"]
     tax_rule_code: "REVIEW_REQUIRED"

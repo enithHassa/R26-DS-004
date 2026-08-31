@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Scenario(BaseModel):
@@ -20,10 +20,27 @@ class Scenario(BaseModel):
 class ImpactSimulationRequest(BaseModel):
     profile_id: UUID
     strategy_id: UUID | None = None
+    strategy_code: str | None = Field(
+        default=None,
+        description="Catalog strategy key, e.g. S001_health_life_premium_optimisation",
+    )
+    strategy_codes: list[str] = Field(
+        default_factory=list,
+        max_length=10,
+        description="Apply multiple strategies together (merged deduction profile).",
+    )
     horizon_years: int = Field(ge=1, le=40, default=10)
     n_paths: int = Field(ge=100, le=50_000, default=2_000)
     random_seed: int | None = None
     scenario: Scenario = Field(default_factory=lambda: Scenario(name="baseline"))
+
+    @model_validator(mode="after")
+    def _validate_strategy_selection(self) -> ImpactSimulationRequest:
+        if self.strategy_codes and (self.strategy_code or self.strategy_id):
+            raise ValueError("Use strategy_codes OR strategy_code/strategy_id, not both")
+        if self.strategy_code and self.strategy_id:
+            raise ValueError("Provide only one of strategy_code or strategy_id")
+        return self
 
 
 class YearlyProjection(BaseModel):
@@ -67,8 +84,15 @@ class ImpactSimulationResponse(BaseModel):
 
 class StrategyComparisonRequest(BaseModel):
     profile_id: UUID
-    strategy_ids: list[UUID] = Field(min_length=1, max_length=10)
+    strategy_ids: list[UUID] = Field(default_factory=list, max_length=10)
+    strategy_codes: list[str] = Field(default_factory=list, max_length=10)
     horizon_years: int = Field(ge=1, le=40, default=10)
+
+    @model_validator(mode="after")
+    def _require_strategies(self) -> StrategyComparisonRequest:
+        if not self.strategy_ids and not self.strategy_codes:
+            raise ValueError("At least one of strategy_ids or strategy_codes is required")
+        return self
 
 
 __all__ = [

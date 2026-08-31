@@ -16,6 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.config import component_settings
 from app.models.profile import FinancialProfile as FinancialProfileORM
+from app.models.recommendation import Recommendation as RecommendationORM
+from app.models.recommendation import RecommendationItem as RecommendationItemORM
+from app.models.strategy import TaxStrategy as TaxStrategyORM
 from app.schemas.recommendation import (
     RecommendationExplanation,
     RecommendationItem,
@@ -24,7 +27,9 @@ from app.schemas.recommendation import (
 )
 from app.schemas.strategy import Strategy, StrategyCategory
 from app.services.inference_assets import InferenceArtifacts, load_inference_artifacts
+from app.services.hybrid_service import _default_fusion_weights, _fuse_rank_score
 from app.services.profile_service import ProfileNotFoundError, compute_derived_features, get_profile
+from app.services.risk_scoring_service import compute_strategy_risk_bundle
 
 
 class RecommendationGenerationError(RuntimeError):
@@ -360,7 +365,11 @@ def _item_from_strategy(
     tax_savings_norm: float,
     lambdamart_score: float | None = None,
 ) -> RecommendationItem:
-    risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
+    user_tolerance = str(ctx.get("risk_tolerance", "medium"))
+    risk_penalty, _audit_level, risk_alignment = compute_strategy_risk_bundle(
+        strategy_audit_risk=s.audit_risk_level,
+        user_risk_tolerance=user_tolerance,
+    )
     feasibility = float(eval_result.feasibility_score)
     savings_norm = min(1.0, max(0.0, tax_savings_norm))
     adopt = min(1.0, max(0.0, adoption_prob))
@@ -376,6 +385,7 @@ def _item_from_strategy(
             component_settings.COMP_RECOMMENDATION_W_SAVINGS * savings_norm
             + component_settings.COMP_RECOMMENDATION_W_ADOPTION * adopt
             + component_settings.COMP_RECOMMENDATION_W_FEASIBILITY * feasibility
+            + 0.12 * risk_alignment
             - component_settings.COMP_RECOMMENDATION_W_RISK_PENALTY * risk_penalty
         )
 
@@ -536,25 +546,41 @@ def _generate_phase4(
         for i in range(len(artifacts.strategy_ids))
     }
 
-    # --- Filter eligible strategies and build recommendation items ---
+    # Sort by fusion score (tax fit + adoption + feasibility − risk).
+    fusion_weights = _default_fusion_weights()
+
     candidates: list[RecommendationItem] = []
     for s in catalog.strategies:
         eval_result = evaluate_strategy(s, ctx)
         if not eval_result.is_eligible:
             continue
         lm_score = lambdamart_by_sid.get(s.strategy_id, 0.0)
+        adopt = adopt_by_sid.get(s.strategy_id, 0.0)
+        user_tolerance = str(ctx.get("risk_tolerance", "medium"))
+        risk_penalty, _audit_level, risk_alignment = compute_strategy_risk_bundle(
+            strategy_audit_risk=s.audit_risk_level,
+            user_risk_tolerance=user_tolerance,
+        )
+        feasibility = float(eval_result.feasibility_score)
+        fusion_score = _fuse_rank_score(
+            lambdamart_score=lm_score,
+            adoption_probability=adopt,
+            feasibility=feasibility,
+            risk_penalty=risk_penalty,
+            risk_alignment=risk_alignment,
+            weights=fusion_weights,
+        )
         candidates.append(
             _item_from_strategy(
                 s=s,
                 ctx=ctx,
                 eval_result=eval_result,
-                adoption_prob=adopt_by_sid.get(s.strategy_id, 0.0),
+                adoption_prob=adopt,
                 tax_savings_norm=lm_score,
-                lambdamart_score=lm_score,  # drives final_score and rank order
+                lambdamart_score=fusion_score,
             )
         )
 
-    # Sort by LambdaMART-driven final_score (highest first).
     candidates.sort(key=lambda x: x.scores.final_score, reverse=True)
     for i, it in enumerate(candidates[:top_k], start=1):
         it.rank = i
@@ -568,6 +594,86 @@ def _generate_phase4(
     )
 
 
+def _get_or_create_tax_strategy(db: Session, strategy: Strategy) -> TaxStrategyORM:
+    """Resolve a catalog strategy to a persisted `tax_strategies` row.
+
+    The catalog (`strategy_catalog.yaml`) has no seed script, so this table
+    starts empty — rows are created lazily the first time a strategy is
+    actually recommended, keyed on the stable `code` field.
+    """
+    existing = (
+        db.query(TaxStrategyORM).filter(TaxStrategyORM.code == strategy.code).one_or_none()
+    )
+    if existing is not None:
+        return existing
+
+    row = TaxStrategyORM(
+        code=strategy.code,
+        name=strategy.name,
+        category=strategy.category.value,
+        description=strategy.description,
+        legal_reference=strategy.legal_reference,
+        min_income=strategy.min_income,
+        max_income=strategy.max_income,
+        min_age=strategy.min_age,
+        max_age=strategy.max_age,
+        min_liquidity=strategy.min_liquidity,
+        risk_profile=str(strategy.risk_profile),
+        effort_score=strategy.effort_score,
+        is_active=strategy.is_active,
+    )
+    db.add(row)
+    db.flush()
+    db.refresh(row)
+    return row
+
+
+def _persist_recommendation(
+    db: Session,
+    *,
+    profile_id,
+    model_version: str,
+    items: list[RecommendationItem],
+) -> RecommendationORM:
+    """Write the generated batch to `recommendations`/`recommendation_items`.
+
+    Each item's `id` (and its embedded strategy's `id`) is rewritten in place
+    to the real, persisted row id — the caller previously minted throwaway
+    `uuid4()`s that were never stored, so a client had nothing stable to
+    reference when submitting adoption feedback for a specific item.
+    """
+    rec_row = RecommendationORM(profile_id=profile_id, model_version=model_version)
+    db.add(rec_row)
+    db.flush()
+    db.refresh(rec_row)
+
+    for item in items:
+        strategy_row = _get_or_create_tax_strategy(db, item.strategy)
+        item_row = RecommendationItemORM(
+            recommendation_id=rec_row.id,
+            strategy_id=strategy_row.id,
+            rank=item.rank,
+            estimated_annual_savings=item.estimated_annual_savings,
+            adoption_probability=item.adoption_probability,
+            risk_score=item.risk_score,
+            confidence=item.confidence,
+            scores_json=item.scores.model_dump(),
+            explanation_json=item.explanation.model_dump() if item.explanation else None,
+        )
+        db.add(item_row)
+        db.flush()
+        db.refresh(item_row)
+
+        item.id = item_row.id
+        item.strategy.id = strategy_row.id
+        item.strategy.created_at = strategy_row.created_at
+        item.strategy.updated_at = strategy_row.updated_at
+
+    db.commit()
+    db.refresh(rec_row)
+    return rec_row
+
+
 def generate_recommendations(
     db: Session,
     *,
@@ -577,5 +683,16 @@ def generate_recommendations(
     profile = get_profile(db, profile_id)
     artifacts = load_inference_artifacts()
     if artifacts.mode == "phase4":
-        return _generate_phase4(profile, top_k=top_k, artifacts=artifacts)
-    return _generate_legacy(profile, top_k=top_k, artifacts=artifacts)
+        response = _generate_phase4(profile, top_k=top_k, artifacts=artifacts)
+    else:
+        response = _generate_legacy(profile, top_k=top_k, artifacts=artifacts)
+
+    rec_row = _persist_recommendation(
+        db,
+        profile_id=profile.id,
+        model_version=response.model_version,
+        items=response.items,
+    )
+    response.id = rec_row.id
+    response.generated_at = rec_row.created_at
+    return response

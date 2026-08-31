@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { ArrowLeft, GitCompareArrows, LayoutList, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowLeft, FileText, GitCompareArrows, LayoutList, ShieldCheck, Wallet } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,9 @@ export function TaxOptimizationStandalone() {
     );
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-64 shrink-0 flex-col border-r bg-card/50 p-4">
-        <div className="mb-6 flex items-center gap-2 px-2">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex h-full w-64 shrink-0 flex-col overflow-hidden border-r bg-card/50 p-4">
+        <div className="mb-6 flex shrink-0 items-center gap-2 px-2">
           <Wallet className="h-6 w-6 shrink-0" />
           <div>
             <div className="font-semibold leading-tight">AI Tax Advisory</div>
@@ -32,7 +32,8 @@ export function TaxOptimizationStandalone() {
         <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Tax optimization
         </div>
-        <nav className="flex flex-col gap-1" aria-label="Tax optimization pages">
+        <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Tax optimization pages">
+          <div className="flex flex-col gap-1">
           <NavLink to="/tax/compliance" className={navLinkClass} end>
             <ShieldCheck className="h-4 w-4 shrink-0" />
             Check my tax
@@ -45,9 +46,14 @@ export function TaxOptimizationStandalone() {
             <LayoutList className="h-4 w-4 shrink-0" />
             Find best strategy
           </NavLink>
+          <NavLink to="/tax/filing" className={navLinkClass} end>
+            <FileText className="h-4 w-4 shrink-0" />
+            Tax Filing 2025/26
+          </NavLink>
+          </div>
         </nav>
 
-        <div className="mt-auto space-y-4 pt-8">
+        <div className="mt-auto shrink-0 space-y-4 pt-8">
           <NavLink
             to="/"
             className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
@@ -59,7 +65,7 @@ export function TaxOptimizationStandalone() {
         </div>
       </aside>
 
-      <main className="min-h-screen flex-1 overflow-y-auto bg-background">
+      <main className="min-h-0 flex-1 overflow-y-auto bg-background">
         <div className="mx-auto max-w-6xl p-6 md:p-10">
           <Outlet />
         </div>

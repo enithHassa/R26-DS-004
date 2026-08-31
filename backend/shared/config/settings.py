@@ -10,11 +10,17 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+try:
+    from pydantic_settings import NoDecode
+except ImportError:
+    # NoDecode not available in older pydantic_settings versions
+    NoDecode = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -28,10 +34,10 @@ class Settings(BaseSettings):
     # ``sqlite`` → file-based SQLite at ``SQLITE_PATH`` (handy for isolated
     # end-to-end testing of one component without touching the shared schema).
     DATABASE_MODE: Literal["azure", "local", "sqlite"] = "azure"
-    DATABASE_HOST: str = "tax-advisory-db.postgres.database.azure.com"
+    DATABASE_HOST: str = "tax-advisory-db-tax.postgres.database.azure.com"
     DATABASE_PORT: int = 5432
-    DATABASE_NAME: str = "tax-advisory-db"
-    DATABASE_USER: str = "axadvisor_admin"
+    DATABASE_NAME: str = "tax_advisory"
+    DATABASE_USER: str = "taxadvisor_admin"
     DATABASE_PASSWORD: str = ""
     DATABASE_SSLMODE: str = "require"
 
@@ -61,9 +67,17 @@ class Settings(BaseSettings):
     COMP_OPTIMIZATION_URL: str = "http://localhost:8002"
     COMP_RECOMMENDATION_URL: str = "http://localhost:8003"
     COMP_LLM_URL: str = "http://localhost:8004"
+    COMP_ADAPTIVE_TAX_URL: str = "http://localhost:8005"
+    COMP_OPTIMIZATION_EXPLAINABLE_URL: str = "http://localhost:8008"
+    COMP_OPTIMIZATION_EXPLAINABLE_ENGINE_URL: str = "http://localhost:8009"
+    COMP_RAG_RELIEF_URL: str = "http://localhost:8007"
 
     # ---------- CORS (comma-separated list in env) ----------
-    CORS_ORIGINS: list[str] = Field(
+    # NoDecode: pydantic-settings would otherwise JSON-decode list env values
+    # before our comma-split validator runs.
+    CORS_ORIGINS: (
+        Annotated[list[str], NoDecode] if NoDecode else list[str]
+    ) = Field(
         default_factory=lambda: [
             "http://localhost:5173",
             "http://localhost:3000",

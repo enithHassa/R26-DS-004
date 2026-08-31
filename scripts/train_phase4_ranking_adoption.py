@@ -10,6 +10,26 @@ Usage (from repo root):
 
 ``--legacy-matcher`` is optional; if provided, adoption labels are distilled from
 matcher probabilities (>0.5 positive). Otherwise labels are eligibility bits.
+
+If the input CSV has real ``adopted__<STRATEGY_CODE>`` columns — written by
+``scripts/export_training_data.py`` from real `recommendation_feedback` rows —
+those take priority over both the legacy-matcher distillation and the
+eligibility-bit fallback, per strategy per row. This is what actually closes
+the "answers -> retrain -> better recommendations" loop; the synthetic CSV
+has no such columns, so training against it is unaffected.
+
+Train/validation accuracy diagnostic
+-------------------------------------
+By default the script also trains a diagnostic copy of the adoption model
+with a held-out validation split, tracks accuracy (1 - binary error) per
+boosting round for both splits, and plots the two curves to
+``<out-dir>/adoption_train_val_accuracy.png`` (raw numbers alongside it in
+``adoption_train_val_accuracy.json``). This is purely diagnostic — the
+deployed ``phase4_adoption_model.joblib`` is still trained on the full
+non-test data, unaffected by the validation split. Disable with
+``--no-plot``; control the held-out fraction with ``--val-split`` (ignored
+if the CSV already has a ``split`` column with "val" rows, which are used
+instead).
 """
 
 from __future__ import annotations
@@ -18,6 +38,7 @@ import argparse
 import ast
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
@@ -25,6 +46,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from sklearn.compose import ColumnTransformer
+from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -55,6 +77,25 @@ ADOPTION_NAME = "phase4_adoption_model.joblib"
 RANKER_NAME = "phase4_lambdarank_model.joblib"
 STRATEGY_IDS_NAME = "strategy_ids.joblib"
 WEIGHTS_NAME = "scoring_weights.yaml"
+ACCURACY_PLOT_NAME = "adoption_train_val_accuracy.png"
+ACCURACY_DATA_NAME = "adoption_train_val_accuracy.json"
+
+
+def _strategy_code_for_api(raw: str) -> str:
+    """Mirror of `recommendation_service._strategy_code_for_api` in the backend
+    (`backend/comp-personalized-recommendation/app/services/recommendation_service.py`)
+    — must stay identical so `adopted__<code>` columns produced by
+    `scripts/export_training_data.py` (which reads the real, persisted
+    `tax_strategies.code` values) line up with catalog strategies here.
+    """
+    import re
+
+    code = re.sub(r"[^A-Za-z0-9_-]", "_", str(raw).strip()).upper()
+    if len(code) < 2:
+        code = "S0"
+    if len(code) > 40:
+        code = code[:40]
+    return code
 
 
 def _boolish(x) -> bool:
@@ -214,6 +255,126 @@ def _make_ranker_pipeline(pair_num: list[str], pair_cat: list[str]) -> Pipeline:
     return Pipeline([("prep", pre), ("rank", ranker)])
 
 
+# ---------------------------------------------------------------------------
+# Train/validation accuracy diagnostic (adoption model)
+# ---------------------------------------------------------------------------
+
+ADOPTION_N_ESTIMATORS = 300
+
+
+def _adoption_split_masks(df: pd.DataFrame, val_split: float) -> tuple[np.ndarray, np.ndarray]:
+    """Return (train_mask, val_mask) boolean arrays aligned to ``df``'s row order.
+
+    Uses the CSV's ``split`` column (``train``/``val``) when both are present
+    (same convention as ``scripts/evaluate_phase4_model_comparison.py``);
+    otherwise falls back to a random ``val_split`` holdout.
+    """
+    if "split" in df.columns:
+        norm = df["split"].astype(str).str.lower()
+        train_mask = (norm == "train").to_numpy()
+        val_mask = (norm == "val").to_numpy()
+        if train_mask.any() and val_mask.any():
+            return train_mask, val_mask
+
+    n = len(df)
+    train_idx, val_idx = train_test_split(
+        np.arange(n), test_size=val_split, random_state=42
+    )
+    train_mask = np.zeros(n, dtype=bool)
+    val_mask = np.zeros(n, dtype=bool)
+    train_mask[train_idx] = True
+    val_mask[val_idx] = True
+    return train_mask, val_mask
+
+
+def _train_val_accuracy_curves(
+    X_train: pd.DataFrame,
+    Y_train: np.ndarray,
+    X_val: pd.DataFrame,
+    Y_val: np.ndarray,
+    user_cat: list[str],
+    n_estimators: int = ADOPTION_N_ESTIMATORS,
+) -> tuple[list[float], list[float]]:
+    """Fit one LGBMClassifier per strategy label with an eval_set, and average
+    the per-round (1 - binary_error) accuracy across all labels.
+
+    This is diagnostic only — the deployed adoption model is a separate
+    ``MultiOutputClassifier`` fit on the full non-test data (see ``main``).
+    """
+    pre = ColumnTransformer(
+        transformers=[("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), user_cat)],
+        remainder="passthrough",
+    )
+    Xtr = pre.fit_transform(X_train)
+    Xva = pre.transform(X_val)
+
+    n_labels = Y_train.shape[1]
+    train_hist = np.ones((n_labels, n_estimators))
+    val_hist = np.ones((n_labels, n_estimators))
+
+    for j in range(n_labels):
+        y_tr = Y_train[:, j]
+        y_va = Y_val[:, j]
+        if len(np.unique(y_tr)) < 2:
+            # Constant label in the training split — LightGBM needs both
+            # classes to fit a binary model, so report the trivial
+            # majority-class accuracy for both splits instead of skipping it.
+            majority = y_tr[0] if len(y_tr) else 0
+            train_hist[j, :] = float(np.mean(y_tr == majority)) if len(y_tr) else 1.0
+            val_hist[j, :] = float(np.mean(y_va == majority)) if len(y_va) else 1.0
+            continue
+
+        clf = LGBMClassifier(
+            n_estimators=n_estimators,
+            learning_rate=0.05,
+            num_leaves=40,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            reg_lambda=1.0,
+            random_state=42,
+            verbose=-1,
+        )
+        clf.fit(
+            Xtr,
+            y_tr,
+            eval_set=[(Xtr, y_tr), (Xva, y_va)],
+            eval_metric="binary_error",
+        )
+        # LightGBM auto-names the first eval_set entry "training" (not
+        # "valid_0") when it's passed alongside the fit data; the second is
+        # "valid_1".
+        evals = clf.evals_result_
+        tr_err = np.asarray(evals["training"]["binary_error"], dtype=float)
+        va_err = np.asarray(evals["valid_1"]["binary_error"], dtype=float)
+        train_hist[j, : len(tr_err)] = 1.0 - tr_err
+        val_hist[j, : len(va_err)] = 1.0 - va_err
+
+    return train_hist.mean(axis=0).tolist(), val_hist.mean(axis=0).tolist()
+
+
+def _plot_accuracy_curve(
+    train_accuracy: list[float], val_accuracy: list[float], out_path: Path
+) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")  # headless-safe: no display server assumed
+    import matplotlib.pyplot as plt
+
+    rounds = list(range(1, len(train_accuracy) + 1))
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(rounds, train_accuracy, label="Train accuracy", color="#2563eb")
+    ax.plot(rounds, val_accuracy, label="Validation accuracy", color="#dc2626")
+    ax.set_xlabel("Boosting round")
+    ax.set_ylabel("Mean accuracy across strategies")
+    ax.set_title("Adoption model — train vs validation accuracy")
+    ax.set_ylim(0.0, 1.05)
+    ax.legend()
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", type=Path, required=True)
@@ -222,6 +383,18 @@ def main() -> int:
     ap.add_argument("--legacy-matcher", type=Path, default=None)
     ap.add_argument("--limit", type=int, default=0, help="Max training rows (0=all)")
     ap.add_argument("--test-split", type=float, default=0.0, help="Holdout fraction (0=train on all)")
+    ap.add_argument(
+        "--val-split",
+        type=float,
+        default=0.2,
+        help="Validation holdout fraction for the accuracy diagnostic, used only "
+        "when the CSV has no train/val 'split' column (default 0.2).",
+    )
+    ap.add_argument(
+        "--no-plot",
+        action="store_true",
+        help="Skip the train/val accuracy diagnostic and line chart.",
+    )
     args = ap.parse_args()
 
     user_meta_path = args.out_dir / USER_META_NAME
@@ -289,6 +462,17 @@ def main() -> int:
     if args.legacy_matcher and args.legacy_matcher.exists():
         legacy = joblib.load(args.legacy_matcher)
 
+    real_label_columns = {
+        s.strategy_id: f"adopted__{_strategy_code_for_api(s.strategy_id)}"
+        for s in catalog.strategies
+        if f"adopted__{_strategy_code_for_api(s.strategy_id)}" in df.columns
+    }
+    if real_label_columns:
+        print(
+            f"Using real adoption labels from {len(real_label_columns)} "
+            f"adopted__* column(s): {sorted(real_label_columns.values())}"
+        )
+
     rank_rows: list[dict] = []
     rank_y: list[int] = []
     groups: list[int] = []
@@ -319,7 +503,11 @@ def main() -> int:
             prow = build_pair_row(udict, s, user_num_keys=user_num, user_cat_keys=user_cat)
             rank_rows.append(prow)
             rank_y.append(rel)
-            if matcher_probs is not None and j < len(matcher_probs):
+
+            real_col = real_label_columns.get(s.strategy_id)
+            if real_col is not None and not pd.isna(r.get(real_col)):
+                y_row.append(int(r[real_col]))
+            elif matcher_probs is not None and j < len(matcher_probs):
                 y_row.append(1 if matcher_probs[j] >= 0.5 else 0)
             else:
                 y_row.append(1 if ev.is_eligible else 0)
@@ -353,6 +541,45 @@ def main() -> int:
     joblib.dump(ranker, args.out_dir / RANKER_NAME)
     joblib.dump(strat_ids, args.out_dir / STRATEGY_IDS_NAME)
 
+    if not args.no_plot:
+        train_mask, val_mask = _adoption_split_masks(df, args.val_split)
+        n_train, n_val = int(train_mask.sum()), int(val_mask.sum())
+        if n_train >= 2 and n_val >= 2:
+            print(f"Running train/val accuracy diagnostic ({n_train} train / {n_val} val rows)...")
+            train_accuracy, val_accuracy = _train_val_accuracy_curves(
+                X_adopt.loc[train_mask].reset_index(drop=True),
+                Y_adopt[train_mask],
+                X_adopt.loc[val_mask].reset_index(drop=True),
+                Y_adopt[val_mask],
+                user_cat,
+            )
+            plot_path = args.out_dir / ACCURACY_PLOT_NAME
+            _plot_accuracy_curve(train_accuracy, val_accuracy, plot_path)
+            args.out_dir.joinpath(ACCURACY_DATA_NAME).write_text(
+                json.dumps(
+                    {
+                        "n_train_rows": n_train,
+                        "n_val_rows": n_val,
+                        "boosting_round": list(range(1, len(train_accuracy) + 1)),
+                        "train_accuracy": train_accuracy,
+                        "val_accuracy": val_accuracy,
+                        "final_train_accuracy": train_accuracy[-1],
+                        "final_val_accuracy": val_accuracy[-1],
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            print(
+                f"Final accuracy — train: {train_accuracy[-1]:.4f}, val: {val_accuracy[-1]:.4f}. "
+                f"Chart written to {plot_path}"
+            )
+        else:
+            print(
+                f"Skipping accuracy diagnostic — not enough rows for a split "
+                f"(train={n_train}, val={n_val})."
+            )
+
     weights_src = ROOT / "models/personalized-recommendation/ranking/scoring_weights.yaml"
     if weights_src.exists():
         (args.out_dir / WEIGHTS_NAME).write_text(weights_src.read_text(encoding="utf-8"), encoding="utf-8")
@@ -366,8 +593,20 @@ def main() -> int:
         "strategy_ids": STRATEGY_IDS_NAME,
         "scoring_weights": WEIGHTS_NAME,
     }
+    if (args.out_dir / ACCURACY_PLOT_NAME).exists():
+        manifest["adoption_train_val_accuracy_plot"] = ACCURACY_PLOT_NAME
+        manifest["adoption_train_val_accuracy_data"] = ACCURACY_DATA_NAME
     args.out_dir.joinpath(MANIFEST_NAME).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    args.out_dir.joinpath("model_version.txt").write_text("phase4-lambdarank-adoption-v1\n", encoding="utf-8")
+
+    # Versioned so successive retrains are distinguishable in the
+    # `Recommendation.model_version` column (now that recommendations are
+    # actually persisted — see `recommendation_service._persist_recommendation`)
+    # instead of every retrain silently reusing the same fixed literal string.
+    label_source = "real" if real_label_columns else "synthetic"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    version_string = f"phase4-lambdarank-adoption-v1-{label_source}-{timestamp}"
+    args.out_dir.joinpath("model_version.txt").write_text(f"{version_string}\n", encoding="utf-8")
+    print("Model version:", version_string)
 
     print("Wrote Phase 4 artifacts to", args.out_dir)
     return 0

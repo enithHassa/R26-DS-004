@@ -1,0 +1,42 @@
+{
+  "id": "ex11",
+  "scenario": "Donation claimed above Fifth Sch 1(a) ceiling",
+  "key_assertion": "Claim 900k on 2M assessable → allowed 75,000 (not 33% of assessable)",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "2000000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "900000",
+    "other_reliefs": {},
+    "param_set": "current"
+  },
+  "expected_final_tax_lkr": "57000",
+  "expected_rules_applied": [
+    "aggregate_qualifying_payment_components",
+    "sum_assessable",
+    "evaluate_qualifying_payment_categories",
+    "deduct_qualifying_payment",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "ird-ira-2017-base",
+    "bootstrap:qp_approved_charitable",
+    "personal_relief",
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:first_schedule_rates_2024_25"
+  ],
+  "expected_deduction_allowed": {
+    "deduct_qualifying_payment": "75000"
+  },
+  "expected_qp_category_allowable": {
+    "qp_approved_charitable": "75000"
+  }
+}

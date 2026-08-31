@@ -13,9 +13,9 @@
 schema_version: "1.0"
 country: "LK"
 currency: "LKR"
-rules_pack_ref: "sl_tax_2024_25.yaml"
-rules_pack_version: "2024_25"
-effective_from: "2024-04-01"
+rules_pack_ref: "sl_tax_2026_27.yaml"
+rules_pack_version: "2026_27"
+effective_from: "2026-04-01"
 maintainer: "comp-personalized-recommendation"
 
 defaults:
@@ -26,6 +26,11 @@ defaults:
     min_months_buffer_after_action: 1.5
     high_risk_dti_guardrail: 0.65
     general_dti_guardrail: 0.55
+  # Audit-risk bands for fusion penalty (see ranking/risk_scoring.py).
+  audit_risk_bands:
+    low: 0.05
+    medium: 0.12
+    high: 0.20
 
 # Context variable names expected from feature builder / profile adapter.
 context_variables:
@@ -66,6 +71,7 @@ strategies:
       Improve qualifying health and life insurance premium allocation within
       statutory annual deduction caps to reduce taxable income.
     category: "deduction_optimisation"
+    audit_risk_level: "low"
     priority_hint: 1
     eligibility_rules:
       all:
@@ -105,6 +111,7 @@ strategies:
       Increase qualifying retirement contributions within permitted annual caps
       to reduce taxable income while improving long-term savings adequacy.
     category: "long_term_tax_efficiency"
+    audit_risk_level: "low"
     priority_hint: 2
     eligibility_rules:
       all:
@@ -139,6 +146,7 @@ strategies:
       Recommend donation amount and timing within annual allowable limits to
       maximise deduction impact without harming household liquidity.
     category: "deduction_optimisation"
+    audit_risk_level: "low"
     priority_hint: 3
     eligibility_rules:
       all:
@@ -173,6 +181,7 @@ strategies:
       Apply statutory rental relief for eligible resident individuals where rent
       evidence is available and no conflicting housing-interest strategy is active.
     category: "deduction_optimisation"
+    audit_risk_level: "medium"
     priority_hint: 4
     eligibility_rules:
       all:
@@ -208,6 +217,7 @@ strategies:
       Use eligible annual home-loan interest deductions up to statutory caps,
       balancing tax benefit and debt burden sustainability.
     category: "housing_tax_efficiency"
+    audit_risk_level: "low"
     priority_hint: 5
     eligibility_rules:
       all:
@@ -245,6 +255,7 @@ strategies:
       reduction and liquidity restoration before adding discretionary deductible
       payments.
     category: "feasibility_guardrail"
+    audit_risk_level: "low"
     priority_hint: 0
     eligibility_rules:
       any:
@@ -280,6 +291,7 @@ strategies:
       Identify potential over/under-withholding against expected annual tax for
       salaried profiles and suggest correction actions.
     category: "compliance_optimisation"
+    audit_risk_level: "low"
     priority_hint: 6
     eligibility_rules:
       all:
@@ -314,6 +326,7 @@ strategies:
       share to reduce assessable income through qualifying payment deductions
       under IRA No. 24 of 2017, Section 53.
     category: "long_term_tax_efficiency"
+    audit_risk_level: "medium"
     priority_hint: 7
     eligibility_rules:
       all:
@@ -353,6 +366,7 @@ strategies:
       2017, Sections 17–18, to reduce assessable income for self-employed
       professionals and business owners.
     category: "deduction_optimisation"
+    audit_risk_level: "medium"
     priority_hint: 8
     eligibility_rules:
       all:
@@ -389,6 +403,7 @@ strategies:
       EPF/ETF terminal benefits and employer gratuity under IRA No. 24 of
       2017, Section 6 (exempt amounts).
     category: "long_term_tax_efficiency"
+    audit_risk_level: "high"
     priority_hint: 9
     eligibility_rules:
       all:

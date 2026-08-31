@@ -1,4 +1,8 @@
-"""Shared corpus chunking, IDs, and JSONL records for IRD Phase 1b (corpus_v1)."""
+"""Shared corpus chunking, IDs, and JSONL records for IRD Phase 1b (corpus_v1).
+
+Supports legacy page-window chunking and section-aware provision-preserving
+chunking via ``section_aware=True`` (see ``ird_section_aware``).
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,16 @@ import re
 from pathlib import Path
 from typing import Any, TextIO
 
+from ird_section_aware import (
+    ProvisionContext,
+    detect_section_metadata,
+    split_page_into_provisions,
+    split_provision_with_continuity,
+)
+
 CORPUS_VERSION = "corpus_v1"
+DEFAULT_MAX_CHUNK_CHARS = 1200
+DEFAULT_CHUNK_OVERLAP = 150
 
 # Heuristic refs for QA / graph linking (not a substitute for structured sectioning).
 _SECTION_REGEXES: tuple[tuple[re.Pattern[str], str | None], ...] = (
@@ -91,15 +104,57 @@ def table_like_heuristic(text: str) -> bool:
     return tab_or_multispace >= len(lines) // 2
 
 
-def normalize_doc_meta(row: dict[str, str]) -> dict[str, Any]:
-    """Map manifest CSV row keys to corpus chunk metadata fields."""
-    raw_draft = (row.get("is_draft") or "").strip().lower()
-    is_draft = raw_draft in ("true", "1", "yes", "y")
+def normalize_doc_meta(row: dict[str, Any]) -> dict[str, Any]:
+    """Map manifest CSV/JSON row keys to corpus chunk metadata fields."""
+    raw_draft = row.get("is_draft")
+    if isinstance(raw_draft, bool):
+        is_draft = raw_draft
+    else:
+        is_draft = str(raw_draft or "").strip().lower() in ("true", "1", "yes", "y")
 
     def _f(key: str) -> str:
-        return (row.get(key) or "").strip()
+        val = row.get(key)
+        if isinstance(val, list):
+            return json.dumps(val)
+        return (str(val) if val is not None else "").strip()
 
-    return {
+    yas_raw = row.get("applicable_assessment_years")
+    applicable_yas: list[str] | None = None
+    if isinstance(yas_raw, list):
+        # Flatten accidental stringified list elements from older loaders
+        applicable_yas = []
+        for x in yas_raw:
+            s = str(x).strip()
+            if not s:
+                continue
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    parsed = json.loads(s.replace("'", '"'))
+                    if isinstance(parsed, list):
+                        applicable_yas.extend(str(p).strip() for p in parsed if str(p).strip())
+                        continue
+                except json.JSONDecodeError:
+                    pass
+            applicable_yas.append(s)
+    elif isinstance(yas_raw, str) and yas_raw.strip():
+        try:
+            parsed = json.loads(yas_raw)
+            if isinstance(parsed, list):
+                applicable_yas = [str(x).strip() for x in parsed if str(x).strip()]
+            else:
+                applicable_yas = [p.strip() for p in re.split(r"[|,]", yas_raw) if p.strip()]
+        except json.JSONDecodeError:
+            # Tolerate Python-repr lists from str(list(...))
+            try:
+                parsed = json.loads(yas_raw.replace("'", '"'))
+                if isinstance(parsed, list):
+                    applicable_yas = [str(x).strip() for x in parsed if str(x).strip()]
+                else:
+                    applicable_yas = [p.strip() for p in re.split(r"[|,]", yas_raw) if p.strip()]
+            except json.JSONDecodeError:
+                applicable_yas = [p.strip() for p in re.split(r"[|,]", yas_raw) if p.strip()]
+
+    out: dict[str, Any] = {
         "tier": _f("tier") or None,
         "instrument_type": _f("instrument_type") or None,
         "doc_type": _f("doc_type") or None,
@@ -113,10 +168,13 @@ def normalize_doc_meta(row: dict[str, str]) -> dict[str, Any]:
         "is_draft": is_draft,
         "language": _f("language") or "en",
     }
+    if applicable_yas:
+        out["applicable_assessment_years"] = applicable_yas
+    return out
 
 
 def _base_meta_fields(doc_meta: dict[str, Any]) -> dict[str, Any]:
-    return {
+    fields: dict[str, Any] = {
         "tier": doc_meta.get("tier"),
         "instrument_type": doc_meta.get("instrument_type"),
         "doc_type": doc_meta.get("doc_type"),
@@ -130,6 +188,10 @@ def _base_meta_fields(doc_meta: dict[str, Any]) -> dict[str, Any]:
         "is_draft": doc_meta.get("is_draft", False),
         "language": doc_meta.get("language") or "en",
     }
+    yas = doc_meta.get("applicable_assessment_years")
+    if isinstance(yas, list) and yas:
+        fields["applicable_assessment_years"] = yas
+    return fields
 
 
 def build_text_chunk_record(
@@ -144,8 +206,16 @@ def build_text_chunk_record(
     content_kind: str = "text",
     table_extract_method: str | None = None,
     pdf_outline_breadcrumb: list[str] | None = None,
+    section_aware_meta: dict[str, Any] | None = None,
+    chunk_part: int = 1,
+    chunk_parts: int = 1,
+    parent_provision_id: str | None = None,
 ) -> dict[str, Any]:
-    section_ref = extract_section_refs(text)
+    if section_aware_meta is not None:
+        section_ref = section_aware_meta.get("section_ref")
+    else:
+        section_ref = extract_section_refs(text)
+
     rec: dict[str, Any] = {
         "chunk_id": make_chunk_id_text(source_doc_id, page, chunk_index),
         "source_doc_id": source_doc_id,
@@ -163,6 +233,29 @@ def build_text_chunk_record(
     }
     if table_extract_method:
         rec["table_extract_method"] = table_extract_method
+
+    if section_aware_meta is not None:
+        for key in (
+            "section_refs",
+            "schedule_ref",
+            "paragraph_ref",
+            "referenced_sections",
+            "is_operative_provision",
+            "is_cross_reference",
+            "is_toc",
+            "is_header_footer",
+            "needs_review",
+            "metadata_source",
+            "chunk_schema_version",
+        ):
+            if key in section_aware_meta:
+                rec[key] = section_aware_meta[key]
+        rec["parent_provision_id"] = parent_provision_id or section_aware_meta.get(
+            "parent_provision_id"
+        )
+        rec["chunk_part"] = chunk_part
+        rec["chunk_parts"] = chunk_parts
+
     return rec
 
 
@@ -210,33 +303,75 @@ def emit_pages_to_jsonl(
     tables_by_page: dict[int, list[str]] | None = None,
     table_method: str | None = None,
     outline_breadcrumb_by_page: dict[int, list[str] | None] | None = None,
+    section_aware: bool = False,
 ) -> tuple[int, int]:
     """Emit text chunks per page, then pdfplumber tables for that page (if any).
+
+    When ``section_aware`` is True, split on provision headings and only mid-split
+    when a provision exceeds ``max_chars`` (continuity metadata + overlap).
 
     Returns (text_chunk_count, table_chunk_count).
     """
     text_n = 0
     table_n = 0
+    running = ProvisionContext()
 
     for page_num, page_text in pages:
         bc: list[str] | None = None
         if outline_breadcrumb_by_page is not None:
             bc = outline_breadcrumb_by_page.get(page_num)
 
-        windows = chunk_page_text(page_text, max_chars=max_chars, overlap=overlap)
-        for chunk_index, (c_start, c_end, text) in enumerate(windows):
-            rec = build_text_chunk_record(
-                source_doc_id=source_doc_id,
-                page=page_num,
-                chunk_index=chunk_index,
-                page_char_start=c_start,
-                page_char_end=c_end,
-                text=text,
-                doc_meta=doc_meta,
-                pdf_outline_breadcrumb=bc,
-            )
-            write_jsonl_record(out_fp, rec)
-            text_n += 1
+        if section_aware:
+            segments, running = split_page_into_provisions(page_text, running=running)
+            chunk_index = 0
+            for seg in segments:
+                sa_meta = detect_section_metadata(seg.text, seg.context)
+                parts = split_provision_with_continuity(
+                    seg.text,
+                    max_chars=max_chars,
+                    overlap=overlap,
+                    chunk_page_text_fn=chunk_page_text,
+                )
+                for piece, part_i, part_n in parts:
+                    c_start = seg.page_char_start
+                    c_end = seg.page_char_end
+                    if part_n > 1:
+                        rel = page_text.find(piece, seg.page_char_start, seg.page_char_end)
+                        if rel >= 0:
+                            c_start = rel
+                            c_end = rel + len(piece)
+                    rec = build_text_chunk_record(
+                        source_doc_id=source_doc_id,
+                        page=page_num,
+                        chunk_index=chunk_index,
+                        page_char_start=c_start,
+                        page_char_end=c_end,
+                        text=piece,
+                        doc_meta=doc_meta,
+                        pdf_outline_breadcrumb=bc,
+                        section_aware_meta=sa_meta,
+                        chunk_part=part_i,
+                        chunk_parts=part_n,
+                        parent_provision_id=sa_meta.get("parent_provision_id"),
+                    )
+                    write_jsonl_record(out_fp, rec)
+                    text_n += 1
+                    chunk_index += 1
+        else:
+            windows = chunk_page_text(page_text, max_chars=max_chars, overlap=overlap)
+            for chunk_index, (c_start, c_end, text) in enumerate(windows):
+                rec = build_text_chunk_record(
+                    source_doc_id=source_doc_id,
+                    page=page_num,
+                    chunk_index=chunk_index,
+                    page_char_start=c_start,
+                    page_char_end=c_end,
+                    text=text,
+                    doc_meta=doc_meta,
+                    pdf_outline_breadcrumb=bc,
+                )
+                write_jsonl_record(out_fp, rec)
+                text_n += 1
 
         if tables_by_page and table_method and page_num in tables_by_page:
             for table_index, tsv in enumerate(tables_by_page[page_num]):
@@ -265,6 +400,8 @@ def read_manifest_csv(path: Path) -> list[dict[str, str]]:
 def primary_section_label(record: dict[str, Any]) -> str | None:
     """Best-effort single section label for KG TextChunk / Section linking (Phase 3)."""
     refs = record.get("section_ref")
+    if isinstance(refs, str) and refs.strip():
+        return refs.strip()
     if isinstance(refs, list) and refs:
         first = refs[0]
         if isinstance(first, str) and first.strip():

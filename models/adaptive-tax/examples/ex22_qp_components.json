@@ -1,0 +1,51 @@
+{
+  "id": "ex22",
+  "scenario": "QP typed Fifth Schedule components (Gov + Samurdhi) under Sec 52",
+  "key_assertion": "Phase 6.3 YA-aware: 1(b)(i)+1(d) category allowables then Sec 52 deduct (no aggregate pool).",
+  "inputs": {
+    "assessment_year": "2024_25",
+    "resident_status": "resident",
+    "employment_income": "3000000",
+    "business_income": "0",
+    "investment_income": "0",
+    "qualifying_payments": "0",
+    "donations": "0",
+    "other_reliefs": {},
+    "param_set": "current",
+    "filing_lines": [
+      {"component_id": "qp_government_sri_lanka", "amount": "500000"},
+      {"component_id": "qp_samurdhi_shop", "amount": "100000"}
+    ]
+  },
+  "expected_final_tax_lkr": "126000",
+  "expected_rules_applied": [
+    "aggregate_qualifying_payment_components",
+    "sum_assessable",
+    "evaluate_qualifying_payment_categories",
+    "deduct_qualifying_payment",
+    "apply_personal_relief",
+    "slab_band_1",
+    "slab_band_2",
+    "slab_band_3",
+    "final_tax"
+  ],
+  "expected_rule_source_ids": [
+    "bootstrap:aggregate_qualifying_payment_components",
+    "bootstrap:qp_government_sri_lanka",
+    "bootstrap:qp_samurdhi_shop",
+    "ird-ira-2017-base",
+    "bootstrap:sec52_deduct_qp_2024_25",
+    "bootstrap:sum_assessable",
+    "bootstrap:employment_income",
+    "bootstrap:personal_relief_2024_25",
+    "bootstrap:personal_relief",
+    "bootstrap:first_schedule_rates",
+    "bootstrap:first_schedule_rates_2024_25",
+    "fs_2024_25_band_1",
+    "fs_2024_25_band_2",
+    "fs_2024_25_band_3"
+  ],
+  "expected_deduction_allowed": {
+    "deduct_qualifying_payment": "600000"
+  }
+}

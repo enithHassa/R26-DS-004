@@ -86,6 +86,7 @@ export const TAX_OPT_B_MVP_RELIEF_CODES = [
   "rent_relief",
   "charitable_donations",
   "retirement_contribution",
+  "solar_panel_relief",
 ] as const;
 
 export type TaxOptBMvpReliefCode = (typeof TAX_OPT_B_MVP_RELIEF_CODES)[number];
@@ -112,8 +113,13 @@ export interface TaxOptBComplianceFromFinancialInputsRequestV1 extends TaxOptBEx
   dependents: number;
   annual_salary_income: string;
   annual_business_income: string;
-  annual_investment_income?: string;
+  // Investment Income (breakdown)
+  annual_rental_income?: string;
+  annual_interest_income?: string;
+  annual_other_investment_income?: string;
+  annual_investment_income?: string; // Deprecated, use the above
   annual_other_income: string;
+  apit_tax_paid_by_employer?: string;
   residency?: "resident" | "non_resident";
   deductions: TaxOptBDeductionLineV1[];
   investments: TaxOptBInvestmentLineV1[];
@@ -244,6 +250,33 @@ export interface TaxOptBSearchStrategiesMlRankRequestV1
   max_ml_candidates?: number;
 }
 
+/** ML-ranked strategy with utility score and legal explanation (Phase 2.D). */
+export interface MLRankedStrategyV1 {
+  strategy_id: number;
+  strategy_name: string;
+  reliefs_claimed: string[];
+  num_reliefs: number;
+  utility_score: number; // 0-1
+  rank: number;
+  estimated_tax_liability: number;
+  estimated_tax_savings: number;
+  compliance_status: "COMPLIANT" | "VIOLATION";
+  audit_risk_level: "LOW" | "MEDIUM" | "HIGH";
+  legal_summary: string;
+}
+
+/** Response from ML ranking endpoint. */
+export interface MLRankResponseV1 {
+  tax_year: string;
+  gross_income: number;
+  taxable_basis: number;
+  baseline_tax_liability: number;
+  ranked_strategies: MLRankedStrategyV1[];
+  best_strategy_index: number;
+  personalization_note: string;
+  timestamp: string;
+}
+
 export interface TaxOptBAppliedReliefSummaryEntryV1 {
   relief_code: string;
   allowed?: string | null;
@@ -306,6 +339,12 @@ export interface TaxOptBSearchStrategyRowV1 {
   total_tax: string;
   effective_rate: string | null;
   delta_total_tax_vs_baseline: string | null;
+  tax_status?: string | null;
+  apit_already_paid?: string | null;
+  net_tax_payable?: string | null;
+  rental_income_gross?: string | null;
+  rental_income_deduction?: string | null;
+  rental_income_net?: string | null;
   metrics?: TaxOptBSearchStrategyMetricsV1 | null;
   breakdown?: TaxOptBSearchTaxBreakdownV1 | null;
   optimization_summary?: string | null;
@@ -323,6 +362,22 @@ export interface TaxOptBSearchStrategyRowV1 {
   ml_assist_rank?: number | null;
   /** Function 3: same as `rule_only_rank` for auditing. */
   deterministic_rank?: number | null;
+  /** Function 3: SHAP feature contributions explaining the ML score. */
+  ml_shap_explanation?: TaxOptBShapExplanationV1 | null;
+}
+
+export interface TaxOptBShapFeatureContributionV1 {
+  feature_name: string;
+  shap_value: number;
+  feature_value: number;
+}
+
+export interface TaxOptBShapExplanationV1 {
+  base_value: number;
+  predicted_value: number;
+  feature_contributions: TaxOptBShapFeatureContributionV1[];
+  explainer_type: string;
+  shap_version: string;
 }
 
 /** Function 3 — ML ranking metadata (rules remain authoritative for tax outcomes). */
@@ -338,6 +393,8 @@ export interface TaxOptBSearchMlMetaV1 {
   inference_latency_ms: number;
   utility_alpha?: number | null;
   optimization_objective_label?: string | null;
+  shap_base_value?: number | null;
+  shap_explainer_type?: string | null;
 }
 
 export interface TaxOptBSearchTraceabilityV1 {
@@ -380,4 +437,31 @@ export interface TaxOptBSearchStrategiesResponseV1 {
   explanations?: TaxOptBExplanationBundleV1 | null;
   /** Function 3: present when the response used ML-assisted reordering over the legal set. */
   ml_meta?: TaxOptBSearchMlMetaV1 | null;
+}
+
+/** ``POST .../tax-filing/rf-predict`` — 2025/26 filing calculator (RF + SHAP). */
+export interface TaxOptBRfTaxPredictRequestV1 {
+  tax_year: "2025_26";
+  employment_type: TaxOptBEmploymentTypeV1;
+  dependents: number;
+  annual_salary_income: string;
+  annual_business_income: string;
+  annual_investment_income: string;
+  annual_other_income: string;
+  relief_life_insurance_premium: string;
+  relief_health_insurance_premium: string;
+  relief_home_loan_interest: string;
+  relief_rent: string;
+  relief_charitable_donations: string;
+  relief_retirement_contribution: string;
+}
+
+export interface TaxOptBRfTaxPredictResponseV1 {
+  predicted_tax_lkr: string;
+  total_gross_income_lkr: string;
+  total_relief_claimed_lkr: string;
+  shap_explanation: TaxOptBShapExplanationV1;
+  model_id: string;
+  feature_version: string;
+  disclaimer: string;
 }

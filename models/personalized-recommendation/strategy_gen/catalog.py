@@ -57,6 +57,7 @@ class StrategyDefinition:
     name: str
     description: str
     category: str
+    audit_risk_level: str
     priority_hint: int
     eligibility_rules: dict[str, Any]
     constraints: StrategyConstraints
@@ -69,6 +70,7 @@ class StrategyDefinition:
             name=str(raw["name"]),
             description=str(raw["description"]),
             category=str(raw.get("category", "other")),
+            audit_risk_level=str(raw.get("audit_risk_level", "medium")).lower(),
             priority_hint=int(raw.get("priority_hint", 999)),
             eligibility_rules=dict(raw.get("eligibility_rules", {})),
             constraints=StrategyConstraints.from_dict(dict(raw.get("constraints", {}))),

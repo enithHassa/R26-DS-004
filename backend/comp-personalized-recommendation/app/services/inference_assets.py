@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Any, Literal
 
 import joblib
+import numpy as np
+import pandas as pd
 from sklearn.compose import _column_transformer as _ct
+from sklearn.preprocessing import FunctionTransformer
 
 from app.config import component_settings
 
@@ -87,6 +90,66 @@ def _install_sklearn_joblib_compat() -> None:
         _ct._RemainderColsList = _RemainderColsList  # type: ignore[attr-defined]
 
 
+def _phase4_prep_needs_repair(prep: Any) -> bool:
+    """Detect sklearn 1.6 pipelines whose remainder column list was lost on unpickle."""
+    if not hasattr(prep, "transformers_"):
+        return False
+    for name, _trans, cols in prep.transformers_:
+        if name == "remainder" and not cols:
+            return True
+    return False
+
+
+def _repair_phase4_prep_step(
+    pipeline: Any,
+    *,
+    num_features: list[str],
+    cat_features: list[str],
+) -> None:
+    """Replace a broken ColumnTransformer prep step with an equivalent transform.
+
+    Phase 4 artifacts were trained with sklearn 1.6.1. When loaded under sklearn
+    1.8, the private ``_RemainderColsList`` remainder columns unpickle as empty,
+    so only one-hot columns reach LightGBM (32 instead of 60 features).
+    """
+    prep = pipeline.named_steps.get("prep")
+    if prep is None or not _phase4_prep_needs_repair(prep):
+        return
+
+    ohe = prep.named_transformers_["cat"]
+    num_cols = list(num_features)
+    cat_cols = list(cat_features)
+
+    def _transform(X: Any) -> np.ndarray:
+        frame = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X, columns=[*num_cols, *cat_cols])
+        cat_part = ohe.transform(frame[cat_cols])
+        num_part = frame[num_cols].to_numpy()
+        return np.hstack([cat_part, num_part])
+
+    pipeline.steps[0] = ("prep", FunctionTransformer(_transform, validate=False))
+
+
+def _repair_phase4_models(
+    adoption_model: Any,
+    ranker_model: Any,
+    *,
+    num_features: list[str],
+    cat_features: list[str],
+) -> None:
+    _repair_phase4_prep_step(
+        adoption_model,
+        num_features=num_features,
+        cat_features=cat_features,
+    )
+    pair_num = [*num_features, "strategy_priority_hint"]
+    pair_cat = [*cat_features, "strategy_id", "strategy_category"]
+    _repair_phase4_prep_step(
+        ranker_model,
+        num_features=pair_num,
+        cat_features=pair_cat,
+    )
+
+
 @lru_cache(maxsize=1)
 def load_inference_artifacts() -> InferenceArtifacts:
     d = resolve_artifacts_dir()
@@ -101,6 +164,12 @@ def load_inference_artifacts() -> InferenceArtifacts:
             num_features = [str(x) for x in user_meta.get("num_features", [])]
             cat_features = [str(x) for x in user_meta.get("cat_features", [])]
             strategy_ids = [str(x) for x in strategy_ids_raw]
+            _repair_phase4_models(
+                adoption,
+                ranker,
+                num_features=num_features,
+                cat_features=cat_features,
+            )
             return InferenceArtifacts(
                 mode="phase4",
                 model=None,

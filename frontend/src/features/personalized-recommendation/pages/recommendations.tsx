@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -9,20 +9,23 @@ import { Select } from "@/components/ui/select";
 
 import { listProfiles } from "../api/profiles";
 import { generateRecommendations } from "../api/recommendations";
-
-function formatLkr(value: string | number): string {
-  const num = typeof value === "string" ? Number(value) : value;
-  if (Number.isNaN(num)) return String(value);
-  return new Intl.NumberFormat("en-LK", {
-    style: "currency",
-    currency: "LKR",
-    maximumFractionDigits: 0,
-  }).format(num);
-}
+import { PageHeader } from "../components/page-header";
+import { ProfilePicker } from "../components/profile-picker";
+import { RecommendationCard } from "../components/recommendation-card";
+import { useActiveProfileId, useDashboardStore } from "../store/dashboard-store";
+import { formatLkr } from "../utils/format-lkr";
 
 export function RecommendationsPage() {
-  const [profileId, setProfileId] = useState<string>("");
-  const [topK, setTopK] = useState<number>(5);
+  const activeProfileId = useActiveProfileId();
+  const lastRecommendations = useDashboardStore((s) => s.lastRecommendations);
+  const setLastRecommendations = useDashboardStore((s) => s.setLastRecommendations);
+
+  const [profileId, setProfileId] = useState(activeProfileId ?? "");
+  const [topK, setTopK] = useState(5);
+
+  useEffect(() => {
+    if (activeProfileId && !profileId) setProfileId(activeProfileId);
+  }, [activeProfileId, profileId]);
 
   const profilesQuery = useQuery({
     queryKey: ["profiles", "recommendation-picker"],
@@ -36,51 +39,32 @@ export function RecommendationsPage() {
         top_k: topK,
         regenerate_candidates: false,
       }),
+    onSuccess: (data) => setLastRecommendations(data),
   });
 
   const profiles = profilesQuery.data?.items ?? [];
   const canGenerate = profileId.length > 0 && !recommendationsMutation.isPending;
-  const generated = recommendationsMutation.data;
-
+  const generated = recommendationsMutation.data ?? lastRecommendations;
   const selectedProfile = profiles.find((p) => p.id === profileId);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Recommendations</h1>
-        <p className="text-muted-foreground">
-          Top-K ranked tax strategies with estimated savings, adoption probability,
-          and confidence (FR5, FR6, FR9, FR11).
-        </p>
-      </div>
+      <PageHeader
+        icon={Sparkles}
+        title="Strategy recommendations"
+        description="Top-K ranked strategies with savings, adoption probability, risk, and confidence."
+      />
 
-      <Card className="max-w-3xl">
+      <Card className="max-w-3xl border-t-4 border-t-primary/70">
         <CardHeader>
-          <CardTitle>Generate top-K strategy recommendations</CardTitle>
+          <CardTitle>Generate ranked list</CardTitle>
           <CardDescription>
-            Uses your trained artifacts plus rule feasibility filtering from the
-            strategy catalog.
+            LambdaMART ranking with rule-based feasibility filtering from the strategy catalog.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Profile</Label>
-              <Select
-                value={profileId}
-                onChange={(e) => setProfileId(e.target.value)}
-                disabled={profilesQuery.isLoading}
-              >
-                <option value="">
-                  {profilesQuery.isLoading ? "Loading profiles…" : "Select a profile"}
-                </option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name} · {p.occupation} · {p.district}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <ProfilePicker value={profileId} onChange={setProfileId} />
             <div className="space-y-1.5">
               <Label>Top K</Label>
               <Select value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>
@@ -109,29 +93,27 @@ export function RecommendationsPage() {
             </div>
           )}
 
-          <div>
-            <Button onClick={() => recommendationsMutation.mutate()} disabled={!canGenerate}>
-              {recommendationsMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Generate Recommendations
-                </>
-              )}
-            </Button>
-          </div>
+          <Button onClick={() => recommendationsMutation.mutate()} disabled={!canGenerate}>
+            {recommendationsMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Ranking strategies…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Generate recommendations
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
 
       {generated && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            Model version: <span className="font-medium">{generated.model_version}</span> ·
-            generated {new Date(generated.generated_at).toLocaleString()}
+            Model <span className="font-medium">{generated.model_version}</span> ·{" "}
+            {new Date(generated.generated_at).toLocaleString()} · {generated.items.length} strategies
           </div>
           {generated.items.length === 0 && (
             <Card>
@@ -140,47 +122,13 @@ export function RecommendationsPage() {
               </CardContent>
             </Card>
           )}
-          {generated.items.map((item) => (
-            <Card key={item.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>
-                    #{item.rank} {item.strategy.name}
-                  </span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    Score {item.scores.final_score.toFixed(3)}
-                  </span>
-                </CardTitle>
-                <CardDescription>{item.strategy.code}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">{item.strategy.description}</p>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-                  <Metric label="Estimated annual savings" value={formatLkr(item.estimated_annual_savings)} />
-                  <Metric label="Adoption probability" value={`${(item.adoption_probability * 100).toFixed(1)}%`} />
-                  <Metric label="Confidence" value={`${(item.confidence * 100).toFixed(1)}%`} />
-                  <Metric label="Risk score" value={item.risk_score.toFixed(3)} />
-                </div>
-                {item.explanation?.narrative && (
-                  <div className="rounded-md border-l-4 border-l-emerald-500 border border-emerald-200 bg-emerald-50 p-4 text-sm">
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Why this applies to you</div>
-                    <span className="text-black">{item.explanation.narrative}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          <div className="grid gap-4">
+            {generated.items.map((item) => (
+              <RecommendationCard key={item.id} item={item} profileId={profileId} />
+            ))}
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="font-medium">{value}</div>
     </div>
   );
 }

@@ -1,0 +1,41 @@
+{
+  "spec_version": "1.0.0",
+  "extraction_run_id": "20260830T072141Z-395d0e",
+  "source_doc_id": "oee-act-24-2017",
+  "tier": "act",
+  "terminus": "review_then_promote",
+  "model": "gpt-4o",
+  "dry_run": false,
+  "usd_this_run": 0.035167,
+  "usd_running_total": 1.787553,
+  "windows": [
+    {
+      "window_id": "w000",
+      "heading": "An Intelligent AI-Driven Decision Support System for Personalized Income Tax Com",
+      "char_count": 7989,
+      "page_start": 1,
+      "page_end": 2,
+      "channel_hint": "text_stream"
+    },
+    {
+      "window_id": "w001",
+      "heading": "still adapting to individual taxpayer data [29], [30]. In 2025, studies applyin",
+      "char_count": 7981,
+      "page_start": 2,
+      "page_end": 3,
+      "channel_hint": "text_stream"
+    },
+    {
+      "window_id": "w002",
+      "heading": "a complete thought or name is cited, such as a title or full quotation. When quo",
+      "char_count": 7464,
+      "page_start": 3,
+      "page_end": 5,
+      "channel_hint": "table_render"
+    }
+  ],
+  "entities": [],
+  "notes": [
+    "Act-admin live extract. Soft $15 / hard $40. Prior spend $1.7524."
+  ]
+}
