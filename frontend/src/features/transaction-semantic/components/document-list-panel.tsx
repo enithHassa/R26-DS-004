@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { FileSearch, Pencil, RefreshCcw, Send } from "lucide-react";
+import { FileSearch, Pencil, RefreshCcw, Send, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  deleteDocument,
   listDocuments,
   reExtractDocument,
   releaseDocumentToTaxpayer,
@@ -27,6 +28,7 @@ export interface DocumentListPanelProps {
   onSelect: (documentId: string) => void;
   onRenamed?: (documentId: string) => void;
   onExtracted?: (documentId: string) => void;
+  onDeleted?: (documentId: string) => void;
   refreshKey?: number;
   financialProfileId?: string | null;
 }
@@ -36,6 +38,7 @@ export function DocumentListPanel({
   onSelect,
   onRenamed,
   onExtracted,
+  onDeleted,
   refreshKey = 0,
   financialProfileId = null,
 }: DocumentListPanelProps) {
@@ -48,6 +51,8 @@ export function DocumentListPanel({
   const [isRenaming, setIsRenaming] = useState(false);
   const [releasingId, setReleasingId] = useState<string | null>(null);
   const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadDocuments(): Promise<void> {
     if (!financialProfileId) {
@@ -149,6 +154,22 @@ export function DocumentListPanel({
     }
   }
 
+  async function handleDelete(documentId: string): Promise<void> {
+    setDeletingId(documentId);
+    setError(null);
+    try {
+      await deleteDocument(documentId);
+      setDocuments((current) => current.filter((item) => item.document_id !== documentId));
+      setTotal((current) => Math.max(0, current - 1));
+      setConfirmDeleteId(null);
+      onDeleted?.(documentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove document.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -184,12 +205,43 @@ export function DocumentListPanel({
             {documents.map((document) => {
               const isSelected = selectedDocumentId === document.document_id;
               const isEditing = editingId === document.document_id;
+              const isConfirmingDelete = confirmDeleteId === document.document_id;
               return (
                 <div
                   key={document.document_id}
                   className={`rounded-md border p-3 ${isSelected ? "border-primary bg-accent/30" : "border-border"}`}
                 >
-                  {isEditing ? (
+                  {isConfirmingDelete ? (
+                    <div className="space-y-3">
+                      <p className="text-sm">
+                        Remove <span className="font-medium">{document.filename}</span>?
+                        {document.user_visible ? (
+                          <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">
+                            This document was released to the taxpayer. Removing it will hide its
+                            transactions from their portal.
+                          </span>
+                        ) : null}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => void handleDelete(document.document_id)}
+                          disabled={deletingId === document.document_id}
+                        >
+                          {deletingId === document.document_id ? "Removing…" : "Confirm remove"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setConfirmDeleteId(null)}
+                          disabled={deletingId === document.document_id}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : isEditing ? (
                     <div className="space-y-2">
                       <Label htmlFor={`rename-${document.document_id}`}>Document name</Label>
                       <Input
@@ -257,6 +309,15 @@ export function DocumentListPanel({
                           aria-label={`Rename ${document.filename}`}
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setConfirmDeleteId(document.document_id)}
+                          aria-label={`Remove ${document.filename}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
