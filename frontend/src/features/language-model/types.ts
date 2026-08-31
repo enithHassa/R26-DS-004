@@ -165,6 +165,47 @@ export interface ChatRequest {
   top_k?: number | null;
   synthesize_answer?: boolean;
   assessment_year_hint?: string | null;
+  /** Caller's users.id — persists the conversation per-user when set. */
+  user_id?: string | null;
+  /** Caller's financial_profiles.id — enables answers about their own taxpayer record. */
+  profile_id?: string | null;
+}
+
+export interface TaxpayerContext {
+  used: boolean;
+  profile_id?: string | null;
+  taxpayer_name?: string | null;
+  tax_year?: string | null;
+  fields_used?: string[];
+  kg_consistency?: string | null;
+  note?: string | null;
+}
+
+export interface ChatSessionSummary {
+  session_id: string;
+  title?: string | null;
+  archived: boolean;
+  created_at: string;
+  last_message_at: string;
+  message_count: number;
+}
+
+export interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  query_result?: QueryResponse | null;
+  proof_map?: ProofMap | null;
+  taxpayer_context?: TaxpayerContext | null;
+}
+
+export interface ChatSessionDetail {
+  session_id: string;
+  title?: string | null;
+  archived: boolean;
+  created_at: string;
+  last_message_at: string;
+  messages: ChatHistoryMessage[];
 }
 
 export interface ChatMessage {
@@ -181,4 +222,6 @@ export interface ChatResponse {
   query_result: QueryResponse;
   proof_map?: ProofMap | null;
   history_length: number;
+  taxpayer_context?: TaxpayerContext | null;
+  persisted?: boolean;
 }

@@ -15,6 +15,15 @@ import { formatMoneyInput, parseLkr, yaDisplay } from "../format-lkr";
 import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
 import { useOeSnapshotPersistence } from "@/hooks/use-oe-snapshot";
 import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
+import { getProfile } from "@/features/personalized-recommendation/api/profiles";
+import {
+  countReliefEvidence,
+  hasPublishedEvidenceSnapshot,
+  importProfileEvidence,
+  ReliefEvidenceFromEntry,
+  reliefRequiresReceipt,
+  useEvidenceRevision,
+} from "../relief-evidence";
 import { useInterview } from "../session";
 import { sortReliefsForInterview } from "../sort-reliefs";
 import {
@@ -22,6 +31,8 @@ import {
   incomeBaseLkr,
   parseCap,
   previewAppliedLkr,
+  resolveMinQualifyingAmount,
+  resolveReliefCapAmount,
   subItemTotalLkr,
   totalIncomeLkr,
   type InterviewIncomeState,
@@ -54,13 +65,22 @@ function capAndIncomeCopy(
 }
 
 function capLine(entry: ReliefEntry, assessmentYear: string): string | null {
-  const cap = parseCap(entry.cap_amount);
-  if (cap == null) return null;
   if (entry.unit === "percent") {
-    return `Rate for YA ${yaDisplay(assessmentYear)}: ${cap}%`;
+    const rate = parseCap(entry.cap_amount);
+    if (rate == null) return null;
+    return `Rate for YA ${yaDisplay(assessmentYear)}: ${rate}%`;
   }
   if (entry.unit === "text") return null;
+  const cap = resolveReliefCapAmount(entry);
+  if (cap == null) return null;
   return `Cap for YA ${yaDisplay(assessmentYear)}: ${formatMoneyInput(String(cap))} LKR`;
+}
+
+function minQualifyingLine(entry: ReliefEntry, assessmentYear: string): string | null {
+  if (entry.unit === "percent" || entry.unit === "text") return null;
+  const minQ = resolveMinQualifyingAmount(entry);
+  if (minQ == null) return null;
+  return `Minimum qualifying spend for YA ${yaDisplay(assessmentYear)}: ${formatMoneyInput(String(minQ))} LKR`;
 }
 
 function draftsForEntry(
@@ -139,6 +159,26 @@ function ReliefsStepper() {
       reliefListedForInterview(entry, assessmentYear),
     ),
   );
+  const profileQuery = useQuery({
+    queryKey: ["profile", activeProfileId],
+    queryFn: () => getProfile(activeProfileId!),
+    enabled: Boolean(activeProfileId),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!activeProfileId || !profileQuery.data) return;
+    const stored = profileQuery.data.tax_return_detail as
+      | { section6?: { reliefEvidenceByYear?: Record<string, Record<string, { id: string }[]>> } }
+      | undefined;
+    const published = stored?.section6?.reliefEvidenceByYear;
+    if (hasPublishedEvidenceSnapshot(published)) {
+      importProfileEvidence(
+        activeProfileId,
+        published as Parameters<typeof importProfileEvidence>[1],
+      );
+    }
+  }, [activeProfileId, profileQuery.data]);
   const [step, setStep] = useState(0);
   const flushCurrentRef = useRef<() => void>(() => {});
 
@@ -255,6 +295,7 @@ function ReliefsStepper() {
         assessmentYear={assessmentYear}
         entries={entries}
         step={step}
+        profileId={activeProfileId}
         onSelect={(index) => {
           if (index === step) return;
           flushCurrentRef.current();
@@ -276,6 +317,7 @@ function ReliefsStepper() {
           onEvidenceCheck={(item, checked) =>
             setEvidenceCheck(current.entry_id, item, checked)
           }
+          taxpayerProfileId={activeProfileId}
           onRegisterFlush={(flush) => {
             flushCurrentRef.current = flush;
           }}
@@ -312,13 +354,16 @@ function ReliefJumpNav({
   assessmentYear,
   entries,
   step,
+  profileId,
   onSelect,
 }: {
   assessmentYear: string;
   entries: ReliefEntry[];
   step: number;
+  profileId: string | null;
   onSelect: (index: number) => void;
 }) {
+  const revision = useEvidenceRevision();
   return (
     <aside className="md:sticky md:top-3 md:w-60 md:shrink-0">
       <nav
@@ -331,14 +376,24 @@ function ReliefJumpNav({
           </p>
           <p className="text-[11px] text-muted-foreground">
             Jump to any relief. The list comes from this year’s RAG catalog,
-            including newly activated Acts.
+            including newly activated Acts. Receipt badges show files this
+            taxpayer uploaded for the year.
           </p>
         </div>
         <ol className="flex max-h-40 gap-1 overflow-x-auto p-2 md:max-h-[min(32rem,calc(100vh-12rem))] md:flex-col md:overflow-y-auto">
           {entries.map((entry, index) => {
             const current = index === step;
+            const needsReceipt = reliefRequiresReceipt(entry);
+            const loaded =
+              needsReceipt &&
+              countReliefEvidence(
+                profileId,
+                assessmentYear,
+                entry.compare_group_id,
+                entry.display_name,
+              ) > 0;
             return (
-              <li key={entry.entry_id} className="shrink-0 md:shrink">
+              <li key={`${entry.entry_id}-${revision}`} className="shrink-0 md:shrink">
                 <button
                   type="button"
                   aria-current={current ? "step" : undefined}
@@ -361,6 +416,22 @@ function ReliefJumpNav({
                   <span className="line-clamp-2 min-w-0 flex-1 font-medium leading-snug">
                     {entry.display_name}
                   </span>
+                  {needsReceipt ? (
+                    <span
+                      className={cn(
+                        "mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                        loaded
+                          ? current
+                            ? "bg-primary-foreground/20 text-primary-foreground"
+                            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : current
+                            ? "bg-primary-foreground/10 text-primary-foreground/80"
+                            : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {loaded ? "Image" : "No img"}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );
@@ -518,6 +589,7 @@ function ReliefStepCard({
   initialComponents,
   evidenceChecks,
   onEvidenceCheck,
+  taxpayerProfileId,
   onRegisterFlush,
   onFlush,
   onClear,
@@ -534,6 +606,7 @@ function ReliefStepCard({
   initialComponents: Record<string, string>;
   evidenceChecks: Record<string, boolean>;
   onEvidenceCheck: (item: string, checked: boolean) => void;
+  taxpayerProfileId: string | null;
   onRegisterFlush: (flush: () => void) => void;
   onFlush: (answer: ReliefAnswer) => void;
   onClear: (entryId: string) => void;
@@ -563,8 +636,11 @@ function ReliefStepCard({
     !split &&
     (kind === "amount" || (kind === "yes_no_amount" && affirmedDraft && !derivedAmount));
   const showSubItems = split && (!needsYesNo || affirmedDraft);
-  const cap = parseCap(entry.cap_amount);
+  const cap = resolveReliefCapAmount(entry);
+  const minQualifying = resolveMinQualifyingAmount(entry);
   const last = step + 1 >= entryCount;
+  const belowMinimum =
+    minQualifying != null && claimLkr > 0 && claimLkr < minQualifying;
   const capIncomeCopy =
     cap != null
       ? capAndIncomeCopy(cap, incomeBase || totalIncome, applied)
@@ -666,6 +742,17 @@ function ReliefStepCard({
               {capLine(entry, assessmentYear)}
             </p>
           ) : null}
+          {minQualifyingLine(entry, assessmentYear) ? (
+            <p className="text-xs text-muted-foreground">
+              {minQualifyingLine(entry, assessmentYear)}
+            </p>
+          ) : null}
+          {belowMinimum ? (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Claimed {formatMoneyInput(String(claimLkr))} LKR is below the Act minimum of{" "}
+              {formatMoneyInput(String(minQualifying))} LKR — no relief applies (0 LKR).
+            </p>
+          ) : null}
           {cap != null && entry.unit !== "percent" && entry.unit !== "text" && capIncomeCopy ? (
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{capIncomeCopy.summary}</span>
@@ -765,6 +852,19 @@ function ReliefStepCard({
                     </span>
                   </p>
                 ) : null}
+                {belowMinimum ? (
+                  <p className="text-xs text-muted-foreground">
+                    Applied after minimum:{" "}
+                    <span className="font-medium text-foreground">0 LKR</span>
+                  </p>
+                ) : minQualifying != null && !belowMinimum && claimLkr > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Qualifies (at/above minimum) — applied{" "}
+                    <span className="font-medium text-foreground">
+                      {formatMoneyInput(String(applied))} LKR
+                    </span>
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -789,6 +889,12 @@ function ReliefStepCard({
           items={entry.required_evidence ?? []}
           checks={evidenceChecks}
           onCheck={onEvidenceCheck}
+        />
+        <ReliefEvidenceFromEntry
+          profileId={taxpayerProfileId}
+          assessmentYear={assessmentYear}
+          entry={entry}
+          mode="auditor"
         />
         <GuideNotesBox
           compareGroupId={entry.compare_group_id}

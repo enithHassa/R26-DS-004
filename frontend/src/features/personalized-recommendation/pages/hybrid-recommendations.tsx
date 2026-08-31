@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 import { hybridQuery } from "../api/hybrid";
-import type { HybridResultItem } from "../api/hybrid";
+import type { HybridResultItem, HybridRulesContext } from "../api/hybrid";
 import { getProfileHistory } from "../api/profiles";
 import { AdoptionEvidenceModal } from "../components/adoption-evidence-panel";
 import { AuditorHybridRecommendationCard } from "../components/auditor-recommendations/recommendation-card";
 import { StrategyExplanationModal } from "../components/auditor-recommendations/strategy-explanation-modal";
+import { CatalogRulesSyncPanel } from "../components/catalog-rules-sync-panel";
 import { PageHeader } from "../components/page-header";
 import { ProfilePicker } from "../components/profile-picker";
 import { useActiveProfileId } from "../store/dashboard-store";
@@ -21,6 +22,9 @@ export function HybridRecommendationsPage() {
   const activeProfileId = useActiveProfileId();
   const [profileId, setProfileId] = useState<string>(activeProfileId ?? "");
   const [topK, setTopK] = useState<number>(5);
+  const [useCatalogRules, setUseCatalogRules] = useState(false);
+  const [assessmentYear, setAssessmentYear] = useState("2024_25");
+  const [rulesContext, setRulesContext] = useState<HybridRulesContext | null>(null);
   const [evidenceItem, setEvidenceItem] = useState<HybridResultItem | null>(null);
   const [explainItem, setExplainItem] = useState<HybridResultItem | null>(null);
 
@@ -29,13 +33,20 @@ export function HybridRecommendationsPage() {
   }, [activeProfileId, profileId]);
 
   const hybridMutation = useMutation({
-    mutationFn: () => hybridQuery({ profile_id: profileId, top_k: topK }),
+    mutationFn: () =>
+      hybridQuery({
+        profile_id: profileId,
+        top_k: topK,
+        rules_source: useCatalogRules ? "catalog" : "default",
+        assessment_year: useCatalogRules ? assessmentYear : undefined,
+      }),
+    onSuccess: (data) => setRulesContext(data.rules_context),
   });
 
   useEffect(() => {
     if (profileId) hybridMutation.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when profile or top_k changes
-  }, [profileId, topK]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when profile, top_k, or catalog toggle changes
+  }, [profileId, topK, useCatalogRules, assessmentYear]);
 
   const historyQuery = useQuery({
     queryKey: ["profile-history", profileId],
@@ -79,6 +90,16 @@ export function HybridRecommendationsPage() {
         </CardContent>
       </Card>
 
+      <CatalogRulesSyncPanel
+        useCatalogRules={useCatalogRules}
+        onUseCatalogRulesChange={setUseCatalogRules}
+        assessmentYear={assessmentYear}
+        onAssessmentYearChange={setAssessmentYear}
+        onSynced={() => {
+          if (profileId) hybridMutation.mutate();
+        }}
+      />
+
       {!profileId && (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -94,6 +115,26 @@ export function HybridRecommendationsPage() {
               <h2 className="text-2xl font-bold tracking-tight">Tax Recommendations</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Ranked by AI · {items.length} active recommendation{items.length === 1 ? "" : "s"}
+                {rulesContext && (
+                  <>
+                    {" "}
+                    · Rules:{" "}
+                    <span className="font-medium text-foreground">
+                      {rulesContext.rules_source === "catalog"
+                        ? `catalog YA ${rulesContext.assessment_year?.replace("_", "/")}`
+                        : `default (${rulesContext.rules_version})`}
+                    </span>
+                    {rulesContext.rules_source === "catalog" && (
+                      <>
+                        {" "}
+                        · baseline tax Rs.{" "}
+                        {rulesContext.baseline_tax_lkr.toLocaleString("en-LK", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </>
+                    )}
+                  </>
+                )}
               </p>
             </div>
             <div className="flex gap-2">

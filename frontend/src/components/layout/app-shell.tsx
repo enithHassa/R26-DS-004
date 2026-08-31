@@ -45,6 +45,11 @@ function RouteErrorOutlet() {
 }
 
 export function AppShell() {
+  const location = useLocation();
+  // The auditor's "Active taxpayer" side panel pre-fills other modules; the
+  // language-model views don't consume it, so hide it (and its mobile bar) there.
+  const hideAuditorWorkspace = location.pathname.startsWith("/language-model");
+
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r bg-card/50 p-4 md:flex">
@@ -107,12 +112,12 @@ export function AppShell() {
 
       <main className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl p-6 md:p-10">
-          <AuditorWorkspaceMobileBar />
+          {!hideAuditorWorkspace && <AuditorWorkspaceMobileBar />}
           <RouteErrorOutlet />
         </div>
       </main>
 
-      <AuditorWorkspacePanel />
+      {!hideAuditorWorkspace && <AuditorWorkspacePanel />}
     </div>
   );
 }

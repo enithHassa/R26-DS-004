@@ -8,10 +8,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { deleteSession, fetchSuggestions, postChat } from "../api";
+import { useUserSessionStore } from "@/features/personalized-recommendation/store/user-session-store";
+
+import {
+  deleteSession,
+  fetchSuggestions,
+  getChatSession,
+  listChatSessions,
+  postChat,
+} from "../api";
 import { DomainNotice } from "../components/domain-notice";
+import { MarkdownLite } from "../components/markdown-lite";
 import { ProofMapPanel } from "../components/proof-map-panel";
-import type { ChatResponse } from "../types";
+import type { ChatResponse, ChatSessionSummary } from "../types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +39,9 @@ interface HistorySession {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function ChatPage() {
+  const userId = useUserSessionStore((s) => s.userId);
+  const profileId = useUserSessionStore((s) => s.profileId);
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [synthesize, setSynthesize] = useState(true);
@@ -37,14 +49,30 @@ export function ChatPage() {
   const [showProofMap, setShowProofMap] = useState(false);
   const [turns, setTurns] = useState<TurnEntry[]>([]);
   const [history, setHistory] = useState<HistorySession[]>([]);
+  const [savedSessions, setSavedSessions] = useState<ChatSessionSummary[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const refreshSavedSessions = useCallback(() => {
+    if (!userId) {
+      setSavedSessions([]);
+      return;
+    }
+    listChatSessions(userId)
+      .then(setSavedSessions)
+      .catch(() => setSavedSessions([]));
+  }, [userId]);
+
+  useEffect(() => {
+    refreshSavedSessions();
+  }, [refreshSavedSessions]);
 
   const mutation = useMutation({
     mutationFn: postChat,
     onSuccess(data) {
       setSessionId(data.session_id);
+      if (data.persisted) refreshSavedSessions();
       setTurns((prev) => [...prev, { userMessage: data.user_message, response: data }]);
       const inDomain = data.query_result?.domain_status === "in_domain";
       if (inDomain) {
@@ -78,9 +106,11 @@ export function ChatPage() {
         session_id: sessionId,
         synthesize_answer: synthesize,
         assessment_year_hint: yearHint.trim() || undefined,
+        user_id: userId ?? undefined,
+        profile_id: profileId ?? undefined,
       });
     },
-    [sessionId, synthesize, yearHint, mutation],
+    [sessionId, synthesize, yearHint, mutation, userId, profileId],
   );
 
   const handleSubmit = useCallback(
@@ -91,9 +121,10 @@ export function ChatPage() {
     [input, sendMessage],
   );
 
-  // Save current session to history and start a new one
+  // Start a fresh conversation. Persisted sessions stay in the DB; anonymous
+  // sessions are stashed in the local sidebar (and dropped server-side).
   const handleNewSession = useCallback(async () => {
-    if (turns.length > 0 && sessionId) {
+    if (turns.length > 0 && sessionId && !userId) {
       setHistory((prev) => [
         {
           id: sessionId,
@@ -109,14 +140,73 @@ export function ChatPage() {
     setTurns([]);
     setSuggestions([]);
     mutation.reset();
-  }, [sessionId, turns, mutation]);
+    refreshSavedSessions();
+  }, [sessionId, turns, mutation, userId, refreshSavedSessions]);
 
-  // Restore a history session (read-only view)
+  // Restore a local (anonymous) history session — read-only view.
   const loadHistory = useCallback((session: HistorySession) => {
     setTurns(session.turns);
     setSessionId(session.id);
     mutation.reset();
   }, [mutation]);
+
+  // Resume a DB-saved session for the signed-in user — continue where they left off.
+  const resumeSavedSession = useCallback(
+    async (summary: ChatSessionSummary) => {
+      if (!userId) return;
+      try {
+        const detail = await getChatSession(summary.session_id, userId);
+        const rebuilt: TurnEntry[] = [];
+        for (let i = 0; i < detail.messages.length; i++) {
+          const m = detail.messages[i];
+          if (m.role !== "user") continue;
+          const next = detail.messages[i + 1];
+          const qr =
+            next && next.role === "assistant" && next.query_result ? next.query_result : null;
+          rebuilt.push({
+            userMessage: m.content,
+            response: {
+              session_id: detail.session_id,
+              turn_index: rebuilt.length,
+              user_message: m.content,
+              assistant_message: next?.role === "assistant" ? next.content : "",
+              query_result: (qr ?? {
+                question: m.content,
+                top_k: 0,
+                citations: [],
+                retrieval_model: "restored",
+                plain_answer: next?.role === "assistant" ? next.content : null,
+              }) as ChatResponse["query_result"],
+              proof_map: next?.proof_map ?? null,
+              history_length: detail.messages.length,
+              taxpayer_context: next?.taxpayer_context ?? null,
+              persisted: true,
+            },
+          });
+        }
+        setTurns(rebuilt);
+        setSessionId(detail.session_id);
+        setSuggestions([]);
+        mutation.reset();
+      } catch {
+        /* ignore — session may have been deleted */
+      }
+    },
+    [userId, mutation],
+  );
+
+  const removeSavedSession = useCallback(
+    async (id: string) => {
+      if (!userId) return;
+      try { await deleteSession(id, userId); } catch { /* ignore */ }
+      if (id === sessionId) {
+        setSessionId(null);
+        setTurns([]);
+      }
+      refreshSavedSessions();
+    },
+    [userId, sessionId, refreshSavedSessions],
+  );
 
   const isEmpty = turns.length === 0 && !mutation.isPending;
 
@@ -134,10 +224,49 @@ export function ChatPage() {
           New session
         </Button>
 
-        <p className="text-xs font-medium text-muted-foreground px-1 pt-1">History</p>
+        <p className="text-xs font-medium text-muted-foreground px-1 pt-1">
+          {userId ? "Your saved chats" : "History (this device)"}
+        </p>
 
-        {history.length === 0 ? (
-          <p className="text-xs text-muted-foreground px-1">No previous sessions</p>
+        {userId ? (
+          savedSessions.length === 0 ? (
+            <p className="text-xs text-muted-foreground px-1">No saved chats yet</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {savedSessions.map((s) => (
+                <li key={s.session_id} className="group relative">
+                  <button
+                    onClick={() => resumeSavedSession(s)}
+                    className={`w-full text-left rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors ${
+                      s.session_id === sessionId ? "bg-muted" : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-1.5">
+                      <Clock className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span className="line-clamp-2 text-muted-foreground leading-snug">
+                        {s.title || "Untitled chat"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 pl-4">
+                      {s.message_count} message{s.message_count !== 1 ? "s" : ""} ·{" "}
+                      {new Date(s.last_message_at).toLocaleDateString()}
+                    </p>
+                  </button>
+                  <button
+                    aria-label="Delete chat"
+                    onClick={() => removeSavedSession(s.session_id)}
+                    className="absolute right-1 top-1 hidden group-hover:block rounded p-1 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : history.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1">
+            Sign in to save chats across devices
+          </p>
         ) : (
           <ul className="flex flex-col gap-1">
             {history.map((h) => (
@@ -342,7 +471,7 @@ function TurnBlock({
           <div className="rounded-xl rounded-tl-sm border border-border/70 bg-card px-4 py-3 text-sm shadow-sm">
             {!blocked && qr.plain_answer ? (
               <div className="space-y-2">
-                <p className="whitespace-pre-wrap leading-relaxed">{qr.plain_answer}</p>
+                <MarkdownLite content={qr.plain_answer} />
                 {qr.validation_status && (
                   <p className="text-xs text-muted-foreground">
                     Validation:{" "}

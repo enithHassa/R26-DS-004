@@ -1,13 +1,13 @@
 {
   "spec_version": "1.0.0",
-  "extraction_run_id": "20260830T051616Z-d62b58",
+  "extraction_run_id": "20260830T221225Z-61586f",
   "source_doc_id": "oee-act-100-2027",
   "tier": "act",
   "terminus": "review_then_promote",
   "model": "gpt-4o",
   "dry_run": false,
-  "usd_this_run": 0.12259,
-  "usd_running_total": 1.874976,
+  "usd_this_run": 0.12277,
+  "usd_running_total": 1.875156,
   "windows": [
     {
       "window_id": "fifth_schedule",
@@ -72,11 +72,11 @@
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
-      "pass2_note": "The candidate quote matches a contiguous substring in the source text, ignoring whitespace.",
+      "pass2_note": "The candidate quote matches a contiguous substring in the source window, ignoring whitespace.",
       "included": true,
       "engine_scope": "individual",
       "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T05:16:42.152213+00:00"
+      "reviewed_at": "2026-08-30T21:24:00.724543+00:00"
     },
     {
       "entity_kind": "relief",
@@ -101,7 +101,7 @@
       "effective_from": "",
       "effective_to": "",
       "question_prompt": "Did you incur qualifying childcare support payments?",
-      "help": "",
+      "help": "The relief is calculated at 50% of qualifying payments.",
       "input_kind": "yes_no_amount",
       "auto_applied": false,
       "engine_binding": {
@@ -119,7 +119,7 @@
       "included": true,
       "engine_scope": "individual",
       "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:38:40.821944+00:00"
+      "reviewed_at": "2026-08-30T22:13:27.557516+00:00"
     },
     {
       "entity_kind": "relief",
@@ -152,17 +152,17 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "accepted",
+      "review_status": "rejected",
       "year_kind": "NEW_YEAR",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
       "pass2_note": "The candidate quote appears verbatim in the source window.",
-      "included": true,
+      "included": false,
       "engine_scope": "individual",
       "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T05:16:47.326669+00:00"
+      "reviewed_at": "2026-08-30T22:13:33.701423+00:00"
     },
     {
       "entity_kind": "relief",
@@ -186,7 +186,7 @@
       "stacking": "",
       "effective_from": "",
       "effective_to": "",
-      "question_prompt": "Did you incur costs for electric vehicle charging infrastructure?",
+      "question_prompt": "Did you incur qualifying expenditure for electric vehicle charging infrastructure?",
       "help": "",
       "input_kind": "yes_no_amount",
       "auto_applied": false,
@@ -195,17 +195,17 @@
       },
       "sort_order": 0,
       "change_action": "add",
-      "review_status": "accepted",
+      "review_status": "rejected",
       "year_kind": "NEW_YEAR",
       "quote_ok_window": true,
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
-      "pass2_note": "The candidate quote appears verbatim in the source window.",
-      "included": true,
+      "pass2_note": "The candidate quote appears verbatim in the source window, ignoring whitespace differences.",
+      "included": false,
       "engine_scope": "individual",
       "reviewed_by": "Auditor",
-      "reviewed_at": "2026-08-30T04:18:30.800951+00:00"
+      "reviewed_at": "2026-08-30T22:13:38.615001+00:00"
     },
     {
       "entity_kind": "rate_band",
@@ -230,7 +230,7 @@
       "quote_ok_full_doc": true,
       "quote_source": "table_render",
       "pass2_verbatim": true,
-      "pass2_note": "The candidate quote appears verbatim in the source window, ignoring whitespace.",
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
       "included": true,
       "engine_scope": "individual",
       "rule_family": "terminal_benefit_tax_rate",
@@ -415,7 +415,7 @@
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
-      "pass2_note": "The candidate quote appears verbatim in the source text, ignoring whitespace differences.",
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
       "included": true,
       "engine_scope": "individual",
       "rule_family": "terminal_benefit_tax_rate",
@@ -456,7 +456,7 @@
       "quote_ok_full_doc": true,
       "quote_source": "text_stream",
       "pass2_verbatim": true,
-      "pass2_note": "The candidate quote appears verbatim in the source text.",
+      "pass2_note": "The candidate quote appears verbatim in the source window.",
       "included": true,
       "engine_scope": "individual",
       "rule_family": "terminal_benefit_tax_rate",

@@ -105,5 +105,6 @@ export function useTaxpayerOeScenario(profileId: string) {
     patchIncomeSession,
     reload,
     assessmentYear: scenario?.assessmentYear ?? assessmentYear,
+    profileId,
   };
 }

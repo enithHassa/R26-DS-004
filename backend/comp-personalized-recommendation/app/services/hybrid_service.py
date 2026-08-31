@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.config import component_settings
 from app.models.profile import FinancialProfile as FinancialProfileORM
+from app.services.catalog_rules_service import baseline_tax_for_profile, get_synced_snapshot
 from app.services.inference_assets import load_inference_artifacts
 from app.services.profile_service import ProfileNotFoundError, compute_derived_features, get_profile
 from app.services.rag_service import (
@@ -321,11 +322,29 @@ def hybrid_query(
     profile_id: str,
     top_k: int = 5,
     lambda_weight: float = LAMBDA_WEIGHT,
-) -> tuple[list[HybridResult], str]:
+    rules_source: str = "default",
+    assessment_year: str | None = None,
+) -> tuple[list[HybridResult], str, dict[str, Any]]:
     """Run hybrid recommendation pipeline.
 
-    Returns (results, query_text).
+    Returns (results, query_text, rules_context).
+
+    When ``rules_source`` is ``catalog``, the caller must sync that
+    ``assessment_year`` via ``POST /admin/catalog-rules/sync`` first. The
+    default YAML rules path is never modified.
     """
+    if rules_source not in {"default", "catalog"}:
+        raise ValueError("rules_source must be 'default' or 'catalog'")
+    if rules_source == "catalog":
+        if not assessment_year:
+            raise ValueError("assessment_year is required when rules_source is 'catalog'")
+        snapshot = get_synced_snapshot(assessment_year)
+        if snapshot is None:
+            raise ValueError(
+                f"Catalog rules for {assessment_year} are not loaded. "
+                "Sync via POST /api/v1/admin/catalog-rules/sync first."
+            )
+
     profile = get_profile(db, UUID(profile_id))
     if profile is None:
         raise ProfileNotFoundError(f"Profile {profile_id} not found")
@@ -336,6 +355,31 @@ def hybrid_query(
 
     # ── Step 1: Build feature context ────────────────────────────────────────
     X_user, ctx = _build_ctx(profile, artifacts)
+
+    if rules_source == "catalog" and assessment_year:
+        snapshot = get_synced_snapshot(assessment_year)
+        assert snapshot is not None
+        baseline_tax = baseline_tax_for_profile(profile, snapshot.rules)
+        rules_context: dict[str, Any] = {
+            "rules_source": "catalog",
+            "rules_version": snapshot.rules.version,
+            "assessment_year": assessment_year,
+            "baseline_tax_lkr": round(baseline_tax, 2),
+            "catalog_promoted_at": snapshot.promoted_at,
+            "catalog_act": snapshot.personal_relief_act,
+            "mapped_fields": snapshot.mapped_fields,
+        }
+    else:
+        baseline_tax = float(ctx.get("baseline_tax_liability_lkr", 0.0) or 0.0)
+        rules_context = {
+            "rules_source": "default",
+            "rules_version": str(component_settings.COMP_RECOMMENDATION_RULES_PATH.stem),
+            "assessment_year": None,
+            "baseline_tax_lkr": round(baseline_tax, 2),
+            "catalog_promoted_at": None,
+            "catalog_act": None,
+            "mapped_fields": [],
+        }
 
     # ── Step 2: LightGBM adoption probability ────────────────────────────────
     adopt_by_sid = _adoption_probabilities(artifacts, X_user)
@@ -407,7 +451,6 @@ def hybrid_query(
         retrieval_hybrid = round(lambda_weight * lm_score + rag_weight * rag_score, 6)
 
         adopt = adopt_by_sid.get(sid, 0.0)
-        baseline_tax = float(ctx.get("baseline_tax_liability_lkr", 0.0) or 0.0)
         est_savings = max(0.0, min(baseline_tax * 0.45, baseline_tax * lm_score * 0.35))
         risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
         feasibility = float(eval_result.feasibility_score)
@@ -454,4 +497,4 @@ def hybrid_query(
         item.rank = rank
         results.append(item)
 
-    return results, query_text
+    return results, query_text, rules_context

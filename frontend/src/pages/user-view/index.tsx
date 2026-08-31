@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 
 import { UserAboutYouPage } from "@/pages/user-view/pages/about-you";
+import { UserAiAdvisorPage } from "@/pages/user-view/pages/ai-advisor";
 import { UserDashboardPage } from "@/pages/user-view/pages/dashboard";
 import { UserFinancialImpactPage } from "@/pages/user-view/pages/financial-impact";
 import { UserOeLayout } from "@/pages/user-view/pages/oe-layout";
@@ -17,6 +18,7 @@ import { UserTransactionReasoningPage } from "@/pages/user-view/pages/transactio
 import { PortalSummaryRedirect } from "@/pages/user-view/portal-summary-redirect";
 import {
   TAXWISE_ABOUT_YOU,
+  TAXWISE_AI_ADVISOR,
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
   TAXWISE_OE,
@@ -27,6 +29,7 @@ import {
 
 export {
   TAXWISE_ABOUT_YOU,
+  TAXWISE_AI_ADVISOR,
   TAXWISE_BASE,
   TAXWISE_FINANCIAL_IMPACT,
   TAXWISE_OE,
@@ -52,6 +55,7 @@ export const userViewRoutes: RouteObject[] = [
   { path: TAXWISE_BASE, element: <UserDashboardPage /> },
   { path: TAXWISE_ABOUT_YOU, element: <UserAboutYouPage /> },
   { path: TAXWISE_PROFILE, element: <UserProfilePage /> },
+  { path: TAXWISE_AI_ADVISOR, element: <UserAiAdvisorPage /> },
   { path: TAXWISE_TRANSACTIONS, element: <UserTransactionsPage /> },
   { path: `${TAXWISE_TRANSACTIONS}/:extractedTransactionId`, element: <UserTransactionReasoningPage /> },
   { path: TAXWISE_RECOMMENDATIONS, element: <UserRecommendationsPage /> },

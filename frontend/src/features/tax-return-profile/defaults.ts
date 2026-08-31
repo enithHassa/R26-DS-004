@@ -125,7 +125,7 @@ function nationalityToCode(nationality?: string | null): string {
   return "lk";
 }
 
-import { normalizeTaxYearToOrm, taxYearForUi } from "@/lib/profile-bridge/tax-year-bridge";
+import { taxYearForUi } from "@/lib/profile-bridge/tax-year-bridge";
 
 function hasPositiveAmount(value?: string | null): boolean {
   return value != null && value !== "" && Number(value) > 0;
