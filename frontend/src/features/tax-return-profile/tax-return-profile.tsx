@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
   Briefcase,
   Building2,
   CheckCircle,
   FileCheck,
+  FolderOpen,
   Globe,
   Home,
   Landmark,
@@ -10,12 +12,25 @@ import {
   User,
 } from "lucide-react";
 
+import { useEvidenceYearOptions } from "@/features/optimization-explainable-engine/relief-evidence";
+import { yaDisplay } from "@/features/optimization-explainable-engine/format-lkr";
+import { normalizeTaxYearToOrm } from "@/lib/profile-bridge/tax-year-bridge";
 import { cn } from "@/lib/utils";
 
 import { TRP_COLORS } from "./ui/primitives";
 import { useTaxReturnProfile } from "./use-tax-return-profile";
 import { NavFooter } from "./ui/primitives";
-import { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8 } from "./ui/sections";
+import {
+  Sec1,
+  Sec2,
+  Sec3,
+  Sec4,
+  Sec5,
+  Sec6,
+  Sec7,
+  Sec8,
+  SecAdditionalDocs,
+} from "./ui/sections";
 
 import "./tax-return-profile.css";
 
@@ -27,7 +42,8 @@ const SECTIONS = [
   { num: 5, label: "Real Estate & Rental Incomes", short: "Real Estate", icon: Home, color: TRP_COLORS.amber },
   { num: 6, label: "Deductions & Qualifying Reliefs", short: "Deductions", icon: Shield, color: TRP_COLORS.green },
   { num: 7, label: "Foreign Income & Overseas Assets", short: "Foreign", icon: Globe, color: TRP_COLORS.blue },
-  { num: 8, label: "Review & Declaration", short: "Review", icon: FileCheck, color: TRP_COLORS.teal },
+  { num: 8, label: "Additional Documents", short: "Documents", icon: FolderOpen, color: TRP_COLORS.blue },
+  { num: 9, label: "Review & Declaration", short: "Review", icon: FileCheck, color: TRP_COLORS.teal },
 ] as const;
 
 function formatLkr(amount: string): string {
@@ -75,6 +91,10 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
     loadError,
     saveError,
   } = useTaxReturnProfile(profileId);
+  const [evidenceYear, setEvidenceYear] = useState("");
+  const profileTaxYearOrm = normalizeTaxYearToOrm(detail?.section1.taxYear) ?? "";
+  const resolvedEvidenceYear = evidenceYear || profileTaxYearOrm;
+  const evidenceYearOptions = useEvidenceYearOptions(resolvedEvidenceYear);
 
   if (isLoading) {
     return <div className="trp-loading">Loading tax return profile…</div>;
@@ -132,6 +152,26 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
             {taxYear.split("-")[1] ?? "2025"}
             {isSaving ? " · Saving…" : ""}
           </p>
+          <label className="trp-topbar-year">
+            <span>Supporting docs year</span>
+            <select
+              value={resolvedEvidenceYear}
+              onChange={(event) => setEvidenceYear(event.target.value)}
+              aria-label="Year of assessment for supporting documents"
+            >
+              {evidenceYearOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+              {resolvedEvidenceYear &&
+              !evidenceYearOptions.some((opt) => opt.value === resolvedEvidenceYear) ? (
+                <option value={resolvedEvidenceYear}>
+                  YA {yaDisplay(resolvedEvidenceYear)}
+                </option>
+              ) : null}
+            </select>
+          </label>
         </div>
         <div className="trp-progress-wrap">
           <div>
@@ -258,9 +298,27 @@ export function TaxReturnProfile({ profileId }: { profileId: string }) {
           {activeSection === 3 && <Sec3 {...sectionProps} />}
           {activeSection === 4 && <Sec4 {...sectionProps} />}
           {activeSection === 5 && <Sec5 {...sectionProps} />}
-          {activeSection === 6 && <Sec6 {...sectionProps} />}
+          {activeSection === 6 && (
+            <Sec6
+              {...sectionProps}
+              profileId={profileId}
+              evidenceYear={resolvedEvidenceYear}
+              onEvidenceYearChange={setEvidenceYear}
+              evidenceYearOptions={evidenceYearOptions}
+            />
+          )}
           {activeSection === 7 && <Sec7 {...sectionProps} />}
           {activeSection === 8 && (
+            <SecAdditionalDocs
+              onSave={sectionProps.onSave}
+              onComplete={sectionProps.onComplete}
+              profileId={profileId}
+              evidenceYear={resolvedEvidenceYear}
+              onEvidenceYearChange={setEvidenceYear}
+              evidenceYearOptions={evidenceYearOptions}
+            />
+          )}
+          {activeSection === 9 && (
             <Sec8 detail={detail} onDetailChange={setDetail} completedSections={completed} />
           )}
 

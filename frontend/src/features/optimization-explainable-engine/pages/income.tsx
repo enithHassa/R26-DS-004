@@ -37,10 +37,17 @@ import { useInterview } from "../session";
 import { TerminalBenefitExplainDrawer } from "../terminal-benefit-explain";
 import { TerminalBenefitSection } from "../terminal-benefit-section";
 import {
+  hasPublishedIncomeDocsSnapshot,
+  importIncomeDocs,
+  IncomeDocsCategoryPanel,
+} from "../income-docs";
+import {
   terminalBenefitsBlockContinue,
   terminalBenefitsTotalLkr,
 } from "../terminal-benefits";
 import type { IncomeFormSlice, InterestScheduleLine } from "../types";
+import { getProfile } from "@/features/personalized-recommendation/api/profiles";
+import { useQuery } from "@tanstack/react-query";
 
 function newLine(): InterestScheduleLine {
   return {
@@ -87,6 +94,24 @@ export function InterviewIncomePage() {
     setTerminalExplainOpen(false);
     setExplainFieldState(field);
   }
+
+  const publishedDocsQuery = useQuery({
+    queryKey: ["profile", activeProfileId, "income-docs"],
+    queryFn: () => getProfile(activeProfileId!),
+    enabled: Boolean(activeProfileId),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!activeProfileId || !publishedDocsQuery.data) return;
+    const stored = publishedDocsQuery.data.tax_return_detail as
+      | { incomeDocumentsByYear?: Parameters<typeof importIncomeDocs>[1] }
+      | undefined;
+    const published = stored?.incomeDocumentsByYear;
+    if (hasPublishedIncomeDocsSnapshot(published)) {
+      importIncomeDocs(activeProfileId, published);
+    }
+  }, [activeProfileId, publishedDocsQuery.data]);
 
   // Keep Name / TIN in sync with the auditor's active taxpayer (including switches).
   useEffect(() => {
@@ -383,6 +408,13 @@ export function InterviewIncomePage() {
             actVersionLabel={INCOME_CATALOG_BADGE}
             onExplainField={setExplainField}
           />
+          <IncomeDocsCategoryPanel
+            profileId={activeProfileId}
+            assessmentYear={session.assessmentYear}
+            categoryId="employment"
+            mode="auditor"
+            defaultOpen={false}
+          />
 
           <BusinessIncomeSection
             card={businessCard}
@@ -401,6 +433,13 @@ export function InterviewIncomePage() {
             onToggle={() => setBusinessOpen((v) => !v)}
             actVersionLabel={INCOME_CATALOG_BADGE}
             onExplainField={setExplainField}
+          />
+          <IncomeDocsCategoryPanel
+            profileId={activeProfileId}
+            assessmentYear={session.assessmentYear}
+            categoryId="business"
+            mode="auditor"
+            defaultOpen={false}
           />
 
           <InvestmentIncomeSection
@@ -438,6 +477,13 @@ export function InterviewIncomePage() {
               />
             }
           />
+          <IncomeDocsCategoryPanel
+            profileId={activeProfileId}
+            assessmentYear={session.assessmentYear}
+            categoryId="investment"
+            mode="auditor"
+            defaultOpen={false}
+          />
 
           <OtherIncomeSection
             card={otherCard}
@@ -459,6 +505,13 @@ export function InterviewIncomePage() {
             actVersionLabel={INCOME_CATALOG_BADGE}
             onExplainField={setExplainField}
           />
+          <IncomeDocsCategoryPanel
+            profileId={activeProfileId}
+            assessmentYear={session.assessmentYear}
+            categoryId="other_income"
+            mode="auditor"
+            defaultOpen={false}
+          />
 
           <TerminalBenefitSection
             open={terminalOpen}
@@ -468,6 +521,13 @@ export function InterviewIncomePage() {
               setExplainField(null);
               setTerminalExplainOpen(true);
             }}
+          />
+          <IncomeDocsCategoryPanel
+            profileId={activeProfileId}
+            assessmentYear={session.assessmentYear}
+            categoryId="terminal_benefits"
+            mode="auditor"
+            defaultOpen={false}
           />
         </div>
       </div>

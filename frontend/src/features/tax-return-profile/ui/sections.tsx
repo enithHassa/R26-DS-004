@@ -6,6 +6,7 @@ import {
   CheckCircle,
   FileCheck,
   FileText,
+  FolderOpen,
   Gift,
   Globe,
   Home,
@@ -21,6 +22,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { YearReliefEvidencePanel } from "@/features/optimization-explainable-engine/relief-evidence";
+import { IncomeDocsFullPanel } from "@/features/optimization-explainable-engine/income-docs";
 
 import {
   blankBiz,
@@ -111,7 +114,7 @@ function Sec1({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Taxpayer Identity & Statutory Status"
         subtitle="Your legal identity, NIC, TIN, residency classification, and correspondence details."
         sectionNum={1}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -484,7 +487,7 @@ function Sec2({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Employment & Remuneration"
         subtitle="Declare all salary income, APIT deducted, EPF/ETF, and employment benefits for every employer."
         sectionNum={2}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -915,7 +918,7 @@ function Sec3({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Fixed Deposits & Financial Investments"
         subtitle="Declare interest income, dividends, government securities, and capital gains from all financial investments."
         sectionNum={3}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1284,7 +1287,7 @@ function Sec4({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Business, Freelance & Secondary Trades"
         subtitle="Profits from sole proprietorships, partnerships, professional practices, freelance, and online platforms."
         sectionNum={4}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1621,7 +1624,7 @@ function Sec5({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Real Estate & Rental Incomes"
         subtitle="Declare gross rental income, allowable deductions, property disposals, and capital gains."
         sectionNum={5}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1924,10 +1927,20 @@ function Sec5({ detail, onDetailChange, onComplete, onSave }: SecProps) {
 // SECTION 6 — Deductions, Insurances & Qualifying Reliefs
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Sec6({ detail, onDetailChange, onComplete, onSave }: SecProps) {
-  const s = detail.section6;
-  const patch = (p: Partial<typeof s>) => patchDetail(detail, onDetailChange, "section6", p);
-
+function Sec6({
+  detail,
+  onComplete,
+  onSave,
+  profileId,
+  evidenceYear,
+  onEvidenceYearChange,
+  evidenceYearOptions,
+}: SecProps & {
+  profileId: string;
+  evidenceYear: string;
+  onEvidenceYearChange: (ya: string) => void;
+  evidenceYearOptions: { value: string; label: string }[];
+}) {
   return (
     <Stack gap={16}>
       <SectionHeader
@@ -1936,7 +1949,7 @@ function Sec6({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Deductions, Insurances & Qualifying Reliefs"
         subtitle="Claim all eligible deductions and reliefs to legitimately reduce your taxable income."
         sectionNum={6}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -1946,379 +1959,18 @@ function Sec6({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         capped at the lower of: (a) 1/3 of assessable income, or
         (b) LKR 1,200,000. The personal relief of LKR 3,000,000
         is automatically applied. Keep receipts for all claimed
-        amounts for at least 5 years.
+        amounts for at least 5 years. Personal relief does not
+        require a receipt.
       </InfoBox>
 
-      {/* Auto-applied */}
-      <Card
-        title="Automatic Reliefs & Pre-filled Credits"
-        subtitle="These are applied automatically — no action required"
-        icon={CheckCircle}
-        accent={C.teal}
-        defaultOpen
-      >
-        <div className="trp-auto-relief-grid">
-          {[
-            {
-              label: "Personal Relief",
-              value: "LKR 3,000,000",
-              note: "Auto-applied for all residents",
-              color: C.teal,
-            },
-            {
-              label: "EPF Employee Deduction",
-              value: "LKR 162,000",
-              note: "Pre-filled from Section 2",
-              color: C.green,
-            },
-            {
-              label: "APIT Tax Credit",
-              value: "LKR 108,000",
-              note: "Pre-filled from Section 2",
-              color: C.blue,
-            },
-          ].map(({ label, value, note, color }) => (
-            <div key={label} className="trp-auto-relief-card" style={{ border: `1px solid ${color}20` }}>
-              <div className="trp-auto-relief-header">
-                <CheckCircle size={12} style={{ color }} />
-                <span className="trp-auto-relief-label">{label}</span>
-              </div>
-              <div className="trp-auto-relief-value" style={{ color }}>
-                {value}
-              </div>
-              <div className="trp-auto-relief-note">{note}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card
-        title="Life Insurance Premiums"
-        subtitle="Premiums paid on life, endowment, annuity, and whole-life policies"
-        icon={Shield}
-        accent={C.purple}
-      >
-        <Stack>
-          <Toggle
-            label="I paid life insurance premiums during the year"
-            subLabel="Only policies from Sri Lankan-registered insurers qualify for the deduction"
-            checked={s.hasLife}
-            onChange={(v) => patch({ hasLife: v })}
-          />
-          {s.hasLife && (
-            <G3>
-              <AmountField
-                label="Total Annual Premium Paid (LKR)"
-                value={s.lifePremium}
-                onChange={(v) => patch({ lifePremium: v })}
-                required
-                hint="Across all qualifying life policies"
-              />
-              <Field
-                label="Insurance Company"
-                value={s.lifeInsurer}
-                onChange={(v) => patch({ lifeInsurer: v })}
-                placeholder="e.g. AIA Life, Ceylinco, Union Assurance"
-              />
-              <Field
-                label="Policy Number(s)"
-                value={s.lifePolicy}
-                onChange={(v) => patch({ lifePolicy: v })}
-                mono
-                placeholder="List all relevant policy numbers"
-              />
-            </G3>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Medical & Health Insurance"
-        subtitle="Private health insurance premiums for you and your family"
-        icon={FileText}
-        accent={C.blue}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I paid medical / health insurance premiums"
-            checked={s.hasMedical}
-            onChange={(v) => patch({ hasMedical: v })}
-          />
-          {s.hasMedical && (
-            <G2>
-              <AmountField
-                label="Total Medical Insurance Premium (LKR)"
-                value={s.medicalPremium}
-                onChange={(v) => patch({ medicalPremium: v })}
-                required
-              />
-              <Field
-                label="Insurance Provider"
-                value={s.medicalInsurer}
-                onChange={(v) => patch({ medicalInsurer: v })}
-              />
-            </G2>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Qualifying Payments — Donations & Charitable Contributions"
-        subtitle="Donations to IRD-approved charities, religious bodies, and government relief funds"
-        icon={Award}
-        accent={C.amber}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I made donations to IRD-approved charitable or government institutions"
-            subLabel="Maintain receipts and the donee's IRD approval letter"
-            checked={s.hasCharitable}
-            onChange={(v) => patch({ hasCharitable: v })}
-          />
-          {s.hasCharitable && (
-            <>
-              <G2>
-                <AmountField
-                  label="President's Fund / Disaster Relief Fund (LKR)"
-                  value={s.charitablePresident}
-                  onChange={(v) => patch({ charitablePresident: v })}
-                  hint="Fully deductible"
-                />
-                <AmountField
-                  label="Approved Charitable Institutions (LKR)"
-                  value={s.charitableApproved}
-                  onChange={(v) => patch({ charitableApproved: v })}
-                  hint="Must hold current IRD approval"
-                />
-              </G2>
-              <G2>
-                <AmountField
-                  label="Religious / Educational Institutions (LKR)"
-                  value={s.charitableReligious}
-                  onChange={(v) => patch({ charitableReligious: v })}
-                  hint="Must hold current IRD approval"
-                />
-                <AmountField
-                  label="Other Approved Donations (LKR)"
-                  value={s.charitableOther}
-                  onChange={(v) => patch({ charitableOther: v })}
-                />
-              </G2>
-            </>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Education Fees for Dependant Children"
-        subtitle="School tuition fees paid for qualifying dependant children under 18"
-        icon={FileCheck}
-        accent={C.teal}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I paid school or tuition fees for qualifying dependant children"
-            subLabel="Institution must be IRD-approved; fees for overseas institutions generally do not qualify"
-            checked={s.hasEducation}
-            onChange={(v) => patch({ hasEducation: v })}
-          />
-          {s.hasEducation && (
-            <G3>
-              <Field
-                label="School / Institution Name"
-                value={s.educationSchool}
-                onChange={(v) => patch({ educationSchool: v })}
-                required
-              />
-              <AmountField
-                label="Annual Fees Paid (LKR)"
-                value={s.educationFees}
-                onChange={(v) => patch({ educationFees: v })}
-                required
-              />
-              <Field
-                label="Number of Qualifying Children"
-                value={s.educationChildren}
-                onChange={(v) => patch({ educationChildren: v })}
-                type="number"
-                hint="Only children under 18 enrolled full-time"
-              />
-            </G3>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Approved Pension & Superannuation Fund Contributions"
-        subtitle="Voluntary contributions beyond statutory EPF to approved retirement schemes"
-        icon={PiggyBank}
-        accent={C.green}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I made voluntary contributions to an approved pension or superannuation fund"
-            checked={s.hasPension}
-            onChange={(v) => patch({ hasPension: v })}
-          />
-          {s.hasPension && (
-            <G3>
-              <Field
-                label="Fund Name"
-                value={s.pensionFund}
-                onChange={(v) => patch({ pensionFund: v })}
-                placeholder="e.g. ETF, SLA Pension Fund"
-              />
-              <Select
-                label="Fund Type"
-                value={s.pensionType}
-                onChange={(v) => patch({ pensionType: v })}
-                options={[
-                  { value: "etf", label: "ETF Voluntary" },
-                  {
-                    value: "epf-vol",
-                    label: "EPF Voluntary Additional",
-                  },
-                  {
-                    value: "super",
-                    label: "Approved Superannuation Fund",
-                  },
-                  {
-                    value: "pension",
-                    label: "Registered Pension Scheme",
-                  },
-                ]}
-              />
-              <AmountField
-                label="Annual Contribution (LKR)"
-                value={s.pensionAmount}
-                onChange={(v) => patch({ pensionAmount: v })}
-                required
-              />
-            </G3>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Housing Loan Interest Relief"
-        subtitle="Interest on home loans from approved financial institutions for primary owner-occupied residence only"
-        icon={Home}
-        accent={C.amber}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I am repaying a housing loan for my primary owner-occupied home"
-            subLabel="Only the interest portion qualifies — principal repayments are not deductible"
-            checked={s.hasMortgage}
-            onChange={(v) => patch({ hasMortgage: v })}
-          />
-          {s.hasMortgage && (
-            <G3>
-              <Select
-                label="Lending Institution"
-                value={s.mortgageBank}
-                onChange={(v) => patch({ mortgageBank: v })}
-                options={BANKS}
-                required
-              />
-              <Field
-                label="Loan Account Number"
-                value={s.mortgageAccount}
-                onChange={(v) => patch({ mortgageAccount: v })}
-                mono
-              />
-              <AmountField
-                label="Annual Mortgage Interest Paid (LKR)"
-                value={s.mortgageInterest}
-                onChange={(v) => patch({ mortgageInterest: v })}
-                required
-                hint="From your annual loan statement"
-              />
-            </G3>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Research & Development Expenditure"
-        subtitle="Qualifying R&D costs linked to your business — eligible for 3× deduction"
-        icon={Zap}
-        accent={C.red}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I incurred qualifying R&D expenditure linked to my business"
-            subLabel="Approved R&D may be deductible at 3× the actual amount under IRA Schedule 1"
-            checked={s.hasRD}
-            onChange={(v) => patch({ hasRD: v })}
-          />
-          {s.hasRD && (
-            <>
-              <G2>
-                <AmountField
-                  label="Total R&D Expenditure (LKR)"
-                  value={s.rdAmount}
-                  onChange={(v) => patch({ rdAmount: v })}
-                  required
-                />
-              </G2>
-              <Textarea
-                label="Description of R&D Activity"
-                value={s.rdDescription}
-                onChange={(v) => patch({ rdDescription: v })}
-                placeholder="Describe the nature of research/development and its connection to your business"
-              />
-            </>
-          )}
-        </Stack>
-      </Card>
-
-      <Card
-        title="Disability Relief"
-        subtitle="Additional relief if you or a qualifying dependant has a certified disability"
-        icon={User}
-        accent={C.blue}
-        optional
-      >
-        <Stack>
-          <Toggle
-            label="I or a certified dependant qualifies for disability relief"
-            checked={s.hasDisability}
-            onChange={(v) => patch({ hasDisability: v })}
-            subLabel="Attach a certified medical certificate from a government hospital"
-          />
-          {s.hasDisability && (
-            <G2>
-              <Select
-                label="Disability Category"
-                value={s.disabilityCategory}
-                onChange={(v) => patch({ disabilityCategory: v })}
-                options={[
-                  { value: "self", label: "Myself" },
-                  { value: "child", label: "Dependant Child" },
-                  { value: "spouse", label: "Spouse" },
-                  {
-                    value: "parent",
-                    label: "Parent / Guardian",
-                  },
-                ]}
-              />
-              <AmountField
-                label="Additional Relief Amount (LKR)"
-                value={s.disabilityAmount}
-                onChange={(v) => patch({ disabilityAmount: v })}
-                hint="As per IRD disability relief schedule"
-              />
-            </G2>
-          )}
-        </Stack>
-      </Card>
+      {evidenceYear ? (
+        <YearReliefEvidencePanel
+          profileId={profileId}
+          assessmentYear={evidenceYear}
+          onYearChange={onEvidenceYearChange}
+          yearOptions={evidenceYearOptions}
+        />
+      ) : null}
     </Stack>
   );
 }
@@ -2339,7 +1991,7 @@ function Sec7({ detail, onDetailChange, onComplete, onSave }: SecProps) {
         title="Foreign Income & Overseas Assets"
         subtitle="As a resident, declare all worldwide income and claim DTA relief to avoid double taxation."
         sectionNum={7}
-        totalSections={8}
+        totalSections={9}
         onSave={onSave}
         onComplete={onComplete}
       />
@@ -2648,7 +2300,62 @@ function Sec7({ detail, onDetailChange, onComplete, onSave }: SecProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SECTION 8 — Review & Declaration
+// SECTION 8 — Additional Documents (income supportive docs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SecAdditionalDocs({
+  onComplete,
+  onSave,
+  profileId,
+  evidenceYear,
+  onEvidenceYearChange,
+  evidenceYearOptions,
+}: {
+  onComplete: () => void;
+  onSave: () => void;
+  profileId: string;
+  evidenceYear: string;
+  onEvidenceYearChange: (ya: string) => void;
+  evidenceYearOptions: { value: string; label: string }[];
+}) {
+  return (
+    <Stack gap={16}>
+      <SectionHeader
+        icon={FolderOpen}
+        color={C.blue}
+        title="Additional Documents"
+        subtitle="Upload supporting invoices for each income head — same layout as the Income form — plus retirement and terminal papers."
+        sectionNum={8}
+        totalSections={9}
+        onSave={onSave}
+        onComplete={onComplete}
+      />
+
+      <InfoBox color="blue">
+        These documents help your auditor fill Employment, Business, Investment, Other, and
+        retirement amounts. Use <strong>Save Draft</strong> or <strong>Mark Complete</strong> so
+        they appear on the auditor Income page for your profile.
+      </InfoBox>
+
+      {evidenceYear ? (
+        <IncomeDocsFullPanel
+          profileId={profileId}
+          assessmentYear={evidenceYear}
+          yearOptions={evidenceYearOptions}
+          onYearChange={onEvidenceYearChange}
+          mode="upload"
+        />
+      ) : (
+        <InfoBox color="amber">
+          Set a Year of Assessment in Section 1 before uploading documents.
+        </InfoBox>
+      )}
+    </Stack>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 9 — Review & Declaration
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Sec8({
@@ -2763,9 +2470,10 @@ function Sec8({
     5: "Real Estate & Rental Incomes",
     6: "Deductions, Insurances & Qualifying Reliefs",
     7: "Foreign Income & Overseas Assets",
+    8: "Additional Documents",
   };
 
-  const allComplete = [1, 2, 3, 4, 5, 6, 7].every((n) =>
+  const allComplete = [1, 2, 3, 4, 5, 6, 7, 8].every((n) =>
     completedSections.has(n),
   );
 
@@ -2782,7 +2490,7 @@ function Sec8({
           <div>
             <div
             >
-              SECTION 8 OF 8
+              SECTION 9 OF 9
             </div>
             <h2
             >
@@ -2980,4 +2688,4 @@ function Sec8({
   );
 }
 
-export { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8 };
+export { Sec1, Sec2, Sec3, Sec4, Sec5, Sec6, Sec7, Sec8, SecAdditionalDocs };
