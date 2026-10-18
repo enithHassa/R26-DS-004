@@ -30,6 +30,7 @@ from app.models.profile import FinancialProfile as FinancialProfileORM
 from app.services.catalog_rules_service import baseline_tax_for_profile, get_synced_snapshot
 from app.services.inference_assets import load_inference_artifacts
 from app.services.profile_service import ProfileNotFoundError, compute_derived_features, get_profile
+from app.services.risk_scoring_service import compute_strategy_risk_bundle, resolve_risk_tolerance
 from app.services.rag_service import (
     _IRD_REFS,
     _build_vector_store,
@@ -95,12 +96,14 @@ def _default_fusion_weights() -> dict[str, float]:
                     "w_adoption": float(raw.get("w_adoption", 0.30)),
                     "w_feasibility": float(raw.get("w_feasibility", 0.20)),
                     "w_risk_penalty": float(raw.get("w_risk_penalty", 0.10)),
+                    "w_risk_alignment": float(raw.get("w_risk_alignment", 0.12)),
                 }
     return {
         "w_savings": float(component_settings.COMP_RECOMMENDATION_W_SAVINGS),
         "w_adoption": float(component_settings.COMP_RECOMMENDATION_W_ADOPTION),
         "w_feasibility": float(component_settings.COMP_RECOMMENDATION_W_FEASIBILITY),
         "w_risk_penalty": float(component_settings.COMP_RECOMMENDATION_W_RISK_PENALTY),
+        "w_risk_alignment": 0.12,
     }
 
 
@@ -110,6 +113,7 @@ def _fuse_rank_score(
     adoption_probability: float,
     feasibility: float,
     risk_penalty: float,
+    risk_alignment: float = 1.0,
     weights: dict[str, float] | None = None,
 ) -> float:
     w = weights or _default_fusion_weights()
@@ -117,10 +121,12 @@ def _fuse_rank_score(
     adopt = min(1.0, max(0.0, adoption_probability))
     feas = min(1.0, max(0.0, feasibility))
     risk = min(1.0, max(0.0, risk_penalty))
+    align = min(1.0, max(0.0, risk_alignment))
     return (
         w["w_savings"] * savings
         + w["w_adoption"] * adopt
         + w["w_feasibility"] * feas
+        + w.get("w_risk_alignment", 0.12) * align
         - w["w_risk_penalty"] * risk
     )
 
@@ -287,6 +293,9 @@ class HybridResult:
         estimated_annual_savings: float,
         confidence: float,
         risk_score: float,
+        strategy_audit_risk: str,
+        risk_tolerance_applied: str,
+        risk_alignment: float,
         ird_reference: str,
         required_docs: list[str],
         why_relevant: str,
@@ -306,6 +315,9 @@ class HybridResult:
         self.estimated_annual_savings = estimated_annual_savings
         self.confidence = confidence
         self.risk_score = risk_score
+        self.strategy_audit_risk = strategy_audit_risk
+        self.risk_tolerance_applied = risk_tolerance_applied
+        self.risk_alignment = risk_alignment
         self.ird_reference = ird_reference
         self.required_docs = required_docs
         self.why_relevant = why_relevant
@@ -324,6 +336,7 @@ def hybrid_query(
     lambda_weight: float = LAMBDA_WEIGHT,
     rules_source: str = "default",
     assessment_year: str | None = None,
+    risk_tolerance_override: str | None = None,
 ) -> tuple[list[HybridResult], str, dict[str, Any]]:
     """Run hybrid recommendation pipeline.
 
@@ -355,6 +368,11 @@ def hybrid_query(
 
     # ── Step 1: Build feature context ────────────────────────────────────────
     X_user, ctx = _build_ctx(profile, artifacts)
+    user_risk_tolerance = resolve_risk_tolerance(
+        profile_tolerance=str(profile.risk_tolerance),
+        override=risk_tolerance_override,
+    )
+    ctx["risk_tolerance"] = user_risk_tolerance
 
     if rules_source == "catalog" and assessment_year:
         snapshot = get_synced_snapshot(assessment_year)
@@ -452,7 +470,10 @@ def hybrid_query(
 
         adopt = adopt_by_sid.get(sid, 0.0)
         est_savings = max(0.0, min(baseline_tax * 0.45, baseline_tax * lm_score * 0.35))
-        risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
+        risk_penalty, audit_level, risk_alignment = compute_strategy_risk_bundle(
+            strategy_audit_risk=s.audit_risk_level,
+            user_risk_tolerance=user_risk_tolerance,
+        )
         feasibility = float(eval_result.feasibility_score)
         fusion_score = round(
             _fuse_rank_score(
@@ -460,6 +481,7 @@ def hybrid_query(
                 adoption_probability=adopt,
                 feasibility=feasibility,
                 risk_penalty=risk_penalty,
+                risk_alignment=risk_alignment,
                 weights=fusion_weights,
             ),
             6,
@@ -484,6 +506,9 @@ def hybrid_query(
                 estimated_annual_savings=round(est_savings, 2),
                 confidence=round(feasibility, 4),
                 risk_score=round(risk_penalty, 4),
+                strategy_audit_risk=audit_level,
+                risk_tolerance_applied=user_risk_tolerance,
+                risk_alignment=round(risk_alignment, 4),
                 ird_reference=_IRD_REFS.get(sid, "IRA No. 24 of 2017"),
                 required_docs=raw_s.get("constraints", {}).get("required_docs", []),
                 why_relevant=_generate_explanation(raw_s, rag_ctx, rag_score),
@@ -496,5 +521,8 @@ def hybrid_query(
     for rank, (_, item) in enumerate(candidates[:top_k], start=1):
         item.rank = rank
         results.append(item)
+
+    rules_context["risk_tolerance_applied"] = user_risk_tolerance
+    rules_context["risk_tolerance_override"] = risk_tolerance_override is not None
 
     return results, query_text, rules_context

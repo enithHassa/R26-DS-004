@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Eye, LineChart, Merge } from "lucide-react";
+import { BookOpen, Eye, Merge } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,12 +11,12 @@ type Props = {
   item: HybridResultItem;
   profileId: string;
   onExplain: () => void;
-  onAdoptionEvidence?: () => void;
 };
 
-function riskLabel(score: number): { label: string; tone: "low" | "medium" | "high" } {
-  if (score >= 0.15) return { label: "High", tone: "high" };
-  if (score >= 0.08) return { label: "Medium", tone: "medium" };
+function auditRiskLabel(level: string): { label: string; tone: "low" | "medium" | "high" } {
+  const normalized = level.toLowerCase();
+  if (normalized === "high") return { label: "High", tone: "high" };
+  if (normalized === "medium") return { label: "Medium", tone: "medium" };
   return { label: "Low", tone: "low" };
 }
 
@@ -41,14 +41,9 @@ function chipClass(tone: "low" | "medium" | "high", kind: "risk" | "feasibility"
       : "border-border bg-muted text-muted-foreground";
 }
 
-export function AuditorHybridRecommendationCard({
-  item,
-  profileId,
-  onExplain,
-  onAdoptionEvidence,
-}: Props) {
+export function AuditorHybridRecommendationCard({ item, profileId, onExplain }: Props) {
   const navigate = useNavigate();
-  const risk = riskLabel(item.risk_score);
+  const auditRisk = auditRiskLabel(item.strategy_audit_risk ?? "medium");
   const feasibility = feasibilityLabel(item.confidence);
   const adoptionPct = (item.adoption_probability * 100).toFixed(1);
 
@@ -86,10 +81,11 @@ export function AuditorHybridRecommendationCard({
         <span
           className={cn(
             "inline-flex rounded-md border px-2.5 py-1 text-xs font-medium",
-            chipClass(risk.tone, "risk"),
+            chipClass(auditRisk.tone, "risk"),
           )}
+          title={`Strategy audit-risk band (low 5%, medium 12%, high 20% base penalty). Combined score: ${(item.risk_score * 100).toFixed(0)}%`}
         >
-          Risk: {risk.label}
+          Audit risk: {auditRisk.label}
         </span>
         <span
           className={cn(
@@ -115,19 +111,28 @@ export function AuditorHybridRecommendationCard({
             colorClass="bg-violet-500"
           />
           <AuditorMetricBar
-            label="Fused rank (final)"
+            label="Final Rank"
             value={item.fusion_score ?? item.hybrid_score}
             colorClass="bg-primary"
           />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Final rank blends tax fit (40%), adoption probability (30%), feasibility (20%), minus risk (10%).
+          Final rank blends tax fit (40%), adoption (30%), feasibility (20%), risk fit (12%), minus audit-risk penalty (10%).
         </p>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <AuditorMetricBar label="Compliance" value={item.confidence} colorClass="bg-sky-500" />
-        <AuditorMetricBar label="Risk (inv.)" value={item.risk_score} colorClass="bg-rose-500" />
+        <AuditorMetricBar
+          label="Risk fit"
+          value={item.risk_alignment ?? 1}
+          colorClass="bg-emerald-500"
+        />
+        <AuditorMetricBar
+          label="Rank penalty"
+          value={item.risk_score}
+          colorClass="bg-rose-500"
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
@@ -145,18 +150,8 @@ export function AuditorHybridRecommendationCard({
           className="inline-flex items-center gap-2 rounded-lg border border-primary/30 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
         >
           <BookOpen className="h-4 w-4" />
-          Plain-text explanation
+          Explanation
         </button>
-        {onAdoptionEvidence && (
-          <button
-            type="button"
-            onClick={onAdoptionEvidence}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/50"
-          >
-            <LineChart className="h-4 w-4" />
-            Adoption evidence
-          </button>
-        )}
       </div>
     </article>
   );

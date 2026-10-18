@@ -18,6 +18,7 @@ import {
   postChat,
 } from "../api";
 import { DomainNotice } from "../components/domain-notice";
+import { MarkdownLite } from "../components/markdown-lite";
 import { ProofMapPanel } from "../components/proof-map-panel";
 import type { ChatResponse, ChatSessionSummary } from "../types";
 
@@ -470,7 +471,7 @@ function TurnBlock({
           <div className="rounded-xl rounded-tl-sm border border-border/70 bg-card px-4 py-3 text-sm shadow-sm">
             {!blocked && qr.plain_answer ? (
               <div className="space-y-2">
-                <p className="whitespace-pre-wrap leading-relaxed">{qr.plain_answer}</p>
+                <MarkdownLite content={qr.plain_answer} />
                 {qr.validation_status && (
                   <p className="text-xs text-muted-foreground">
                     Validation:{" "}

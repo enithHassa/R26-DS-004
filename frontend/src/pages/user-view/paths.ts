@@ -7,6 +7,7 @@ export function taxwiseTransactionDetailPath(extractedTransactionId: string): st
   return `${TAXWISE_TRANSACTIONS}/${extractedTransactionId}`;
 }
 export const TAXWISE_PROFILE = `${TAXWISE_BASE}/profile`;
+export const TAXWISE_AI_ADVISOR = `${TAXWISE_BASE}/ai-advisor`;
 export const TAXWISE_ABOUT_YOU = `${TAXWISE_BASE}/about-you`;
 export const TAXWISE_RECOMMENDATIONS = `${TAXWISE_BASE}/recommendations`;
 export const TAXWISE_FINANCIAL_IMPACT = `${TAXWISE_BASE}/financial-impact`;

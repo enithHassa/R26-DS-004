@@ -19,8 +19,7 @@ import { formatLkr, parseLkr } from "../../utils/format-lkr";
 export type TaxLiabilityChartRow = {
   year: number;
   noStrategy: number;
-  withStrategy1: number;
-  withStrategy2?: number;
+  withStrategy: number;
   bandLow?: number;
   bandHigh?: number;
   bandSpan?: number;
@@ -28,6 +27,7 @@ export type TaxLiabilityChartRow = {
 
 type Props = {
   rows: TaxLiabilityChartRow[];
+  strategyLabel?: string;
   showMonteCarloToggle?: boolean;
   title?: string;
   subtitle?: string;
@@ -35,47 +35,46 @@ type Props = {
   className?: string;
 };
 
-function buildRowsFromSimulations(
+function buildRowsFromSimulation(
   primary: ImpactSimulationResponse,
-  secondary?: ImpactSimulationResponse | null,
   bands?: ProjectionBand[],
 ): TaxLiabilityChartRow[] {
   return primary.baseline.slice(0, primary.horizon_years).map((base, i) => {
-    const s1 = primary.strategy_path?.[i];
-    const s2 = secondary?.strategy_path?.[i];
+    const strat = primary.strategy_path?.[i];
     const band = bands?.find((b) => b.year === base.year);
     const bandLow = band ? parseLkr(band.p10) : undefined;
     const bandHigh = band ? parseLkr(band.p90) : undefined;
     return {
       year: base.year,
       noStrategy: parseLkr(base.projected_tax_liability),
-      withStrategy1: s1 ? parseLkr(s1.projected_tax_liability) : parseLkr(base.projected_tax_liability),
-      withStrategy2: s2 ? parseLkr(s2.projected_tax_liability) : undefined,
+      withStrategy: strat
+        ? parseLkr(strat.projected_tax_liability)
+        : parseLkr(base.projected_tax_liability),
       bandLow,
       bandHigh,
-      bandSpan: bandLow !== undefined && bandHigh !== undefined ? Math.max(0, bandHigh - bandLow) : undefined,
+      bandSpan:
+        bandLow !== undefined && bandHigh !== undefined ? Math.max(0, bandHigh - bandLow) : undefined,
     };
   });
 }
 
-export function buildTaxLiabilityChartRows(
-  primary: ImpactSimulationResponse,
-  secondary?: ImpactSimulationResponse | null,
-): TaxLiabilityChartRow[] {
-  return buildRowsFromSimulations(primary, secondary, primary.tax_liability_bands);
+export function buildTaxLiabilityChartRows(primary: ImpactSimulationResponse): TaxLiabilityChartRow[] {
+  return buildRowsFromSimulation(primary, primary.tax_liability_bands);
 }
 
 export function AuditorTaxLiabilityChart({
   rows,
+  strategyLabel = "With strategy",
   showMonteCarloToggle = true,
   title = "Annual tax liability projection",
-  subtitle = "LKR · Monte Carlo confidence bands",
+  subtitle = "Baseline (no strategy) vs the selected strategy",
   compact = false,
   className,
 }: Props) {
   const [monteCarlo, setMonteCarlo] = useState(true);
-  const hasStrategy2 = rows.some((r) => r.withStrategy2 !== undefined);
   const chartHeight = compact ? 220 : 340;
+  const withStrategyLegend =
+    strategyLabel.length > 36 ? `${strategyLabel.slice(0, 33)}…` : strategyLabel;
 
   const chartData = useMemo(
     () =>
@@ -103,7 +102,7 @@ export function AuditorTaxLiabilityChart({
           </div>
           {showMonteCarloToggle && !compact && (
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-              <span>Monte Carlo Bands</span>
+              <span>Monte Carlo band</span>
               <button
                 type="button"
                 role="switch"
@@ -160,7 +159,7 @@ export function AuditorTaxLiabilityChart({
                   stroke="none"
                   fill="var(--color-primary)"
                   fillOpacity={0.12}
-                  name="Confidence band"
+                  name="Uncertainty range (baseline)"
                   isAnimationActive={false}
                 />
               </>
@@ -171,26 +170,16 @@ export function AuditorTaxLiabilityChart({
               stroke="#ef4444"
               strokeWidth={2}
               dot={{ r: 3, fill: "#ef4444" }}
-              name="No Strategy"
+              name="No strategy"
             />
             <Line
               type="monotone"
-              dataKey="withStrategy1"
+              dataKey="withStrategy"
               stroke="#22c55e"
               strokeWidth={2.5}
               dot={{ r: 3, fill: "#22c55e" }}
-              name="With Strategy 1"
+              name={withStrategyLegend}
             />
-            {hasStrategy2 && (
-              <Line
-                type="monotone"
-                dataKey="withStrategy2"
-                stroke="#fbbf24"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "#fbbf24" }}
-                name="With Strategy 2"
-              />
-            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

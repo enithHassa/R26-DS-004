@@ -51,6 +51,10 @@ class TaxpayerContext(BaseModel):
     taxpayer_name: str | None = None
     tax_year: str | None = None
     fields_used: list[str] = Field(default_factory=list)
+    context_sources: list[str] = Field(
+        default_factory=list,
+        description="Intent-routed system data sources selected for this turn.",
+    )
     kg_consistency: str | None = None
     note: str | None = None
 

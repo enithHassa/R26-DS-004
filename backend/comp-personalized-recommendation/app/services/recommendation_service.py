@@ -29,6 +29,7 @@ from app.schemas.strategy import Strategy, StrategyCategory
 from app.services.inference_assets import InferenceArtifacts, load_inference_artifacts
 from app.services.hybrid_service import _default_fusion_weights, _fuse_rank_score
 from app.services.profile_service import ProfileNotFoundError, compute_derived_features, get_profile
+from app.services.risk_scoring_service import compute_strategy_risk_bundle
 
 
 class RecommendationGenerationError(RuntimeError):
@@ -364,7 +365,11 @@ def _item_from_strategy(
     tax_savings_norm: float,
     lambdamart_score: float | None = None,
 ) -> RecommendationItem:
-    risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
+    user_tolerance = str(ctx.get("risk_tolerance", "medium"))
+    risk_penalty, _audit_level, risk_alignment = compute_strategy_risk_bundle(
+        strategy_audit_risk=s.audit_risk_level,
+        user_risk_tolerance=user_tolerance,
+    )
     feasibility = float(eval_result.feasibility_score)
     savings_norm = min(1.0, max(0.0, tax_savings_norm))
     adopt = min(1.0, max(0.0, adoption_prob))
@@ -380,6 +385,7 @@ def _item_from_strategy(
             component_settings.COMP_RECOMMENDATION_W_SAVINGS * savings_norm
             + component_settings.COMP_RECOMMENDATION_W_ADOPTION * adopt
             + component_settings.COMP_RECOMMENDATION_W_FEASIBILITY * feasibility
+            + 0.12 * risk_alignment
             - component_settings.COMP_RECOMMENDATION_W_RISK_PENALTY * risk_penalty
         )
 
@@ -550,13 +556,18 @@ def _generate_phase4(
             continue
         lm_score = lambdamart_by_sid.get(s.strategy_id, 0.0)
         adopt = adopt_by_sid.get(s.strategy_id, 0.0)
-        risk_penalty = 0.2 if str(ctx.get("risk_tolerance", "medium")) == "high" else 0.1
+        user_tolerance = str(ctx.get("risk_tolerance", "medium"))
+        risk_penalty, _audit_level, risk_alignment = compute_strategy_risk_bundle(
+            strategy_audit_risk=s.audit_risk_level,
+            user_risk_tolerance=user_tolerance,
+        )
         feasibility = float(eval_result.feasibility_score)
         fusion_score = _fuse_rank_score(
             lambdamart_score=lm_score,
             adoption_probability=adopt,
             feasibility=feasibility,
             risk_penalty=risk_penalty,
+            risk_alignment=risk_alignment,
             weights=fusion_weights,
         )
         candidates.append(

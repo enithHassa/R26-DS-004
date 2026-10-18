@@ -71,6 +71,12 @@ class DocumentRenameResponse(BaseModel):
     updated_related_transaction_count: int = 0
 
 
+class DocumentDeleteResponse(BaseModel):
+    document_id: UUID
+    filename: str
+    message: str = "Document removed."
+
+
 class DocumentStatusResponse(BaseModel):
     document_id: UUID
     filename: str

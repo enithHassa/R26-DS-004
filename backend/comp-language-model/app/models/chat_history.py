@@ -27,6 +27,12 @@ from sqlalchemy.types import JSON
 
 from backend.shared.config.database import Base
 
+# Register the ``users`` table on this process's shared ``Base`` metadata so the
+# ``ForeignKey("users.id")`` below resolves during mapper configuration. Without
+# this import the LLM service never loads the User model and any persisted-chat
+# query raises NoReferencedTableError.
+from backend.shared.auth.models import User as _User  # noqa: F401
+
 # JSONB on Postgres, plain JSON elsewhere (sqlite in tests).
 _JSON = JSON().with_variant(JSONB(astext_type=Text()), "postgresql")
 

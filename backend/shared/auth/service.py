@@ -9,10 +9,48 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from backend.shared.auth.models import User
+from backend.shared.utils.logging import logger
 
 # Hardcoded auditor for the admin tool (prototype-only).
 AUDITOR_USERNAME = "Auditor"
 AUDITOR_PASSWORD = "auditor@123"
+# Stable synthetic identity so auditor-owned rows (e.g. llm_chat_sessions, which
+# FK to users.id) survive restarts and resolve to the same account every login.
+AUDITOR_USER_ID = UUID("00000000-0000-0000-0000-00000000a0d1")
+AUDITOR_EMAIL = "auditor@system.local"
+
+
+def ensure_auditor_user(db: Session) -> UUID | None:
+    """Guarantee a ``users`` row for the prototype auditor and return its id.
+
+    Features that persist per-user data through a ``users.id`` foreign key
+    (the LLM chat history is the first) need the auditor to exist as a real
+    account. Returns ``None`` if the row cannot be created (e.g. read-only DB),
+    in which case the caller should fall back to a session with no ``user_id``.
+    """
+    try:
+        existing = db.get(User, AUDITOR_USER_ID)
+        if existing is not None:
+            return existing.id
+        by_email = db.execute(
+            select(User).where(User.email == AUDITOR_EMAIL)
+        ).scalar_one_or_none()
+        if by_email is not None:
+            return by_email.id
+        db.add(
+            User(
+                id=AUDITOR_USER_ID,
+                email=AUDITOR_EMAIL,
+                full_name=AUDITOR_USERNAME,
+                password=AUDITOR_PASSWORD,
+            )
+        )
+        db.commit()
+        return AUDITOR_USER_ID
+    except Exception as exc:  # pragma: no cover - depends on DB perms
+        db.rollback()
+        logger.warning("Could not ensure auditor users row: {}", exc)
+        return None
 
 
 class InvalidCredentialsError(LookupError):

@@ -188,6 +188,12 @@ export interface DocumentRenameResponse {
   updated_related_transaction_count: number;
 }
 
+export interface DocumentDeleteResponse {
+  document_id: string;
+  filename: string;
+  message: string;
+}
+
 export async function listDocuments(
   limit = 50,
   offset = 0,
@@ -249,6 +255,32 @@ export async function saveDocument(
   return data;
 }
 
+export interface SaveDocumentsBatchResult {
+  saved: DocumentSaveResponse[];
+  failed: { filename: string; error: string }[];
+}
+
+/** Save multiple statements without extraction (auditor library). */
+export async function saveDocuments(
+  files: File[],
+  financialProfileId: string,
+  taxYear?: string | null,
+): Promise<SaveDocumentsBatchResult> {
+  const saved: DocumentSaveResponse[] = [];
+  const failed: { filename: string; error: string }[] = [];
+  for (const file of files) {
+    try {
+      saved.push(await saveDocument(file, financialProfileId, taxYear));
+    } catch (err) {
+      failed.push({
+        filename: file.name,
+        error: err instanceof Error ? err.message : "Save failed.",
+      });
+    }
+  }
+  return { saved, failed };
+}
+
 export async function submitDocumentToAuditor(
   file: File,
   financialProfileId: string,
@@ -286,6 +318,13 @@ export async function renameDocument(
   const { data } = await transactionSemanticApi.patch<DocumentRenameResponse>(
     `/documents/${documentId}`,
     { filename },
+  );
+  return data;
+}
+
+export async function deleteDocument(documentId: string): Promise<DocumentDeleteResponse> {
+  const { data } = await transactionSemanticApi.delete<DocumentDeleteResponse>(
+    `/documents/${documentId}`,
   );
   return data;
 }

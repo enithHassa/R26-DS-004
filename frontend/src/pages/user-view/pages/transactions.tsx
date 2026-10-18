@@ -10,9 +10,11 @@ import {
   getProfileTransactionSummary,
   getUserPortalStatements,
   getUserPortalTransactions,
+  type UserPortalStatement,
   type UserPortalTransaction,
 } from "@/pages/user-view/api/user-transactions";
 import { StatementUploadModal } from "@/pages/user-view/components/statement-upload-modal";
+import { StatementPreviewModal } from "@/pages/user-view/components/statement-preview-modal";
 import { UserActivityGroupsPanel } from "@/pages/user-view/components/user-activity-groups-panel";
 import { UserStatementsTimeline } from "@/pages/user-view/components/user-statements-timeline";
 import { UserViewShell } from "@/pages/user-view/components/user-view-shell";
@@ -80,6 +82,7 @@ export function UserTransactionsPage() {
   const profileId = useUserSessionStore((s) => s.profileId);
   const queryClient = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [previewStatement, setPreviewStatement] = useState<UserPortalStatement | null>(null);
   const [includeAll, setIncludeAll] = useState(false);
   const [activeTab, setActiveTab] = useState<TransactionsTab>("curated");
 
@@ -352,7 +355,10 @@ export function UserTransactionsPage() {
             ) : null}
 
             {activeTab === "statements" ? (
-              <UserStatementsTimeline statements={statementsQuery.data ?? []} />
+              <UserStatementsTimeline
+                statements={statementsQuery.data ?? []}
+                onSelect={setPreviewStatement}
+              />
             ) : null}
           </section>
         </div>
@@ -411,6 +417,14 @@ export function UserTransactionsPage() {
         profileId={profileId}
         taxYear={taxYear}
         onSubmitted={refreshAll}
+      />
+
+      <StatementPreviewModal
+        open={previewStatement !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewStatement(null);
+        }}
+        statement={previewStatement}
       />
     </UserViewShell>
   );

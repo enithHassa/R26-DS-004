@@ -27,7 +27,12 @@ def login(payload: LoginRequest, db: Session = DBSession) -> LoginResponse:
         payload.username == auth_service.AUDITOR_USERNAME
         and payload.password == auth_service.AUDITOR_PASSWORD
     ):
-        return LoginResponse(role="auditor", full_name=auth_service.AUDITOR_USERNAME)
+        auditor_id = auth_service.ensure_auditor_user(db)
+        return LoginResponse(
+            role="auditor",
+            full_name=auth_service.AUDITOR_USERNAME,
+            user_id=str(auditor_id) if auditor_id is not None else None,
+        )
 
     try:
         user, profile_id = auth_service.authenticate_user(db, payload.username, payload.password)

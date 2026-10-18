@@ -89,6 +89,10 @@ def build_synthesis_prompt(
         "state. Only after giving that answer, note any part that the sources leave unspecified. "
         "Do not open the reply with what is missing.",
         "Cite passages as [Match 1], [Match 2], etc.",
+        "Formatting: use plain Markdown a chat UI can render — short paragraphs, '-' "
+        "bullet points for lists, and '1.' numbering for ordered steps. Keep any bold to "
+        "genuine key terms. Do NOT use LaTeX or math delimiters ($ or $$); write any "
+        "formula inline in plain text, e.g. 'min(cap 1,800,000, income 3,800,000) = 1,800,000'.",
         "",
         f"Question: {question.strip()}",
         "",
@@ -142,15 +146,20 @@ async def synthesize_plain_answer(
     )
     model = settings.COMP_LLM_GEMINI_MODEL
     url = _GEMINI_URL.format(model=model)
+    # "flash" models are reasoning models: left unchecked they spend the whole
+    # maxOutputTokens budget on hidden thinking and return an empty answer with
+    # finishReason=MAX_TOKENS. Gemini 3.x rejects thinkingBudget and uses
+    # thinkingLevel ("low"/"high") instead, and cannot fully disable thinking.
+    if model.startswith("gemini-3"):
+        thinking_config = {"thinkingLevel": "low"}
+    else:
+        thinking_config = {"thinkingBudget": 0}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.2,
             "maxOutputTokens": settings.COMP_LLM_ANSWER_MAX_OUTPUT_TOKENS,
-            # Gemini 2.5 / 3.x "flash" are reasoning models: without this they
-            # spend the whole maxOutputTokens budget on hidden thinking tokens
-            # and return an empty answer with finishReason=MAX_TOKENS.
-            "thinkingConfig": {"thinkingBudget": 0},
+            "thinkingConfig": thinking_config,
         },
     }
 
@@ -219,10 +228,11 @@ async def synthesize_plain_answer(
                     body,
                 )
                 return None, "gemini", model
-            if status == 400:
+            if status in (400, 404):
                 logger.warning(
-                    "Answer synthesis bad request (HTTP 400, model={}). Check the model "
-                    "name is valid. Body: {}",
+                    "Answer synthesis rejected (HTTP {}, model={}). The model name is "
+                    "likely invalid or unavailable for this API key. Body: {}",
+                    status,
                     model,
                     body,
                 )

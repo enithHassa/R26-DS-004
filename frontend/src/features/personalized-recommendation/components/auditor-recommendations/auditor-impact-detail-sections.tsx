@@ -46,7 +46,6 @@ export function buildImpactTableRows(sim: ImpactSimulationResponse) {
 
 type Props = {
   primaryResult?: ImpactSimulationResponse;
-  secondaryResult?: ImpactSimulationResponse | null;
   selectedItem?: HybridResultItem;
   strategyName: string;
   rank?: number;
@@ -57,7 +56,6 @@ type Props = {
 
 export function AuditorImpactDetailSections({
   primaryResult,
-  secondaryResult,
   selectedItem,
   strategyName,
   rank,
@@ -73,11 +71,8 @@ export function AuditorImpactDetailSections({
   const displayRank = rank ?? selectedItem?.rank ?? 1;
 
   const chartRows = useMemo(
-    () =>
-      primaryResult
-        ? buildTaxLiabilityChartRows(primaryResult, secondaryResult ?? null)
-        : [],
-    [primaryResult, secondaryResult],
+    () => (primaryResult ? buildTaxLiabilityChartRows(primaryResult) : []),
+    [primaryResult],
   );
 
   const rows = primaryResult ? buildImpactTableRows(primaryResult) : [];
@@ -152,19 +147,23 @@ export function AuditorImpactDetailSections({
 
       <AuditorTaxLiabilityChart
         rows={chartRows}
+        strategyLabel={strategyName}
         title={`${AUDITOR_IMPACT_HORIZON_YEARS}-Year Tax Liability Projection`}
-        subtitle="LKR · Annual tax liability with Monte Carlo confidence bands"
+        subtitle="Red = no strategy · Green = with this strategy · Shaded area = uncertainty range"
         compact={compactChart}
         showMonteCarloToggle={!compactChart}
       />
 
-      <AuditorImpactVisualizations result={primaryResult} />
+      <AuditorImpactVisualizations result={primaryResult} strategyName={strategyName} />
 
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-8">
           <Card className="overflow-hidden border-border/70 shadow-sm">
             <CardHeader className="border-b py-3">
               <CardTitle className="text-sm">Detailed Impact</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Year-by-year tax: baseline vs this strategy, plus savings (negative = extra tax)
+              </p>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -173,7 +172,7 @@ export function AuditorImpactDetailSections({
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="px-4 py-3 font-medium">Year</th>
                       <th className="px-4 py-3 font-medium">Tax (No Strategy)</th>
-                      <th className="px-4 py-3 font-medium">Tax (With Strategy 1)</th>
+                      <th className="px-4 py-3 font-medium">Tax (With Strategy)</th>
                       <th className="px-4 py-3 font-medium">Annual Saving</th>
                       <th className="px-4 py-3 font-medium">Cumulative Saving</th>
                     </tr>
