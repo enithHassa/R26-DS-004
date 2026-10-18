@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Info, Loader2 } from "lucide-react";
 
@@ -76,6 +76,9 @@ export function InterviewIncomePage() {
   const [profileLoadState, setProfileLoadState] = useState<"idle" | "loading" | "done">("idle");
   const [monthlyLoadState, setMonthlyLoadState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [monthlyLoadMessage, setMonthlyLoadMessage] = useState<string | null>(null);
+  const incomeRef = useRef(income);
+  incomeRef.current = income;
+  const appliedPendingKeyRef = useRef<string | null>(null);
 
   const employmentCard = incomeCatalogCard("employment");
   const businessCard = incomeCatalogCard("business");
@@ -143,6 +146,29 @@ export function InterviewIncomePage() {
     patchIncome,
   ]);
 
+  // Comp 1 "Push totals" lands here with taxable buckets only — apply once into OE fields.
+  useEffect(() => {
+    if (!pendingTransactionBreakdown?.length) return;
+    const key = JSON.stringify(pendingTransactionBreakdown);
+    if (appliedPendingKeyRef.current === key) return;
+    appliedPendingKeyRef.current = key;
+    const merged = mergeBreakdownIntoIncome(
+      incomeRef.current,
+      pendingTransactionBreakdown,
+      "replace",
+    );
+    replaceIncome(merged);
+    setPendingTransactionBreakdown(null);
+    setMonthlyLoadState("done");
+    setMonthlyLoadMessage(
+      `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
+    );
+  }, [
+    pendingTransactionBreakdown,
+    replaceIncome,
+    setPendingTransactionBreakdown,
+  ]);
+
   const total = totalIncomeLkr(income);
   const employment = employmentIncomeLkr(income);
   const business = businessIncomeLkr(income);
@@ -195,9 +221,19 @@ export function InterviewIncomePage() {
 
   function mergeTransactionTotals(): void {
     if (!pendingTransactionBreakdown?.length) return;
-    const merged = mergeBreakdownIntoIncome(income, pendingTransactionBreakdown);
+    const key = JSON.stringify(pendingTransactionBreakdown);
+    appliedPendingKeyRef.current = key;
+    const merged = mergeBreakdownIntoIncome(
+      income,
+      pendingTransactionBreakdown,
+      "replace",
+    );
     replaceIncome(merged);
     setPendingTransactionBreakdown(null);
+    setMonthlyLoadState("done");
+    setMonthlyLoadMessage(
+      `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
+    );
   }
 
   async function mergeSavedMonthlyTotals(): Promise<void> {
@@ -226,10 +262,12 @@ export function InterviewIncomePage() {
         );
         return;
       }
-      const merged = mergeBreakdownIntoIncome(income, breakdown);
+      const merged = mergeBreakdownIntoIncome(income, breakdown, "replace");
       replaceIncome(merged);
       setMonthlyLoadState("done");
-      setMonthlyLoadMessage(`Merged ${breakdown.length} income bucket(s) from saved bank data.`);
+      setMonthlyLoadMessage(
+        `Applied ${breakdown.length} taxable bucket(s) from saved bank data into OE income.`,
+      );
     } catch {
       setMonthlyLoadState("error");
       setMonthlyLoadMessage("Could not load monthly bank totals.");
@@ -290,8 +328,8 @@ export function InterviewIncomePage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
         <p className="flex-1 text-sm text-muted-foreground">
-          Pre-fill user-side income from the selected taxpayer&apos;s Tax Return Profile
-          (employment, FDs, dividends, business, rents).
+          Load profile figures, or apply Comp 1 taxable bank buckets (exempt/AIT interest is
+          excluded). Push from Tax classification auto-applies here when present.
         </p>
         <Button
           type="button"
@@ -322,7 +360,7 @@ export function InterviewIncomePage() {
               Loading…
             </>
           ) : (
-            "Merge saved monthly bank totals"
+            "Apply saved monthly taxable totals"
           )}
         </Button>
       </div>
