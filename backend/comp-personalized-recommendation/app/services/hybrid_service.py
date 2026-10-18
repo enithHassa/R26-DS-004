@@ -1,20 +1,19 @@
-"""Hybrid recommendation service: LightGBM + LambdaMART + RAG + adoption fusion.
+"""Recommendation ranking (ML) + RAG explanations (after rank).
 
 Pipeline:
-  1. Load profile from DB and compute derived features.
-  2. Run LightGBM adoption model  → adoption_probability per strategy.
-  3. Run LambdaMART ranker        → lambdamart_score per strategy (min-max normalised).
-  4. Run TF-IDF RAG retrieval     → rag_similarity_score per strategy (cosine similarity).
-  5. Filter strategies by IRD eligibility rules.
-  6. retrieval_hybrid = lambda_weight × lambdamart + (1-lambda_weight) × rag
-  7. fusion_score = w_savings×LM + w_adoption×adopt + w_feasibility×feas − w_risk×risk
-  8. Sort by fusion_score descending → return top-K.
+  1. Load profile and compute derived features (tax calculator).
+  2. LightGBM adoption model → P(adopt) per strategy.
+  3. LambdaMART ranker → tax-fit score per strategy (min-max normalised).
+  4. Thin eligibility check (do not recommend ineligible catalog items).
+  5. fusion_score = tax-fit + adoption + feasibility + risk alignment − risk
+     (RAG is not in this formula).
+  6. Sort by fusion_score → top-K shortlist.
+  7. RAG / templates explain the shortlist only (why_relevant, IRD refs).
 """
 
 from __future__ import annotations
 
 import sys
-from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -33,15 +32,12 @@ from app.services.profile_service import ProfileNotFoundError, compute_derived_f
 from app.services.risk_scoring_service import compute_strategy_risk_bundle, resolve_risk_tolerance
 from app.services.rag_service import (
     _IRD_REFS,
-    _build_vector_store,
     _generate_detailed_explanation,
     _generate_explanation,
     _load_strategies,
-    _profile_to_query,
 )
 
-LAMBDA_WEIGHT = 0.7
-RAG_WEIGHT = 0.3
+RANKING_METHOD = "fusion_lambdamart_adoption_feasibility_risk"
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +226,6 @@ def _build_ctx(profile: FinancialProfileORM, artifacts: Any) -> tuple[pd.DataFra
     sr_ok = float(derived.savings_rate) >= 0.1
     ctx["archetype"] = archetype_map.get((str(profile.risk_tolerance), sr_ok), "balanced_planner")
 
-    from app.schemas.profile import _age_band_midpoint  # type: ignore[import-not-found]
     age = int(derived.age_years)
     if age <= 24:
         ctx["age_band"] = "18-24"
@@ -284,11 +279,8 @@ class HybridResult:
         name: str,
         category: str,
         description: str,
-        hybrid_score: float,
-        retrieval_hybrid_score: float,
         fusion_score: float,
         lambdamart_score: float,
-        rag_similarity_score: float,
         adoption_probability: float,
         estimated_annual_savings: float,
         confidence: float,
@@ -306,11 +298,8 @@ class HybridResult:
         self.name = name
         self.category = category
         self.description = description
-        self.hybrid_score = hybrid_score
-        self.retrieval_hybrid_score = retrieval_hybrid_score
         self.fusion_score = fusion_score
         self.lambdamart_score = lambdamart_score
-        self.rag_similarity_score = rag_similarity_score
         self.adoption_probability = adoption_probability
         self.estimated_annual_savings = estimated_annual_savings
         self.confidence = confidence
@@ -333,14 +322,13 @@ def hybrid_query(
     *,
     profile_id: str,
     top_k: int = 5,
-    lambda_weight: float = LAMBDA_WEIGHT,
     rules_source: str = "default",
     assessment_year: str | None = None,
     risk_tolerance_override: str | None = None,
-) -> tuple[list[HybridResult], str, dict[str, Any]]:
-    """Run hybrid recommendation pipeline.
+) -> tuple[list[HybridResult], dict[str, Any]]:
+    """Rank with fusion (ML); explain the shortlist with RAG.
 
-    Returns (results, query_text, rules_context).
+    Returns (results, rules_context).
 
     When ``rules_source`` is ``catalog``, the caller must sync that
     ``assessment_year`` via ``POST /admin/catalog-rules/sync`` first. The
@@ -426,37 +414,9 @@ def hybrid_query(
         for i in range(len(artifacts.strategy_ids))
     }
 
-    # ── Step 4: RAG TF-IDF similarity scores ─────────────────────────────────
-    rag_ctx = {
-        "occupation": str(profile.occupation),
-        "risk_tolerance": str(profile.risk_tolerance),
-        "gross_monthly_income_lkr": float(profile.gross_monthly_income),
-        "annual_income": float(ctx["annual_income"]),
-        "epf_balance_lkr": float(profile.epf_balance),
-        "years_employed": int(profile.years_employed),
-        "life_insurance_premium_annual_lkr": float(profile.life_insurance_premium_annual),
-        "home_loan_interest_annual_lkr": float(profile.home_loan_interest_annual),
-        "donations_annual_lkr": float(profile.donations_annual),
-        "has_health_insurance": bool(profile.health_insurance),
-        "debt_to_income": float(ctx["debt_to_income"]),
-        "savings_rate": float(ctx["savings_rate"]),
-        "age_years": int(ctx["age_years"]),
-    }
-    query_text = _profile_to_query(rag_ctx)
-
-    from sklearn.metrics.pairwise import cosine_similarity as cos_sim
-    vectorizer, matrix, raw_strategies = _build_vector_store()
-    query_vec = vectorizer.transform([query_text])
-    rag_scores_arr = cos_sim(query_vec, matrix).flatten()
-    rag_by_sid = {
-        raw_strategies[i].get("strategy_id", ""): float(rag_scores_arr[i])
-        for i in range(len(raw_strategies))
-    }
-
-    # ── Step 5: Filter eligible + compute fusion score ─────────────────────────
-    rag_weight = 1.0 - lambda_weight
+    # ── Step 4: Eligible candidates scored by fusion only ───────────────────
     fusion_weights = _default_fusion_weights()
-    candidates: list[tuple[float, HybridResult]] = []
+    scored: list[tuple[float, dict[str, Any]]] = []
 
     for s in catalog.strategies:
         eval_result = evaluate_strategy(s, ctx)
@@ -465,9 +425,6 @@ def hybrid_query(
 
         sid = s.strategy_id
         lm_score = lambdamart_by_sid.get(sid, 0.0)
-        rag_score = rag_by_sid.get(sid, 0.0)
-        retrieval_hybrid = round(lambda_weight * lm_score + rag_weight * rag_score, 6)
-
         adopt = adopt_by_sid.get(sid, 0.0)
         est_savings = max(0.0, min(baseline_tax * 0.45, baseline_tax * lm_score * 0.35))
         risk_penalty, audit_level, risk_alignment = compute_strategy_risk_bundle(
@@ -486,43 +443,70 @@ def hybrid_query(
             ),
             6,
         )
+        scored.append(
+            (
+                fusion_score,
+                {
+                    "strategy": s,
+                    "lm_score": lm_score,
+                    "adopt": adopt,
+                    "est_savings": est_savings,
+                    "risk_penalty": risk_penalty,
+                    "audit_level": audit_level,
+                    "risk_alignment": risk_alignment,
+                    "feasibility": feasibility,
+                },
+            )
+        )
 
-        raw_s = next((r for r in raw_strategies if r.get("strategy_id") == sid), {})
+    scored.sort(key=lambda x: x[0], reverse=True)
 
-        candidates.append((
-            fusion_score,
+    # ── Step 5: Explanations for the ranked shortlist only (not used to sort)
+    explain_ctx = {
+        "occupation": str(profile.occupation),
+        "risk_tolerance": str(profile.risk_tolerance),
+        "gross_monthly_income_lkr": float(profile.gross_monthly_income),
+        "annual_income": float(ctx["annual_income"]),
+        "epf_balance_lkr": float(profile.epf_balance),
+        "years_employed": int(profile.years_employed),
+        "life_insurance_premium_annual_lkr": float(profile.life_insurance_premium_annual),
+        "home_loan_interest_annual_lkr": float(profile.home_loan_interest_annual),
+        "donations_annual_lkr": float(profile.donations_annual),
+        "has_health_insurance": bool(profile.health_insurance),
+        "debt_to_income": float(ctx["debt_to_income"]),
+        "savings_rate": float(ctx["savings_rate"]),
+        "age_years": int(ctx["age_years"]),
+    }
+    catalog_docs = _load_strategies()
+    results: list[HybridResult] = []
+    for rank, (fusion_score, meta) in enumerate(scored[:top_k], start=1):
+        s = meta["strategy"]
+        sid = s.strategy_id
+        raw_s = next((r for r in catalog_docs if r.get("strategy_id") == sid), {})
+        results.append(
             HybridResult(
-                rank=0,
+                rank=rank,
                 strategy_id=sid,
                 name=s.name,
                 category=s.category.replace("_", " "),
                 description=s.description,
-                hybrid_score=fusion_score,
-                retrieval_hybrid_score=retrieval_hybrid,
                 fusion_score=fusion_score,
-                lambdamart_score=round(lm_score, 4),
-                rag_similarity_score=round(rag_score, 4),
-                adoption_probability=round(adopt, 4),
-                estimated_annual_savings=round(est_savings, 2),
-                confidence=round(feasibility, 4),
-                risk_score=round(risk_penalty, 4),
-                strategy_audit_risk=audit_level,
+                lambdamart_score=round(meta["lm_score"], 4),
+                adoption_probability=round(meta["adopt"], 4),
+                estimated_annual_savings=round(meta["est_savings"], 2),
+                confidence=round(meta["feasibility"], 4),
+                risk_score=round(meta["risk_penalty"], 4),
+                strategy_audit_risk=meta["audit_level"],
                 risk_tolerance_applied=user_risk_tolerance,
-                risk_alignment=round(risk_alignment, 4),
+                risk_alignment=round(meta["risk_alignment"], 4),
                 ird_reference=_IRD_REFS.get(sid, "IRA No. 24 of 2017"),
                 required_docs=raw_s.get("constraints", {}).get("required_docs", []),
-                why_relevant=_generate_explanation(raw_s, rag_ctx, rag_score),
-                detailed_explanation=_generate_detailed_explanation(raw_s, rag_ctx),
-            ),
-        ))
-
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    results = []
-    for rank, (_, item) in enumerate(candidates[:top_k], start=1):
-        item.rank = rank
-        results.append(item)
+                why_relevant=_generate_explanation(raw_s, explain_ctx),
+                detailed_explanation=_generate_detailed_explanation(raw_s, explain_ctx),
+            )
+        )
 
     rules_context["risk_tolerance_applied"] = user_risk_tolerance
     rules_context["risk_tolerance_override"] = risk_tolerance_override is not None
 
-    return results, query_text, rules_context
+    return results, rules_context

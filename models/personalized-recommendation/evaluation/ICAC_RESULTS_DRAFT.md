@@ -1,6 +1,6 @@
 # Component 3 — Results & Discussion (ICAC draft, one column)
 
-> **Status:** Prose + interim figures ready. Metric cells in Table II are placeholders until Phase-6 JSON is produced (do **not** paste the old ~99.9% anecdote).
+> **Status:** Prose + interim figures ready. Table II is now populated from `reports/phase6_eval.json` (val split, n=1,500 profiles, 10 strategies). **Caveat:** this run predates the leakage-aware re-run flagged below — the near-ceiling ranking scores should be treated as an upper bound pending an independent relevance protocol, not as confirmed real-world predictive skill.
 
 ---
 
@@ -12,12 +12,18 @@ Eligible Sri Lankan tax strategies are generated from a ten-entry rule catalog c
 
 | Method | NDCG@5 | NDCG@10 | MAP@5 | P@5 | Adoption F1 |
 |--------|-------:|--------:|------:|----:|------------:|
-| Catalog / rule priority | — | — | — | — | — |
-| Feasibility-only | — | — | — | — | — |
-| Pair regressor (HGB / RF) | — | — | — | — | — |
-| LambdaMART + adoption + fusion (ours) | — | — | — | — | — |
+| Catalog / rule priority | 0.690 | 0.773 | 0.756 | 0.368 | n/a¹ |
+| Feasibility-only | 0.968 | 0.971 | 0.991 | 0.535 | n/a¹ |
+| Pair regressor (HGB / RF)² | 0.992 | 0.994 | 0.986 | 0.531 | n/a¹ |
+| LambdaMART + adoption + fusion (ours) | 0.990 | 0.992 | 0.985 | 0.530 | 0.772³ |
 
-*Em dashes: fill from `reports/phase6_eval.json` after a leakage-aware re-run; do not use prior near-perfect scores.*
+*Source: `reports/phase6_eval.json` (val split, n=1,500 profiles, 10 strategies), mapped as: Catalog/rule priority → "Catalog priority (rules)"; Feasibility-only → "Feasibility heuristic"; Pair regressor → "HistGradientBoosting pair regressor"; LambdaMART + fusion → "LightGBM LambdaMART (retrained)".*
+
+¹ No adoption-classifier counterpart exists for this arm in the current JSON, so Adoption F1 cannot be reported without fabricating a figure.
+² Only an HGB run is persisted in this evaluation; no separate RandomForest arm was found on disk (RF is imported in `scripts/evaluate_phase4_model_comparison.py` but not saved as a scored result).
+³ Macro-F1 taken from the paired "LightGBM adoption (retrained)" classifier arm, not from the ranking arm itself — the current JSON does not compute a single fused Adoption F1 for the LambdaMART ranking row.
+
+**Caveat (unresolved):** the ranking metrics above (NDCG/MAP/P@5) are near-ceiling and, per this file's own prior note, predate a leakage-aware re-run. Treat as provisional until that re-run is completed and confirms the scores are not an artefact of label leakage.
 
 1) **Baseline vs learned ranking.** Rule and feasibility baselines provide eligible shortlists but do not optimize graded relevance across profile–strategy pairs; LambdaMART is the selected ranker for ordered recommendations under the planned offline protocol (NDCG/MAP/P@K).
 

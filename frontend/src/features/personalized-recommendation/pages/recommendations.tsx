@@ -59,7 +59,7 @@ export function RecommendationsPage() {
         <CardHeader>
           <CardTitle>Generate ranked list</CardTitle>
           <CardDescription>
-            LambdaMART ranking with rule-based feasibility filtering from the strategy catalog.
+            LambdaMART tax-fit + adoption + feasibility/risk. Catalog checks drop ineligible items only.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

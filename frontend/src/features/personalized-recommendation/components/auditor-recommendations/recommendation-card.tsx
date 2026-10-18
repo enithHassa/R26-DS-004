@@ -100,25 +100,19 @@ export function AuditorHybridRecommendationCard({ item, profileId, onExplain }: 
       <div className="mt-5 rounded-lg border bg-muted/20 p-3">
         <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <Merge className="h-3.5 w-3.5" />
-          Ranker scores
+          Ranking score
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <AuditorMetricBar label="LambdaMART (tax fit)" value={item.lambdamart_score} colorClass="bg-emerald-500" />
-          <AuditorMetricBar label="Retrieval (RAG)" value={item.rag_similarity_score} colorClass="bg-sky-500" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <AuditorMetricBar label="Tax fit (LambdaMART)" value={item.lambdamart_score} colorClass="bg-emerald-500" />
+          <AuditorMetricBar label="Adoption" value={item.adoption_probability} colorClass="bg-sky-500" />
+          <AuditorMetricBar label="Feasibility" value={item.confidence} colorClass="bg-amber-500" />
+          <AuditorMetricBar label="Risk fit" value={item.risk_alignment ?? 1} colorClass="bg-teal-500" />
           <AuditorMetricBar
-            label="Retrieval hybrid"
-            value={item.retrieval_hybrid_score ?? item.hybrid_score}
-            colorClass="bg-violet-500"
-          />
-          <AuditorMetricBar
-            label="Final Rank"
-            value={item.fusion_score ?? item.hybrid_score}
+            label="Final rank"
+            value={item.fusion_score}
             colorClass="bg-primary"
           />
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Final rank blends tax fit (40%), adoption (30%), feasibility (20%), risk fit (12%), minus audit-risk penalty (10%).
-        </p>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
