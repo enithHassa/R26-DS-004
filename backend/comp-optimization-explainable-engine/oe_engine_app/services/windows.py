@@ -345,9 +345,10 @@ def locate_named_window(
     window_chars: int = NAMED_SCHEDULE_WINDOW_CHARS,
 ) -> FocusWindow | None:
     """Highest-substance hit for a schedule/section heading (skips TOC)."""
-    heading_pattern = r"\s+".join(re.escape(part) for part in heading.split())
+    # Backslashes cannot appear inside f-string expressions on Python < 3.12.
+    heading_pat = r"\s+".join(re.escape(part) for part in heading.split())
     pattern = re.compile(
-        rf"\b{heading_pattern}\b",
+        rf"\b{heading_pat}\b",
         re.IGNORECASE,
     )
     ranked: list[tuple[int, int, int, int]] = []

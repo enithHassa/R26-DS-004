@@ -255,6 +255,32 @@ export async function saveDocument(
   return data;
 }
 
+export interface SaveDocumentsBatchResult {
+  saved: DocumentSaveResponse[];
+  failed: { filename: string; error: string }[];
+}
+
+/** Save multiple statements without extraction (auditor library). */
+export async function saveDocuments(
+  files: File[],
+  financialProfileId: string,
+  taxYear?: string | null,
+): Promise<SaveDocumentsBatchResult> {
+  const saved: DocumentSaveResponse[] = [];
+  const failed: { filename: string; error: string }[] = [];
+  for (const file of files) {
+    try {
+      saved.push(await saveDocument(file, financialProfileId, taxYear));
+    } catch (err) {
+      failed.push({
+        filename: file.name,
+        error: err instanceof Error ? err.message : "Save failed.",
+      });
+    }
+  }
+  return { saved, failed };
+}
+
 export async function submitDocumentToAuditor(
   file: File,
   financialProfileId: string,

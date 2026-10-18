@@ -6,6 +6,7 @@ import taxOptimization from "@/features/tax-optimization";
 import adaptiveTax from "@/features/adaptive-tax";
 import optimizationExplainable from "@/features/optimization-explainable";
 import optimizationExplainableEngine from "@/features/optimization-explainable-engine";
+import taxReturnExport from "@/features/tax-return-export";
 
 export const features: FeatureModule[] = [
   personalizedRecommendation,
@@ -15,4 +16,5 @@ export const features: FeatureModule[] = [
   taxOptimization,
   adaptiveTax,
   optimizationExplainable,
+  taxReturnExport,
 ];
