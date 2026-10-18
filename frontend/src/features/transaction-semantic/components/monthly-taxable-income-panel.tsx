@@ -71,7 +71,14 @@ function MonthCoverageGrid({ coverage }: { coverage: ProfileTaxableIncomeMonthCo
   );
 }
 
-export function MonthlyTaxableIncomePanel({ profileId }: { profileId: string | null }) {
+export function MonthlyTaxableIncomePanel({
+  profileId,
+  refreshKey = 0,
+}: {
+  profileId: string | null;
+  /** Bump after bulk classify so rollups reload. */
+  refreshKey?: number;
+}) {
   const navigate = useNavigate();
   const profileSummary = useAuditorWorkspaceStore((s) => s.profileSummary);
   const setPendingTransactionBreakdown = useAuditorWorkspaceStore(
@@ -125,7 +132,7 @@ export function MonthlyTaxableIncomePanel({ profileId }: { profileId: string | n
     void loadSummary();
     setExpandedMonth(null);
     setDetailLines([]);
-  }, [profileId, documentTaxYear]);
+  }, [profileId, documentTaxYear, refreshKey]);
 
   const missingMonths = useMemo(
     () => monthCoverage.filter((m) => m.status === "missing"),
@@ -184,12 +191,14 @@ export function MonthlyTaxableIncomePanel({ profileId }: { profileId: string | n
     for (const line of lines) {
       const amount = Number(line.taxable_amount_lkr);
       if (!Number.isFinite(amount) || amount <= 0) continue;
+      // withholding_tax amount is WHT debit total (credit), not assessable income.
       byClass.set(line.class_key, (byClass.get(line.class_key) ?? 0) + amount);
     }
     const breakdown = [...byClass.entries()].map(([classKey, amount]) => ({
       classKey,
       amount,
     }));
+    // Allow push when only WHT credits exist (interest may already be on OE).
     if (!breakdown.length) return;
     setPendingTransactionBreakdown(breakdown);
     navigate("/optimization-explainable-engine/income");

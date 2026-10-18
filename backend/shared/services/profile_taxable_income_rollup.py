@@ -53,6 +53,9 @@ class MonthlyRollupBucket:
     source_document_ids: list[str]
 
 
+_WHT_CLASS_KEY = "withholding_tax"
+
+
 def _collect_rollup_buckets(db: Session, financial_profile_id: uuid.UUID) -> list[MonthlyRollupBucket]:
     _load_db_package()
     ClassifiedExtractedTransaction = importlib.import_module(
@@ -83,6 +86,29 @@ def _collect_rollup_buckets(db: Session, financial_profile_id: uuid.UUID) -> lis
     )
     rows = db.execute(stmt).all()
 
+    # WHT debits are not taxable income, but OE needs the gross withheld amount
+    # as a tax credit (Interest schedule "WHT deducted").
+    wht_stmt = (
+        select(
+            ClassifiedExtractedTransaction,
+            ExtractedTransaction,
+            Document.tax_year,
+        )
+        .join(
+            ExtractedTransaction,
+            ExtractedTransaction.id == ClassifiedExtractedTransaction.extracted_transaction_id,
+        )
+        .join(Document, Document.id == ClassifiedExtractedTransaction.document_id)
+        .where(
+            ClassifiedExtractedTransaction.financial_profile_id == financial_profile_id,
+            ClassifiedExtractedTransaction.is_current.is_(True),
+            ClassifiedExtractedTransaction.semantic_category == _WHT_CLASS_KEY,
+            ExtractedTransaction.direction == TxnDirection.DR,
+            ClassifiedExtractedTransaction.gross_amount_lkr > 0,
+        )
+    )
+    wht_rows = db.execute(wht_stmt).all()
+
     buckets: dict[tuple[str | None, date, str], dict] = defaultdict(
         lambda: {
             "taxable_amount_lkr": Decimal("0.00"),
@@ -99,6 +125,19 @@ def _collect_rollup_buckets(db: Session, financial_profile_id: uuid.UUID) -> lis
         )
         bucket = buckets[key]
         bucket["taxable_amount_lkr"] += Decimal(classification.taxable_amount_lkr)
+        bucket["transaction_count"] += 1
+        bucket["source_document_ids"].add(str(classification.document_id))
+
+    for classification, extracted, tax_year in wht_rows:
+        normalized_tax_year = tax_year or ""
+        key = (
+            normalized_tax_year,
+            _month_start(extracted.tx_date),
+            _WHT_CLASS_KEY,
+        )
+        bucket = buckets[key]
+        # Store gross WHT debit in the amount column (not assessable income).
+        bucket["taxable_amount_lkr"] += Decimal(classification.gross_amount_lkr)
         bucket["transaction_count"] += 1
         bucket["source_document_ids"].add(str(classification.document_id))
 

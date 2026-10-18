@@ -74,6 +74,33 @@ def _relief_applied(result: dict[str, Any], *needles: str) -> float:
     return total
 
 
+def _interest_wht_total(lines: list[InterestLine]) -> float:
+    return sum(float(line.wht or 0) for line in lines)
+
+
+def _resolve_wht_credit(result: dict[str, Any], interest_lines: list[InterestLine]) -> float:
+    """WHT credit for TAX CALCULATION.
+
+    Prefer engine ``wht_credit``. If the calculate snapshot omitted WHT but the
+    profile interest schedule (SAVINGS/FD sheets) has amounts, use those —
+    capped after APIT the same way as calculate.
+    """
+    engine_credit = float(result.get("wht_credit") or 0)
+    if engine_credit > 0:
+        return engine_credit
+
+    claimed = float(result.get("wht_already_paid") or 0)
+    if claimed <= 0:
+        claimed = _interest_wht_total(interest_lines)
+    if claimed <= 0:
+        return 0.0
+
+    tax = float(result.get("tax_payable") or 0)
+    apit = float(result.get("apit_credit") or result.get("apit_already_paid") or 0)
+    remaining = max(0.0, tax - apit)
+    return min(claimed, remaining)
+
+
 def _build_tax_calculation(wb: Workbook, body: TaxReturnExportRequest) -> None:
     ws = wb.active
     ws.title = "TAX CALCULATION"
@@ -127,10 +154,10 @@ def _build_tax_calculation(wb: Workbook, body: TaxReturnExportRequest) -> None:
     _underline(ws.cell(row=row, column=6))
 
     row += 2
-    _label(ws, row, 2, "Less- Sec -52")
-    sec52 = _relief_applied(result, "sec_52", "section 52", "sec-52")
-    _money(ws, row, 6, _bracket_amount(sec52) if sec52 else 0, integer=True)
+    # Section header only — no amount (avoids a dash/total that double-counts detail lines).
+    _label(ws, row, 2, "Less- Sec -52", bold=True)
 
+    # Applied Sec 52 / Fifth Schedule reliefs listed under the header.
     row += 2
     personal = _relief_applied(result, "personal_relief", "tax free", "personal relief")
     _label(ws, row, 2, "Tax Free Allowance")
@@ -141,7 +168,7 @@ def _build_tax_calculation(wb: Workbook, body: TaxReturnExportRequest) -> None:
     _label(ws, row, 2, "Solar Relief")
     _money(ws, row, 6, _bracket_amount(solar) if solar else 0, integer=True)
 
-    # Other applied reliefs not already shown
+    # Other applied reliefs not already shown (donations, rental, QP, etc.)
     shown = {"personal_relief", "solar_panel", "sec_52"}
     for line in result.get("relief_lines") or []:
         if not isinstance(line, dict):
@@ -193,7 +220,7 @@ def _build_tax_calculation(wb: Workbook, body: TaxReturnExportRequest) -> None:
     row += 2
     _label(ws, row, 2, "Less - Tax Credits", bold=True)
     row += 1
-    wht = float(result.get("wht_credit") or result.get("wht_already_paid") or 0)
+    wht = _resolve_wht_credit(result, body.interest_lines)
     _label(ws, row, 2, "WHT")
     _money(ws, row, 6, _bracket_amount(wht) if wht else 0, integer=True)
     apit = float(result.get("apit_credit") or result.get("apit_already_paid") or 0)
@@ -203,9 +230,14 @@ def _build_tax_calculation(wb: Workbook, body: TaxReturnExportRequest) -> None:
         _money(ws, row, 6, _bracket_amount(apit), integer=True)
 
     row += 2
-    balance = float(result.get("balance_payable") or 0)
-    refund = float(result.get("tax_refund") or 0)
-    final = -refund if refund > 0 and balance <= 0 else balance
+    engine_wht = float(result.get("wht_credit") or 0)
+    if wht > engine_wht:
+        # Interest-schedule fallback — recompute balance so credits stay consistent.
+        final = round(gross_tax - apit - wht, 2)
+    else:
+        balance = float(result.get("balance_payable") or 0)
+        refund = float(result.get("tax_refund") or 0)
+        final = -refund if refund > 0 and balance <= 0 else balance
     _label(ws, row, 2, "Balance Tax Payable/(Refund)", bold=True)
     _money(ws, row, 6, final, integer=True)
     _underline(ws.cell(row=row, column=6), double=True)

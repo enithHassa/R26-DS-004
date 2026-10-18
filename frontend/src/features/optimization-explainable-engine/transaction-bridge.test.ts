@@ -131,6 +131,30 @@ describe("Comp1 → OE taxable pool", () => {
     expect(totalIncomeLkr(merged)).toBe(1443);
   });
 
+  it("writes Comp1 withholding_tax onto Bank interest WHT deducted", () => {
+    const merged = mergeBreakdownIntoIncome(
+      baseIncome({
+        investmentAmounts: { inv_interest: "0", inv_rents: "0", inv_dividends: "0" },
+        interestSchedule: [],
+        bankTaxablePoolLkr: null,
+      }),
+      [
+        { classKey: "interest_income", amount: 2_310 },
+        { classKey: "withholding_tax", amount: 115 },
+      ],
+      "replace",
+    );
+
+    const bankLine = merged.interestSchedule.find((line) => line.id === "comp1-bank-interest");
+    expect(bankLine?.label).toBe("Bank interest (classified)");
+    expect(bankLine?.interest).toBe("2310");
+    expect(bankLine?.wht).toBe("115");
+    expect(interestIncomeLkr(merged)).toBe(2_310);
+    // WHT must not inflate assessable income / bank pool.
+    expect(totalIncomeLkr(merged)).toBe(2_310);
+    expect(merged.bankTaxablePoolLkr).toBe("2310");
+  });
+
   it("add mode layers bank evidence on existing profile totals", () => {
     const merged = mergeBreakdownIntoIncome(
       baseIncome({

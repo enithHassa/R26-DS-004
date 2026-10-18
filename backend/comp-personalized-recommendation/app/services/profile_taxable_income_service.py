@@ -155,6 +155,9 @@ def _build_month_coverage(
 
     taxable_by_month: dict[date, Decimal] = {}
     for line in rollup_lines:
+        # withholding_tax rows store WHT debit totals, not assessable income.
+        if line.class_key == "withholding_tax":
+            continue
         month = month_start(line.calendar_month)
         taxable_by_month[month] = taxable_by_month.get(month, Decimal("0.00")) + line.taxable_amount_lkr
 
@@ -225,7 +228,15 @@ def list_monthly_taxable_income(
         )
         for row in rows
     ]
-    total = sum((line.taxable_amount_lkr for line in lines), Decimal("0.00"))
+    # Exclude WHT credit buckets from the assessable/taxable YA total.
+    total = sum(
+        (
+            line.taxable_amount_lkr
+            for line in lines
+            if line.class_key != "withholding_tax"
+        ),
+        Decimal("0.00"),
+    )
 
     month_coverage: list[ProfileTaxableIncomeMonthCoverage] = []
     ya_period_start: date | None = None
