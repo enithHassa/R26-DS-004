@@ -2,7 +2,12 @@ import { Link } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 
 import { formatLkr, parseLkr, yaDisplay } from "../../format-lkr";
-import { previewAppliedLkr, type ReliefAnswer, type ReliefEntry } from "../../types";
+import {
+  previewAppliedLkr,
+  subItemTotalLkr,
+  type ReliefAnswer,
+  type ReliefEntry,
+} from "../../types";
 import { sortReliefsForInterview } from "../../sort-reliefs";
 import { ReliefEvidenceFromEntry } from "../../relief-evidence";
 import { OeNavChips } from "./oe-nav-chips";
@@ -15,6 +20,15 @@ function answerFor(
   entry: ReliefEntry,
 ): ReliefAnswer | undefined {
   return answers.find((a) => a.entry_id === entry.entry_id);
+}
+
+function claimAmountLkr(entry: ReliefEntry, ans: ReliefAnswer | undefined): number {
+  if (!ans) return 0;
+  if (ans.components && Object.keys(ans.components).length > 0) {
+    const fromParts = subItemTotalLkr(entry, ans.components);
+    if (fromParts > 0) return fromParts;
+  }
+  return parseLkr(ans.amount ?? "0");
 }
 
 function ClaimToggle({
@@ -63,14 +77,27 @@ function ClaimToggle({
   );
 }
 
+function isGovernmentDonationEntry(entry: ReliefEntry): boolean {
+  const group = (entry.compare_group_id ?? "").toLowerCase();
+  return (
+    group === "donation_to_government_or_approved_fund" ||
+    group === "donation_to_government" ||
+    group.includes("donation_to_government") ||
+    group.endsWith("government_or_approved_fund")
+  );
+}
+
 function entryNeedsAmount(entry: ReliefEntry): boolean {
   if (entry.unit === "percent") return false;
   if (isAutomaticRelief(entry)) return false;
+  if (isGovernmentDonationEntry(entry)) return true;
   return entry.input_kind === "amount" || entry.input_kind === "yes_no_amount";
 }
 
 /** Statutory notice / personal relief — engine applies without a taxpayer claim toggle. */
 function isAutomaticRelief(entry: ReliefEntry): boolean {
+  // Government / approved-fund donations are never auto-applied (claim required).
+  if (isGovernmentDonationEntry(entry)) return false;
   if (entry.auto_applied) return true;
   if (entry.input_kind === "notice") return true;
   const group = (entry.compare_group_id ?? "").toLowerCase();
@@ -159,14 +186,13 @@ export function ReliefsPanel() {
 
   function setAmount(entry: ReliefEntry, amount: string) {
     if (locked) return;
-    const existing = answerFor(answers, entry);
     const next: ReliefAnswer = {
       entry_id: entry.entry_id,
       compare_group_id: entry.compare_group_id,
       affirmed: true,
       amount,
       skipped: false,
-      components: existing?.components,
+      // Flat amount is the source of truth on the user panel (no per-recipient boxes).
     };
     patchClaims([...answers.filter((a) => a.entry_id !== entry.entry_id), next]);
   }
@@ -199,7 +225,7 @@ export function ReliefsPanel() {
             const automatic = isAutomaticRelief(entry);
             const ans = answerFor(answers, entry);
             const selected = Boolean(ans && !ans.skipped);
-            const claimAmt = parseLkr(ans?.amount ?? "0");
+            const claimAmt = claimAmountLkr(entry, ans);
             const incomplete =
               !automatic && selected && entryNeedsAmount(entry) && claimAmt <= 0;
             const active = !automatic && selected && !incomplete;
@@ -262,7 +288,11 @@ export function ReliefsPanel() {
                       <input
                         type="text"
                         disabled={locked}
-                        value={ans?.amount ?? ""}
+                        value={
+                          claimAmt > 0 && parseLkr(ans?.amount ?? "0") <= 0
+                            ? String(claimAmt)
+                            : (ans?.amount ?? "")
+                        }
                         onChange={(e) => setAmount(entry, e.target.value)}
                         placeholder="Enter amount"
                         className="mt-1 block w-40 rounded-lg border border-[var(--uv-border)] bg-[var(--uv-bg)] px-3 py-1.5 text-sm text-[var(--uv-text)]"

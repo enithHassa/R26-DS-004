@@ -57,7 +57,8 @@ def test_the_split_is_kept_on_the_line_for_the_result_page():
         {"component_id": "d:i", "amount": 120_000},
         {"component_id": "d:ii", "amount": 30_000},
     ]
-    assert "120000 + 30000" in line["formula"]
+    assert "120000" in line["formula"] and "30000" in line["formula"]
+    assert "claim =" in line["formula"]
 
 
 def test_a_cap_still_limits_the_combined_total():
@@ -98,3 +99,39 @@ def test_a_skipped_relief_ignores_its_boxes():
     body = claim(120_000, 30_000)
     body["skipped"] = True
     assert _apply_one(entry(), INCOME, body)["applied"] == 0
+
+
+def test_government_donation_notice_uncapped_still_applies_claim():
+    """Older year views left 1(b) as notice + no cap; claim amounts must still apply."""
+    line = _apply_one(
+        entry(input_kind="notice", cap_amount=None, engine_binding={"kind": "none"}),
+        INCOME,
+        claim(75_000, 0),
+    )
+    assert line["binder"] == "min(claim, cap)"
+    assert line["claim"] == 75_000
+    assert line["applied"] == 75_000
+
+
+def test_government_donation_boolean_uncapped_uses_claim_not_auto_cap():
+    body = claim(75_000, 0)
+    body["affirmed"] = True
+    line = _apply_one(
+        entry(input_kind="boolean", cap_amount=None),
+        INCOME,
+        body,
+    )
+    assert line["applied"] == 75_000
+
+
+def test_government_donation_flat_amount_when_component_boxes_are_zero():
+    body = {
+        "entry_id": entry()["entry_id"],
+        "amount": 75_000,
+        "affirmed": True,
+        "components": [
+            {"component_id": "d:i", "amount": 0},
+            {"component_id": "d:ii", "amount": 0},
+        ],
+    }
+    assert _apply_one(entry(input_kind="yes_no_amount"), INCOME, body)["applied"] == 75_000
