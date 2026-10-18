@@ -21,4 +21,7 @@ class FinancialProfileRef(Base):
     __tablename__ = "financial_profiles"
     __table_args__ = {"extend_existing": True}
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    # Must keep the same Python-side default as Comp 3's FinancialProfile.
+    # With extend_existing, whichever mapping loads last replaces the Table
+    # column; a stub without default strips uuid4 and INSERT sends id=NULL.
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)

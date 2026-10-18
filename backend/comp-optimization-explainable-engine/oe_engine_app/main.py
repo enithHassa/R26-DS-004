@@ -17,6 +17,7 @@ from oe_engine_app.routers import (
     catalog,
     documents,
     explain,
+    export,
     health,
     load_act,
     promote,
@@ -67,6 +68,8 @@ def create_app() -> FastAPI:
     app.include_router(calculate.router, prefix="/api/v1")
     app.include_router(explain.router)
     app.include_router(explain.router, prefix="/api/v1")
+    app.include_router(export.router)
+    app.include_router(export.router, prefix="/api/v1")
     app.include_router(promote.router)
     app.include_router(promote.router, prefix="/api/v1")
     app.include_router(load_act.router)

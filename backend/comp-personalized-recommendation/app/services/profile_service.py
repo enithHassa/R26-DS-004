@@ -187,7 +187,9 @@ def create_profile(
 ) -> FinancialProfileORM:
     user = _ensure_user(db, user_id, payload.full_name)
     columns = _payload_to_columns(payload)
-    profile = FinancialProfileORM(user_id=user.id, **columns)
+    # Explicit id: shared FinancialProfileRef can clobber Column defaults via
+    # extend_existing depending on import order.
+    profile = FinancialProfileORM(id=uuid4(), user_id=user.id, **columns)
     db.add(profile)
     db.commit()
     db.refresh(profile)

@@ -19,7 +19,7 @@ import {
   previewFilteredDocuments,
   previewDocument,
   reExtractDocument,
-  saveDocument,
+  saveDocuments,
   type DocumentStatusResponse,
   type DocumentPreviewResponse,
   type ExportPreviewRow,
@@ -42,7 +42,7 @@ export function TransactionDocumentExtractionPage() {
   const activeProfileId = useActiveProfileId();
   const profileQuery = useActiveAuditorProfile();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [documentId, setDocumentId] = useState(searchParams.get("document") ?? "");
   const [libraryRefreshKey, setLibraryRefreshKey] = useState(0);
   const [bankCodeOverride, setBankCodeOverride] = useState("");
@@ -123,8 +123,8 @@ export function TransactionDocumentExtractionPage() {
   }
 
   async function handleSave(): Promise<void> {
-    if (!file) {
-      setError("Choose a file first.");
+    if (files.length === 0) {
+      setError("Choose one or more files first.");
       return;
     }
     if (!activeProfileId) {
@@ -135,12 +135,33 @@ export function TransactionDocumentExtractionPage() {
     setError(null);
     setSuccess(null);
     try {
-      const resp = await saveDocument(file, activeProfileId, profileQuery.data?.tax_year ?? null);
-      setSearchParams({ document: resp.document.document_id });
-      setSuccess(resp.message);
+      const { saved, failed } = await saveDocuments(
+        files,
+        activeProfileId,
+        profileQuery.data?.tax_year ?? null,
+      );
       setPreviewMeta(null);
       setLibraryRefreshKey((value) => value + 1);
-      await refreshAll(resp.document.document_id);
+      if (saved.length > 0) {
+        const last = saved[saved.length - 1]!;
+        setSearchParams({ document: last.document.document_id });
+        setFiles([]);
+        await refreshAll(last.document.document_id);
+      }
+      if (failed.length === 0) {
+        setSuccess(
+          saved.length === 1
+            ? saved[0]!.message
+            : `Saved ${saved.length} documents. Select each in the library and click Extract when ready.`,
+        );
+      } else if (saved.length === 0) {
+        setError(`Save failed: ${failed.map((item) => `${item.filename} (${item.error})`).join("; ")}`);
+      } else {
+        setSuccess(`Saved ${saved.length} document(s).`);
+        setError(
+          `Failed to save ${failed.length}: ${failed.map((item) => item.filename).join(", ")}`,
+        );
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Save failed.";
       setError(msg);
@@ -150,10 +171,11 @@ export function TransactionDocumentExtractionPage() {
   }
 
   async function handlePreview(): Promise<void> {
-    if (!file) {
-      setError("Choose a file first.");
+    if (files.length === 0) {
+      setError("Choose one or more files first.");
       return;
     }
+    const file = files[0]!;
     setIsPreviewing(true);
     setError(null);
     setSuccess(null);
@@ -192,7 +214,11 @@ export function TransactionDocumentExtractionPage() {
           period_end: row.period_end,
         })),
       );
-      setSuccess("Preview generated. Save the document, then click Extract in the library.");
+      setSuccess(
+        files.length > 1
+          ? `Preview for ${file.name} (first of ${files.length}). Save all selected files, then Extract each in the library.`
+          : "Preview generated. Save the document, then click Extract in the library.",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Preview failed.";
       setError(msg);
@@ -383,27 +409,62 @@ export function TransactionDocumentExtractionPage() {
             <FileUp className="h-4 w-4" /> Upload & Save
           </CardTitle>
           <CardDescription>
-            Store bank statements in the library. Extraction runs separately when you select a document
-            and click Extract.
+            Store one or more bank statements in the library. Extraction runs separately when you
+            select a document and click Extract.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="statement-file">Statement file</Label>
+              <Label htmlFor="statement-file">Statement files</Label>
               <Input
                 id="statement-file"
                 type="file"
+                multiple
                 accept=".pdf,.csv,.xlsx,.xls,.txt,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf,text/csv"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
+              {files.length > 0 ? (
+                <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {files.length} file{files.length === 1 ? "" : "s"} selected
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setFiles([])}
+                      disabled={isSaving || isPreviewing}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <ul className="max-h-28 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                    {files.map((item) => (
+                      <li key={`${item.name}-${item.size}-${item.lastModified}`} className="truncate">
+                        {item.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
             <div className="flex items-end gap-2">
-              <Button variant="outline" onClick={() => void handlePreview()} disabled={isPreviewing || !file}>
+              <Button
+                variant="outline"
+                onClick={() => void handlePreview()}
+                disabled={isPreviewing || files.length === 0}
+              >
                 {isPreviewing ? "Previewing..." : "Preview Extract"}
               </Button>
-              <Button onClick={() => void handleSave()} disabled={isSaving || !file}>
-                {isSaving ? "Saving..." : "Save Document"}
+              <Button onClick={() => void handleSave()} disabled={isSaving || files.length === 0}>
+                {isSaving
+                  ? "Saving..."
+                  : files.length > 1
+                    ? `Save ${files.length} Documents`
+                    : "Save Document"}
               </Button>
             </div>
           </div>

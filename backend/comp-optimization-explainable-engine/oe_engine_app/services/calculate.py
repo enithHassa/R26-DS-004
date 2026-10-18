@@ -57,12 +57,27 @@ def _binding_kind(entry: dict[str, Any]) -> str:
     return "none"
 
 
+def is_government_donation_relief(entry: dict[str, Any]) -> bool:
+    """Fifth Schedule 1(b) — claim-based, usually uncapped (not charitable 1(a))."""
+    group = str(entry.get("compare_group_id") or "").strip().lower()
+    return (
+        group == "donation_to_government_or_approved_fund"
+        or group == "donation_to_government"
+        or "donation_to_government" in group
+        or group.endswith("government_or_approved_fund")
+    )
+
+
 def binder_for(entry: dict[str, Any]) -> str:
     kind = _binding_kind(entry)
     unit = str(entry.get("unit") or "lkr")
     input_kind = str(entry.get("input_kind") or "notice")
     if kind not in KNOWN_BINDING_KINDS:
         kind = "none"
+    # Uncapped government / approved-fund donations must use the claim amount.
+    # Older year views left them as notice/boolean + no cap → applied 0 forever.
+    if is_government_donation_relief(entry):
+        return BINDER_MIN_CLAIM_CAP
     if kind == "rent_relief" or unit == "percent":
         return BINDER_PERCENT
     if kind in {"solar_panel_relief", "qualifying_payments", "donations", "filing_line"}:
@@ -124,12 +139,22 @@ def _component_claims(claim: dict[str, Any] | None) -> list[dict[str, Any]]:
 def _claimed_amount(claim: dict[str, Any] | None, components: list[dict[str, Any]]) -> float:
     """A split claim is the sum of its parts; the flat amount is the fallback."""
     if components:
-        return round(sum(float(c["amount"]) for c in components), 2)
+        total = round(sum(float(c["amount"]) for c in components), 2)
+        if total > 0:
+            return total
     return _as_money(claim.get("amount")) if claim else 0.0
 
 
 def _claim_active(entry: dict[str, Any], claim: dict[str, Any] | None) -> bool:
     input_kind = str(entry.get("input_kind") or "notice")
+    if is_government_donation_relief(entry):
+        # Must be explicitly claimed with a positive amount (per-recipient or flat).
+        if claim is None or bool(claim.get("skipped")):
+            return False
+        if claim.get("affirmed") is False:
+            return False
+        components = _component_claims(claim)
+        return _claimed_amount(claim, components) > 0
     if input_kind == "notice":
         return True
     if claim is None:
