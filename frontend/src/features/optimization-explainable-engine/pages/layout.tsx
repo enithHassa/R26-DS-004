@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Library, Scale } from "lucide-react";
 
 import { Select } from "@/components/ui/select";
+import { normalizeTaxYearToOrm } from "@/lib/profile-bridge/tax-year-bridge";
+import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 
 import { getYears } from "../api";
 import { yaDisplay } from "../format-lkr";
@@ -21,6 +23,8 @@ const STEPS = [
 function StepNav() {
   const { session, setAssessmentYear } = useInterview();
   const location = useLocation();
+  const profileSummary = useAuditorWorkspaceStore((s) => s.profileSummary);
+  const syncedProfileYaRef = useRef<string | null>(null);
   const yearsQuery = useQuery({
     queryKey: ["optimization-explainable-engine", "years"],
     queryFn: getYears,
@@ -28,15 +32,34 @@ function StepNav() {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
   });
   const listed = yearsQuery.data?.assessment_years ?? [];
+
+  // Active taxpayer's profile tax_year is the YA for OE (and Comp 1 rollups).
   useEffect(() => {
     if (listed.length === 0) return;
+    const profileYa = normalizeTaxYearToOrm(profileSummary?.taxYear);
+    if (profileYa && listed.includes(profileYa)) {
+      const key = `${profileSummary?.id ?? ""}:${profileYa}`;
+      if (syncedProfileYaRef.current !== key) {
+        syncedProfileYaRef.current = key;
+        if (session.assessmentYear !== profileYa) {
+          setAssessmentYear(profileYa, listed);
+        }
+      }
+      return;
+    }
     if (!listed.includes(session.assessmentYear)) {
       const fallback = listed.includes("2025_26")
         ? "2025_26"
         : listed[listed.length - 1];
       setAssessmentYear(fallback, listed);
     }
-  }, [listed, session.assessmentYear, setAssessmentYear]);
+  }, [
+    listed,
+    profileSummary?.id,
+    profileSummary?.taxYear,
+    session.assessmentYear,
+    setAssessmentYear,
+  ]);
   const years = listed;
 
   return (

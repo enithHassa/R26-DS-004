@@ -2,6 +2,41 @@
  * Bridge Tax Return Profile year labels (2024-2025, 2024 / 2025) and ORM/OE keys (2024_25).
  */
 
+/** YA start calendar year (Sri Lanka YA runs 1 April – 31 March). */
+export function currentAssessmentYearStart(reference = new Date()): number {
+  const year = reference.getFullYear();
+  return reference.getMonth() < 3 ? year - 1 : year;
+}
+
+/** Current YA as ORM key (`2025_26`). */
+export function currentAssessmentYearOrm(reference = new Date()): string {
+  const start = currentAssessmentYearStart(reference);
+  return `${start}_${String(start + 1).slice(-2)}`;
+}
+
+/**
+ * Select options for profile / Comp 3 `tax_year` (ORM keys).
+ * Includes one upcoming YA plus recent history — same window as TRP Sec 1.
+ */
+export function assessmentYearOrmSelectOptions(
+  pastCount = 3,
+  includeNext = true,
+  reference = new Date(),
+): { value: string; label: string }[] {
+  const currentStart = currentAssessmentYearStart(reference);
+  const starts: number[] = [];
+  if (includeNext) starts.push(currentStart + 1);
+  starts.push(currentStart);
+  for (let i = 1; i <= pastCount; i++) starts.push(currentStart - i);
+
+  return [...new Set(starts)]
+    .sort((a, b) => b - a)
+    .map((start) => {
+      const value = `${start}_${String(start + 1).slice(-2)}`;
+      return { value, label: `YA ${start}/${String(start + 1).slice(-2)}` };
+    });
+}
+
 /** Normalize any YA label to ORM ``tax_year`` (`2024_25`) or null if unparseable. */
 export function normalizeTaxYearToOrm(ya: string | null | undefined): string | null {
   if (!ya?.trim()) return null;

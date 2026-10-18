@@ -45,8 +45,14 @@ import { PageHeader } from "../components/page-header";
 import { ProfileFeaturesTab } from "../components/profile-features-tab";
 import { WizardNav } from "../components/wizard-nav";
 import { profileToAuditorSummary } from "@/lib/profile-bridge/profile-summary";
+import {
+  assessmentYearOrmSelectOptions,
+  currentAssessmentYearOrm,
+} from "@/lib/profile-bridge/tax-year-bridge";
 import { useAuditorWorkspaceStore } from "@/store/auditor-workspace-store";
 import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
+
+const ASSESSMENT_YEAR_OPTIONS = assessmentYearOrmSelectOptions();
 
 const decimalString = z
   .string()
@@ -138,10 +144,8 @@ const profileSchema = z.object({
   retirement_age_target: integerString(75, 40, "60"),
   tax_year: z
     .string()
-    .optional()
-    .or(z.literal(""))
-    .transform((v) => (v === undefined || v === "" ? "2026_27" : v))
-    .refine((v) => /^\d{4}_\d{2}$/.test(v), "Format YYYY_YY"),
+    .min(1, "Select an assessment year")
+    .regex(/^\d{4}_\d{2}$/, "Select an assessment year"),
   income_sources: z.array(incomeSourceSchema).default([]),
 });
 
@@ -161,9 +165,6 @@ function sanitizeDecimalString(raw: string): string {
   return v;
 }
 
-function sanitizeTaxYearString(raw: string): string {
-  return raw.replace(/[^\d_]/g, "").slice(0, 7);
-}
 
 function withIntegerSanitize<T extends string>(
   reg: UseFormRegisterReturn<T>,
@@ -186,19 +187,6 @@ function withDecimalSanitize<T extends string>(
     onChange: (e, ...rest) => {
       const ce = e as ChangeEvent<HTMLInputElement>;
       ce.target.value = sanitizeDecimalString(ce.target.value);
-      return reg.onChange(e, ...rest);
-    },
-  };
-}
-
-function withTaxYearSanitize<T extends keyof ProfileForm>(
-  reg: UseFormRegisterReturn<T>,
-): UseFormRegisterReturn<T> {
-  return {
-    ...reg,
-    onChange: (e, ...rest) => {
-      const ce = e as ChangeEvent<HTMLInputElement>;
-      ce.target.value = sanitizeTaxYearString(ce.target.value);
       return reg.onChange(e, ...rest);
     },
   };
@@ -257,7 +245,7 @@ const defaultValues: ProfileForm = {
   risk_tolerance: "" as ProfileForm["risk_tolerance"],
   investment_horizon_years: "",
   retirement_age_target: "60",
-  tax_year: "",
+  tax_year: currentAssessmentYearOrm(),
   income_sources: [{ kind: "employment", monthly_amount: "", is_taxable: true }],
 };
 
@@ -780,14 +768,20 @@ export function ProfilePage() {
                     {...withIntegerSanitize(register("retirement_age_target"))}
                   />
                 </Field>
-                <Field label="Tax year" error={errors.tax_year?.message}>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="2026_27"
-                    {...withTaxYearSanitize(register("tax_year"))}
-                  />
+                <Field
+                  label="Assessment year (YA)"
+                  error={errors.tax_year?.message}
+                >
+                  <Select {...register("tax_year")} defaultValue={currentAssessmentYearOrm()}>
+                    <option value="" disabled>
+                      Select assessment year
+                    </option>
+                    {ASSESSMENT_YEAR_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
               </Section>
               </>

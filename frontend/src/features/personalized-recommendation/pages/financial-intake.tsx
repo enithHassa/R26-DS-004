@@ -15,10 +15,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import {
+  assessmentYearOrmSelectOptions,
+  currentAssessmentYearOrm,
+} from "@/lib/profile-bridge/tax-year-bridge";
+
 import { createProfile } from "../api/profiles";
 import { WizardNav } from "../components/wizard-nav";
 import { useUserSessionStore } from "../store/user-session-store";
 import { AGE_BANDS, SL_PROVINCES, type FinancialProfileCreate } from "../types";
+
+const ASSESSMENT_YEAR_OPTIONS = assessmentYearOrmSelectOptions();
 
 const decimalString = z
   .string()
@@ -100,7 +107,10 @@ const intakeSchema = z.object({
   risk_tolerance: z.enum(["low", "medium", "high"], { errorMap: () => ({ message: "Required" }) }),
   investment_horizon_years: integerString(50),
   retirement_age_target: integerString(75, 40),
-  tax_year: z.string().regex(/^\d{4}_\d{2}$/, "Format YYYY_YY"),
+  tax_year: z
+    .string()
+    .min(1, "Select an assessment year")
+    .regex(/^\d{4}_\d{2}$/, "Select an assessment year"),
   income_sources: z.array(incomeSourceSchema).min(1, "Add at least one income source"),
 });
 
@@ -120,9 +130,6 @@ function sanitizeDecimalString(raw: string): string {
   return v;
 }
 
-function sanitizeTaxYearString(raw: string): string {
-  return raw.replace(/[^\d_]/g, "").slice(0, 7);
-}
 
 function withIntegerSanitize<T extends string>(
   reg: UseFormRegisterReturn<T>,
@@ -145,19 +152,6 @@ function withDecimalSanitize<T extends string>(
     onChange: (e, ...rest) => {
       const ce = e as ChangeEvent<HTMLInputElement>;
       ce.target.value = sanitizeDecimalString(ce.target.value);
-      return reg.onChange(e, ...rest);
-    },
-  };
-}
-
-function withTaxYearSanitize<T extends keyof IntakeForm>(
-  reg: UseFormRegisterReturn<T>,
-): UseFormRegisterReturn<T> {
-  return {
-    ...reg,
-    onChange: (e, ...rest) => {
-      const ce = e as ChangeEvent<HTMLInputElement>;
-      ce.target.value = sanitizeTaxYearString(ce.target.value);
       return reg.onChange(e, ...rest);
     },
   };
@@ -240,7 +234,7 @@ function defaultValuesFor(fullName: string): IntakeForm {
     risk_tolerance: "" as IntakeForm["risk_tolerance"],
     investment_horizon_years: "",
     retirement_age_target: "60",
-    tax_year: "",
+    tax_year: currentAssessmentYearOrm(),
     income_sources: [{ kind: "employment", monthly_amount: "", is_taxable: true }],
   };
 }
@@ -680,14 +674,20 @@ export function FinancialIntakePage() {
                         {...withIntegerSanitize(register("retirement_age_target"))}
                       />
                     </Field>
-                    <Field label="Tax year" error={errors.tax_year?.message}>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        placeholder="2026_27"
-                        {...withTaxYearSanitize(register("tax_year"))}
-                      />
+                    <Field
+                      label="Assessment year (YA)"
+                      error={errors.tax_year?.message}
+                    >
+                      <Select {...register("tax_year")} defaultValue={currentAssessmentYearOrm()}>
+                        <option value="" disabled>
+                          Select assessment year
+                        </option>
+                        {ASSESSMENT_YEAR_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </Select>
                     </Field>
                   </Section>
                 </>
