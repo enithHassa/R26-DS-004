@@ -1,0 +1,30 @@
+{
+  "n_pairs": 160,
+  "observed_agreement": 0.78125,
+  "cohen_kappa": 0.445545,
+  "weighted_kappa": null,
+  "interpretation": "moderate",
+  "labels": [
+    "claim",
+    "do_not_claim"
+  ],
+  "confusion": [
+    [
+      100,
+      10
+    ],
+    [
+      25,
+      25
+    ]
+  ],
+  "system_counts": {
+    "claim": 125,
+    "do_not_claim": 35
+  },
+  "expert_counts": {
+    "claim": 110,
+    "do_not_claim": 50
+  },
+  "notes": []
+}
