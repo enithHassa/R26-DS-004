@@ -298,7 +298,8 @@ AUTO_APPLYING_RELIEF_GROUPS = frozenset(
         "rent_relief",
         "senior_citizen_interest_income_relief",
         "donation_to_charitable_institution",
-        "donation_to_government_or_approved_fund",
+        # Government / approved-fund donations are claim-based (usually uncapped).
+        # Leaving them here made notice + no cap bind to "notice" → applied 0.
         "qualifying_payment_carry_forward",
         "capital_allowance",
     }
@@ -315,6 +316,11 @@ def _stated_or_default_input_kind(payload: dict[str, Any]) -> str:
         return "amount"
     if group == "foreign_currency_income_relief":
         return "amount"
+    # Fifth Schedule 1(b): always ask Yes/No + amounts (never silent notice).
+    if group == "donation_to_government_or_approved_fund":
+        if stated in {"yes_no_amount", "amount"}:
+            return stated
+        return "yes_no_amount"
     if stated:
         return stated
     if group == "personal_relief":
@@ -329,6 +335,12 @@ def _stated_or_default_input_kind(payload: dict[str, Any]) -> str:
 
 
 def infer_input_kind(payload: dict[str, Any]) -> str:
+    group = canonical_compare_group_id(
+        str(payload.get("compare_group_id") or ""),
+        entity_kind="relief",
+    )
+    if group == "donation_to_government_or_approved_fund":
+        return _stated_or_default_input_kind(payload)
     kind = _stated_or_default_input_kind(payload)
     if kind != "notice":
         return kind
@@ -336,10 +348,6 @@ def infer_input_kind(payload: dict[str, Any]) -> str:
     # so it takes a rupee amount per item instead of applying on its own.
     if payload.get("sub_items"):
         return "amount"
-    group = canonical_compare_group_id(
-        str(payload.get("compare_group_id") or ""),
-        entity_kind="relief",
-    )
     if group in AUTO_APPLYING_RELIEF_GROUPS:
         return kind
     # An uncapped relief that states a minimum spend is still expenditure the
@@ -355,13 +363,17 @@ def infer_input_kind(payload: dict[str, Any]) -> str:
 
 
 def infer_engine_binding(payload: dict[str, Any]) -> dict[str, str]:
-    binding = payload.get("engine_binding")
-    if isinstance(binding, dict) and str(binding.get("kind") or "").strip():
-        return {"kind": str(binding.get("kind"))}
     group = canonical_compare_group_id(
         str(payload.get("compare_group_id") or ""),
         entity_kind="relief",
     )
+    # Prefer claim-cap binding for government donations even when extraction
+    # stamped engine_binding.kind = "none".
+    if group == "donation_to_government_or_approved_fund":
+        return {"kind": "donations"}
+    binding = payload.get("engine_binding")
+    if isinstance(binding, dict) and str(binding.get("kind") or "").strip():
+        return {"kind": str(binding.get("kind"))}
     mapping = {
         "solar_panel_relief": "solar_panel_relief",
         "rental_income_relief": "rent_relief",
