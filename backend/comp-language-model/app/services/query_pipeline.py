@@ -10,11 +10,14 @@ from app.config import LanguageModelSettings
 from app.schemas.graph_v1 import GraphContext
 from app.schemas.proof_map_v1 import ProofMap
 from app.schemas.query_v1 import Citation, QueryResponse
+from app.services.answer_confidence import compute_answer_confidence
 from app.services.answer_synthesis import synthesize_plain_answer
 from app.services.domain_gate import assess_domain
+from app.services.graph_service import _merge_contexts
+from app.services.lex_citation_order import soft_prefer_override_winners
 from app.services.lex_rank import rerank_hits
 from app.services.proof_map import build_proof_map
-from app.services.query_preprocess import normalize_query
+from app.services.query_preprocess import expand_for_retrieval, normalize_query
 from app.services.think_twice import apply_think_twice
 
 
@@ -57,8 +60,12 @@ async def run_query_pipeline(
     graph_service = getattr(request.app.state, "graph_service", None)
 
     normalized = normalize_query(question)
-    normalized_retrieval = normalize_query(retrieval_question) if retrieval_question else normalized
+    # Retrieval uses synonym expansion; display/domain gate keep the cleaner form.
+    retrieval_source = retrieval_question or question
+    normalized_retrieval = expand_for_retrieval(retrieval_source)
     k = top_k or settings.COMP_LLM_RETRIEVAL_TOP_K
+    # Over-fetch so Lex Specialis + navigational filters can drop weak guide/TOC hits.
+    fetch_k = min(max(k * 4, k + 16), 48)
     cap = settings.COMP_LLM_QUERY_CITATION_MAX_CHARS
     model_id = "dense-baseline" if settings.COMP_LLM_RETRIEVAL_BACKEND == "dense" else "tfidf-baseline"
 
@@ -96,9 +103,15 @@ async def run_query_pipeline(
         )
         return QueryPipelineResult(response=response, proof_map=proof)
 
-    hits = index.search(normalized_retrieval, k)
-    if settings.COMP_LLM_LEX_SPECIALIS_RERANK:
-        hits = rerank_hits(hits, join_map)
+    hits = index.search(normalized_retrieval, fetch_k)
+    hits = rerank_hits(
+        hits,
+        join_map,
+        chunk_texts,
+        query=normalized_retrieval,
+        drop_navigational=True,
+        apply_lex_boost=settings.COMP_LLM_LEX_SPECIALIS_RERANK,
+    )[:k]
 
     top_score = hits[0][1] if hits else None
     top_excerpt = chunk_texts.get(hits[0][0], "") if hits else None
@@ -166,7 +179,22 @@ async def run_query_pipeline(
             for cid in chunk_ids
             if (m := join_map.get(cid) or {}) and m.get("section_uid")
         ]
-        graph_context = await graph_service.enrich_from_chunks(chunk_ids, section_uids or None)
+        chunk_ctx = await graph_service.enrich_from_chunks(chunk_ids, section_uids or None)
+
+        # Same intent→KG enrichment NLU already uses — additive facts only.
+        pred_intent: str | None = None
+        clf = getattr(request.app.state, "intent_classifier", None)
+        if clf is not None:
+            try:
+                pred_intent = clf.predict([normalized])[0]
+            except Exception:  # noqa: BLE001 - never fail the query on intent
+                pred_intent = None
+        intent_ctx = await graph_service.enrich_from_intent(pred_intent)
+        graph_context = _merge_contexts(chunk_ctx, intent_ctx)
+
+        # Soft Lex preference: winners first, overridden later — never drop.
+        if graph_context.lex_notes:
+            citations = soft_prefer_override_winners(citations, graph_context.lex_notes)
 
     plain_answer: str | None = None
     answer_provider: str | None = None
@@ -190,6 +218,12 @@ async def run_query_pipeline(
         think_validation = think.validation
         validation_status = think.validation_status
 
+    confidence_score, confidence_label = compute_answer_confidence(
+        citations,
+        validation_status=validation_status,
+        has_plain_answer=bool(plain_answer),
+    )
+
     response = QueryResponse(
         question=question,
         normalized_question=normalized,
@@ -203,6 +237,8 @@ async def run_query_pipeline(
         domain_status=domain.status,
         domain_message=domain.message,
         validation_status=validation_status,
+        answer_confidence_score=confidence_score,
+        answer_confidence_label=confidence_label,
     )
 
     proof = None
