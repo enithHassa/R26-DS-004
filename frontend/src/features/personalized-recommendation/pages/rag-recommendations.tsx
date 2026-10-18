@@ -171,8 +171,8 @@ export function RagRecommendationsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Knowledge Match</h1>
         </div>
         <p className="mt-1 text-muted-foreground">
-          Retrieval-Augmented Generation — strategies are retrieved by semantic similarity between
-          your financial profile and the strategy knowledge base, then explained in plain English.
+          Explanation layer only — catalog text matched to the profile for plain-language
+          wording. Smart Recommendations (ML fusion) still decide rank; this page does not.
         </p>
       </div>
 
@@ -180,8 +180,8 @@ export function RagRecommendationsPage() {
         <CardHeader>
           <CardTitle>Query the Strategy Knowledge Base</CardTitle>
           <CardDescription>
-            Select a profile to generate a semantic query and retrieve the most relevant tax
-            strategies from the IRD-grounded strategy catalog.
+            Demo of catalog retrieval used to write explanations. Do not treat similarity
+            order as the official recommendation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

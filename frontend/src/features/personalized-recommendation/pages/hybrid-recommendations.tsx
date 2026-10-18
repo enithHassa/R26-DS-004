@@ -64,7 +64,7 @@ export function HybridRecommendationsPage() {
       <PageHeader
         icon={Merge}
         title="Smart Recommendations"
-        description="Hybrid-ranked strategies for the active taxpayer case."
+        description="Ranked by LambdaMART tax-fit, adoption, feasibility and risk. RAG explains the shortlist; it does not pick #1."
       />
 
       <Card className="border-border/70 shadow-sm">
@@ -133,7 +133,7 @@ export function HybridRecommendationsPage() {
             <div>
               <h2 className="text-2xl font-bold tracking-tight">Tax Recommendations</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Ranked by AI · {items.length} active recommendation{items.length === 1 ? "" : "s"}
+                Ranked by ML fusion · {items.length} active recommendation{items.length === 1 ? "" : "s"}
                 {isOverrideActive ? (
                   <>
                     {" "}

@@ -73,14 +73,22 @@ function SectionTitle({
 }
 
 function AliasChips({ aliases }: { aliases: string[] }) {
-  if (aliases.length === 0) return null;
+  // Drop near-duplicates (e.g. "non-resident" vs "non resident").
+  const seen = new Set<string>();
+  const unique = aliases.filter((alias) => {
+    const key = alias.toLowerCase().replace(/[\s_-]+/g, "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (unique.length === 0) return null;
   return (
     <div className="mt-3 space-y-2">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Also known as
+        Also called
       </p>
       <div className="flex flex-wrap gap-2">
-        {aliases.map((alias) => (
+        {unique.slice(0, 8).map((alias) => (
           <span
             key={alias}
             className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-xs text-foreground/90"
@@ -120,7 +128,7 @@ function ConceptsSection({ items }: { items: ConceptNode[] }) {
       <SectionTitle
         icon={Brain}
         title="Key tax concepts"
-        description="Definitions linked to the sources we retrieved for your question."
+        description="Simple definitions tied to the Match sources above."
         count={items.length}
       />
       <div className="grid gap-3 lg:grid-cols-2">
@@ -181,6 +189,12 @@ function ReliefsSection({ items }: { items: ReliefNode[] }) {
   );
 }
 
+function cleanBandTitle(band: RateBandNode): string {
+  const raw = band.band_label ?? humanizeSlug(band.rate_band_id);
+  // Avoid "First LKR 500,000 @ 4%" when the rate is already shown on the right.
+  return raw.replace(/\s*@\s*\d+(?:\.\d+)?%\s*$/i, "").trim() || raw;
+}
+
 function RateBandsSection({ items }: { items: RateBandNode[] }) {
   const maxRate = Math.max(...items.map((band) => band.rate_percent ?? 0), 1);
 
@@ -189,39 +203,44 @@ function RateBandsSection({ items }: { items: RateBandNode[] }) {
       <SectionTitle
         icon={BookMarked}
         title="Tax rate bands"
-        description="How income is taxed across slabs or ceilings for the matched concepts."
+        description="Income slabs and rates linked from the matched law passages (from the tax knowledge graph)."
         count={items.length}
       />
       <div className="space-y-3">
         {items.map((band) => {
-          const width = band.rate_percent != null ? Math.max((band.rate_percent / maxRate) * 100, 8) : 8;
+          const hasRate = band.rate_percent != null;
+          const width = hasRate ? Math.max((band.rate_percent! / maxRate) * 100, 8) : 0;
+          const rangeLabel =
+            band.lower_bound != null || band.upper_bound != null
+              ? `${fmtLkr(band.lower_bound)} to ${
+                  band.upper_bound != null ? fmtLkr(band.upper_bound) : "and above"
+                }`
+              : null;
           return (
             <div
               key={band.rate_band_id}
               className="rounded-xl border border-border/80 bg-card p-4 shadow-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {band.band_label ?? humanizeSlug(band.rate_band_id)}
-                  </p>
-                  {band.band_type ? (
-                    <p className="mt-1 text-sm capitalize text-muted-foreground">
-                      {humanizeSlug(band.band_type)}
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">{cleanBandTitle(band)}</p>
+                  {rangeLabel ? (
+                    <p className="mt-1 text-sm text-muted-foreground">{rangeLabel}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Income range not stored for this band
                     </p>
-                  ) : null}
+                  )}
                 </div>
                 <p className="text-lg font-semibold text-primary">
-                  {band.rate_percent != null ? `${band.rate_percent}%` : "—"}
+                  {hasRate ? `${band.rate_percent}%` : "No rate stored"}
                 </p>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary/80" style={{ width: `${width}%` }} />
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {fmtLkr(band.lower_bound)} to{" "}
-                {band.upper_bound != null ? fmtLkr(band.upper_bound) : "and above"}
-              </p>
+              {hasRate ? (
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary/80" style={{ width: `${width}%` }} />
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -304,8 +323,8 @@ function SupersededSection({ items }: { items: string[] }) {
     <div>
       <SectionTitle
         icon={AlertTriangle}
-        title="Newer law versions"
-        description="Matched instruments that have been replaced by a newer source in the graph."
+        title="Related newer laws"
+        description="Amendments or updates connected to your matched sources. If wording conflicts, prefer these newer instruments."
         count={items.length}
       />
       <ul className="space-y-2">
@@ -314,8 +333,9 @@ function SupersededSection({ items }: { items: string[] }) {
             key={item}
             className="rounded-xl border border-border/80 bg-card px-4 py-3 text-sm text-foreground"
           >
-            Prefer the newer instrument instead of{" "}
-            <span className="font-medium">{humanizeSlug(item)}</span>.
+            Check against{" "}
+            <span className="font-medium">{humanizeSlug(item)}</span>{" "}
+            when the older Act text differs.
           </li>
         ))}
       </ul>
@@ -374,10 +394,11 @@ function GraphSummary({ context }: { context: GraphContext }) {
   return (
     <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
       <p className="text-sm font-medium text-foreground">
-        We linked your retrieved sources to related tax knowledge.
+        Extra context linked from the law sources above
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        These are supporting definitions, reliefs, rates, deadlines, and audience notes — not a generated legal answer.
+        Definitions, relief ceilings, rate slabs, and update notices. This is supporting
+        reference material — not another AI-written answer.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {items.map((item) => (
@@ -425,8 +446,8 @@ export function GraphContextPanel({
           Related tax knowledge
         </CardTitle>
         <CardDescription>
-          Linked context from the Sri Lanka tax knowledge graph, mapped from your matched passages
-          through Neo4j relationships such as mentions, covered reliefs, rate bands, and deadlines.
+          How we got here: each matched law passage is linked to related ideas in the Sri Lanka tax
+          knowledge graph (concepts, reliefs, rates, deadlines). Scroll down for the details.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -458,7 +479,7 @@ export function GraphContextPanel({
           </div>
         )}
         <p className="mt-6 text-right text-[11px] text-muted-foreground/70">
-          Knowledge graph source: {humanizeSlug(context.graph_model)}
+          Tax knowledge graph · {humanizeSlug(context.graph_model)}
         </p>
       </CardContent>
     </Card>

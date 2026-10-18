@@ -66,6 +66,37 @@ _SINGLISH_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     )
 )
 
+# Append domain synonyms so short questions hit statutory wording (not TOC/guide noise).
+_RETRIEVAL_EXPANSIONS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern, re.IGNORECASE), expansion)
+    for pattern, expansion in (
+        (
+            r"\bwithholding tax\b|\bWHT\b",
+            "withholding tax WHT tax payable by withholding deduct at source",
+        ),
+        (
+            r"\bdividends?\b",
+            "dividend dividends distribution resident company",
+        ),
+        (
+            r"\bpersonal relief\b",
+            "personal relief qualifying payment individual relief Schedule",
+        ),
+        (
+            r"\b(filing|tax return)\s+deadline\b|\breturn of income\b",
+            "tax return return of income due date filing deadline Assistant Commissioner",
+        ),
+        (
+            r"\b(tax\s+)?(rate|slab|band)s?\b",
+            "tax rates First Schedule resident individual slabs bands",
+        ),
+        (
+            r"\bresiden(t|cy)\b",
+            "resident residency non-resident individual",
+        ),
+    )
+)
+
 
 def normalize_query(text: str) -> str:
     """Return cleaned query text suitable for retrieval and intent models."""
@@ -76,3 +107,18 @@ def normalize_query(text: str) -> str:
     # Clean up any double spaces left after removals
     t = re.sub(r"\s{2,}", " ", t)
     return t.strip()
+
+
+def expand_for_retrieval(text: str) -> str:
+    """Normalize then append synonym cues used only for corpus search."""
+    base = normalize_query(text)
+    if not base:
+        return base
+    extras: list[str] = []
+    for pattern, expansion in _RETRIEVAL_EXPANSIONS:
+        if pattern.search(base):
+            extras.append(expansion)
+    if not extras:
+        return base
+    # Keep original phrasing first; expansions help TF-IDF recall.
+    return f"{base} {' '.join(dict.fromkeys(extras))}".strip()

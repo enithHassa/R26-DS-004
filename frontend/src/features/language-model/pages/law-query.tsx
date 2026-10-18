@@ -52,7 +52,8 @@ export function LawQueryPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Law-grounded query</h1>
         <p className="text-muted-foreground">
-          Ask a tax law question and get a cited answer from real IRD law documents. You can also request a plain-language summary.
+          Ask a Sri Lankan tax-law question. You get: (1) a plain summary, (2) the real IRD passages
+          it came from, and (3) related tax knowledge linked from those passages.
         </p>
       </div>
 
@@ -91,7 +92,7 @@ export function LawQueryPage() {
                 <span>
                   <span className="font-medium text-foreground">Generate a plain-language answer</span>
                   <span className="mt-1 block text-muted-foreground">
-                    When enabled, an AI summary is shown above the law sources.
+                    Shows an AI summary first, with [Match] tags that point to the law sources below.
                   </span>
                 </span>
               </label>
@@ -120,11 +121,41 @@ export function LawQueryPage() {
         <>
           <DomainNotice status={res.domain_status} message={res.domain_message} />
 
+          {!blocked ? (
+            <Card className="border-border/70 bg-muted/15 shadow-none">
+              <CardContent className="space-y-3 pt-5">
+                <p className="text-sm font-semibold text-foreground">How to read this result</p>
+                <ol className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                  <li className="rounded-lg border border-border/60 bg-background px-3 py-2">
+                    <span className="font-medium text-foreground">1. Answer</span>
+                    <span className="mt-1 block text-xs leading-relaxed">
+                      Easy summary first. Look for [Match 1], [Match 2]… tags.
+                    </span>
+                  </li>
+                  <li className="rounded-lg border border-border/60 bg-background px-3 py-2">
+                    <span className="font-medium text-foreground">2. Law sources</span>
+                    <span className="mt-1 block text-xs leading-relaxed">
+                      The real IRD passages those Match tags point to.
+                    </span>
+                  </li>
+                  <li className="rounded-lg border border-border/60 bg-background px-3 py-2">
+                    <span className="font-medium text-foreground">3. Related knowledge</span>
+                    <span className="mt-1 block text-xs leading-relaxed">
+                      Extra definitions, rates, and updates linked from those passages.
+                    </span>
+                  </li>
+                </ol>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {!blocked && res.plain_answer ? (
             <PlainAnswerCard
               answer={res.plain_answer}
               provider={res.answer_provider}
               model={res.answer_model}
+              confidenceScore={res.answer_confidence_score}
+              confidenceLabel={res.answer_confidence_label}
             />
           ) : null}
 
@@ -137,7 +168,8 @@ export function LawQueryPage() {
                 Law sources used
               </CardTitle>
               <CardDescription>
-                These are the actual law sections the answer is based on.
+                Where the answer came from. Each card is one Match number from the summary above —
+                open the passage to see the exact wording.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -157,7 +189,7 @@ export function LawQueryPage() {
                       chunkId={citation.chunk_id}
                       graphEnriched={Boolean(res.graph_context)}
                       excerpt={citation.text}
-                      excerptLabel="Relevant passage"
+                      excerptLabel="Exact wording from the law"
                     />
                   ))}
                 </div>

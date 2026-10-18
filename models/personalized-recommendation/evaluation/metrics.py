@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import average_precision_score, f1_score, ndcg_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    f1_score,
+    ndcg_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 
 def group_by_query(flat: np.ndarray, group_sizes: np.ndarray) -> list[np.ndarray]:
@@ -71,6 +79,11 @@ def adoption_metrics(y_true: np.ndarray, y_prob: np.ndarray) -> dict[str, float]
     """Multi-label adoption classifier metrics."""
     y_pred = (y_prob >= 0.5).astype(int)
     return {
+        # Flattened (micro) accuracy over every (profile, strategy-label) cell —
+        # the standard way to report "accuracy" for a multi-label classifier.
+        "accuracy": float(accuracy_score(y_true.reshape(-1), y_pred.reshape(-1))),
+        "precision_micro": float(precision_score(y_true, y_pred, average="micro", zero_division=0)),
+        "recall_micro": float(recall_score(y_true, y_pred, average="micro", zero_division=0)),
         "micro_f1": float(f1_score(y_true, y_pred, average="micro", zero_division=0)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         "roc_auc_micro": float(roc_auc_score(y_true, y_prob, average="micro")),

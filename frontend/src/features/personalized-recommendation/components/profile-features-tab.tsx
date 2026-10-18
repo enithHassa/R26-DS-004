@@ -213,17 +213,11 @@ export function ProfileFeaturesTab({
         pendingFlag={pendingFlag}
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6">
         <ProfileTaxSourceSection
           profileId={selectedId}
           taxYear={selectedProfile?.tax_year}
           variant="oe-engine"
-          derivedFeatures={features}
-        />
-        <ProfileTaxSourceSection
-          profileId={selectedId}
-          taxYear={selectedProfile?.tax_year}
-          variant="oe-rag"
           derivedFeatures={features}
         />
       </div>
@@ -240,8 +234,8 @@ export function ProfileFeaturesTab({
           <CardContent className="py-4 text-sm text-muted-foreground">
             Tax figures above are merged with{" "}
             <strong className="font-medium text-foreground">derived features</strong> when ranking
-            strategies in Smart Recommendations. Complete OE interviews for full relief-aware tax
-            context.
+            strategies in Smart Recommendations. Complete the OE Engine interview for full
+            relief-aware tax context.
           </CardContent>
         </Card>
       )}

@@ -17,6 +17,7 @@ import {
   listChatSessions,
   postChat,
 } from "../api";
+import { AnswerConfidenceBadge } from "../components/answer-confidence-badge";
 import { DomainNotice } from "../components/domain-notice";
 import { MarkdownLite } from "../components/markdown-lite";
 import { ProofMapPanel } from "../components/proof-map-panel";
@@ -471,23 +472,29 @@ function TurnBlock({
           <div className="rounded-xl rounded-tl-sm border border-border/70 bg-card px-4 py-3 text-sm shadow-sm">
             {!blocked && qr.plain_answer ? (
               <div className="space-y-2">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <AnswerConfidenceBadge
+                    score={qr.answer_confidence_score}
+                    label={qr.answer_confidence_label}
+                  />
+                  {qr.validation_status ? (
+                    <p className="text-xs text-muted-foreground">
+                      Validation:{" "}
+                      <span
+                        className={
+                          qr.validation_status === "passed"
+                            ? "text-emerald-600"
+                            : qr.validation_status === "corrected"
+                              ? "text-amber-600"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {qr.validation_status}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
                 <MarkdownLite content={qr.plain_answer} />
-                {qr.validation_status && (
-                  <p className="text-xs text-muted-foreground">
-                    Validation:{" "}
-                    <span
-                      className={
-                        qr.validation_status === "passed"
-                          ? "text-emerald-600"
-                          : qr.validation_status === "corrected"
-                            ? "text-amber-600"
-                            : "text-muted-foreground"
-                      }
-                    >
-                      {qr.validation_status}
-                    </span>
-                  </p>
-                )}
               </div>
             ) : blocked ? (
               <p className="text-muted-foreground italic">

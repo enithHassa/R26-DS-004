@@ -124,10 +124,10 @@ export function GraphLinkMap({ anchors, context, intentLabel }: GraphLinkMapProp
           <Link2 className="h-4 w-4 text-primary" aria-hidden />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-foreground">How the knowledge graph connects</h3>
+          <h3 className="text-sm font-semibold text-foreground">How this extra context was linked</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your ranked passages are matched to graph nodes in Neo4j. The paths below show how those
-            matches expand into concepts, reliefs, rates, deadlines, and audience notes.
+            We take the Match passages from above, look them up in the tax knowledge graph, and pull
+            related concepts, reliefs, rates, and deadlines.
           </p>
         </div>
       </div>
@@ -135,7 +135,7 @@ export function GraphLinkMap({ anchors, context, intentLabel }: GraphLinkMapProp
       {anchors.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Passages used for graph lookup
+            Starting from these Match sources
           </p>
           <div className="grid gap-2 lg:grid-cols-2">
             {anchors.map((anchor) => (
@@ -148,13 +148,13 @@ export function GraphLinkMap({ anchors, context, intentLabel }: GraphLinkMapProp
                     {anchor.rank}
                   </span>
                   <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Match {anchor.rank}
+                    </p>
                     <p className="text-sm font-medium text-foreground">{anchor.title}</p>
                     {anchor.subtitle ? (
                       <p className="text-xs text-muted-foreground">{anchor.subtitle}</p>
                     ) : null}
-                    <p className="mt-1 text-[11px] text-muted-foreground/80">
-                      {anchor.sectionUid ? `Section: ${anchor.sectionUid}` : `Chunk: ${anchor.chunkId}`}
-                    </p>
                   </div>
                 </div>
               </div>
@@ -166,7 +166,7 @@ export function GraphLinkMap({ anchors, context, intentLabel }: GraphLinkMapProp
       {paths.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Graph paths found for this answer
+            What we connected
           </p>
           <div className="space-y-2">
             {paths.map((path) => (
@@ -176,13 +176,12 @@ export function GraphLinkMap({ anchors, context, intentLabel }: GraphLinkMapProp
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No graph relationships were returned for the current matches.
+          No extra tax-knowledge links were found for these matches.
         </p>
       )}
 
       <p className={cn("text-xs text-muted-foreground")}>
-        This is a grouped view of the Neo4j enrichment used by the language-model service. It does
-        not draw every individual edge in the graph.
+        Summary of links only — not every relationship in the full tax database.
       </p>
     </section>
   );

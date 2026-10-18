@@ -10,10 +10,22 @@ from typing import Any
 from backend.shared.utils.logging import logger
 
 
-def _load_ird_corpus_lib():
+def _ensure_scripts_on_path() -> Path:
+    """scripts/ helpers import siblings (e.g. ird_section_aware); keep that dir on sys.path."""
+    import sys
+
     from backend.shared.config.settings import PROJECT_ROOT
 
-    lib_path = PROJECT_ROOT / "scripts" / "ird_corpus_lib.py"
+    scripts_dir = PROJECT_ROOT / "scripts"
+    scripts_s = str(scripts_dir)
+    if scripts_dir.is_dir() and scripts_s not in sys.path:
+        sys.path.insert(0, scripts_s)
+    return scripts_dir
+
+
+def _load_ird_corpus_lib():
+    scripts_dir = _ensure_scripts_on_path()
+    lib_path = scripts_dir / "ird_corpus_lib.py"
     if not lib_path.is_file():
         raise FileNotFoundError(f"ird_corpus_lib not found at {lib_path}")
     spec = importlib.util.spec_from_file_location("ird_corpus_lib", lib_path)
@@ -25,9 +37,8 @@ def _load_ird_corpus_lib():
 
 
 def _load_kg_etl_lib():
-    from backend.shared.config.settings import PROJECT_ROOT
-
-    lib_path = PROJECT_ROOT / "scripts" / "kg_etl_lib.py"
+    scripts_dir = _ensure_scripts_on_path()
+    lib_path = scripts_dir / "kg_etl_lib.py"
     if not lib_path.is_file():
         raise FileNotFoundError(f"kg_etl_lib not found at {lib_path}")
     spec = importlib.util.spec_from_file_location("kg_etl_lib", lib_path)

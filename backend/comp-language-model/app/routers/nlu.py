@@ -13,7 +13,7 @@ from app.services.domain_gate import assess_domain
 from app.services.intent_benchmark import build_intent_classifier
 from app.services.intent_tfidf_centroid import TfidfIntentCentroidClassifier
 from app.services.lex_rank import rerank_hits
-from app.services.query_preprocess import normalize_query
+from app.services.query_preprocess import expand_for_retrieval, normalize_query
 from app.services.tfidf_chunk_index import TfidfChunkIndex
 from backend.shared.utils.logging import logger
 
@@ -66,9 +66,17 @@ async def parse_nlu(request: Request, body: NLUParseRequest) -> NLUParseResponse
     join_map: dict[str, dict[str, str | None]] = getattr(
         request.app.state, "chunk_kg_join_by_id", None
     ) or {}
-    hits = index.search(normalized, k)
-    if settings.COMP_LLM_LEX_SPECIALIS_RERANK:
-        hits = rerank_hits(hits, join_map)
+    retrieval_query = expand_for_retrieval(body.utterance)
+    fetch_k = min(max(k * 4, k + 16), 48)
+    hits = index.search(retrieval_query, fetch_k)
+    hits = rerank_hits(
+        hits,
+        join_map,
+        chunk_texts,
+        query=retrieval_query,
+        drop_navigational=True,
+        apply_lex_boost=settings.COMP_LLM_LEX_SPECIALIS_RERANK,
+    )[:k]
     top_score = hits[0][1] if hits else None
     top_excerpt = chunk_texts.get(hits[0][0], "") if hits else None
     domain = assess_domain(

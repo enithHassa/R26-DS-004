@@ -60,7 +60,7 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Strategy explanation
+              RAG explanation (not used for ranking)
             </p>
             <h2 className="text-lg font-bold">{item.name}</h2>
           </div>
@@ -78,7 +78,7 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
           <p className="text-sm text-muted-foreground">{item.why_relevant || item.description}</p>
 
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Guidance</h3>
+            <h3 className="text-sm font-semibold">What this means (catalog / IRD wording)</h3>
             {buildPlainSections(detail).map((s) => (
               <PlainSection key={s.title} title={s.title} body={s.body} />
             ))}
@@ -88,7 +88,7 @@ export function StrategyExplanationModal({ item, profileId, onClose }: Props) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Why the AI ranked this strategy
+                SHAP — why LambdaMART scored this strategy
               </h3>
               <Button
                 type="button"

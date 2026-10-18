@@ -23,7 +23,7 @@ from app.config import LanguageModelSettings
 from app.schemas.chat_v1 import TaxpayerContext
 from app.schemas.graph_v1 import GraphContext
 from app.schemas.query_v1 import QueryResponse
-from app.services.answer_synthesis import _graph_context_text, _label
+from app.services.answer_synthesis import _graph_context_text, _label, _must_use_facts
 from app.services.query_pipeline import run_query_pipeline
 from app.services.taxpayer_data import (
     TaxpayerFacts,
@@ -116,7 +116,8 @@ def _build_prompt(
             "",
             "Rules:",
             "- Use the taxpayer record for every taxpayer-specific number. Never invent figures.",
-            "- Apply the law from the passages and the KG rate bands/reliefs to those numbers.",
+            "- Apply the law from MUST-USE FACTS and the passages (rates, reliefs, overrides).",
+            "- If a MUST-USE OVERRIDE prefers section A over B, treat A as controlling.",
             "- When the question is about a transaction, a recommendation, or a config change, "
             "explain the recorded reasoning for it — do not just restate the label or amount.",
             "- If a figure needed for an accurate answer is not in the context, say exactly what is missing.",
@@ -131,6 +132,9 @@ def _build_prompt(
             f"QUESTION: {question.strip()}",
             "",
             format_taxpayer_block(facts),
+            "",
+            "MUST-USE FACTS (knowledge graph):",
+            _must_use_facts(graph_context),
             "",
             "KNOWLEDGE-GRAPH CONTEXT:",
             _graph_context_text(graph_context),

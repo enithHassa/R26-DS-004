@@ -70,8 +70,8 @@ class LanguageModelSettings(BaseSettings):
     )
 
     COMP_LLM_ANSWER_SYNTHESIS_ENABLED: bool = Field(
-        default=False,
-        description="Enable optional plain-language answers on POST /api/v1/query.",
+        default=True,
+        description="Enable optional plain-language answers on POST /api/v1/query and chat.",
     )
 
     # ------------------------------------------------------------------
@@ -142,18 +142,18 @@ class LanguageModelSettings(BaseSettings):
     COMP_LLM_ANSWER_PROVIDER: Literal["gemini", "none"] = Field(default="gemini")
     COMP_LLM_GEMINI_API_KEY: str = Field(default="")
     COMP_LLM_GEMINI_MODEL: str = Field(
-        default="gemini-2.5-flash",
+        default="gemini-3.8-flash",
         description=(
             "Model for the balanced task: plain-language answer synthesis. "
-            "Prefer gemini-2.5-flash (best intelligence/cost). Do not point this "
-            "at a 'pro' model for routine advisory synthesis."
+            "Prefer gemini-3.8-flash (gemini-2.5-flash is unavailable to new API keys). "
+            "Do not point this at a 'pro' model for routine advisory synthesis."
         ),
     )
     COMP_LLM_GEMINI_LIGHT_MODEL: str = Field(
-        default="gemini-2.5-flash-lite",
+        default="gemini-3.5-flash-lite",
         description=(
             "Model for cheap, short tasks (follow-up-question suggestions). "
-            "gemini-2.5-flash-lite is the most economical option."
+            "gemini-3.5-flash-lite is the economical option for current API keys."
         ),
     )
     COMP_LLM_ANSWER_MAX_CITATIONS: int = Field(default=4, ge=1, le=8)
