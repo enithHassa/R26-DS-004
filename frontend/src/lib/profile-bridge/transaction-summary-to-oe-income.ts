@@ -1,4 +1,7 @@
 import type { TaxableIncomeLineItem } from "@/features/transaction-semantic/api";
+import {
+  rebalanceBankTaxablePool,
+} from "@/features/optimization-explainable-engine/income-aggregate";
 import type {
   InterestScheduleLine,
   InterviewIncomeState,
@@ -28,6 +31,14 @@ function setAmount(_current: string, value: number): string {
   return amountStr(value);
 }
 
+function zeroRecord(record: Record<string, string>): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const key of Object.keys(record)) {
+    next[key] = "0";
+  }
+  return next;
+}
+
 type FieldTarget =
   | { bucket: "employment"; id: string }
   | { bucket: "business"; id: string }
@@ -55,6 +66,7 @@ function targetForClassKey(classKey: string): FieldTarget {
     case "capital_gain":
       return { bucket: "investment", id: "inv_gains_investment_assets" };
     default:
+      // unknown / review / unmapped — stay in the Comp 1 pool as Sec 8 residual
       return { bucket: "other", id: "oth_residual" };
   }
 }
@@ -65,7 +77,8 @@ function applyToRecord(
   amount: number,
   mode: MergeBreakdownMode,
 ): void {
-  record[id] = mode === "replace" ? setAmount(record[id] ?? "0", amount) : addAmount(record[id] ?? "0", amount);
+  record[id] =
+    mode === "replace" ? setAmount(record[id] ?? "0", amount) : addAmount(record[id] ?? "0", amount);
 }
 
 /**
@@ -102,10 +115,7 @@ function syncInterestSchedule(
       interest: amountStr(nextInterest),
       wht: existing?.wht ?? preservedWht,
     };
-    return [
-      ...others.filter((line) => line.id !== COMP1_BANK_INTEREST_LINE_ID),
-      bankLine,
-    ];
+    return [...others.filter((line) => line.id !== COMP1_BANK_INTEREST_LINE_ID), bankLine];
   }
 
   return [
@@ -122,11 +132,13 @@ function syncInterestSchedule(
 /**
  * Merge Comp 1 taxable income buckets into OE interview income.
  *
- * - Default `replace`: bank taxable amounts become the source of truth for each
- *   mapped field present in the breakdown (avoids stacking on demo seed values).
- * - `add`: layer bank evidence on existing profile/interview totals.
- * - Interest updates both `inv_interest` and the WHT schedule line OE uses in UI/Result.
- * - Zero / non-taxable amounts are skipped (Comp 1 AIT-exempt interest stays out).
+ * Replace mode (Comp 1 push / apply monthly):
+ * - Sets `bankTaxablePoolLkr` to the YA taxable total.
+ * - Maps known classes onto employment / business / investment.
+ * - Sec 8 residual becomes the unallocated balance (pool − those heads).
+ * - Demo seed income is cleared so it cannot inflate the YA total.
+ *
+ * Add mode: layers amounts without resetting the pool (profile layering).
  */
 export function mergeBreakdownIntoIncome(
   income: InterviewIncomeState,
@@ -151,28 +163,34 @@ export function mergeTaxableSummaryIntoIncome(
   lines: TaxableIncomeLineItem[],
   mode: MergeBreakdownMode = "replace",
 ): InterviewIncomeState {
-  const employment = { ...income.employmentAmounts };
-  const business = { ...income.businessAmounts };
-  const investment = { ...income.investmentAmounts };
-  const other = { ...income.otherAmounts };
-  let interestSchedule = [...(income.interestSchedule ?? [])];
-
-  // Sum by class first so replace mode does not clobber duplicate months/docs.
   const byClass = new Map<string, number>();
+  let poolTotal = 0;
   for (const line of lines) {
     const amount = num(line.taxable_amount_lkr);
     if (amount <= 0) continue;
+    poolTotal += amount;
     byClass.set(line.class_key, (byClass.get(line.class_key) ?? 0) + amount);
   }
 
-  // Collapse class keys that share one OE field before replace.
+  const employment =
+    mode === "replace" ? zeroRecord(income.employmentAmounts) : { ...income.employmentAmounts };
+  const business =
+    mode === "replace" ? zeroRecord(income.businessAmounts) : { ...income.businessAmounts };
+  const investment =
+    mode === "replace" ? zeroRecord(income.investmentAmounts) : { ...income.investmentAmounts };
+  const other =
+    mode === "replace" ? zeroRecord(income.otherAmounts) : { ...income.otherAmounts };
+  let interestSchedule =
+    mode === "replace" ? [] : [...(income.interestSchedule ?? [])];
+  const otherCustomRows = mode === "replace" ? [] : [...(income.otherCustomRows ?? [])];
+
   const fieldTotals = new Map<string, { target: FieldTarget; amount: number }>();
   for (const [classKey, amount] of byClass) {
     const target = targetForClassKey(classKey);
+    // Residual/unknown classes only contribute to the pool — not a direct field write.
+    if (target.bucket === "other") continue;
     const key =
-      target.bucket === "interest"
-        ? "interest"
-        : `${target.bucket}:${target.id}`;
+      target.bucket === "interest" ? "interest" : `${target.bucket}:${target.id}`;
     const existing = fieldTotals.get(key);
     if (existing) {
       existing.amount += amount;
@@ -193,12 +211,17 @@ export function mergeTaxableSummaryIntoIncome(
       applyToRecord(business, target.id, amount, mode);
     } else if (target.bucket === "investment") {
       applyToRecord(investment, target.id, amount, mode);
-    } else {
-      applyToRecord(other, target.id, amount, mode);
     }
   }
 
-  return {
+  const nextPool =
+    mode === "replace"
+      ? amountStr(poolTotal)
+      : income.bankTaxablePoolLkr != null && income.bankTaxablePoolLkr !== ""
+        ? amountStr(num(income.bankTaxablePoolLkr) + poolTotal)
+        : income.bankTaxablePoolLkr ?? null;
+
+  const merged: InterviewIncomeState = {
     ...income,
     employmentMode: "components",
     businessMode: num(business.biz_net_profits) > 0 ? "net" : income.businessMode,
@@ -208,6 +231,13 @@ export function mergeTaxableSummaryIntoIncome(
     businessAmounts: business,
     investmentAmounts: investment,
     otherAmounts: other,
+    otherCustomRows,
     interestSchedule,
+    bankTaxablePoolLkr: mode === "replace" || nextPool != null ? nextPool : income.bankTaxablePoolLkr,
   };
+
+  if (merged.bankTaxablePoolLkr == null || merged.bankTaxablePoolLkr === "") {
+    return merged;
+  }
+  return rebalanceBankTaxablePool(merged);
 }

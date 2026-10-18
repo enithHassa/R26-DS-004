@@ -141,3 +141,44 @@ export function totalIncomeLkr(income: InterviewIncomeState): number {
     otherIncomeLkr(income)
   );
 }
+
+function customOtherRowsLkr(income: InterviewIncomeState): number {
+  return (income.otherCustomRows ?? []).reduce((sum, row) => sum + parseLkr(row.amount), 0);
+}
+
+/** Heads allocated from the Comp 1 pool before Sec 8 residual. */
+export function allocatedFromBankPoolLkr(income: InterviewIncomeState): number {
+  return (
+    employmentIncomeLkr(income) +
+    businessIncomeLkr(income) +
+    investmentIncomeLkr(income) +
+    customOtherRowsLkr(income)
+  );
+}
+
+/**
+ * Keep Sec 8 residual = bank taxable pool − allocated heads so YA total stays
+ * equal to the Comp 1 taxable push through reliefs/Result.
+ */
+export function rebalanceBankTaxablePool(income: InterviewIncomeState): InterviewIncomeState {
+  const raw = income.bankTaxablePoolLkr;
+  if (raw == null || raw === "") return income;
+  const pool = parseLkr(raw);
+  if (!Number.isFinite(pool) || pool < 0) return income;
+
+  const withoutResidual: InterviewIncomeState = {
+    ...income,
+    otherAmounts: { ...income.otherAmounts, oth_residual: "0" },
+  };
+  const allocated = allocatedFromBankPoolLkr(withoutResidual);
+  const residual = Math.max(0, Math.round(pool - allocated));
+
+  return {
+    ...income,
+    otherMode: "components",
+    otherAmounts: {
+      ...income.otherAmounts,
+      oth_residual: residual > 0 ? String(residual) : "0",
+    },
+  };
+}

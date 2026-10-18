@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { mergeBreakdownIntoIncome } from "@/lib/profile-bridge/transaction-summary-to-oe-income";
 
-import { interestIncomeLkr, investmentIncomeLkr, otherIncomeLkr } from "./income-aggregate";
+import {
+  interestIncomeLkr,
+  investmentIncomeLkr,
+  otherIncomeLkr,
+  rebalanceBankTaxablePool,
+  totalIncomeLkr,
+} from "./income-aggregate";
 import type { InterviewIncomeState } from "./types";
 import { hydrateIncomeAmounts } from "./types";
 
@@ -41,24 +47,55 @@ function baseIncome(overrides: Partial<InterviewIncomeState> = {}): InterviewInc
     apitAlreadyPaid: "0",
     hasTerminalBenefits: false,
     terminalBenefits: [],
+    bankTaxablePoolLkr: null,
     ...overrides,
   });
 }
 
-describe("Comp1 → OE taxable bridge", () => {
-  it("replace mode writes taxable buckets without stacking on demo seeds", () => {
+describe("Comp1 → OE taxable pool", () => {
+  it("puts the YA taxable total in Other, clearing demo seeds", () => {
+    const merged = mergeBreakdownIntoIncome(
+      baseIncome(),
+      [{ classKey: "unknown", amount: 31_940_375 }],
+      "replace",
+    );
+
+    expect(merged.bankTaxablePoolLkr).toBe("31940375");
+    expect(merged.employmentAmounts.emp_salary).toBe("0");
+    expect(otherIncomeLkr(merged)).toBe(31_940_375);
+    expect(totalIncomeLkr(merged)).toBe(31_940_375);
+  });
+
+  it("moves known employment out of Other so heads still sum to the pool", () => {
     const merged = mergeBreakdownIntoIncome(
       baseIncome(),
       [
-        { classKey: "employment_income", amount: 500_000 },
-        { classKey: "unknown", amount: 1_200_000 },
+        { classKey: "employment_income", amount: 2_310 },
+        { classKey: "unknown", amount: 31_938_065 },
       ],
       "replace",
     );
 
-    expect(merged.employmentAmounts.emp_salary).toBe("500000");
-    expect(merged.otherAmounts.oth_residual).toBe("1200000");
-    expect(otherIncomeLkr(merged)).toBe(1_200_000);
+    expect(merged.employmentAmounts.emp_salary).toBe("2310");
+    expect(otherIncomeLkr(merged)).toBe(31_938_065);
+    expect(totalIncomeLkr(merged)).toBe(31_940_375);
+  });
+
+  it("rebalances Other when employment is edited after the Comp 1 push", () => {
+    const merged = mergeBreakdownIntoIncome(
+      baseIncome(),
+      [{ classKey: "unknown", amount: 1_000_000 }],
+      "replace",
+    );
+
+    const afterEdit = rebalanceBankTaxablePool({
+      ...merged,
+      employmentAmounts: { ...merged.employmentAmounts, emp_salary: "250000" },
+    });
+
+    expect(afterEdit.employmentAmounts.emp_salary).toBe("250000");
+    expect(otherIncomeLkr(afterEdit)).toBe(750_000);
+    expect(totalIncomeLkr(afterEdit)).toBe(1_000_000);
   });
 
   it("skips zero / non-taxable interest so AIT-exempt Comp1 interest stays out of OE", () => {
@@ -76,10 +113,11 @@ describe("Comp1 → OE taxable bridge", () => {
 
     expect(merged.businessAmounts.biz_net_profits).toBe("80000");
     expect(interestIncomeLkr(merged)).toBe(0);
-    expect(merged.interestSchedule).toEqual([]);
+    expect(otherIncomeLkr(merged)).toBe(0);
+    expect(totalIncomeLkr(merged)).toBe(80_000);
   });
 
-  it("syncs WHT schedule when taxable interest is present so OE totals match", () => {
+  it("syncs WHT schedule when taxable interest is present", () => {
     const merged = mergeBreakdownIntoIncome(
       baseIncome(),
       [{ classKey: "interest_income", amount: 1443.21 }],
@@ -87,16 +125,10 @@ describe("Comp1 → OE taxable bridge", () => {
     );
 
     expect(merged.investmentAmounts.inv_interest).toBe("1443");
-    expect(merged.interestSchedule).toEqual([
-      {
-        id: "comp1-bank-interest",
-        label: "Bank interest (classified)",
-        interest: "1443",
-        wht: "0",
-      },
-    ]);
     expect(interestIncomeLkr(merged)).toBe(1443);
     expect(investmentIncomeLkr(merged)).toBe(1443);
+    expect(otherIncomeLkr(merged)).toBe(0);
+    expect(totalIncomeLkr(merged)).toBe(1443);
   });
 
   it("add mode layers bank evidence on existing profile totals", () => {
@@ -105,6 +137,7 @@ describe("Comp1 → OE taxable bridge", () => {
         employmentAmounts: { emp_salary: "100000", emp_bonus: "0" },
         interestSchedule: [],
         investmentAmounts: { inv_interest: "0", inv_rents: "0", inv_dividends: "0" },
+        bankTaxablePoolLkr: null,
       }),
       [{ classKey: "employment_income", amount: 50_000 }],
       "add",
