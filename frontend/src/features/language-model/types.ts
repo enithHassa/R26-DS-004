@@ -154,6 +154,9 @@ export interface QueryResponse {
   domain_status?: string | null;
   domain_message?: string | null;
   validation_status?: string | null;
+  /** 0–100 grounding/confidence score for the answer (blue score in UI). */
+  answer_confidence_score?: number | null;
+  answer_confidence_label?: string | null;
   proof_map?: ProofMap | null;
 }
 

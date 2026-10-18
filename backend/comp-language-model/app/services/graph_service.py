@@ -298,8 +298,21 @@ class GraphService:
             return []
 
     async def _lex_notes(self, section_uids: list[str]) -> list[LexNote]:
+        """Return OVERRIDES notes when curated edges exist; skip quietly if type absent."""
+        if not section_uids:
+            return []
         try:
             async with self._driver.session(database=self._database) as s:
+                # Avoid Neo4j UnknownRelationshipTypeWarning when OVERRIDES not loaded yet.
+                type_result = await s.run(
+                    "CALL db.relationshipTypes() YIELD relationshipType "
+                    "WITH collect(relationshipType) AS types "
+                    "RETURN 'OVERRIDES' IN types AS has_overrides"
+                )
+                type_row = await type_result.single()
+                if not type_row or not type_row.get("has_overrides"):
+                    return []
+
                 result = await s.run(_LEX_OVERRIDES, section_uids=section_uids)
                 notes = []
                 async for r in result:

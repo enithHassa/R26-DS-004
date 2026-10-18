@@ -15,18 +15,35 @@ def test_normalize_query_singlish() -> None:
 
 
 def test_lex_specialis_boost_tier_a() -> None:
-    assert lex_specialis_boost({"tier": "A", "instrument_type": "act"}) > lex_specialis_boost(
+    assert lex_specialis_boost(
+        {"tier": "A", "instrument_type": "amendment_act"}
+    ) > lex_specialis_boost({"tier": "B", "instrument_type": "guide"})
+    assert lex_specialis_boost({"tier": "A", "instrument_type": "base_act"}) > lex_specialis_boost(
         {"tier": "C", "instrument_type": "hub_summary"}
     )
 
 
 def test_rerank_prefers_tier_a(monkeypatch: pytest.MonkeyPatch) -> None:
     join = {
-        "low": {"tier": "C", "instrument_type": "guide"},
-        "high": {"tier": "A", "instrument_type": "act"},
+        "low": {"tier": "B", "instrument_type": "guide"},
+        "high": {"tier": "A", "instrument_type": "amendment_act"},
     }
     hits = rerank_hits([("low", 0.9), ("high", 0.85)], join)
     assert hits[0][0] == "high"
+
+
+def test_rerank_drops_toc_noise() -> None:
+    join = {
+        "toc": {"tier": "B", "instrument_type": "guide"},
+        "law": {"tier": "A", "instrument_type": "base_act"},
+    }
+    texts = {
+        "toc": "6.1 What is Investment Income? ..................................... 50",
+        "law": "Withholding tax on dividends paid by a resident company is fourteen percent.",
+    }
+    hits = rerank_hits([("toc", 0.95), ("law", 0.70)], join, texts)
+    assert hits[0][0] == "law"
+    assert all(cid != "toc" for cid, _ in hits)
 
 
 def test_symbolic_rejects_wrong_personal_relief() -> None:

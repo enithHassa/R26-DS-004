@@ -21,6 +21,56 @@ def _label(citation: Citation) -> str:
     return citation.chunk_id
 
 
+def _fmt_amount(value: float | None, currency: str | None) -> str:
+    if value is None:
+        return "unspecified"
+    cur = (currency or "LKR").strip() or "LKR"
+    if float(value).is_integer():
+        return f"{cur} {int(value):,}"
+    return f"{cur} {value:,.2f}"
+
+
+def _must_use_facts(context: GraphContext | None) -> str:
+    """Structured KG facts Gemini must prefer over vague paraphrase."""
+    if context is None:
+        return "None supplied."
+
+    lines: list[str] = []
+    for note in (context.lex_notes or [])[:6]:
+        lines.append(
+            f"- OVERRIDE: prefer {note.winner_section_uid} over "
+            f"{note.overridden_section_uid}"
+            + (f" ({note.note})" if note.note else "")
+        )
+    for band in (context.rate_bands or [])[:8]:
+        label = band.band_label or band.rate_band_id
+        rate = f"{band.rate_percent}%" if band.rate_percent is not None else "rate unspecified"
+        lo = _fmt_amount(band.lower_bound, band.currency)
+        hi = _fmt_amount(band.upper_bound, band.currency)
+        window = ""
+        if band.effective_start_date or band.effective_end_date:
+            window = (
+                f" [effective {band.effective_start_date or '?'} → "
+                f"{band.effective_end_date or 'present'}]"
+            )
+        lines.append(f"- RATE BAND: {label}: {lo}–{hi} at {rate}{window}")
+    for relief in (context.reliefs or [])[:8]:
+        name = relief.display_name or relief.relief_id
+        detail = relief.description or relief.statutory_label or ""
+        suffix = f" — {detail}" if detail else ""
+        lines.append(f"- RELIEF: {name}{suffix}")
+    for milestone in (context.procedure_milestones or [])[:6]:
+        name = milestone.display_name or milestone.milestone_id
+        when = ""
+        if milestone.due_day and milestone.due_month:
+            when = f" (due day {milestone.due_day} / month {milestone.due_month})"
+        lines.append(f"- DEADLINE: {name}{when}")
+    for item in (context.superseded_by or [])[:6]:
+        lines.append(f"- SUPERSEDED BY: {item}")
+
+    return "\n".join(lines) if lines else "None supplied."
+
+
 def _graph_context_text(context: GraphContext | None) -> str:
     if context is None:
         return "No knowledge-graph context was attached."
@@ -78,8 +128,12 @@ def build_synthesis_prompt(
         "You explain Sri Lankan income tax in plain English for a non-expert reader.",
         "If the question is not about Sri Lankan income tax, reply with exactly:",
         "I can only answer Sri Lankan income-tax questions using the supplied legal sources.",
-        "Use only the supplied passages, knowledge-graph notes, and IRD reference notes.",
+        "Use only the supplied passages, knowledge-graph notes, must-use facts, and IRD "
+        "reference notes.",
         "Do not invent statutes, amounts, or deadlines that are absent from all of those.",
+        "MUST-USE FACTS are authoritative structured knowledge-graph facts. Prefer them for "
+        "rates, relief amounts, deadlines, and OVERRIDES. If a must-use OVERRIDE says section "
+        "A overrides B, treat A as controlling and do not present B as current law.",
         "When an IRD reference note gives a specific date, amount, or statutory section, "
         "state it directly in your answer and attribute it to the Inland Revenue Act "
         "section it names.",
@@ -95,6 +149,9 @@ def build_synthesis_prompt(
         "formula inline in plain text, e.g. 'min(cap 1,800,000, income 3,800,000) = 1,800,000'.",
         "",
         f"Question: {question.strip()}",
+        "",
+        "MUST-USE FACTS (from knowledge graph — prefer these numbers and overrides):",
+        _must_use_facts(graph_context),
         "",
         "Knowledge graph context:",
         _graph_context_text(graph_context),

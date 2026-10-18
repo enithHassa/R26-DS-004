@@ -86,6 +86,19 @@ class QueryResponse(BaseModel):
         default=None,
         description="Think Twice symbolic validation: skipped | passed | corrected | not_run.",
     )
+    answer_confidence_score: int | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description=(
+            "0–100 grounding/confidence score for the answer (retrieval + citations + "
+            "Think Twice). Displayed as the blue score in the UI."
+        ),
+    )
+    answer_confidence_label: str | None = Field(
+        default=None,
+        description="Short label for answer_confidence_score (e.g. High confidence).",
+    )
     proof_map: ProofMap | None = Field(
         default=None,
         description="Structured auditable paper trail from query to advisory output.",

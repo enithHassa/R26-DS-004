@@ -34,13 +34,21 @@ export function RetrievalResultCard({
     <article className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-muted/20 px-4 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+          <span
+            className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 px-1.5 text-[11px] font-bold text-primary"
+            title={`Cited in the answer as [Match ${rank}]`}
+          >
             {rank}
           </span>
           <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Match {rank}
+            </p>
             <p className="text-sm font-semibold text-foreground truncate">{title}</p>
             {graphEnriched ? (
-              <p className="text-xs text-primary mt-0.5">Verified in knowledge graph</p>
+              <p className="text-xs text-primary mt-0.5">
+                Linked in the tax knowledge graph (extra context below)
+              </p>
             ) : null}
           </div>
         </div>
