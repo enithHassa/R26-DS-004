@@ -10,6 +10,8 @@ import type {
 const COMP1_BANK_INTEREST_LINE_ID = "comp1-bank-interest";
 /** Default interview seed line — replaced when Comp 1 supplies bank interest. */
 const DEFAULT_SEED_INTEREST_LINE_ID = "bank-1";
+/** Comp 1 withholding debit class — maps to Interest schedule "WHT deducted". */
+export const COMP1_WHT_CLASS_KEY = "withholding_tax";
 
 export type MergeBreakdownMode = "replace" | "add";
 
@@ -129,6 +131,40 @@ function syncInterestSchedule(
   ];
 }
 
+/** Write Comp 1 WHT debit total onto the classified bank-interest schedule line. */
+function applyWhtToComp1Schedule(
+  schedule: InterestScheduleLine[],
+  whtAmount: number,
+  mode: MergeBreakdownMode,
+): InterestScheduleLine[] {
+  const rounded = Math.round(whtAmount);
+  if (rounded <= 0) {
+    return schedule;
+  }
+
+  const others = schedule.filter(
+    (line) =>
+      line.id !== COMP1_BANK_INTEREST_LINE_ID &&
+      line.id !== DEFAULT_SEED_INTEREST_LINE_ID,
+  );
+  const existing =
+    schedule.find((line) => line.id === COMP1_BANK_INTEREST_LINE_ID) ??
+    schedule.find((line) => line.id === DEFAULT_SEED_INTEREST_LINE_ID);
+
+  const nextWht =
+    mode === "add" ? Math.round(num(existing?.wht) + rounded) : rounded;
+
+  return [
+    ...others,
+    {
+      id: COMP1_BANK_INTEREST_LINE_ID,
+      label: "Bank interest (classified)",
+      interest: existing?.interest && num(existing.interest) > 0 ? existing.interest : "0",
+      wht: amountStr(nextWht),
+    },
+  ];
+}
+
 /**
  * Merge Comp 1 taxable income buckets into OE interview income.
  *
@@ -165,7 +201,14 @@ export function mergeTaxableSummaryIntoIncome(
 ): InterviewIncomeState {
   const byClass = new Map<string, number>();
   let poolTotal = 0;
+  let whtTotal = 0;
   for (const line of lines) {
+    // WHT debits are tax credits, not assessable income — keep out of the YA pool.
+    if (line.class_key === COMP1_WHT_CLASS_KEY) {
+      const wht = num(line.gross_amount_lkr) || num(line.taxable_amount_lkr);
+      if (wht > 0) whtTotal += wht;
+      continue;
+    }
     const amount = num(line.taxable_amount_lkr);
     if (amount <= 0) continue;
     poolTotal += amount;
@@ -212,6 +255,10 @@ export function mergeTaxableSummaryIntoIncome(
     } else if (target.bucket === "investment") {
       applyToRecord(investment, target.id, amount, mode);
     }
+  }
+
+  if (whtTotal > 0) {
+    interestSchedule = applyWhtToComp1Schedule(interestSchedule, whtTotal, mode);
   }
 
   const nextPool =

@@ -162,8 +162,13 @@ export function InterviewIncomePage() {
     replaceIncome(merged);
     setPendingTransactionBreakdown(null);
     setMonthlyLoadState("done");
+    const whtBuckets = pendingTransactionBreakdown.filter(
+      (line) => line.classKey === "withholding_tax",
+    ).length;
     setMonthlyLoadMessage(
-      `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
+      whtBuckets > 0
+        ? `Applied ${pendingTransactionBreakdown.length} bucket(s) from Transaction Semantics (including WHT deducted).`
+        : `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
     );
   }, [
     pendingTransactionBreakdown,

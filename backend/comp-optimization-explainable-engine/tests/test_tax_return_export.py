@@ -42,7 +42,7 @@ def test_build_tax_return_workbook_sheets() -> None:
             "business_income": 0,
             "investment_income": 500_000,
             "other_income": 0,
-            "total_reliefs": 1_200_000,
+            "total_reliefs": 2_725_000,
             "taxable_income": 300_000,
             "tax_payable": 18_000,
             "wht_credit": 25_000,
@@ -54,8 +54,23 @@ def test_build_tax_return_workbook_sheets() -> None:
                 {
                     "compare_group_id": "personal_relief",
                     "display_name": "Personal relief",
-                    "applied": 1_200_000,
-                }
+                    "applied": 1_800_000,
+                },
+                {
+                    "compare_group_id": "solar_panel_relief",
+                    "display_name": "Solar panel relief",
+                    "applied": 600_000,
+                },
+                {
+                    "compare_group_id": "donation_to_approved_charity",
+                    "display_name": "Donation to approved charitable institution",
+                    "applied": 75_000,
+                },
+                {
+                    "compare_group_id": "rental_income_relief",
+                    "display_name": "Rental income relief",
+                    "applied": 250_000,
+                },
             ],
             "slab_lines": [
                 {
@@ -125,6 +140,15 @@ def test_build_tax_return_workbook_sheets() -> None:
     assert calc["C3"].value == "123456789"
     assert "2025/2026" in str(calc["B4"].value)
 
+    # Less- Sec -52 is a section header only — no amount (blank, not dash/total).
+    sec52_row = None
+    for row in range(1, 40):
+        if calc.cell(row=row, column=2).value == "Less- Sec -52":
+            sec52_row = row
+            break
+    assert sec52_row is not None
+    assert calc.cell(row=sec52_row, column=6).value in (None, "")
+
     savings = wb["SAVINGS"]
     assert savings["A3"].value == "Savings interest"
     assert float(savings["G3"].value) == 50_000
@@ -135,3 +159,65 @@ def test_build_tax_return_workbook_sheets() -> None:
 
     upload = wb["UPLOAD FILE"]
     assert upload["F3"].value in {"FD", "SAVINGS"}
+
+
+def test_wht_falls_back_to_interest_lines_when_calculate_omits_credit() -> None:
+    """Profile SAVINGS/FD WHT must appear on TAX CALCULATION even if snapshot credit is 0."""
+    body = TaxReturnExportRequest(
+        header=TaxpayerHeader(
+            full_name="MR WHT TAXPAYER",
+            tin="567890357",
+            assessment_year_label="2025/2026",
+        ),
+        income_breakdown=IncomeBreakdown(employment=25_000_000, interest=2_310),
+        calculate_result={
+            "assessment_year": "2025_26",
+            "gross_income": 31_940_375,
+            "taxable_income": 29_215_375,
+            "tax_payable": 10_037_535,
+            "wht_credit": 0,
+            "wht_already_paid": 0,
+            "apit_credit": 768_000,
+            "apit_already_paid": 768_000,
+            "balance_payable": 9_269_535,
+            "tax_refund": 0,
+            "relief_lines": [],
+            "slab_lines": [],
+        },
+        interest_lines=[
+            InterestLine(
+                bank="Savings interest",
+                source_type="SAVINGS INTEREST",
+                type="SAVINGS",
+                gross_interest=2_310,
+                wht=115,
+            ),
+            InterestLine(
+                bank="People's Bank",
+                source_type="FD INTEREST",
+                type="FD",
+                gross_interest=450_000,
+                wht=22_500,
+            ),
+        ],
+    )
+
+    wb = load_workbook(BytesIO(build_tax_return_workbook(body)))
+    calc = wb["TAX CALCULATION"]
+
+    wht_row = None
+    for row in range(1, 60):
+        if calc.cell(row=row, column=2).value == "WHT":
+            wht_row = row
+            break
+    assert wht_row is not None
+    # Cap after APIT: min(22_615, 10_037_535 - 768_000) = 22_615
+    assert float(calc.cell(row=wht_row, column=6).value) == -22_615
+
+    bal_row = None
+    for row in range(1, 60):
+        if calc.cell(row=row, column=2).value == "Balance Tax Payable/(Refund)":
+            bal_row = row
+            break
+    assert bal_row is not None
+    assert float(calc.cell(row=bal_row, column=6).value) == 10_037_535 - 768_000 - 22_615

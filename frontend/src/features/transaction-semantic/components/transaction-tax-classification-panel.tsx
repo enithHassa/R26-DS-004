@@ -503,19 +503,32 @@ export function TransactionTaxClassificationPanel({
       {incomeBreakdown.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
           <p className="flex-1 text-sm text-muted-foreground">
-            Send classified taxable inflow buckets to Optimization Engine income (additive merge).
+            Send classified taxable inflow buckets (and WHT debits) to Optimization Engine income —
+            WHT fills Interest schedule “WHT deducted”.
           </p>
           <Button
             type="button"
             size="sm"
             variant="secondary"
             onClick={() => {
-              setPendingTransactionBreakdown(
-                incomeBreakdown.map((line) => ({
-                  classKey: line.classKey,
-                  amount: line.amount,
-                })),
-              );
+              let whtTotal = 0;
+              for (const row of classifiedRows) {
+                const isWht =
+                  row.analysis.semantic_category === "withholding_tax" ||
+                  row.analysis.intent_tag === "WHT";
+                if (!isWht) continue;
+                const amount = Number(row.source.amount_lkr);
+                if (!Number.isFinite(amount) || amount <= 0) continue;
+                whtTotal += amount;
+              }
+              const breakdown = incomeBreakdown.map((line) => ({
+                classKey: line.classKey,
+                amount: line.amount,
+              }));
+              if (whtTotal > 0) {
+                breakdown.push({ classKey: "withholding_tax", amount: whtTotal });
+              }
+              setPendingTransactionBreakdown(breakdown);
               navigate("/optimization-explainable-engine/income");
             }}
           >

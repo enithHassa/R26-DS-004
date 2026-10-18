@@ -22,6 +22,7 @@ export function TransactionTaxClassificationPage() {
   const [transactions, setTransactions] = useState<ExtractedTransactionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [monthlyRefreshKey, setMonthlyRefreshKey] = useState(0);
 
   async function loadDocument(id: string): Promise<void> {
     const trimmed = id.trim();
@@ -68,7 +69,8 @@ export function TransactionTaxClassificationPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Tax classification</h1>
         <p className="text-sm text-muted-foreground">
-          Choose a saved document, then classify its extracted rows as taxable, exempt, or needs review.
+          Check several documents and use Classify selected, or open one document to review rows in
+          detail.
         </p>
       </div>
 
@@ -90,10 +92,16 @@ export function TransactionTaxClassificationPage() {
             setTransactions([]);
           }
         }}
+        onClassified={(ids) => {
+          setMonthlyRefreshKey((key) => key + 1);
+          if (documentId && ids.includes(documentId)) {
+            void loadDocument(documentId);
+          }
+        }}
         financialProfileId={activeProfileId}
       />
 
-      <MonthlyTaxableIncomePanel profileId={activeProfileId} />
+      <MonthlyTaxableIncomePanel profileId={activeProfileId} refreshKey={monthlyRefreshKey} />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

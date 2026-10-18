@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileSearch, Pencil, RefreshCcw, Send, Trash2 } from "lucide-react";
+import { FileSearch, Pencil, RefreshCcw, Scale, Send, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,9 @@ import {
   renameDocument,
   type UploadedDocumentSummary,
 } from "@/features/transaction-semantic/api";
+import { classifyDocumentExtractedRows } from "@/features/transaction-semantic/classify-document";
 import { ActiveProfileBanner } from "@/components/auditor/active-profile-banner";
+import { useAuditorTaxpayerId } from "@/hooks/use-auditor-taxpayer-id";
 
 function needsExtraction(document: UploadedDocumentSummary): boolean {
   return (
@@ -24,12 +26,18 @@ function needsExtraction(document: UploadedDocumentSummary): boolean {
   );
 }
 
+function canClassify(document: UploadedDocumentSummary): boolean {
+  return document.extracted_row_count > 0;
+}
+
 export interface DocumentListPanelProps {
   selectedDocumentId: string | null;
   onSelect: (documentId: string) => void;
   onRenamed?: (documentId: string) => void;
   onExtracted?: (documentId: string) => void;
   onDeleted?: (documentId: string) => void;
+  /** Fired after bulk classify finishes (even partially) so monthly rollups can refresh. */
+  onClassified?: (documentIds: string[]) => void;
   refreshKey?: number;
   financialProfileId?: string | null;
 }
@@ -40,13 +48,16 @@ export function DocumentListPanel({
   onRenamed,
   onExtracted,
   onDeleted,
+  onClassified,
   refreshKey = 0,
   financialProfileId = null,
 }: DocumentListPanelProps) {
+  const taxpayerId = useAuditorTaxpayerId();
   const [documents, setDocuments] = useState<UploadedDocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
@@ -55,7 +66,10 @@ export function DocumentListPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
-  const [bulkBusy, setBulkBusy] = useState<"extract" | "release" | "delete" | null>(null);
+  const [bulkBusy, setBulkBusy] = useState<"extract" | "release" | "delete" | "classify" | null>(
+    null,
+  );
+  const [bulkClassifyProgress, setBulkClassifyProgress] = useState<string | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   async function loadDocuments(): Promise<void> {
@@ -94,6 +108,7 @@ export function DocumentListPanel({
   const allChecked = documents.length > 0 && checkedIds.size === documents.length;
   const someChecked = checkedIds.size > 0;
   const extractableChecked = checkedDocuments.filter(needsExtraction);
+  const classifiableChecked = checkedDocuments.filter(canClassify);
   const releasableChecked = checkedDocuments.filter(
     (document) => !document.user_visible && document.status === "completed",
   );
@@ -224,6 +239,7 @@ export function DocumentListPanel({
     if (extractableChecked.length === 0) return;
     setBulkBusy("extract");
     setError(null);
+    setSuccess(null);
     const failures: string[] = [];
     for (const document of extractableChecked) {
       try {
@@ -248,6 +264,54 @@ export function DocumentListPanel({
     }
     if (failures.length > 0) {
       setError(`Failed to extract: ${failures.join(", ")}`);
+    }
+    setBulkBusy(null);
+  }
+
+  async function handleBulkClassify(): Promise<void> {
+    if (classifiableChecked.length === 0) return;
+    if (!financialProfileId || !taxpayerId) {
+      setError("Select and lock a taxpayer profile before classifying.");
+      return;
+    }
+    setBulkBusy("classify");
+    setError(null);
+    setSuccess(null);
+    setBulkClassifyProgress(null);
+    const failures: string[] = [];
+    const succeededIds: string[] = [];
+    let totalRows = 0;
+    for (let i = 0; i < classifiableChecked.length; i += 1) {
+      const document = classifiableChecked[i];
+      setBulkClassifyProgress(
+        `Classifying ${i + 1}/${classifiableChecked.length}: ${document.filename}`,
+      );
+      try {
+        const result = await classifyDocumentExtractedRows({
+          documentId: document.document_id,
+          bankCode: document.bank_detected,
+          financialProfileId,
+          taxpayerId,
+        });
+        if (result.rowCount === 0) {
+          failures.push(`${document.filename} (no extracted rows)`);
+          continue;
+        }
+        succeededIds.push(document.document_id);
+        totalRows += result.rowCount;
+      } catch {
+        failures.push(document.filename);
+      }
+    }
+    setBulkClassifyProgress(null);
+    if (succeededIds.length > 0) {
+      setSuccess(
+        `Classified ${succeededIds.length} document(s) · ${totalRows.toLocaleString()} row(s) saved.`,
+      );
+      onClassified?.(succeededIds);
+    }
+    if (failures.length > 0) {
+      setError(`Failed to classify: ${failures.join(", ")}`);
     }
     setBulkBusy(null);
   }
@@ -334,6 +398,10 @@ export function DocumentListPanel({
         </div>
 
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {success ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p> : null}
+        {bulkClassifyProgress ? (
+          <p className="text-sm text-muted-foreground">{bulkClassifyProgress}</p>
+        ) : null}
 
         {documents.length > 0 ? (
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
@@ -362,6 +430,24 @@ export function DocumentListPanel({
                     {bulkBusy === "extract"
                       ? "Extracting…"
                       : `Extract selected (${extractableChecked.length})`}
+                  </Button>
+                ) : null}
+                {classifiableChecked.length > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void handleBulkClassify()}
+                    disabled={busy || !taxpayerId}
+                    title={
+                      taxpayerId
+                        ? "Classify extracted rows for all selected documents and save to the active taxpayer"
+                        : "Select and lock a taxpayer profile before classifying"
+                    }
+                  >
+                    <Scale className="mr-2 h-4 w-4" />
+                    {bulkBusy === "classify"
+                      ? "Classifying…"
+                      : `Classify selected (${classifiableChecked.length})`}
                   </Button>
                 ) : null}
                 {releasableChecked.length > 0 ? (

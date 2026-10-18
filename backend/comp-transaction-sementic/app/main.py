@@ -140,10 +140,22 @@ app.add_middleware(
 @app.on_event("startup")
 def warm_semantic_classifier() -> None:
     try:
+        from app.services.semantic_classifier import (
+            UnavailableSemanticClassifier,
+            get_semantic_classifier,
+        )
+
         preload_semantic_classifier()
         get_narrative_context_index()
-        logger.info("semantic_classifier_preloaded")
-    except FileNotFoundError as exc:
+        classifier = get_semantic_classifier()
+        if isinstance(classifier, UnavailableSemanticClassifier):
+            logger.warning(
+                "semantic_classifier_unavailable_using_layer1_only: {}",
+                classifier.reason,
+            )
+        else:
+            logger.info("semantic_classifier_preloaded model={}", classifier.model_version)
+    except Exception as exc:
         logger.warning("semantic_classifier_not_preloaded: {}", exc)
 
 

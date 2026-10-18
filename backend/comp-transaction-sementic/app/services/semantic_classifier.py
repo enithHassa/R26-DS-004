@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,8 @@ import joblib
 import numpy as np
 
 from .tax_semantic_paths import chosen_classifier_artifact_paths, resolve_repo_relative
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -120,37 +123,79 @@ def _softmax(logits: np.ndarray) -> np.ndarray:
     return exp / np.sum(exp)
 
 
+class UnavailableSemanticClassifier:
+    """No local ML artifacts — Layer-1 deterministic rules still classify known bank codes.
+
+    Remaining rows are labelled ``unknown`` so classify-batch does not 500.
+    """
+
+    def __init__(self, *, reason: str) -> None:
+        self.model_key = "unavailable"
+        self.model_version = "unavailable/none"
+        self.reason = reason
+
+    def predict(self, text_primary: str) -> SemanticPrediction:
+        return self.predict_many([text_primary])[0]
+
+    def predict_many(self, texts: list[str]) -> list[SemanticPrediction]:
+        return [
+            SemanticPrediction(
+                label="unknown",
+                confidence=0.0,
+                model_key=self.model_key,
+                model_version=self.model_version,
+                probabilities={"unknown": 1.0},
+            )
+            for _ in texts
+        ]
+
+
+ClassifierType = SemanticClassifier | HfSemanticClassifier | UnavailableSemanticClassifier
+
 _classifier_lock = threading.Lock()
-_classifier_instance: SemanticClassifier | HfSemanticClassifier | None = None
+_classifier_instance: ClassifierType | None = None
+
+_TFIDF_FALLBACK = (
+    "models/transaction-semantic/artifacts/tfidf_logreg/v0.1.0/tfidf_logreg_pipeline.joblib"
+)
 
 
-def _build_semantic_classifier() -> SemanticClassifier | HfSemanticClassifier:
+def _tfidf_fallback_classifier() -> SemanticClassifier | None:
+    fallback = resolve_repo_relative(_TFIDF_FALLBACK)
+    if not fallback.is_file():
+        return None
+    return SemanticClassifier(
+        pipeline_path=fallback,
+        model_key="tfidf_logreg",
+        version="v0.1.0",
+    )
+
+
+def _build_semantic_classifier() -> ClassifierType:
     meta = chosen_classifier_artifact_paths()
     model_key = meta["model_key"]
     version = meta["version"]
     if model_key == "tfidf_logreg":
         pipeline_path = resolve_repo_relative(meta["pipeline"])
-        if not pipeline_path.is_file():
-            raise FileNotFoundError(f"Classifier pipeline not found: {pipeline_path}")
-        return SemanticClassifier(
-            pipeline_path=pipeline_path,
-            model_key=model_key,
-            version=version,
-        )
+        if pipeline_path.is_file():
+            return SemanticClassifier(
+                pipeline_path=pipeline_path,
+                model_key=model_key,
+                version=version,
+            )
+        reason = f"Classifier pipeline not found: {pipeline_path}"
+        logger.warning("semantic_classifier_unavailable: %s", reason)
+        return UnavailableSemanticClassifier(reason=reason)
 
     hf_dir = resolve_repo_relative(meta["hf_model"])
     label_map = resolve_repo_relative(meta["label_map"])
     if not hf_dir.is_dir() or not label_map.is_file():
-        fallback = resolve_repo_relative(
-            "models/transaction-semantic/artifacts/tfidf_logreg/v0.1.0/tfidf_logreg_pipeline.joblib",
-        )
-        if fallback.is_file():
-            return SemanticClassifier(
-                pipeline_path=fallback,
-                model_key="tfidf_logreg",
-                version="v0.1.0",
-            )
-        raise FileNotFoundError(f"HF classifier artifacts missing: {hf_dir}")
+        fallback = _tfidf_fallback_classifier()
+        if fallback is not None:
+            return fallback
+        reason = f"HF classifier artifacts missing: {hf_dir}"
+        logger.warning("semantic_classifier_unavailable: %s", reason)
+        return UnavailableSemanticClassifier(reason=reason)
 
     try:
         return HfSemanticClassifier(
@@ -159,20 +204,16 @@ def _build_semantic_classifier() -> SemanticClassifier | HfSemanticClassifier:
             model_key=model_key,
             version=version,
         )
-    except ImportError:
-        fallback = resolve_repo_relative(
-            "models/transaction-semantic/artifacts/tfidf_logreg/v0.1.0/tfidf_logreg_pipeline.joblib",
-        )
-        if fallback.is_file():
-            return SemanticClassifier(
-                pipeline_path=fallback,
-                model_key="tfidf_logreg",
-                version="v0.1.0",
-            )
-        raise
+    except ImportError as exc:
+        fallback = _tfidf_fallback_classifier()
+        if fallback is not None:
+            return fallback
+        reason = f"HF classifier unavailable (transformers/torch missing): {exc}"
+        logger.warning("semantic_classifier_unavailable: %s", reason)
+        return UnavailableSemanticClassifier(reason=reason)
 
 
-def get_semantic_classifier() -> SemanticClassifier | HfSemanticClassifier:
+def get_semantic_classifier() -> ClassifierType:
     global _classifier_instance
     if _classifier_instance is not None:
         return _classifier_instance
@@ -184,3 +225,10 @@ def get_semantic_classifier() -> SemanticClassifier | HfSemanticClassifier:
 
 def preload_semantic_classifier() -> None:
     get_semantic_classifier()
+
+
+def reset_semantic_classifier_for_tests() -> None:
+    """Clear the process-wide singleton (tests only)."""
+    global _classifier_instance
+    with _classifier_lock:
+        _classifier_instance = None
