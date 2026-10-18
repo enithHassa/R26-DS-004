@@ -229,12 +229,12 @@ export function MonthlyTaxableIncomePanel({ profileId }: { profileId: string | n
             disabled={!hasTaxableRollup}
             title={
               hasNonTaxableCoverage
-                ? "Months are covered but no taxable credits to merge — review/indeterminate rows are excluded"
-                : "Send combined taxable income buckets to Optimization (manual step)"
+                ? "Months are covered but no taxable credits to push — exempt (e.g. AIT interest) and zero-taxable rows are excluded"
+                : "Send taxable income buckets to OE Income (auto-applied on arrival)"
             }
             onClick={pushTotalsToOptimization}
           >
-            Push totals to Optimization
+            Push taxable totals to Optimization
           </Button>
         </div>
       </CardHeader>

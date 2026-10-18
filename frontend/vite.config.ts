@@ -48,8 +48,8 @@ export default defineConfig(({ mode }) => {
       // Windows often binds Vite to IPv6 ::1 only; the runbook URL is 127.0.0.1.
       host: "127.0.0.1",
       port: 5173,
-      /** Strategy explorer (Component B) — primary dissertation UI for this module. */
-      open: "/tax-optimization/explorer",
+      /** Default: Component B explorer. Comp 3: `npm run dev:recommendation` opens /login. */
+      open: env.VITE_OPEN_PATH?.trim() || "/tax-optimization/explorer",
       proxy: {
         // Longer prefix first: hit Component B directly so new routes work without restarting the gateway.
         // Strips the gateway-only ``/optimization`` segment (upstream app mounts at ``/api/v1/compliance/...``).

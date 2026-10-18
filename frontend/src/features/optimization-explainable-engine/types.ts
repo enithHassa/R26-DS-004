@@ -171,6 +171,12 @@ export type InterviewIncomeState = {
   otherAmounts: Record<string, string>;
   otherCustomRows: OtherCustomRow[];
   interestSchedule: InterestScheduleLine[];
+  /**
+   * Comp 1 YA taxable total (LKR). When set, Sec 8 residual is the unallocated
+   * balance: pool − employment − business − investment − custom other rows.
+   * Reliefs/Result still use the usual head totals (which sum back to this pool).
+   */
+  bankTaxablePoolLkr?: string | null;
   /** APIT deducted at source from employment (Form 16) — tax credit, not income reduction. */
   apitAlreadyPaid: string;
   hasTerminalBenefits: boolean;
@@ -237,6 +243,8 @@ type IncomeHydrationInput = InterviewIncomeState & {
 export function hydrateIncomeAmounts(income: IncomeHydrationInput): InterviewIncomeState {
   return {
     ...income,
+    bankTaxablePoolLkr:
+      income.bankTaxablePoolLkr === undefined ? null : income.bankTaxablePoolLkr,
     apitAlreadyPaid:
       typeof income.apitAlreadyPaid === "string" && income.apitAlreadyPaid !== ""
         ? income.apitAlreadyPaid
@@ -395,6 +403,16 @@ export function resolveReliefCapAmount(entry: ReliefEntry): number | null {
  * Preview amount shown on a relief card. Driven by RAG `input_kind` / `unit` /
  * `engine_binding.kind` — not a per-relief TypeScript module.
  */
+function isGovernmentDonationEntry(entry: ReliefEntry): boolean {
+  const group = (entry.compare_group_id ?? "").toLowerCase();
+  return (
+    group === "donation_to_government_or_approved_fund" ||
+    group === "donation_to_government" ||
+    group.includes("donation_to_government") ||
+    group.endsWith("government_or_approved_fund")
+  );
+}
+
 export function previewAppliedLkr(
   entry: ReliefEntry,
   income: InterviewIncomeState,
@@ -405,6 +423,18 @@ export function previewAppliedLkr(
   const minQualifying = resolveMinQualifyingAmount(entry);
   const kind = entry.engine_binding?.kind ?? "none";
   const inputKind = entry.input_kind;
+
+  // Fifth Schedule 1(b): always claim-based (matches OE calculate binder).
+  if (isGovernmentDonationEntry(entry)) {
+    if ((inputKind === "yes_no_amount" || inputKind === "boolean") && !affirmed) {
+      return 0;
+    }
+    if (minQualifying != null && claimLkr > 0 && claimLkr < minQualifying) {
+      return 0;
+    }
+    if (cap == null) return Math.max(0, claimLkr);
+    return Math.min(cap, Math.max(0, claimLkr));
+  }
 
   if (entry.unit === "percent" && cap != null) {
     if (

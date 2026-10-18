@@ -44,6 +44,8 @@ def _run_paths(
     compute_annual_tax: Callable[..., float],
     rng: np.random.Generator,
     use_strategy: bool,
+    income_paths: list[list[float]] | None = None,
+    adopted_mask: np.ndarray | None = None,
 ) -> PathMatrices:
     income = np.full(n_paths, snapshot.annual_income, dtype=np.float64)
     net_worth = np.full(
@@ -55,7 +57,9 @@ def _run_paths(
     monthly_debt = float(snapshot.monthly_debt_service)
 
     adopted = np.zeros(n_paths, dtype=bool)
-    if use_strategy and snapshot.strategy_deductions is not None:
+    if adopted_mask is not None:
+        adopted = adopted_mask.astype(bool, copy=False)
+    elif use_strategy and snapshot.strategy_deductions is not None:
         adopted = rng.random(n_paths) < float(scenario.adoption_success_prob)
 
     years: list[int] = []
@@ -65,9 +69,12 @@ def _run_paths(
     nw_rows: list[list[float]] = []
 
     for year in range(1, horizon_years + 1):
-        growth = rng.normal(scenario.salary_growth_mean, scenario.salary_growth_std, size=n_paths)
-        growth = np.clip(growth, -0.35, 0.50)
-        income = np.maximum(0.0, income * (1.0 + growth))
+        if income_paths is not None:
+            income = np.asarray(income_paths[year - 1], dtype=np.float64)
+        else:
+            growth = rng.normal(scenario.salary_growth_mean, scenario.salary_growth_std, size=n_paths)
+            growth = np.clip(growth, -0.35, 0.50)
+            income = np.maximum(0.0, income * (1.0 + growth))
 
         tax = np.zeros(n_paths, dtype=np.float64)
         for i in range(n_paths):
@@ -83,6 +90,11 @@ def _run_paths(
                 compute_annual_tax=compute_annual_tax,
                 rules=rules,
             )[0]
+            if adopted[i] and snapshot.strategy_tax_savings_rate > 0:
+                tax[i] = max(
+                    0.0,
+                    tax[i] * (1.0 - float(snapshot.strategy_tax_savings_rate)),
+                )
 
         infl = (1.0 + scenario.inflation_mean) ** year
         annual_expenses = monthly_exp * infl * 12.0
@@ -192,6 +204,11 @@ def run_monte_carlo(
 
     strategy_paths = None
     if include_strategy_paths and snapshot.strategy_deductions is not None:
+        adopt_seed = None if random_seed is None else random_seed + 1
+        adopt_rng = np.random.default_rng(adopt_seed)
+        adopted_mask = adopt_rng.random(n_paths) < float(scenario.adoption_success_prob)
+        inv_seed = None if random_seed is None else random_seed + 2
+        inv_rng = np.random.default_rng(inv_seed)
         strategy_paths = _run_paths(
             snapshot,
             horizon_years=horizon_years,
@@ -200,8 +217,10 @@ def run_monte_carlo(
             rules=rules,
             apply_deductions=apply_deductions,
             compute_annual_tax=compute_annual_tax,
-            rng=np.random.default_rng(None if random_seed is None else random_seed + 1),
+            rng=inv_rng,
             use_strategy=True,
+            income_paths=baseline_paths.salary,
+            adopted_mask=adopted_mask.astype(bool),
         )
 
     return SimulationResult(

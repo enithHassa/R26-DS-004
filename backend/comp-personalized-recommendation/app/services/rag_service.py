@@ -190,7 +190,7 @@ _IRD_REFS: dict[str, str] = {
 }
 
 
-def _generate_explanation(s: dict, ctx: dict, score: float) -> str:
+def _generate_explanation(s: dict, ctx: dict, score: float | None = None) -> str:
     sid = s.get("strategy_id", "")
     name = s.get("name", "")
     occ = ctx.get("occupation", "")
@@ -263,7 +263,7 @@ def _generate_explanation(s: dict, ctx: dict, score: float) -> str:
             "be approaching eligibility for terminal benefit exemptions under IRA s.6. "
             "Strategic exit timing can maximise the tax-exempt portion of your payout."
         )
-    return f"The '{name}' strategy is relevant to your financial profile based on semantic similarity."
+    return f"The '{name}' strategy is relevant to your financial profile."
 
 
 def _generate_detailed_explanation(s: dict, ctx: dict) -> dict[str, str]:

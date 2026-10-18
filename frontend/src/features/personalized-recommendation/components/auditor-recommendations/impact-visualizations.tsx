@@ -20,10 +20,11 @@ import { AUDITOR_IMPACT_HORIZON_YEARS } from "../../constants/auditor-impact";
 
 type Props = {
   result: ImpactSimulationResponse;
+  strategyName?: string;
 };
 
 const PIE_BEFORE = ["#ef4444", "#94a3b8"];
-const PIE_AFTER = ["#22c55e", "#fbbf24"];
+const PIE_AFTER = ["#22c55e", "#94a3b8"];
 
 function aggregateTaxSlices(result: ImpactSimulationResponse) {
   const horizon = Math.min(AUDITOR_IMPACT_HORIZON_YEARS, result.baseline.length);
@@ -45,7 +46,7 @@ function aggregateTaxSlices(result: ImpactSimulationResponse) {
     strategyTakeHome += Math.max(0, salary - stratTaxVal);
   }
 
-  const taxSaved = Math.max(0, baselineTax - strategyTax);
+  const taxSaved = baselineTax - strategyTax;
 
   return {
     beforePie: [
@@ -54,7 +55,7 @@ function aggregateTaxSlices(result: ImpactSimulationResponse) {
     ],
     afterPie: [
       { name: "Tax with strategy", value: strategyTax },
-      { name: "Tax saved vs baseline", value: taxSaved },
+      { name: "Take-home after tax", value: strategyTakeHome },
     ],
     baselineTax,
     strategyTax,
@@ -62,19 +63,21 @@ function aggregateTaxSlices(result: ImpactSimulationResponse) {
   };
 }
 
-export function AuditorImpactVisualizations({ result }: Props) {
+export function AuditorImpactVisualizations({ result, strategyName = "With strategy" }: Props) {
   const { beforePie, afterPie, taxSaved } = aggregateTaxSlices(result);
 
-  const cumulativeRows = (() => {
-    if (!result.strategy_path) return [];
-    let cumulative = 0;
-    return result.baseline.slice(0, result.horizon_years).map((base, i) => {
-      const strat = result.strategy_path![i];
-      const saving = parseLkr(base.projected_tax_liability) - parseLkr(strat.projected_tax_liability);
-      cumulative += saving;
-      return { year: String(base.year), annual: saving, cumulative };
-    });
-  })();
+  const takeHomeRows = result.baseline.slice(0, result.horizon_years).map((base, i) => {
+    const strat = result.strategy_path?.[i];
+    const baseTax = parseLkr(base.projected_tax_liability);
+    const stratTax = strat ? parseLkr(strat.projected_tax_liability) : baseTax;
+    const salary = parseLkr(base.projected_salary);
+    const stratSalary = strat ? parseLkr(strat.projected_salary) : salary;
+    return {
+      year: String(base.year),
+      noStrategy: Math.max(0, salary - baseTax),
+      withStrategy: Math.max(0, stratSalary - stratTax),
+    };
+  });
 
   const netWorthBand = result.net_worth_bands[result.net_worth_bands.length - 1];
   const distributionRows = netWorthBand
@@ -101,7 +104,7 @@ export function AuditorImpactVisualizations({ result }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Before recommendation</CardTitle>
             <p className="text-xs text-muted-foreground">
-              {AUDITOR_IMPACT_HORIZON_YEARS}-year tax burden vs take-home (baseline)
+              Where your money goes without any strategy — tax vs take-home pay (2 years total)
             </p>
           </CardHeader>
           <CardContent>
@@ -134,7 +137,9 @@ export function AuditorImpactVisualizations({ result }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">After recommendation</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Tax with strategy vs cumulative tax saved ({formatLkr(taxSaved)})
+              With &ldquo;{strategyName}&rdquo; — same split as before: tax vs take-home (
+              {taxSaved >= 0 ? "saved" : "extra cost"}{" "}
+              {formatLkr(Math.abs(taxSaved))})
             </p>
           </CardHeader>
           <CardContent>
@@ -167,20 +172,25 @@ export function AuditorImpactVisualizations({ result }: Props) {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Cumulative tax savings</CardTitle>
-            <p className="text-xs text-muted-foreground">Annual and running total over the horizon</p>
+            <CardTitle className="text-sm">Take-home pay by year</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Salary after tax — no strategy vs &ldquo;{strategyName}&rdquo; (taller bar = more money you keep)
+            </p>
           </CardHeader>
           <CardContent>
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cumulativeRows}>
+                <BarChart data={takeHomeRows}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
                   <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}K`} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}K` : String(v))}
+                  />
                   <Tooltip formatter={(v: number) => formatLkr(v)} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="annual" fill="#fbbf24" name="Annual saving" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cumulative" fill="#22c55e" name="Cumulative saving" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="noStrategy" fill="#94a3b8" name="No strategy" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="withStrategy" fill="#059669" name={strategyName} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -191,7 +201,7 @@ export function AuditorImpactVisualizations({ result }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Net worth at horizon (Monte Carlo)</CardTitle>
             <p className="text-xs text-muted-foreground">
-              P10 / P50 / P90 across {result.n_paths.toLocaleString()} simulated paths
+              Final-year wealth after {result.n_paths.toLocaleString()} random futures — bad / typical / good case
             </p>
           </CardHeader>
           <CardContent>
@@ -217,7 +227,9 @@ export function AuditorImpactVisualizations({ result }: Props) {
       <Card className="border-border/70 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Net worth trajectory</CardTitle>
-          <p className="text-xs text-muted-foreground">Median path — baseline vs with strategy</p>
+          <p className="text-xs text-muted-foreground">
+            Typical (median) total wealth each year — no strategy vs with &ldquo;{strategyName}&rdquo;
+          </p>
         </CardHeader>
         <CardContent>
           <div className="h-[260px]">
@@ -229,7 +241,7 @@ export function AuditorImpactVisualizations({ result }: Props) {
                 <Tooltip formatter={(v: number) => formatLkr(v)} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="baseline" fill="#94a3b8" name="No strategy" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="strategy" fill="#059669" name="With strategy" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="strategy" fill="#059669" name={strategyName} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

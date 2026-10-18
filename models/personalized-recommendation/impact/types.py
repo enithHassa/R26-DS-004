@@ -28,6 +28,7 @@ class SimulationSnapshot:
     existing_investments: float
     baseline_deductions: DeductionProfile
     strategy_deductions: DeductionProfile | None = None
+    strategy_tax_savings_rate: float = 0.0
 
 
 @dataclass(frozen=True)

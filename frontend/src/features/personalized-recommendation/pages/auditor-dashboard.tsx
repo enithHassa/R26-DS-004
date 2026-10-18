@@ -69,8 +69,6 @@ export function AuditorDashboardPage() {
 
   const hybridItems = hybridMutation.data?.items ?? [];
   const selectedItem = hybridItems.find((i) => i.strategy_id === selectedStrategyId) ?? hybridItems[0];
-  const strategy2Item = hybridItems.find((i) => i.strategy_id !== selectedItem?.strategy_id);
-  const strategy2Code = strategy2Item?.strategy_id ?? null;
 
   useEffect(() => {
     if (profileId) hybridMutation.mutate();
@@ -99,19 +97,6 @@ export function AuditorDashboardPage() {
     enabled: !!profileId && !!selectedItem?.strategy_id,
   });
 
-  const secondaryImpactQuery = useQuery({
-    queryKey: ["auditor-dashboard-impact-secondary", profileId, strategy2Code],
-    queryFn: () =>
-      simulateImpact({
-        profile_id: profileId,
-        strategy_code: strategy2Code,
-        horizon_years: AUDITOR_IMPACT_HORIZON_YEARS,
-        n_paths: AUDITOR_IMPACT_N_PATHS,
-        random_seed: 42,
-      }),
-    enabled: !!profileId && !!strategy2Code,
-  });
-
   const refreshAll = () => {
     if (!profileId) return;
     queryClient.invalidateQueries({ queryKey: ["auditor-dashboard-profile", profileId] });
@@ -119,20 +104,15 @@ export function AuditorDashboardPage() {
     queryClient.invalidateQueries({ queryKey: ["auditor-dashboard-history", profileId] });
     hybridMutation.mutate();
     primaryImpactQuery.refetch();
-    secondaryImpactQuery.refetch();
   };
 
   const isRefreshing =
     profileQuery.isFetching ||
     featuresQuery.isFetching ||
     hybridMutation.isPending ||
-    primaryImpactQuery.isFetching ||
-    secondaryImpactQuery.isFetching;
+    primaryImpactQuery.isFetching;
 
-  const impactLoading =
-    primaryImpactQuery.isLoading ||
-    secondaryImpactQuery.isLoading ||
-    hybridMutation.isPending;
+  const impactLoading = primaryImpactQuery.isLoading || hybridMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -209,7 +189,6 @@ export function AuditorDashboardPage() {
           <AuditorImpactPanel
             profileId={profileId}
             primaryResult={primaryImpactQuery.data}
-            secondaryResult={secondaryImpactQuery.data ?? null}
             selectedItem={selectedItem}
             isLoading={impactLoading}
             error={

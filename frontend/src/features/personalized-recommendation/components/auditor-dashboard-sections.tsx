@@ -340,7 +340,6 @@ export function AuditorAdoptionPanel({
 export function AuditorImpactPanel({
   profileId,
   primaryResult,
-  secondaryResult,
   selectedItem,
   isLoading,
   error,
@@ -348,7 +347,6 @@ export function AuditorImpactPanel({
 }: {
   profileId: string;
   primaryResult: ImpactSimulationResponse | undefined;
-  secondaryResult?: ImpactSimulationResponse | null;
   selectedItem?: HybridResultItem;
   isLoading: boolean;
   error?: string | null;
@@ -387,7 +385,6 @@ export function AuditorImpactPanel({
       <CardContent>
         <AuditorImpactDetailSections
           primaryResult={primaryResult}
-          secondaryResult={secondaryResult}
           selectedItem={selectedItem}
           strategyName={strategyName ?? "Selected strategy"}
           isLoading={isLoading}

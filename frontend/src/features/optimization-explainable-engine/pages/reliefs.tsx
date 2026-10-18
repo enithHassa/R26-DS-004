@@ -187,6 +187,13 @@ function ReliefsStepper() {
     if (step >= entries.length) setStep(entries.length - 1);
   }, [entries.length, step]);
 
+  // Persist the open step when leaving Reliefs (e.g. top nav → Result).
+  useEffect(() => {
+    return () => {
+      flushCurrentRef.current();
+    };
+  }, []);
+
   const current = entries[step] ?? null;
 
   if (reliefsQuery.isLoading) {
@@ -664,7 +671,8 @@ function ReliefStepCard({
       const answer = {
         entry_id: entry.entry_id,
         compare_group_id: entry.compare_group_id,
-        amount: String(appliedNow),
+        // Prefer the entered claim total so a 0 preview cannot wipe the amount.
+        amount: String(claim > 0 ? claim : appliedNow),
         affirmed: needsYesNoNow ? drafts.affirmedDraft : true,
         skipped: false,
         components: splitItems ? drafts.componentsDraft : undefined,
@@ -695,7 +703,7 @@ function ReliefStepCard({
       {
         entry_id: entry.entry_id,
         compare_group_id: entry.compare_group_id,
-        amount: String(applied),
+        amount: String(claimLkr > 0 ? claimLkr : applied),
         affirmed: needsYesNo ? affirmedDraft : true,
         skipped: false,
         components: split ? componentsDraft : undefined,

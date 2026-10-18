@@ -265,7 +265,7 @@ export function AuditorWorkspacePanel() {
       {isPanelCollapsed && !hoverOpen ? (
         <div
           className={cn(
-            "sticky top-0 hidden h-screen w-11 shrink-0 flex-col border-l bg-card lg:flex",
+            "hidden h-full w-11 shrink-0 flex-col border-l bg-card lg:flex",
           )}
         >
           <button
@@ -312,7 +312,7 @@ export function AuditorWorkspacePanel() {
 
       {/* Docked panel */}
       {!isPanelCollapsed && showExpanded ? (
-        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex flex-col border-l bg-card lg:flex">
+        <aside className="hidden h-full w-72 shrink-0 flex flex-col overflow-hidden border-l bg-card lg:flex">
           {panelBody}
         </aside>
       ) : null}

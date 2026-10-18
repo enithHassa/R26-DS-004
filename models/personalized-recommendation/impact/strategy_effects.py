@@ -205,7 +205,7 @@ def build_strategy_snapshot(
     """Attach ``strategy_deductions`` to a :class:`SimulationSnapshot`."""
     from impact.types import SimulationSnapshot as Snap
 
-    strategy_deductions, _ = estimate_first_year_tax_savings(
+    strategy_deductions, savings = estimate_first_year_tax_savings(
         strategy_id=strategy_id,
         estimation_type=estimation_type,
         context=context,
@@ -213,6 +213,14 @@ def build_strategy_snapshot(
     )
     if strategy_deductions is None:
         return snapshot
+
+    annual_income = float(context.get("annual_income", 0.0) or 0.0)
+    baseline_tax = _tax_for_income(annual_income, snapshot.baseline_deductions, rules)
+    strategy_tax = _tax_for_income(annual_income, strategy_deductions, rules)
+    savings_rate = 0.0
+    if savings > 0 and strategy_tax >= baseline_tax - 0.01 and baseline_tax > 0:
+        savings_rate = min(1.0, savings / baseline_tax)
+
     return Snap(
         annual_income=snapshot.annual_income,
         monthly_expenses=snapshot.monthly_expenses,
@@ -221,6 +229,7 @@ def build_strategy_snapshot(
         existing_investments=snapshot.existing_investments,
         baseline_deductions=snapshot.baseline_deductions,
         strategy_deductions=strategy_deductions,
+        strategy_tax_savings_rate=savings_rate,
     )
 
 

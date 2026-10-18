@@ -6,3 +6,4 @@ w_savings: 0.40
 w_adoption: 0.30
 w_feasibility: 0.20
 w_risk_penalty: 0.10
+w_risk_alignment: 0.12

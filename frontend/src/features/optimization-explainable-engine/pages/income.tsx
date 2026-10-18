@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Info, Loader2 } from "lucide-react";
 
@@ -19,11 +19,13 @@ import { CalculatorGroupHead } from "../catalog-card-shell";
 import { FieldExplainDrawer } from "../field-explain";
 import { formatLkr, formatMoneyInput, parseLkr } from "../format-lkr";
 import {
+  allocatedFromBankPoolLkr,
   businessIncomeLkr,
   employmentIncomeLkr,
   interestScheduleTotals,
   investmentIncomeLkr,
   otherIncomeLkr,
+  rebalanceBankTaxablePool,
   totalIncomeLkr,
 } from "../income-aggregate";
 import {
@@ -76,6 +78,9 @@ export function InterviewIncomePage() {
   const [profileLoadState, setProfileLoadState] = useState<"idle" | "loading" | "done">("idle");
   const [monthlyLoadState, setMonthlyLoadState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [monthlyLoadMessage, setMonthlyLoadMessage] = useState<string | null>(null);
+  const incomeRef = useRef(income);
+  incomeRef.current = income;
+  const appliedPendingKeyRef = useRef<string | null>(null);
 
   const employmentCard = incomeCatalogCard("employment");
   const businessCard = incomeCatalogCard("business");
@@ -143,12 +148,42 @@ export function InterviewIncomePage() {
     patchIncome,
   ]);
 
+  // Comp 1 "Push totals" lands here with taxable buckets only — apply once into OE fields.
+  useEffect(() => {
+    if (!pendingTransactionBreakdown?.length) return;
+    const key = JSON.stringify(pendingTransactionBreakdown);
+    if (appliedPendingKeyRef.current === key) return;
+    appliedPendingKeyRef.current = key;
+    const merged = mergeBreakdownIntoIncome(
+      incomeRef.current,
+      pendingTransactionBreakdown,
+      "replace",
+    );
+    replaceIncome(merged);
+    setPendingTransactionBreakdown(null);
+    setMonthlyLoadState("done");
+    setMonthlyLoadMessage(
+      `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
+    );
+  }, [
+    pendingTransactionBreakdown,
+    replaceIncome,
+    setPendingTransactionBreakdown,
+  ]);
+
   const total = totalIncomeLkr(income);
   const employment = employmentIncomeLkr(income);
   const business = businessIncomeLkr(income);
   const investment = investmentIncomeLkr(income);
   const other = otherIncomeLkr(income);
   const schedule = interestScheduleTotals(income);
+  const bankPool = parseLkr(income.bankTaxablePoolLkr ?? "0");
+  const hasBankPool = Boolean(income.bankTaxablePoolLkr) && bankPool > 0;
+  const allocatedFromPool = hasBankPool ? allocatedFromBankPoolLkr(income) : 0;
+
+  useEffect(() => {
+    if (hasBankPool) setOtherOpen(true);
+  }, [hasBankPool]);
   const terminalAmount = income.hasTerminalBenefits
     ? terminalBenefitsTotalLkr(income.terminalBenefits)
     : 0;
@@ -162,18 +197,29 @@ export function InterviewIncomePage() {
     key: K,
     value: IncomeFormSlice[K],
   ): void {
-    patchIncome((prev) => ({ form: { ...prev.form, [key]: value } }));
+    patchIncome((prev) =>
+      rebalanceBankTaxablePool({ ...prev, form: { ...prev.form, [key]: value } }),
+    );
   }
 
   function setSchedule(next: InterestScheduleLine[]): void {
     const interest = next.reduce((sum, line) => sum + parseLkr(line.interest), 0);
-    patchIncome((prev) => ({
-      interestSchedule: next,
-      investmentAmounts: {
-        ...prev.investmentAmounts,
-        inv_interest: String(interest),
-      },
-    }));
+    patchIncome((prev) =>
+      rebalanceBankTaxablePool({
+        ...prev,
+        interestSchedule: next,
+        investmentAmounts: {
+          ...prev.investmentAmounts,
+          inv_interest: String(interest),
+        },
+      }),
+    );
+  }
+
+  function patchWithPoolRebalance(
+    updater: (prev: typeof income) => Partial<typeof income>,
+  ): void {
+    patchIncome((prev) => rebalanceBankTaxablePool({ ...prev, ...updater(prev) }));
   }
 
   function patchLine(id: string, field: keyof InterestScheduleLine, raw: string): void {
@@ -189,15 +235,28 @@ export function InterviewIncomePage() {
     if (!profileQuery.data) return;
     setProfileLoadState("loading");
     const mapped = profileToInterviewIncome(profileQuery.data);
-    replaceIncome(mapped.income, mapped.assessmentYear);
+    replaceIncome(
+      { ...mapped.income, bankTaxablePoolLkr: null },
+      mapped.assessmentYear,
+    );
     setProfileLoadState("done");
   }
 
   function mergeTransactionTotals(): void {
     if (!pendingTransactionBreakdown?.length) return;
-    const merged = mergeBreakdownIntoIncome(income, pendingTransactionBreakdown);
+    const key = JSON.stringify(pendingTransactionBreakdown);
+    appliedPendingKeyRef.current = key;
+    const merged = mergeBreakdownIntoIncome(
+      income,
+      pendingTransactionBreakdown,
+      "replace",
+    );
     replaceIncome(merged);
     setPendingTransactionBreakdown(null);
+    setMonthlyLoadState("done");
+    setMonthlyLoadMessage(
+      `Applied ${pendingTransactionBreakdown.length} taxable bucket(s) from Transaction Semantics.`,
+    );
   }
 
   async function mergeSavedMonthlyTotals(): Promise<void> {
@@ -226,10 +285,12 @@ export function InterviewIncomePage() {
         );
         return;
       }
-      const merged = mergeBreakdownIntoIncome(income, breakdown);
+      const merged = mergeBreakdownIntoIncome(income, breakdown, "replace");
       replaceIncome(merged);
       setMonthlyLoadState("done");
-      setMonthlyLoadMessage(`Merged ${breakdown.length} income bucket(s) from saved bank data.`);
+      setMonthlyLoadMessage(
+        `Applied ${breakdown.length} taxable bucket(s) from saved bank data into OE income.`,
+      );
     } catch {
       setMonthlyLoadState("error");
       setMonthlyLoadMessage("Could not load monthly bank totals.");
@@ -290,8 +351,8 @@ export function InterviewIncomePage() {
 
       <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
         <p className="flex-1 text-sm text-muted-foreground">
-          Pre-fill user-side income from the selected taxpayer&apos;s Tax Return Profile
-          (employment, FDs, dividends, business, rents).
+          Load profile figures, or apply Comp 1 taxable bank buckets (exempt/AIT interest is
+          excluded). Push from Tax classification auto-applies here when present.
         </p>
         <Button
           type="button"
@@ -322,7 +383,7 @@ export function InterviewIncomePage() {
               Loading…
             </>
           ) : (
-            "Merge saved monthly bank totals"
+            "Apply saved monthly taxable totals"
           )}
         </Button>
       </div>
@@ -358,6 +419,20 @@ export function InterviewIncomePage() {
           withheld tax becomes a credit on Result, not a reduction of assessable income.
         </p>
       </div>
+
+      {hasBankPool ? (
+        <div className="rounded-md border border-sky-200 bg-sky-50/80 px-3 py-3 text-sm text-sky-950">
+          <p className="font-medium">
+            Comp 1 taxable pool: {formatLkr(String(bankPool))}
+          </p>
+          <p className="mt-1 text-xs text-sky-900/80">
+            Other income is the unallocated balance. Enter employment, business, or investment
+            and that amount is taken out of Other so the YA total stays{" "}
+            {formatLkr(String(bankPool))} through reliefs and Result. Allocated so far:{" "}
+            {formatLkr(String(allocatedFromPool))} · Other residual: {formatLkr(String(other))}.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
@@ -395,7 +470,7 @@ export function InterviewIncomePage() {
             fields={employmentCard?.fields ?? []}
             amounts={income.employmentAmounts}
             onAmountChange={(id, v) =>
-              patchIncome((prev) => ({
+              patchWithPoolRebalance((prev) => ({
                 employmentAmounts: { ...prev.employmentAmounts, [id]: v },
               }))
             }
@@ -423,7 +498,7 @@ export function InterviewIncomePage() {
             fields={businessCard?.fields ?? []}
             amounts={income.businessAmounts}
             onAmountChange={(id, v) =>
-              patchIncome((prev) => ({
+              patchWithPoolRebalance((prev) => ({
                 businessAmounts: { ...prev.businessAmounts, [id]: v },
               }))
             }
@@ -449,7 +524,7 @@ export function InterviewIncomePage() {
             fields={investmentCard?.fields ?? []}
             amounts={income.investmentAmounts}
             onAmountChange={(id, v) =>
-              patchIncome((prev) => ({
+              patchWithPoolRebalance((prev) => ({
                 investmentAmounts: { ...prev.investmentAmounts, [id]: v },
               }))
             }
@@ -491,13 +566,19 @@ export function InterviewIncomePage() {
             onModeChange={(mode) => patchIncome({ otherMode: mode })}
             fields={otherCard?.fields ?? []}
             amounts={income.otherAmounts}
-            onAmountChange={(id, v) =>
-              patchIncome((prev) => ({
+            onAmountChange={(id, v) => {
+              if (id === "oth_residual" && income.bankTaxablePoolLkr) {
+                // Residual is derived from the Comp 1 pool; keep total = pool.
+                return;
+              }
+              patchWithPoolRebalance((prev) => ({
                 otherAmounts: { ...prev.otherAmounts, [id]: v },
-              }))
-            }
+              }));
+            }}
             customRows={income.otherCustomRows}
-            onCustomRowsChange={(rows) => patchIncome({ otherCustomRows: rows })}
+            onCustomRowsChange={(rows) =>
+              patchWithPoolRebalance(() => ({ otherCustomRows: rows }))
+            }
             form={income.form}
             onPatch={patchForm}
             open={otherOpen}
@@ -536,6 +617,12 @@ export function InterviewIncomePage() {
         <p className="text-sm text-muted-foreground">
           Assessable income (before reliefs):{" "}
           <span className="font-medium text-foreground">{formatLkr(String(total))}</span>
+          {hasBankPool ? (
+            <span className="text-xs text-muted-foreground">
+              {" "}
+              (matches Comp 1 taxable pool)
+            </span>
+          ) : null}
         </p>
         <p className="text-xs text-muted-foreground">
           Employment {formatLkr(employment)} · Business {formatLkr(business)} · Investment{" "}

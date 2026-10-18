@@ -36,6 +36,10 @@ _RELIEF_GROUP_ALIASES = {
     "ev_charging": "ev_charging_infrastructure_relief",
     "electric_vehicle_charging": "ev_charging_infrastructure_relief",
     "ev_charging_infrastructure": "ev_charging_infrastructure_relief",
+    "donation_to_government": "donation_to_government_or_approved_fund",
+    "donation_to_approved_fund": "donation_to_government_or_approved_fund",
+    "government_donation_relief": "donation_to_government_or_approved_fund",
+    "qp_government_donation": "donation_to_government_or_approved_fund",
 }
 
 _RATE_GROUP_ALIASES = {

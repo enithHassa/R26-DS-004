@@ -46,6 +46,9 @@ export function LawSourceMeta({ fields, fallbackId, compact = false }: LawSource
   const contentKind = contentKindLabel(fields.content_kind);
 
   const technicalRows: [string, string][] = [];
+  if (isPresent(fallbackId)) {
+    technicalRows.push(["Chunk ID", fallbackId]);
+  }
   if (isPresent(fields.source_doc_id)) {
     technicalRows.push(["Source document ID", fields.source_doc_id]);
   }
@@ -74,6 +77,24 @@ export function LawSourceMeta({ fields, fallbackId, compact = false }: LawSource
         ) : null}
       </div>
 
+      {technicalRows.length > 0 ? (
+        <dl className={cn("grid gap-2 text-xs", compact ? "gap-1" : "gap-2")}>
+          {technicalRows.map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[minmax(0,9rem)_1fr] gap-x-3 gap-y-0.5">
+              <dt className="font-medium text-muted-foreground">{label}</dt>
+              <dd className="font-mono text-[11px] leading-snug text-foreground break-all">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {!compact && (tier || instrument || contentKind) ? (
+        <div className="flex flex-wrap gap-2">
+          {tier ? <MetaBadge>{tier}</MetaBadge> : null}
+          {instrument ? <MetaBadge>{instrument}</MetaBadge> : null}
+          {contentKind ? <MetaBadge>{contentKind}</MetaBadge> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

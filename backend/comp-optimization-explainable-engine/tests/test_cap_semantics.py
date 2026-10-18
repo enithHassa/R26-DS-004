@@ -180,3 +180,14 @@ def test_an_explicit_claim_kind_is_respected() -> None:
         "input_kind": "yes_no_amount",
     }
     assert infer_input_kind(payload) == "yes_no_amount"
+
+
+def test_government_donation_is_claimable_not_silent_notice() -> None:
+    payload = {
+        "compare_group_id": "donation_to_government_or_approved_fund",
+        "cap_amount": None,
+        "input_kind": "notice",
+        "engine_binding": {"kind": "none"},
+    }
+    assert infer_input_kind(payload) == "yes_no_amount"
+    assert _binder(payload) == "min(claim, cap)"
